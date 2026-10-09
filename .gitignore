@@ -7,3 +7,5 @@
 *.exe
 *.pck
 *.apk
+# Copies de travail temporaires des agents
+.claude/worktrees/
