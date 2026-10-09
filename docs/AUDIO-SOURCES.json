@@ -1,0 +1,1709 @@
+{
+  "version": "0.11.0",
+  "prepared": "2026-09-20",
+  "bleuette_replacement": {
+    "source": "BLEUETTE LMS.mp3 — fourni par le propriétaire du projet",
+    "asset": "lms_bleuette_user.mp3",
+    "sha256": "b031794b798373f43556a8c1ed13e838cd4d13f87cc5ec723c711badf54c3001",
+    "bytes": 8061459,
+    "duration": 201.534698486328,
+    "unmodified": true,
+    "artist": "Non précisé",
+    "license": "Non précisée ; aucune attribution CC inventée",
+    "replaces_active_lms": "lms_bleuette"
+  },
+  "music": [
+    {
+      "key": "ambient",
+      "title": "Signal to Noise",
+      "artist": "Scott Buckley",
+      "page": "https://www.scottbuckley.com.au/library/signal-to-noise/",
+      "download": "https://www.scottbuckley.com.au/library/wp-content/uploads/2020/04/sb_signaltonoise.mp3",
+      "license": "CC-BY-4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "original": "signal-to-noise.mp3",
+      "asset": "01_empty_corridors.ogg",
+      "bytes": 14143939,
+      "sha256": "47a2f15ecd65f1d7ef0418ee17ae31f4e724bdf73b2c2838aaa39ac1703d094e",
+      "duration": 180.0,
+      "sample_rate": 44100,
+      "channels": 2,
+      "sample_peak_dbfs": -5.431,
+      "rms_dbfs": -22.98,
+      "clipped_samples": 0,
+      "finite": true,
+      "dc_offset": 3.158801973768277e-06,
+      "segments_seconds": [
+        [
+          0,
+          182
+        ]
+      ],
+      "splice_crossfade_seconds": 0,
+      "loop_crossfade_seconds": 2,
+      "integrated_lufs": -20.99,
+      "true_peak_dbtp": -5.42,
+      "loop_sample_jump_dbfs": -44.443,
+      "output_sha256": "a2dc714ea31c6562cb2b9481b533e5a58162e60709ca1277977e078a446b8679"
+    },
+    {
+      "key": "chase",
+      "title": "Juggernaut",
+      "artist": "Scott Buckley",
+      "page": "https://www.scottbuckley.com.au/library/juggernaut/",
+      "download": "https://www.scottbuckley.com.au/library/wp-content/uploads/2022/07/Juggernaut.mp3",
+      "license": "CC-BY-4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "original": "juggernaut.mp3",
+      "asset": "02_shadow_in_pursuit.ogg",
+      "bytes": 8885000,
+      "sha256": "50be286d170f5a08791f1540b110fbbb4c0aa26e841084fceff0c908379e76f6",
+      "duration": 166.0,
+      "sample_rate": 44100,
+      "channels": 2,
+      "sample_peak_dbfs": -3.663,
+      "rms_dbfs": -19.635,
+      "clipped_samples": 0,
+      "finite": true,
+      "dc_offset": -1.1223354704270605e-05,
+      "segments_seconds": [
+        [
+          25,
+          193
+        ]
+      ],
+      "splice_crossfade_seconds": 0,
+      "loop_crossfade_seconds": 2,
+      "integrated_lufs": -17.54,
+      "true_peak_dbtp": -3.37,
+      "loop_sample_jump_dbfs": -38.281,
+      "output_sha256": "18c3869e35fca8b2a7ec76e3ec60517b712f65e6d66ec9fe01b4fd47d621faa8"
+    },
+    {
+      "key": "ending",
+      "title": "Echoes Of Home",
+      "artist": "Scott Buckley",
+      "page": "https://www.scottbuckley.com.au/library/echoes-of-home/",
+      "download": "https://www.scottbuckley.com.au/library/wp-content/uploads/2025/05/EchoesOfHome.mp3",
+      "license": "CC-BY-4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "original": "echoes-of-home.mp3",
+      "asset": "04_after_the_bell.ogg",
+      "bytes": 11672796,
+      "sha256": "b980963ac01d5211e2729906e2f5e74915a9d5df22fc8744e2d95045bb120e8e",
+      "duration": 110.0,
+      "sample_rate": 44100,
+      "channels": 2,
+      "sample_peak_dbfs": -3.354,
+      "rms_dbfs": -19.128,
+      "clipped_samples": 0,
+      "finite": true,
+      "dc_offset": -3.643186209956184e-05,
+      "segments_seconds": [
+        [
+          40,
+          152
+        ]
+      ],
+      "splice_crossfade_seconds": 0,
+      "loop_crossfade_seconds": 2,
+      "integrated_lufs": -17.48,
+      "true_peak_dbtp": -3.35,
+      "loop_sample_jump_dbfs": -44.129,
+      "output_sha256": "84daaeaf6b48610049dd16ef831c406583202e0629484b260a67d1149d269d89"
+    },
+    {
+      "key": "Ashura",
+      "title": "Red",
+      "artist": "Scott Buckley",
+      "page": "https://www.scottbuckley.com.au/library/red/",
+      "download": "https://www.scottbuckley.com.au/library/wp-content/uploads/2018/10/sb_red.mp3",
+      "license": "CC-BY-4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "original": "red.mp3",
+      "asset": "lms_ashura.ogg",
+      "bytes": 8528635,
+      "sha256": "ed72defef8012ce963263409bf775e949cf16411dbbddf2b3d53a8297e9b288f",
+      "duration": 158.0,
+      "sample_rate": 44100,
+      "channels": 2,
+      "sample_peak_dbfs": -4.255,
+      "rms_dbfs": -19.819,
+      "clipped_samples": 0,
+      "finite": true,
+      "dc_offset": -6.3012889768288005e-06,
+      "segments_seconds": [
+        [
+          24,
+          184
+        ]
+      ],
+      "splice_crossfade_seconds": 0,
+      "loop_crossfade_seconds": 2,
+      "integrated_lufs": -17.54,
+      "true_peak_dbtp": -4.25,
+      "loop_sample_jump_dbfs": -38.386,
+      "output_sha256": "7e9d8e628db282ddda1807bc15e8886253bdb76aeaf60acdef1bca03466906a5"
+    },
+    {
+      "key": "Elly",
+      "title": "Helios",
+      "artist": "Scott Buckley",
+      "page": "https://www.scottbuckley.com.au/library/helios/",
+      "download": "https://www.scottbuckley.com.au/library/wp-content/uploads/2020/05/sb_helios.mp3",
+      "license": "CC-BY-4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "original": "helios.mp3",
+      "asset": "lms_elly.ogg",
+      "bytes": 14327825,
+      "sha256": "43f7396f067cf3f2c9a5c6822ef5de800121140cdde91576e6dfc5562ea34b63",
+      "duration": 158.0,
+      "sample_rate": 44100,
+      "channels": 2,
+      "sample_peak_dbfs": -3.314,
+      "rms_dbfs": -19.968,
+      "clipped_samples": 0,
+      "finite": true,
+      "dc_offset": 1.5877387340879068e-05,
+      "segments_seconds": [
+        [
+          36,
+          171
+        ],
+        [
+          225,
+          254
+        ]
+      ],
+      "splice_crossfade_seconds": 4,
+      "loop_crossfade_seconds": 2,
+      "integrated_lufs": -17.54,
+      "true_peak_dbtp": -3.3,
+      "loop_sample_jump_dbfs": -32.404,
+      "output_sha256": "e4f676a59d92b6cf58a43263ffc123ce80e0a8b0964986a1175f036db9ee12cb"
+    },
+    {
+      "key": "Bleuette",
+      "title": "Emergent",
+      "artist": "Scott Buckley",
+      "page": "https://www.scottbuckley.com.au/library/emergent/",
+      "download": "https://www.scottbuckley.com.au/library/wp-content/uploads/2019/11/sb_emergent.mp3",
+      "license": "CC-BY-4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "original": "emergent.mp3",
+      "asset": "lms_bleuette.ogg",
+      "bytes": 9247535,
+      "sha256": "653e6a1e22ae7a122d7d2db87ddb3183f7bd30fe9a9ff709e93647a8f71c48e5",
+      "duration": 158.0,
+      "sample_rate": 44100,
+      "channels": 2,
+      "sample_peak_dbfs": -4.649,
+      "rms_dbfs": -19.517,
+      "clipped_samples": 0,
+      "finite": true,
+      "dc_offset": 5.409166988101788e-06,
+      "segments_seconds": [
+        [
+          38,
+          198
+        ]
+      ],
+      "splice_crossfade_seconds": 0,
+      "loop_crossfade_seconds": 2,
+      "integrated_lufs": -17.53,
+      "true_peak_dbtp": -4.52,
+      "loop_sample_jump_dbfs": -54.606,
+      "output_sha256": "cb0ec8edb8accfb3e8d4776a3513406b96fc9345cc9762a35ffa562cdbfc4afa"
+    },
+    {
+      "key": "Lysia",
+      "title": "Vanguard",
+      "artist": "Scott Buckley",
+      "page": "https://www.scottbuckley.com.au/library/vanguard/",
+      "download": "https://www.scottbuckley.com.au/library/wp-content/uploads/2023/07/Vanguard.mp3",
+      "license": "CC-BY-4.0",
+      "license_url": "https://creativecommons.org/licenses/by/4.0/",
+      "original": "vanguard.mp3",
+      "asset": "lms_lysia.ogg",
+      "bytes": 9385461,
+      "sha256": "e3eaf7e0e8727f06db9ceb6b93324bee73cf37f44370a1228da516800bffadff",
+      "duration": 158.0,
+      "sample_rate": 44100,
+      "channels": 2,
+      "sample_peak_dbfs": -4.82,
+      "rms_dbfs": -19.446,
+      "clipped_samples": 0,
+      "finite": true,
+      "dc_offset": 8.68667757458752e-06,
+      "segments_seconds": [
+        [
+          40,
+          200
+        ]
+      ],
+      "splice_crossfade_seconds": 0,
+      "loop_crossfade_seconds": 2,
+      "integrated_lufs": -17.54,
+      "true_peak_dbtp": -4.82,
+      "loop_sample_jump_dbfs": -29.066,
+      "output_sha256": "f72d3234dc6b526b1d4f86622118de0b3d002aec75ecc90d2d550ea1ac220ffd"
+    },
+    {
+      "character": "Simon",
+      "source_filename": "Simon OST final mais vrmt final la ça y est c'est fini.mp3",
+      "asset": "lms_simon_user.mp3",
+      "provenance": "File supplied by the project owner. Artist and public redistribution licence not specified.",
+      "sha256": "c5c96804bccf0c2df3f99809433c218d193ea1249646b2c84a2af03a3e072172",
+      "output_identical_to_source": true,
+      "duration_seconds": 310.90938775510205,
+      "sample_rate": 44100,
+      "channels": 2,
+      "integrated_lufs_original": -18.84,
+      "true_peak_original_dbtp": -7.39,
+      "runtime_gain_db": 1.3399999999999999,
+      "runtime_gain_linear": 1.1668096170609625,
+      "integrated_lufs_after_gain": -17.5,
+      "true_peak_after_gain_dbtp": -6.05,
+      "decoded_peak_dbfs": -7.3887,
+      "finite_samples": true,
+      "source_clipped_samples": 0,
+      "first_sample": [
+        0.0,
+        0.0
+      ],
+      "last_sample": [
+        -5.359287236217369e-09,
+        8.673232687606003e-10
+      ],
+      "loop_jump_dbfs": -165.4179,
+      "opening_rms_dbfs": -19.3852,
+      "ending_rms_dbfs": -96.4761,
+      "first_audible_second": 0.031700680272108844,
+      "last_audible_second": 305.32145124716556,
+      "left_right_correlation": 0.7404675576277521,
+      "key": "Simon",
+      "title": "Simon OST",
+      "artist": null,
+      "license": null,
+      "origin": "user-supplied attachment"
+    },
+    {
+      "character": "Usayuko",
+      "source_filename": "USAYUKO OST.wav",
+      "asset": "lms_usayuko_user.wav",
+      "provenance": "File supplied by the project owner. Artist and public redistribution licence not specified.",
+      "sha256": "45f2d1e4e051512fc7d9a3eb28653cde7baa9c8c37fc2a79bee0d8e7fb90b0f3",
+      "output_identical_to_source": true,
+      "duration_seconds": 283.17337868480723,
+      "sample_rate": 44100,
+      "channels": 2,
+      "integrated_lufs_original": -10.51,
+      "true_peak_original_dbtp": -1.33,
+      "runtime_gain_db": -6.99,
+      "runtime_gain_linear": 0.44719815178875055,
+      "integrated_lufs_after_gain": -17.5,
+      "true_peak_after_gain_dbtp": -8.32,
+      "decoded_peak_dbfs": -1.3234,
+      "finite_samples": true,
+      "source_clipped_samples": 0,
+      "first_sample": [
+        -0.0042724609375,
+        0.00128173828125
+      ],
+      "last_sample": [
+        0.0,
+        0.0
+      ],
+      "loop_jump_dbfs": -47.3864,
+      "opening_rms_dbfs": -21.7884,
+      "ending_rms_dbfs": -92.6393,
+      "first_audible_second": 0.0,
+      "last_audible_second": 279.6745351473923,
+      "left_right_correlation": 0.48783458005283686,
+      "key": "Usayuko",
+      "title": "USAYUKO OST",
+      "artist": null,
+      "license": null,
+      "origin": "user-supplied attachment"
+    }
+  ],
+  "sfx_packages": [
+    {
+      "title": "Impact Sounds (1.0)",
+      "authors": [
+        "Kenney"
+      ],
+      "license": "CC0-1.0",
+      "page": "https://kenney.nl/assets/impact-sounds",
+      "download": "https://kenney.nl/media/pages/assets/impact-sounds/87b4ddecda-1677589768/kenney_impact-sounds.zip"
+    },
+    {
+      "title": "RPG Audio",
+      "authors": [
+        "Kenney Vleugels"
+      ],
+      "license": "CC0-1.0",
+      "page": "https://kenney.nl/assets/rpg-audio",
+      "download": "https://kenney.nl/media/pages/assets/rpg-audio/8e99002d76-1677590336/kenney_rpg-audio.zip"
+    },
+    {
+      "title": "The Free Firearm Sound Library",
+      "authors": [
+        "Ben Jaszczak",
+        "Brian Nelson",
+        "Kevin Heras",
+        "Matthew Nanney"
+      ],
+      "license": "CC0-1.0",
+      "page": "https://opengameart.org/content/the-free-firearm-sound-library",
+      "download": "https://opengameart.org/sites/default/files/Prepared%20SFX%20Library.7z"
+    },
+    {
+      "title": "Shotgun Reload Sound effects",
+      "authors": [
+        "zer0_sol"
+      ],
+      "license": "CC0-1.0",
+      "page": "https://opengameart.org/content/shotgun-reload-sound-effects",
+      "download": "https://opengameart.org/sites/default/files/shotgunsounds.zip"
+    }
+  ],
+  "sfx": {
+    "step_concrete": [
+      {
+        "file": "sfx/step_concrete_00.wav",
+        "sources": [
+          "impact/Audio/footstep_concrete_000.ogg"
+        ],
+        "edit": "Trim silence; level and short fades.",
+        "sha256": "25a48d2aa4088f52c1233c0fec548dc50cfda224c17b95005abdf2e358218660",
+        "duration": 0.103016,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -8.701,
+        "rms_dbfs": -27.937,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -0.0016978021012619138
+      },
+      {
+        "file": "sfx/step_concrete_01.wav",
+        "sources": [
+          "impact/Audio/footstep_concrete_001.ogg"
+        ],
+        "edit": "Trim silence; level and short fades.",
+        "sha256": "96a1489588a44646270c6ef7e55df8228248692d9a290d2db3aad820c660abe8",
+        "duration": 0.104739,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -9.76,
+        "rms_dbfs": -29.684,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -0.0015952344983816147
+      },
+      {
+        "file": "sfx/step_concrete_02.wav",
+        "sources": [
+          "impact/Audio/footstep_concrete_002.ogg"
+        ],
+        "edit": "Trim silence; level and short fades.",
+        "sha256": "58997971fc5663453d9c8b9fd5cd9a8537635dff9e8721e350fff6021125141b",
+        "duration": 0.109887,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -9.414,
+        "rms_dbfs": -30.441,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -0.0015410013729706407
+      },
+      {
+        "file": "sfx/step_concrete_03.wav",
+        "sources": [
+          "impact/Audio/footstep_concrete_003.ogg"
+        ],
+        "edit": "Trim silence; level and short fades.",
+        "sha256": "ded77536a90328dbb9109d049c23584959e2cc24372024e55d41bf44d5ad65d4",
+        "duration": 0.107596,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -9.39,
+        "rms_dbfs": -29.106,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -0.0016075329622253776
+      },
+      {
+        "file": "sfx/step_concrete_04.wav",
+        "sources": [
+          "impact/Audio/footstep_concrete_004.ogg"
+        ],
+        "edit": "Trim silence; level and short fades.",
+        "sha256": "f840f4b6c83196d40c52349f5a1301895655a9832a1263696a66fa32119a52a3",
+        "duration": 0.111451,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -8.737,
+        "rms_dbfs": -28.291,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -0.0016515174647793174
+      }
+    ],
+    "step_wood": [
+      {
+        "file": "sfx/step_wood_00.wav",
+        "sources": [
+          "impact/Audio/footstep_wood_000.ogg"
+        ],
+        "edit": "Trim silence; level and short fades.",
+        "sha256": "12c3624d77ce9fe497978f80c0c3ca99367fdf702231af605a5c0d784ae00396",
+        "duration": 0.271383,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -25.202,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -0.00048697073361836374
+      },
+      {
+        "file": "sfx/step_wood_01.wav",
+        "sources": [
+          "impact/Audio/footstep_wood_001.ogg"
+        ],
+        "edit": "Trim silence; level and short fades.",
+        "sha256": "58915f3347856b64ab7ddc7ecb450101c37a6f3a9b3c08ac9bec4a393f6305fb",
+        "duration": 0.248662,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -23.962,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -0.00044591797632165253
+      },
+      {
+        "file": "sfx/step_wood_02.wav",
+        "sources": [
+          "impact/Audio/footstep_wood_002.ogg"
+        ],
+        "edit": "Trim silence; level and short fades.",
+        "sha256": "9bc928a3909c32583f6a8cfad895c04577318fd2555f74dbd45a872818570964",
+        "duration": 0.248481,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -23.319,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -0.0002326260437257588
+      },
+      {
+        "file": "sfx/step_wood_03.wav",
+        "sources": [
+          "impact/Audio/footstep_wood_003.ogg"
+        ],
+        "edit": "Trim silence; level and short fades.",
+        "sha256": "72d6ab2a8da77f06e8a54b8194c7e2fc54413eedc39343604366a184b5b4af15",
+        "duration": 0.248617,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -25.513,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -0.0002132164954673499
+      },
+      {
+        "file": "sfx/step_wood_04.wav",
+        "sources": [
+          "impact/Audio/footstep_wood_004.ogg"
+        ],
+        "edit": "Trim silence; level and short fades.",
+        "sha256": "1065ac36129966d4c68de6de0f1ce68a426206a08df542a125f9e7f1bbbf4486",
+        "duration": 0.245011,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -23.362,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -0.00012951171083841473
+      }
+    ],
+    "step_grass": [
+      {
+        "file": "sfx/step_grass_00.wav",
+        "sources": [
+          "impact/Audio/footstep_grass_000.ogg"
+        ],
+        "edit": "Trim silence; level and short fades.",
+        "sha256": "58da8260c4437d02d57a38e97dd8e59d76aead6e51e26dc98a6dfd8808ed004d",
+        "duration": 0.237755,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -9.768,
+        "rms_dbfs": -32.145,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -0.0010001367190852761
+      },
+      {
+        "file": "sfx/step_grass_01.wav",
+        "sources": [
+          "impact/Audio/footstep_grass_001.ogg"
+        ],
+        "edit": "Trim silence; level and short fades.",
+        "sha256": "ed8a25acad639fa25a9efe1ec5e85936cf4ca7438f98879000d78aebd7f6eede",
+        "duration": 0.240907,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -9.961,
+        "rms_dbfs": -30.259,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -0.0008183567551895976
+      },
+      {
+        "file": "sfx/step_grass_02.wav",
+        "sources": [
+          "impact/Audio/footstep_grass_002.ogg"
+        ],
+        "edit": "Trim silence; level and short fades.",
+        "sha256": "7743e129a837c5650f0ff6e3f32d0e6b8b8c8708467ea358c01dd0cc93ef43a4",
+        "duration": 0.247551,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -9.035,
+        "rms_dbfs": -31.317,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -0.0008131511276587844
+      },
+      {
+        "file": "sfx/step_grass_03.wav",
+        "sources": [
+          "impact/Audio/footstep_grass_003.ogg"
+        ],
+        "edit": "Trim silence; level and short fades.",
+        "sha256": "0db9bffd30021e1e80297ffcca76c4f49e2714ab7ed62417c88470405cab2962",
+        "duration": 0.230249,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -9.756,
+        "rms_dbfs": -32.691,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -0.0010062763467431068
+      },
+      {
+        "file": "sfx/step_grass_04.wav",
+        "sources": [
+          "impact/Audio/footstep_grass_004.ogg"
+        ],
+        "edit": "Trim silence; level and short fades.",
+        "sha256": "9e173b99648f5c629b99c462abde9a8038d792ef6e723e55cf6d0da342586e46",
+        "duration": 0.211837,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -9.114,
+        "rms_dbfs": -31.262,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -0.0010341467568650842
+      }
+    ],
+    "step_snow": [
+      {
+        "file": "sfx/step_snow_00.wav",
+        "sources": [
+          "impact/Audio/footstep_snow_000.ogg"
+        ],
+        "edit": "Trim silence; level and short fades.",
+        "sha256": "102f307ce4ee00f9afeb704061a3720d7ef540707980ab762b22bc420a95ca07",
+        "duration": 0.270454,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -24.553,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": 7.245681626955047e-05
+      },
+      {
+        "file": "sfx/step_snow_01.wav",
+        "sources": [
+          "impact/Audio/footstep_snow_001.ogg"
+        ],
+        "edit": "Trim silence; level and short fades.",
+        "sha256": "09c2164637400d673c3fb642cc086c2fc9be08ebe341d3df214273e199172d18",
+        "duration": 0.276644,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -20.885,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": 0.00011562620784388855
+      },
+      {
+        "file": "sfx/step_snow_02.wav",
+        "sources": [
+          "impact/Audio/footstep_snow_002.ogg"
+        ],
+        "edit": "Trim silence; level and short fades.",
+        "sha256": "12e9ed6ab36cd2e7a04d6a749a619dce2ace2451cdc2bf44c9f15c962e69a547",
+        "duration": 0.282562,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -21.105,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": 0.00016645577852614224
+      },
+      {
+        "file": "sfx/step_snow_03.wav",
+        "sources": [
+          "impact/Audio/footstep_snow_003.ogg"
+        ],
+        "edit": "Trim silence; level and short fades.",
+        "sha256": "aebc74eec3ccd5584345eceb5d28b56e5d1bcf3931b907a337f95a77c956ac60",
+        "duration": 0.283061,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -25.431,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": 0.00012487525236792862
+      },
+      {
+        "file": "sfx/step_snow_04.wav",
+        "sources": [
+          "impact/Audio/footstep_snow_004.ogg"
+        ],
+        "edit": "Trim silence; level and short fades.",
+        "sha256": "332b2752dfc61b8b422953db28f3e1e02554d79f5e245eb4c7b787825175ba13",
+        "duration": 0.279229,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -24.056,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": 0.00010822259355336428
+      }
+    ],
+    "slash": [
+      {
+        "file": "sfx/slash_00.wav",
+        "sources": [
+          "rpg/Audio/knifeSlice.ogg",
+          "rpg/Audio/cloth1.ogg"
+        ],
+        "edit": "Knife and fabric recorded swish.",
+        "sha256": "dbef8e06feaa5c57f788d3b969c817a86a5e51cf661bc31377855eecf330be7c",
+        "duration": 0.634444,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -23.999,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": 1.6739693364797859e-06
+      },
+      {
+        "file": "sfx/slash_01.wav",
+        "sources": [
+          "rpg/Audio/knifeSlice2.ogg",
+          "rpg/Audio/cloth2.ogg"
+        ],
+        "edit": "Knife and fabric recorded swish.",
+        "sha256": "77d02406514bd1a8179050fc88117e844cb352c812146f2a3b0e45f0574ae861",
+        "duration": 0.53551,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -24.212,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -1.4104602996667381e-06
+      },
+      {
+        "file": "sfx/slash_02.wav",
+        "sources": [
+          "rpg/Audio/knifeSlice.ogg",
+          "rpg/Audio/cloth3.ogg"
+        ],
+        "edit": "Knife and fabric recorded swish.",
+        "sha256": "a9eeb935452e5dc8ebf2645f341e4f480b1de6c8b8f4574c4ec3bffe19bb25b3",
+        "duration": 0.476576,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -22.337,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -8.066192094702274e-06
+      }
+    ],
+    "hit": [
+      {
+        "file": "sfx/hit_00.wav",
+        "sources": [
+          "impact/Audio/impactPunch_medium_000.ogg",
+          "impact/Audio/impactSoft_medium_000.ogg"
+        ],
+        "edit": "Body impact with soft contact layer.",
+        "sha256": "d285a1bbc0cc882074b28f93e889f537d92d999a687767837bbf64cda0b86d9c",
+        "duration": 0.383855,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -20.043,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -3.7680329114664346e-05
+      },
+      {
+        "file": "sfx/hit_01.wav",
+        "sources": [
+          "impact/Audio/impactPunch_medium_001.ogg",
+          "impact/Audio/impactSoft_medium_001.ogg"
+        ],
+        "edit": "Body impact with soft contact layer.",
+        "sha256": "d5246a51e78174491e1a699215d31795046235dfdac5acbb44c9370280b01dbb",
+        "duration": 0.367188,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -20.448,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": 4.896378413832281e-06
+      },
+      {
+        "file": "sfx/hit_02.wav",
+        "sources": [
+          "impact/Audio/impactPunch_medium_002.ogg",
+          "impact/Audio/impactSoft_medium_002.ogg"
+        ],
+        "edit": "Body impact with soft contact layer.",
+        "sha256": "ab71f52b875f6eeeafbca36c708e237b4302cb42aa0a06fca7be1127ef9d07b7",
+        "duration": 0.454263,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -22.124,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -1.4061734873394016e-05
+      }
+    ],
+    "punch": [
+      {
+        "file": "sfx/punch_00.wav",
+        "sources": [
+          "impact/Audio/impactPunch_heavy_000.ogg"
+        ],
+        "edit": "Recorded heavy punch, trim and gain.",
+        "sha256": "9e9707805d2dd4efd864239d2b65dc0ad28d40d07322f0523188652a3f46d830",
+        "duration": 0.556599,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -20.849,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -1.0082497283292469e-05
+      },
+      {
+        "file": "sfx/punch_01.wav",
+        "sources": [
+          "impact/Audio/impactPunch_heavy_001.ogg"
+        ],
+        "edit": "Recorded heavy punch, trim and gain.",
+        "sha256": "9d41d7566366be34ed67a2f2f97ce0a2d764c264a0a5293aa73105bbee513bed",
+        "duration": 0.50102,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -20.511,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -8.29011059977347e-06
+      },
+      {
+        "file": "sfx/punch_02.wav",
+        "sources": [
+          "impact/Audio/impactPunch_heavy_002.ogg"
+        ],
+        "edit": "Recorded heavy punch, trim and gain.",
+        "sha256": "8c59b820141c4bf27857116ab835c8ef103f4fa072b7ee8584a2573484c4b8c3",
+        "duration": 0.448821,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -20.042,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -2.018684972426854e-05
+      }
+    ],
+    "block": [
+      {
+        "file": "sfx/block_00.wav",
+        "sources": [
+          "impact/Audio/impactPlate_heavy_000.ogg",
+          "impact/Audio/impactSoft_medium_000.ogg"
+        ],
+        "edit": "Plate and soft contact for a guard.",
+        "sha256": "ace08a242bf0e58121efcaaa3d3042c336da069df993c349845e30343af264de",
+        "duration": 0.488662,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -25.498,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -0.00012377001985441893
+      },
+      {
+        "file": "sfx/block_01.wav",
+        "sources": [
+          "impact/Audio/impactPlate_heavy_001.ogg",
+          "impact/Audio/impactSoft_medium_001.ogg"
+        ],
+        "edit": "Plate and soft contact for a guard.",
+        "sha256": "9ec51d539449bfe7039664e1c9d7d0ec15fe60e9f681d876d91ef772af7cff25",
+        "duration": 0.349433,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -20.465,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -3.860679044009885e-06
+      },
+      {
+        "file": "sfx/block_02.wav",
+        "sources": [
+          "impact/Audio/impactPlate_heavy_002.ogg",
+          "impact/Audio/impactSoft_medium_002.ogg"
+        ],
+        "edit": "Plate and soft contact for a guard.",
+        "sha256": "a5526eb067988308ded95558871454cc24a9260a02bba585e1e29412d620e026",
+        "duration": 0.494195,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.7,
+        "rms_dbfs": -23.042,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -5.313848305377178e-05
+      }
+    ],
+    "stun": [
+      {
+        "file": "sfx/stun_00.wav",
+        "sources": [
+          "impact/Audio/impactSoft_medium_000.ogg",
+          "impact/Audio/impactBell_heavy_000.ogg"
+        ],
+        "edit": "Damped blow and a quiet struck-metal tail.",
+        "sha256": "9736e91c81ad12d7b7937fca82d3eced3651fd99c66cc725f1128ba89188ccfc",
+        "duration": 0.69,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -25.541,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -0.00011543647269718349
+      },
+      {
+        "file": "sfx/stun_01.wav",
+        "sources": [
+          "impact/Audio/impactSoft_medium_001.ogg",
+          "impact/Audio/impactBell_heavy_001.ogg"
+        ],
+        "edit": "Damped blow and a quiet struck-metal tail.",
+        "sha256": "a5c0dede3e84346308fd93b1bbd0fcacbd7586e3a4b84b7b8e14b379b603970a",
+        "duration": 0.69,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -24.158,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -0.00011099052790086716
+      },
+      {
+        "file": "sfx/stun_02.wav",
+        "sources": [
+          "impact/Audio/impactSoft_medium_002.ogg",
+          "impact/Audio/impactBell_heavy_002.ogg"
+        ],
+        "edit": "Damped blow and a quiet struck-metal tail.",
+        "sha256": "8307c362931861b9440c8e21c597976cf08727f0bb209d8aac7a57f556eb11fc",
+        "duration": 0.69,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -24.776,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -0.00010306885815225542
+      }
+    ],
+    "ability": [
+      {
+        "file": "sfx/ability_00.wav",
+        "sources": [
+          "rpg/Audio/cloth1.ogg"
+        ],
+        "edit": "Recorded clothing movement.",
+        "sha256": "843d75ab7d45696ee5088a0ae33d95f69d7a67c595709b6c38a3d4cf508b30f3",
+        "duration": 0.634444,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -26.973,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": 3.525921783875674e-06
+      },
+      {
+        "file": "sfx/ability_01.wav",
+        "sources": [
+          "rpg/Audio/cloth2.ogg"
+        ],
+        "edit": "Recorded clothing movement.",
+        "sha256": "d12d6040b3a7a20e1e561b820da3fe42ee011361b9bcd5cbda65ece640f7ace6",
+        "duration": 0.381678,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -23.413,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": 1.5155330402194522e-05
+      },
+      {
+        "file": "sfx/ability_02.wav",
+        "sources": [
+          "rpg/Audio/cloth3.ogg"
+        ],
+        "edit": "Recorded clothing movement.",
+        "sha256": "297b005b6691a529f7a1b6f99f70a337854c0126c2f29831e7ecb3aeee8bb3b6",
+        "duration": 0.476576,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -23.496,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -5.907015656703152e-05
+      }
+    ],
+    "heal": [
+      {
+        "file": "sfx/heal_00.wav",
+        "sources": [
+          "impact/Audio/impactGlass_light_000.ogg",
+          "rpg/Audio/handleSmallLeather.ogg"
+        ],
+        "edit": "Glass chime with medical-pouch handling; second glass at altered pitch.",
+        "sha256": "8cba8758721ae9e48f2fe856483c93b4ee6ed90f60d0ecb814993aea0c217065",
+        "duration": 0.366417,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -7.469,
+        "rms_dbfs": -26.02,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -0.0003566763480193913
+      },
+      {
+        "file": "sfx/heal_01.wav",
+        "sources": [
+          "impact/Audio/impactGlass_light_001.ogg",
+          "rpg/Audio/handleSmallLeather.ogg"
+        ],
+        "edit": "Glass chime with medical-pouch handling; second glass at altered pitch.",
+        "sha256": "45ce7648a00f3c6a0dee81e2c0b6e73c496cf01276a420a12c7035e4ea9bdd13",
+        "duration": 0.366417,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -7.742,
+        "rms_dbfs": -26.644,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -0.0003984920331276953
+      },
+      {
+        "file": "sfx/heal_02.wav",
+        "sources": [
+          "impact/Audio/impactGlass_light_002.ogg",
+          "rpg/Audio/handleSmallLeather.ogg"
+        ],
+        "edit": "Glass chime with medical-pouch handling; second glass at altered pitch.",
+        "sha256": "22c1a82eec52628bcbeeea692391af1d283d0fce1d2d165c0557121726927ce2",
+        "duration": 0.366417,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -6.061,
+        "rms_dbfs": -24.955,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -0.00044007835094816983
+      }
+    ],
+    "grenade_throw": [
+      {
+        "file": "sfx/grenade_throw_00.wav",
+        "sources": [
+          "rpg/Audio/metalLatch.ogg",
+          "rpg/Audio/cloth1.ogg"
+        ],
+        "edit": "Safety pin latch and fabric release.",
+        "sha256": "b3ce7e9b270d099b98075eb6543267a7b8235a751b7d0155a0fdfcbd83611ae9",
+        "duration": 0.694444,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -26.147,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": 3.20823829724759e-07
+      },
+      {
+        "file": "sfx/grenade_throw_01.wav",
+        "sources": [
+          "rpg/Audio/metalLatch.ogg",
+          "rpg/Audio/cloth2.ogg"
+        ],
+        "edit": "Safety pin latch and fabric release.",
+        "sha256": "0527da9d1d0cad7709e2300d245f7d6a98760dba73d92d3a0ec5aef637cadace",
+        "duration": 0.441678,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -25.92,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": 1.8918767352715804e-07
+      },
+      {
+        "file": "sfx/grenade_throw_02.wav",
+        "sources": [
+          "rpg/Audio/metalLatch.ogg",
+          "rpg/Audio/cloth3.ogg"
+        ],
+        "edit": "Safety pin latch and fabric release.",
+        "sha256": "5eea6aac3df80f17072720b54d01933d3c7aa775e3ecd40dee0cd9111b73d534",
+        "duration": 0.536576,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -26.973,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -2.6837491532205604e-05
+      }
+    ],
+    "grenade_bounce": [
+      {
+        "file": "sfx/grenade_bounce_00.wav",
+        "sources": [
+          "impact/Audio/impactMetal_light_000.ogg"
+        ],
+        "edit": "Small recorded metal bounce; slight pitch shift.",
+        "sha256": "1aaddc3471cd962eb0a582dcaab47ac6b36bbbd8f5443e60babff08460bae2fc",
+        "duration": 0.315261,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -5.718,
+        "rms_dbfs": -24.594,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -0.000412523077102378
+      },
+      {
+        "file": "sfx/grenade_bounce_01.wav",
+        "sources": [
+          "impact/Audio/impactMetal_light_001.ogg"
+        ],
+        "edit": "Small recorded metal bounce; slight pitch shift.",
+        "sha256": "da38f7eec2e7f499077234b612e13a8e606e72c7aec7d753adb759f1de82951a",
+        "duration": 0.230499,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.686,
+        "rms_dbfs": -24.125,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -0.0005310848355293274
+      },
+      {
+        "file": "sfx/grenade_bounce_02.wav",
+        "sources": [
+          "impact/Audio/impactMetal_light_002.ogg"
+        ],
+        "edit": "Small recorded metal bounce; slight pitch shift.",
+        "sha256": "00af3dad51aa66b17859616ec567ccb341376093edf99be14c0166a4a289e8e4",
+        "duration": 0.215646,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -5.817,
+        "rms_dbfs": -24.436,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -0.0005373198655433953
+      }
+    ],
+    "spike": [
+      {
+        "file": "sfx/spike_00.wav",
+        "sources": [
+          "impact/Audio/impactMining_000.ogg",
+          "impact/Audio/impactWood_heavy_000.ogg"
+        ],
+        "edit": "Rock strike and wood fracture, layered and pitched down.",
+        "sha256": "1d43c6d685d7e1516609e39d9b05add55bbcb08fdf4578cb3e6f24ed16893a92",
+        "duration": 1.118277,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -22.05,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -0.00019448557577561587
+      },
+      {
+        "file": "sfx/spike_01.wav",
+        "sources": [
+          "impact/Audio/impactMining_001.ogg",
+          "impact/Audio/impactWood_heavy_001.ogg"
+        ],
+        "edit": "Rock strike and wood fracture, layered and pitched down.",
+        "sha256": "5a4cf2da8f22e3dc0b48336b2a6a3490a4824aa9a7dd8c50e5466eaa6327aa93",
+        "duration": 1.042063,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -25.266,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": 4.041956344735809e-06
+      },
+      {
+        "file": "sfx/spike_02.wav",
+        "sources": [
+          "impact/Audio/impactMining_002.ogg",
+          "impact/Audio/impactWood_heavy_002.ogg"
+        ],
+        "edit": "Rock strike and wood fracture, layered and pitched down.",
+        "sha256": "e842961a9c7ba35ccf79b3d9a66fa95ff9235530dcbbea5502081fb33e46075d",
+        "duration": 0.974444,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -24.36,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": 0.00020181694708298892
+      }
+    ],
+    "shadow": [
+      {
+        "file": "sfx/shadow_00.wav",
+        "sources": [
+          "rpg/Audio/creak1.ogg",
+          "rpg/Audio/cloth1.ogg"
+        ],
+        "edit": "Reversed wood creak and slowed fabric: supernatural foley.",
+        "sha256": "9c462da4f0476e58aad79317e84b1f031613998ccef28feea8ad3cf6aa348b03",
+        "duration": 1.050431,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -24.984,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": 1.9673393580887932e-06
+      },
+      {
+        "file": "sfx/shadow_01.wav",
+        "sources": [
+          "rpg/Audio/creak2.ogg",
+          "rpg/Audio/cloth2.ogg"
+        ],
+        "edit": "Reversed wood creak and slowed fabric: supernatural foley.",
+        "sha256": "1ccc3fbeb003814ed1604578cf6a81c23e9c07c42fe12f916e3f2fd8ebee2ae0",
+        "duration": 1.23966,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -22.216,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": 1.9952799448219594e-06
+      },
+      {
+        "file": "sfx/shadow_02.wav",
+        "sources": [
+          "rpg/Audio/creak3.ogg",
+          "rpg/Audio/cloth3.ogg"
+        ],
+        "edit": "Reversed wood creak and slowed fabric: supernatural foley.",
+        "sha256": "e390ceceea55ba25ba702c7004b23a10367c10b58ae1cb925ce02c51f15fcf68",
+        "duration": 0.840431,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -21.326,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -4.688038825406693e-05
+      }
+    ],
+    "ground_impact": [
+      {
+        "file": "sfx/ground_impact_00.wav",
+        "sources": [
+          "impact/Audio/impactWood_heavy_000.ogg",
+          "impact/Audio/impactPunch_heavy_000.ogg"
+        ],
+        "edit": "Wooden collision and body contact.",
+        "sha256": "a7f5d22b52ecc0f79a2b6c355acd3769f563f964ffbb5837fc3a1f8bff99b5a6",
+        "duration": 0.566599,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -19.875,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -0.0003248058201279491
+      },
+      {
+        "file": "sfx/ground_impact_01.wav",
+        "sources": [
+          "impact/Audio/impactWood_heavy_001.ogg",
+          "impact/Audio/impactPunch_heavy_001.ogg"
+        ],
+        "edit": "Wooden collision and body contact.",
+        "sha256": "27a914bf503a3baaf5c12e85e447c106e636147c88b3232db1d6bf069c7b8f89",
+        "duration": 0.51102,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -20.249,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -0.0003544139035511762
+      },
+      {
+        "file": "sfx/ground_impact_02.wav",
+        "sources": [
+          "impact/Audio/impactWood_heavy_002.ogg",
+          "impact/Audio/impactPunch_heavy_002.ogg"
+        ],
+        "edit": "Wooden collision and body contact.",
+        "sha256": "f0b24a51ba79fd067903faa3431841a7c881853d90d7a29dd797103787f375a4",
+        "duration": 0.458821,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -20.004,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -0.00030996082932688296
+      }
+    ],
+    "camera_place": [
+      {
+        "file": "sfx/camera_place_00.wav",
+        "sources": [
+          "rpg/Audio/metalLatch.ogg",
+          "rpg/Audio/bookPlace1.ogg"
+        ],
+        "edit": "Mount latch followed by placing a solid object.",
+        "sha256": "23450fb686c383db03ebb31ed4b67f5959a422a34f6439b808f8869479776ad1",
+        "duration": 0.336712,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -22.893,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": 5.50970639778825e-07
+      },
+      {
+        "file": "sfx/camera_place_01.wav",
+        "sources": [
+          "rpg/Audio/metalLatch.ogg",
+          "rpg/Audio/bookPlace2.ogg"
+        ],
+        "edit": "Mount latch followed by placing a solid object.",
+        "sha256": "57286ea86e5db8720d6a62987274a0a760f0540af7cc47f7937fa072c1d570d5",
+        "duration": 0.41068,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -23.128,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -6.01779493081267e-06
+      }
+    ],
+    "camera_switch": [
+      {
+        "file": "sfx/camera_switch_00.wav",
+        "sources": [
+          "rpg/Audio/metalClick.ogg"
+        ],
+        "edit": "Mechanical switch click.",
+        "sha256": "1a0f86147c2e54356a6f70b44879e6b4ce8ead7cb4b8702c541020d950301ff9",
+        "duration": 0.44585,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -31.374,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": 8.583241424275911e-07
+      },
+      {
+        "file": "sfx/camera_switch_01.wav",
+        "sources": [
+          "rpg/Audio/metalClick.ogg"
+        ],
+        "edit": "Mechanical switch click.",
+        "sha256": "365f64bf3c016ce25817e743c66d6d6025b1912a03b11cc7aeff5ca182cac92f",
+        "duration": 0.44932,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -31.452,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": 9.336180823993345e-07
+      }
+    ],
+    "boost": [
+      {
+        "file": "sfx/boost_00.wav",
+        "sources": [
+          "rpg/Audio/cloth2.ogg",
+          "rpg/Audio/clothBelt.ogg"
+        ],
+        "edit": "Fabric acceleration whoosh.",
+        "sha256": "bb23342bd717ddeb824e18cdd0aa5f3f5be8886a70472daab5605c2c8f2b11f1",
+        "duration": 0.80254,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -26.868,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": 2.2963365609030006e-06
+      },
+      {
+        "file": "sfx/boost_01.wav",
+        "sources": [
+          "rpg/Audio/cloth3.ogg",
+          "rpg/Audio/clothBelt2.ogg"
+        ],
+        "edit": "Fabric acceleration whoosh.",
+        "sha256": "fc54f4c74c5c8ba8bc3a1e7dbb8047d36a58f0552aa78fc659c5e9a20a1807ce",
+        "duration": 0.73576,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -24.892,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -1.1137124602100812e-05
+      }
+    ],
+    "grab": [
+      {
+        "file": "sfx/grab_00.wav",
+        "sources": [
+          "rpg/Audio/clothBelt.ogg",
+          "rpg/Audio/cloth2.ogg"
+        ],
+        "edit": "Grasping belt and clothing.",
+        "sha256": "fd33704571194ccba3b692bd70f23cfa22d51e8b2591c61fe1c304cde887d7ff",
+        "duration": 0.72254,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -29.898,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": 2.2835477011540206e-06
+      },
+      {
+        "file": "sfx/grab_01.wav",
+        "sources": [
+          "rpg/Audio/clothBelt2.ogg",
+          "rpg/Audio/cloth3.ogg"
+        ],
+        "edit": "Grasping belt and clothing.",
+        "sha256": "1d21fe829bbf74e9c65410e83c4bb800fa36a9133f6a09cf6cd0498041d2191b",
+        "duration": 0.65576,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -27.049,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -5.255413270788267e-06
+      }
+    ],
+    "xray": [
+      {
+        "file": "sfx/xray_00.wav",
+        "sources": [
+          "rpg/Audio/metalClick.ogg",
+          "impact/Audio/impactGlass_light_003.ogg"
+        ],
+        "edit": "Activation click and glass resonance.",
+        "sha256": "cc3314a1e42a98c632c1fdbf6062b17e17274a33fe8bb08fd135cfacc7dbcbd7",
+        "duration": 0.44585,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -26.413,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": 1.0789101452246541e-06
+      },
+      {
+        "file": "sfx/xray_01.wav",
+        "sources": [
+          "rpg/Audio/metalClick.ogg",
+          "impact/Audio/impactGlass_light_004.ogg"
+        ],
+        "edit": "Activation click and glass resonance.",
+        "sha256": "0ce7daaa58b9e7514641a9745496ddab928a2ff752beb1c4613bfef525befaa6",
+        "duration": 0.44585,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -26.305,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": 1.362218654321623e-06
+      }
+    ],
+    "encourage": [
+      {
+        "file": "sfx/encourage_00.wav",
+        "sources": [
+          "rpg/Audio/cloth2.ogg",
+          "impact/Audio/impactGlass_light_003.ogg"
+        ],
+        "edit": "Gesture swish and a soft optimistic glass accent.",
+        "sha256": "f29964434b490c0081bf8f6ff78c1ba7de435bd12a131411ad57572d5df2bcba",
+        "duration": 0.381678,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -25.582,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": 9.827231224335264e-06
+      },
+      {
+        "file": "sfx/encourage_01.wav",
+        "sources": [
+          "rpg/Audio/cloth3.ogg",
+          "impact/Audio/impactGlass_light_004.ogg"
+        ],
+        "edit": "Gesture swish and a soft optimistic glass accent.",
+        "sha256": "feb2faba4388ee8a0ecdd068dff1e2b97e091083e1695833faf1fda582f9efba",
+        "duration": 0.476576,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -23.888,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -4.260203058947809e-05
+      }
+    ],
+    "shotgun": [
+      {
+        "file": "sfx/shotgun_00.wav",
+        "sources": [
+          "firearms/Prepared SFX Library/Model 12/K_22P.wav"
+        ],
+        "edit": "Single real 12-gauge recording; leading silence removed, 1.8 s retained, level and fade.",
+        "sha256": "61b41e640407406f65ce5f15244fdcb52778d498d38bcf3244522691cac5a0b4",
+        "duration": 1.803991,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -33.949,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -1.153361381511786e-06
+      },
+      {
+        "file": "sfx/shotgun_01.wav",
+        "sources": [
+          "firearms/Prepared SFX Library/Mossberg/N_30P.wav"
+        ],
+        "edit": "Single real 12-gauge recording; leading silence removed, 1.8 s retained, level and fade.",
+        "sha256": "eea8244edc7434b4287ac3ecb275da2ee125f45809105924e6ae3b8523540863",
+        "duration": 1.803991,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -34.758,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -2.0067006971657975e-06
+      },
+      {
+        "file": "sfx/shotgun_02.wav",
+        "sources": [
+          "firearms/Prepared SFX Library/Model 12/K_17P.wav"
+        ],
+        "edit": "Single real 12-gauge recording; leading silence removed, 1.8 s retained, level and fade.",
+        "sha256": "3022e4045d1b365d9ec2798623073ac413b299d7628bda5703e011c657df90e5",
+        "duration": 1.803991,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -32.812,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": 3.9317428672802635e-06
+      }
+    ],
+    "flash": [
+      {
+        "file": "sfx/flash_00.wav",
+        "sources": [
+          "firearms/Prepared SFX Library/Model 12/K_22P.wav",
+          "impact/Audio/impactBell_heavy_004.ogg"
+        ],
+        "edit": "Short firearm pressure report plus quiet recorded bell resonance for the stun grenade.",
+        "sha256": "fa56f30f654522b43a91a20befca766c0697785a11e81a8fbd50b0b363a1207c",
+        "duration": 0.75,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -29.444,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -8.884136150300037e-06
+      },
+      {
+        "file": "sfx/flash_01.wav",
+        "sources": [
+          "firearms/Prepared SFX Library/Mossberg/N_30P.wav",
+          "impact/Audio/impactBell_heavy_004.ogg"
+        ],
+        "edit": "Short firearm pressure report plus quiet recorded bell resonance for the stun grenade.",
+        "sha256": "35de70e30f7412fe9e8ff9a0a7676df044ef339f1ed4494321505b7d8049d923",
+        "duration": 0.75,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -30.108,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -8.785632417129818e-06
+      }
+    ],
+    "shotgun_reload": [
+      {
+        "file": "sfx/shotgun_reload_00.wav",
+        "sources": [
+          "shotgun-reload/ShotgunSounds/Rack.mp3"
+        ],
+        "edit": "Recorded pump-action rack, trim and gain.",
+        "sha256": "ac44b074aea90fcc39a4cc4a99087e89515c4a86ccaa6f5ac53c8beebba33838",
+        "duration": 1.128458,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -20.95,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": 2.796202124955016e-06
+      }
+    ],
+    "bell": [
+      {
+        "file": "sfx/bell_00.wav",
+        "sources": [
+          "impact/Audio/impactBell_heavy_002.ogg"
+        ],
+        "edit": "Real struck metal in two layers, lowered in pitch.",
+        "sha256": "be3a0b3780a6bb0fb6c2ecb3c65e406a18ab549075c357f99eeb9b32d66eed99",
+        "duration": 0.98381,
+        "sample_rate": 44100,
+        "channels": 1,
+        "sample_peak_dbfs": -4.5,
+        "rms_dbfs": -27.577,
+        "clipped_samples": 0,
+        "finite": true,
+        "dc_offset": -0.00026686605997383595
+      }
+    ]
+  },
+  "v06_new_foley": [
+    {
+      "asset": "audio\\sfx\\door_open_00.wav",
+      "source_filename": "doorOpen_1.ogg",
+      "source_collection": "Kenney RPG Audio",
+      "licence": "CC0 1.0",
+      "source_url": "https://kenney.nl/assets/rpg-audio",
+      "source_sha256": "4ab93bab96522d8eb109ff96dc57cb6765deb02448fe14c10472084be5bb2a0b",
+      "output_sha256": "54030e2e82363a1b402b11c61bcbe51dd1f407fd2ca8aa32440811a54c4c1ba0",
+      "processing": "PCM 16-bit, mono, 44.1kHz, gain 0.8, four-millisecond opening fade."
+    },
+    {
+      "asset": "audio\\sfx\\door_open_01.wav",
+      "source_filename": "doorOpen_2.ogg",
+      "source_collection": "Kenney RPG Audio",
+      "licence": "CC0 1.0",
+      "source_url": "https://kenney.nl/assets/rpg-audio",
+      "source_sha256": "68962fb0458c9bac59dec3adefa9849703c7c89d34712de03dd0075d095e79e9",
+      "output_sha256": "e74b703eaf63e22f4373f980e2ac00e2c11192090e8329ebd6f7d93d7a6a73d0",
+      "processing": "PCM 16-bit, mono, 44.1kHz, gain 0.8, four-millisecond opening fade."
+    },
+    {
+      "asset": "audio\\sfx\\door_creak_00.wav",
+      "source_filename": "creak1.ogg",
+      "source_collection": "Kenney RPG Audio",
+      "licence": "CC0 1.0",
+      "source_url": "https://kenney.nl/assets/rpg-audio",
+      "source_sha256": "8a346186fd297254248cab8e8117060a52a5cf2a84f603153a762108550ea95e",
+      "output_sha256": "df289251504ddace58e96d2dd5fc970f6b1932057529df91d552143ed114960e",
+      "processing": "PCM 16-bit, mono, 44.1kHz, gain 0.8, four-millisecond opening fade."
+    },
+    {
+      "asset": "audio\\sfx\\door_creak_01.wav",
+      "source_filename": "creak2.ogg",
+      "source_collection": "Kenney RPG Audio",
+      "licence": "CC0 1.0",
+      "source_url": "https://kenney.nl/assets/rpg-audio",
+      "source_sha256": "8a990afdc03aebb91d528f5385e2f95582dbfa8e2c12c71098ab01be9142294a",
+      "output_sha256": "43bc235de480b756fdca68fb54ee80809f13e499809cc594f4957ed5e02a59c5",
+      "processing": "PCM 16-bit, mono, 44.1kHz, gain 0.8, four-millisecond opening fade."
+    }
+  ],
+  "source_manifest_version": "0.6.0",
+  "source_manifest_prepared": "2026-09-08",
+  "update_note": "Sources audio et empreintes conservées ; nouveaux déclenchements et couches de prises existantes, sans nouvelle source audio."
+}
