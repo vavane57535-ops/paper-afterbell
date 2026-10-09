@@ -4,18 +4,19 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://mlit2nvojed8"
 path.s3tc="res://.godot/imported/TrueForm_tripo_rgb_e0bf1ebc-6a71-4ac3-b1e4-729b7f281b86.jpg-aae44cfcbd8e4dbbcf32e171a8934bfe.s3tc.ctex"
+path.etc2="res://.godot/imported/TrueForm_tripo_rgb_e0bf1ebc-6a71-4ac3-b1e4-729b7f281b86.jpg-aae44cfcbd8e4dbbcf32e171a8934bfe.etc2.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
-"md5": "5f5c818e5c08db03cbcb47bae8e0668f"
+"md5": "e79cd1c2af41be4efa5db10145343614"
 }
 
 [deps]
 
 source_file="res://models/supplied/TrueForm_tripo_rgb_e0bf1ebc-6a71-4ac3-b1e4-729b7f281b86.jpg"
-dest_files=["res://.godot/imported/TrueForm_tripo_rgb_e0bf1ebc-6a71-4ac3-b1e4-729b7f281b86.jpg-aae44cfcbd8e4dbbcf32e171a8934bfe.s3tc.ctex"]
+dest_files=["res://.godot/imported/TrueForm_tripo_rgb_e0bf1ebc-6a71-4ac3-b1e4-729b7f281b86.jpg-aae44cfcbd8e4dbbcf32e171a8934bfe.s3tc.ctex", "res://.godot/imported/TrueForm_tripo_rgb_e0bf1ebc-6a71-4ac3-b1e4-729b7f281b86.jpg-aae44cfcbd8e4dbbcf32e171a8934bfe.etc2.ctex"]
 
 [params]
 

@@ -4,18 +4,19 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://chvl75pv15niy"
 path.s3tc="res://.godot/imported/Alice_tripo_rgb_70b1d7f4-81b0-465e-a762-5a0aa16f7ade.jpg-3b0565b4d5c7f761af81b657e801c2da.s3tc.ctex"
+path.etc2="res://.godot/imported/Alice_tripo_rgb_70b1d7f4-81b0-465e-a762-5a0aa16f7ade.jpg-3b0565b4d5c7f761af81b657e801c2da.etc2.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
-"md5": "f3b1457fbc022029a7769dd6812c50d1"
+"md5": "027e5b7aaddacd379ab7b7589834a1f1"
 }
 
 [deps]
 
 source_file="res://models/supplied/Alice_tripo_rgb_70b1d7f4-81b0-465e-a762-5a0aa16f7ade.jpg"
-dest_files=["res://.godot/imported/Alice_tripo_rgb_70b1d7f4-81b0-465e-a762-5a0aa16f7ade.jpg-3b0565b4d5c7f761af81b657e801c2da.s3tc.ctex"]
+dest_files=["res://.godot/imported/Alice_tripo_rgb_70b1d7f4-81b0-465e-a762-5a0aa16f7ade.jpg-3b0565b4d5c7f761af81b657e801c2da.s3tc.ctex", "res://.godot/imported/Alice_tripo_rgb_70b1d7f4-81b0-465e-a762-5a0aa16f7ade.jpg-3b0565b4d5c7f761af81b657e801c2da.etc2.ctex"]
 
 [params]
 

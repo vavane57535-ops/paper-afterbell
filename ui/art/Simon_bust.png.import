@@ -4,6 +4,7 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://c7sdpjqdnbun5"
 path.bptc="res://.godot/imported/Simon_bust.png-ec8c855163197dfc5945cebdbdb7dea5.bptc.ctex"
+path.astc="res://.godot/imported/Simon_bust.png-ec8c855163197dfc5945cebdbdb7dea5.astc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
@@ -12,7 +13,7 @@ metadata={
 [deps]
 
 source_file="res://ui/art/Simon_bust.png"
-dest_files=["res://.godot/imported/Simon_bust.png-ec8c855163197dfc5945cebdbdb7dea5.bptc.ctex"]
+dest_files=["res://.godot/imported/Simon_bust.png-ec8c855163197dfc5945cebdbdb7dea5.bptc.ctex", "res://.godot/imported/Simon_bust.png-ec8c855163197dfc5945cebdbdb7dea5.astc.ctex"]
 
 [params]
 

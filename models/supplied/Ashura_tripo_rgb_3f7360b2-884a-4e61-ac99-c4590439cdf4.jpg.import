@@ -4,18 +4,19 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://c1bby0brqb84h"
 path.s3tc="res://.godot/imported/Ashura_tripo_rgb_3f7360b2-884a-4e61-ac99-c4590439cdf4.jpg-721219bbde2bfccaedca60a98ecd1f49.s3tc.ctex"
+path.etc2="res://.godot/imported/Ashura_tripo_rgb_3f7360b2-884a-4e61-ac99-c4590439cdf4.jpg-721219bbde2bfccaedca60a98ecd1f49.etc2.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
-"md5": "8330b8c1fe3e6de1ac394ca0c708f494"
+"md5": "124dbc5dffe4ec02574138492cfb422b"
 }
 
 [deps]
 
 source_file="res://models/supplied/Ashura_tripo_rgb_3f7360b2-884a-4e61-ac99-c4590439cdf4.jpg"
-dest_files=["res://.godot/imported/Ashura_tripo_rgb_3f7360b2-884a-4e61-ac99-c4590439cdf4.jpg-721219bbde2bfccaedca60a98ecd1f49.s3tc.ctex"]
+dest_files=["res://.godot/imported/Ashura_tripo_rgb_3f7360b2-884a-4e61-ac99-c4590439cdf4.jpg-721219bbde2bfccaedca60a98ecd1f49.s3tc.ctex", "res://.godot/imported/Ashura_tripo_rgb_3f7360b2-884a-4e61-ac99-c4590439cdf4.jpg-721219bbde2bfccaedca60a98ecd1f49.etc2.ctex"]
 
 [params]
 

@@ -4,6 +4,7 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://chwq7mmb5gdua"
 path.s3tc="res://.godot/imported/Bleuette_tripo_rgb_11729fc8-e058-4fa0-b52f-84c6646bb0ec.jpg-5560dcd91e4a811bbb90854752086e2a.s3tc.ctex"
+path.etc2="res://.godot/imported/Bleuette_tripo_rgb_11729fc8-e058-4fa0-b52f-84c6646bb0ec.jpg-5560dcd91e4a811bbb90854752086e2a.etc2.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://models/supplied/Bleuette_tripo_rgb_11729fc8-e058-4fa0-b52f-84c6646bb0ec.jpg"
-dest_files=["res://.godot/imported/Bleuette_tripo_rgb_11729fc8-e058-4fa0-b52f-84c6646bb0ec.jpg-5560dcd91e4a811bbb90854752086e2a.s3tc.ctex"]
+dest_files=["res://.godot/imported/Bleuette_tripo_rgb_11729fc8-e058-4fa0-b52f-84c6646bb0ec.jpg-5560dcd91e4a811bbb90854752086e2a.s3tc.ctex", "res://.godot/imported/Bleuette_tripo_rgb_11729fc8-e058-4fa0-b52f-84c6646bb0ec.jpg-5560dcd91e4a811bbb90854752086e2a.etc2.ctex"]
 
 [params]
 

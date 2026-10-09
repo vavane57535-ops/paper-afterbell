@@ -4,6 +4,7 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dr170mgxfh4ne"
 path.bptc="res://.godot/imported/Bleuette_bust.png-b935ae7ff111e7e1cdcae6dcb0a3faae.bptc.ctex"
+path.astc="res://.godot/imported/Bleuette_bust.png-b935ae7ff111e7e1cdcae6dcb0a3faae.astc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
@@ -12,7 +13,7 @@ metadata={
 [deps]
 
 source_file="res://ui/art/Bleuette_bust.png"
-dest_files=["res://.godot/imported/Bleuette_bust.png-b935ae7ff111e7e1cdcae6dcb0a3faae.bptc.ctex"]
+dest_files=["res://.godot/imported/Bleuette_bust.png-b935ae7ff111e7e1cdcae6dcb0a3faae.bptc.ctex", "res://.godot/imported/Bleuette_bust.png-b935ae7ff111e7e1cdcae6dcb0a3faae.astc.ctex"]
 
 [params]
 

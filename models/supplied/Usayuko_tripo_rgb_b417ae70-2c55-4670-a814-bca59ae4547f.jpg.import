@@ -4,18 +4,19 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://chs4oghmcl3uk"
 path.s3tc="res://.godot/imported/Usayuko_tripo_rgb_b417ae70-2c55-4670-a814-bca59ae4547f.jpg-dbc68906334c4288a10dcdfdf0ea439e.s3tc.ctex"
+path.etc2="res://.godot/imported/Usayuko_tripo_rgb_b417ae70-2c55-4670-a814-bca59ae4547f.jpg-dbc68906334c4288a10dcdfdf0ea439e.etc2.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
-"md5": "1a8a8f04712056e5f9e504f2348eaeca"
+"md5": "ce46d0365d6ec70bf10d2e845720cc57"
 }
 
 [deps]
 
 source_file="res://models/supplied/Usayuko_tripo_rgb_b417ae70-2c55-4670-a814-bca59ae4547f.jpg"
-dest_files=["res://.godot/imported/Usayuko_tripo_rgb_b417ae70-2c55-4670-a814-bca59ae4547f.jpg-dbc68906334c4288a10dcdfdf0ea439e.s3tc.ctex"]
+dest_files=["res://.godot/imported/Usayuko_tripo_rgb_b417ae70-2c55-4670-a814-bca59ae4547f.jpg-dbc68906334c4288a10dcdfdf0ea439e.s3tc.ctex", "res://.godot/imported/Usayuko_tripo_rgb_b417ae70-2c55-4670-a814-bca59ae4547f.jpg-dbc68906334c4288a10dcdfdf0ea439e.etc2.ctex"]
 
 [params]
 

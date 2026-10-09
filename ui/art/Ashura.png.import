@@ -4,6 +4,7 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://vta7b5och62u"
 path.bptc="res://.godot/imported/Ashura.png-286e9e5d6e2c639923158c060d4031e3.bptc.ctex"
+path.astc="res://.godot/imported/Ashura.png-286e9e5d6e2c639923158c060d4031e3.astc.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
@@ -12,7 +13,7 @@ metadata={
 [deps]
 
 source_file="res://ui/art/Ashura.png"
-dest_files=["res://.godot/imported/Ashura.png-286e9e5d6e2c639923158c060d4031e3.bptc.ctex"]
+dest_files=["res://.godot/imported/Ashura.png-286e9e5d6e2c639923158c060d4031e3.bptc.ctex", "res://.godot/imported/Ashura.png-286e9e5d6e2c639923158c060d4031e3.astc.ctex"]
 
 [params]
 

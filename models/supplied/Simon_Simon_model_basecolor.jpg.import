@@ -4,6 +4,7 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dyke47lk0bbdp"
 path.s3tc="res://.godot/imported/Simon_Simon_model_basecolor.jpg-2d6a1f9811314afef4250d69cd87a5bf.s3tc.ctex"
+path.etc2="res://.godot/imported/Simon_Simon_model_basecolor.jpg-2d6a1f9811314afef4250d69cd87a5bf.etc2.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://models/supplied/Simon_Simon_model_basecolor.jpg"
-dest_files=["res://.godot/imported/Simon_Simon_model_basecolor.jpg-2d6a1f9811314afef4250d69cd87a5bf.s3tc.ctex"]
+dest_files=["res://.godot/imported/Simon_Simon_model_basecolor.jpg-2d6a1f9811314afef4250d69cd87a5bf.s3tc.ctex", "res://.godot/imported/Simon_Simon_model_basecolor.jpg-2d6a1f9811314afef4250d69cd87a5bf.etc2.ctex"]
 
 [params]
 

@@ -4,18 +4,19 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://fg6jrfmmty88"
 path.s3tc="res://.godot/imported/Elly_tripo_rgb_aae77c0a-33be-4352-b40c-9e20a4586ed4.jpg-dc132d184cc8d5ce7719d07ad2f322fb.s3tc.ctex"
+path.etc2="res://.godot/imported/Elly_tripo_rgb_aae77c0a-33be-4352-b40c-9e20a4586ed4.jpg-dc132d184cc8d5ce7719d07ad2f322fb.etc2.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
-"md5": "5d53661bf8cb5f97499b96334fcfffef"
+"md5": "3d28d81836548a6641e024c765ddc266"
 }
 
 [deps]
 
 source_file="res://models/supplied/Elly_tripo_rgb_aae77c0a-33be-4352-b40c-9e20a4586ed4.jpg"
-dest_files=["res://.godot/imported/Elly_tripo_rgb_aae77c0a-33be-4352-b40c-9e20a4586ed4.jpg-dc132d184cc8d5ce7719d07ad2f322fb.s3tc.ctex"]
+dest_files=["res://.godot/imported/Elly_tripo_rgb_aae77c0a-33be-4352-b40c-9e20a4586ed4.jpg-dc132d184cc8d5ce7719d07ad2f322fb.s3tc.ctex", "res://.godot/imported/Elly_tripo_rgb_aae77c0a-33be-4352-b40c-9e20a4586ed4.jpg-dc132d184cc8d5ce7719d07ad2f322fb.etc2.ctex"]
 
 [params]
 
