@@ -186,6 +186,9 @@ func _hook(parent: Node) -> void :
 	if not (parent is Container): return
 	var id: int = parent.get_instance_id()
 	if _hooked.has(id) and is_instance_valid(instance_from_id(id)): return
+	if _hooked.size() > 160:
+		for key: int in _hooked.keys():
+			if not is_instance_valid(instance_from_id(key)): _hooked.erase(key)
 	_hooked[id] = true
 	(parent as Container).sort_children.connect(_on_sorted.bind(parent))
 

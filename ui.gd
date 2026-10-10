@@ -425,6 +425,7 @@ func _begin_page(id: String, preview: String = "", focus_x: float = 0.66) -> voi
 	# Même page reconstruite (aperçu de danse, choix de carte…) : pas de
 	# nouvelle entrée en cascade ni de glissement du panneau.
 	_page_rerender = previous == id and not _quiet_page
+	_retire_decors(animate)
 	if animate: _retire_page(id)
 	else:
 		if is_instance_valid(_wipe) and not _wipe_hold: _wipe.stop()
@@ -589,9 +590,35 @@ func _page_decor(title: String, accent: Color = T.RED_DEEP, side: float = 1.0) -
 	decor.accent = accent
 	decor.side = side
 	decor.reduced = reduced_motion
+	_place_decor(decor)
+	return decor
+
+# Les décors vont derrière les personnages du fond de menu (et sous les scènes
+# 3D animées) ; en partie (réglages par-dessus le jeu), dans la page.
+func _place_decor(decor: Control) -> void :
+	if _decor_in_backdrop():
+		menu_backdrop.decor_holder.add_child(decor)
+		return
+	if world.phase == "gallery" and decor is MenuFx.Decor:
+		# Devant le film de la cinémathèque : seulement le ruban qui défile.
+		(decor as MenuFx.Decor).band_alpha = 0.0
+		(decor as MenuFx.Decor).giant_alpha = 0.0
 	page.add_child(decor)
 	if is_instance_valid(active_menu_panel) and active_menu_panel.get_parent() == page: page.move_child(decor, active_menu_panel.get_index())
-	return decor
+
+func _decor_in_backdrop() -> bool:
+	return is_instance_valid(menu_backdrop) and is_instance_valid(menu_backdrop.get("decor_holder")) and world.phase in ["menu", "lobby"] and menu_backdrop.mode != "hidden"
+
+# Décors de la page précédente : gardés jusqu'à ce que la transition couvre
+# l'écran, sinon retirés tout de suite.
+func _retire_decors(keep: bool) -> void :
+	if not is_instance_valid(menu_backdrop) or not is_instance_valid(menu_backdrop.get("decor_holder")): return
+	var holder: Control = menu_backdrop.decor_holder
+	for child: Node in holder.get_children():
+		if child.has_meta("decor_leaving") or not keep:
+			holder.remove_child(child)
+			child.queue_free()
+		else: child.set_meta("decor_leaving", true)
 
 func _section(parent: Node, text: String, color: Color = T.TEAL) -> void :
 	_spacer(parent, 4)
@@ -665,6 +692,7 @@ func _retire_page(next_id: String) -> void :
 
 func _on_wipe_covered() -> void :
 	_clear(_leaving)
+	_retire_decors_leaving()
 	_leaving.position = Vector2.ZERO
 	_leaving.rotation = 0.0
 	_leaving.modulate = Color.WHITE
@@ -675,6 +703,13 @@ func _on_wipe_covered() -> void :
 		_wipe_hold = true
 		action.call()
 		_wipe_hold = false
+
+func _retire_decors_leaving() -> void :
+	if not is_instance_valid(menu_backdrop) or not is_instance_valid(menu_backdrop.get("decor_holder")): return
+	for child: Node in menu_backdrop.decor_holder.get_children():
+		if child.has_meta("decor_leaving"):
+			child.get_parent().remove_child(child)
+			child.queue_free()
 
 # Transition « feuilles » vers un écran qui ne passe pas par le fond de menu
 # (pause → réglages, réglages → pause…) : l'action construit l'écran suivant
@@ -770,7 +805,7 @@ func _main_decor() -> void :
 	decor.band_fill = Color(0.012, 0.013, 0.022, 0.84)
 	decor.accent = T.RED
 	decor.ribbon_text = "DOSSIER 013  ·  LA SONNERIE NE VOUS SAUVERA PAS"
-	page.add_child(decor)
+	_place_decor(decor)
 
 
 func _main_column(column: VBoxContainer, mobile: bool) -> Control:
@@ -1609,7 +1644,7 @@ func show_settings() -> void :
 	var playing: bool = world.phase == "playing"
 	_begin_page("settings", "", 0.66)
 	if playing: _dim(page, 0.82)
-	else: _backdrop(0.9, 0.97)
+	else: _backdrop(0.62, 0.86)
 	var panel: PanelContainer = PanelContainer.new()
 	var style: StyleBox = T.sheet_style(36, 28, T.RED_DEEP, 23)
 	style.content_margin_left = 42
@@ -2353,6 +2388,7 @@ func _fill_pause_actions(actions: VBoxContainer) -> void :
 
 func show_ending(winner: String, was_lms: bool) -> void :
 	menu_paper = false
+	_page_rerender = false
 	toast_time = 0
 	toast_label.hide()
 	blind_flash = 0
@@ -2813,6 +2849,7 @@ func _resume_training() -> void :
 
 func show_loading(map_id: String, characters: Array = []) -> void :
 	menu_paper = false
+	_page_rerender = false
 	_clear(page)
 	_clear(overlay)
 	page.show()
@@ -2954,6 +2991,12 @@ func show_loading(map_id: String, characters: Array = []) -> void :
 	loading_bar.offset_top = -28
 	loading_bar.offset_bottom = -24
 	loading_bar.value = 0
+	var ribbon: MenuFx.Decor = MenuFx.Decor.new()
+	ribbon.reduced = reduced_motion
+	ribbon.band_alpha = 0.0
+	ribbon.giant_alpha = 0.0
+	ribbon.ribbon_text = "MANCHE OM  ·  PRÉPARATION"
+	page.add_child(ribbon)
 	_update_tip(0.0)
 	_intro(column)
 	if PaperLanguage.language == "en": PaperLanguage.apply_tree(page)
@@ -3249,7 +3292,7 @@ func _first_focusable(node: Node) -> Control:
 
 func _unhandled_input(event: InputEvent) -> void :
 
-
+	if _settings_tab_input(event): return
 	if not event.is_action_pressed("ui_cancel"): return
 	if world.phase not in ["menu", "lobby"] or not page.visible: return
 	if (world.online_menu and world.online_menu.visible) or (world.controls_menu and world.controls_menu.visible): return
@@ -3271,6 +3314,24 @@ func _unhandled_input(event: InputEvent) -> void :
 		_: show_main()
 	Sound.play("back")
 	get_viewport().set_input_as_handled()
+
+# Réglages : gâchettes hautes LB / RB (ou Page préc. / Page suiv.) pour
+# changer d'onglet, comme les L / R des menus de Persona.
+func _settings_tab_input(event: InputEvent) -> bool:
+	if current_page != "settings" or not page.visible: return false
+	if (world.online_menu and world.online_menu.visible) or (world.controls_menu and world.controls_menu.visible): return false
+	var step: int = 0
+	if event is InputEventJoypadButton and event.pressed:
+		if event.button_index == JOY_BUTTON_LEFT_SHOULDER: step = -1
+		elif event.button_index == JOY_BUTTON_RIGHT_SHOULDER: step = 1
+	elif event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_PAGEUP: step = -1
+		elif event.keycode == KEY_PAGEDOWN: step = 1
+	if step == 0: return false
+	var tabs: Array = SETTINGS_TABS
+	_settings_switch(str(tabs[posmod(tabs.find(settings_tab) + step, tabs.size())]))
+	get_viewport().set_input_as_handled()
+	return true
 
 func _on_focus_changed(control: Control) -> void :
 	if control != null: _last_focus = weakref(control)

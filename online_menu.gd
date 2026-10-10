@@ -88,7 +88,7 @@ func _build() -> void :
 	decor.title = "EN LIGNE"
 	decor.accent = Color("6fa8ff").lerp(T.RED_DEEP, 0.55)
 	decor.giant_alpha = 0.06
-	decor.ribbon_text = "LE CARNET DES ÉLÈVES"
+	decor.ribbon_text = ""
 	add_child(decor)
 	var margin: MarginContainer = MarginContainer.new()
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)

@@ -77,10 +77,9 @@ func _build() -> void :
 	list.add_theme_constant_override("separation", 8)
 	var kicker: Label = _text("RÉGLAGES · COMMANDES", 13, T.TEAL, "caps_wide")
 	kicker.autowrap_mode = TextServer.AUTOWRAP_OFF
-	var title: Label = _text("Mon carnet de commandes", 44, T.CREAM, "display")
-	title.add_theme_color_override("font_shadow_color", Color(T.RED, 0.9))
-	title.add_theme_constant_override("shadow_offset_x", 4)
-	title.add_theme_constant_override("shadow_offset_y", 4)
+	var title: W.CollageTitle = W.CollageTitle.new()
+	title.setup("Mon carnet de commandes", 40.0, T.RED, 900.0)
+	list.add_child(title)
 	_text("Clavier / souris et manettes · les réglages sont conservés sur cet appareil.", 16, T.MUTED)
 	var selector: OptionButton = OptionButton.new()
 	selector.add_item("Clavier & souris")

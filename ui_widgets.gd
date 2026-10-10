@@ -1037,10 +1037,16 @@ class Spinner extends Control:
 		queue_redraw()
 
 	func _draw() -> void :
+		# Trois bouts de papier découpé qui tournent l'un derrière l'autre.
 		var center: Vector2 = size * 0.5
-		var radius: float = minf(size.x, size.y) * 0.4
-		draw_arc(center, radius, 0, TAU, 40, Color(color, 0.18), 3.0, true)
-		draw_arc(center, radius, _angle, _angle + 1.9, 24, color, 3.0, true)
+		var radius: float = minf(size.x, size.y) * 0.34
+		var item: RID = get_canvas_item()
+		for i: int in range(3):
+			var angle: float = _angle * (1.0 + 0.25 * float(i)) + float(i) * TAU / 3.0
+			var at: Vector2 = center + Vector2(cos(angle), sin(angle)) * radius
+			var chip: PackedVector2Array = Geom.transformed(Geom.cut(Rect2(Vector2(-6, -5), Vector2(12, 10)), i * 13 + 5, 0.15), Transform2D(angle * 1.5, at))
+			Geom.polygon(item, Geom.offset(chip, Vector2(2, 3)), Color(0, 0, 0, 0.5))
+			Geom.polygon(item, chip, [T.CREAM, T.RED, color][i])
 
 
 

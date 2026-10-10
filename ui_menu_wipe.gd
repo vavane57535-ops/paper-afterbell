@@ -16,9 +16,9 @@ const SLANT: float = 0.26
 const RED_LEAD: float = 0.0
 const CREAM_LEAD: float = 42.0
 const INK_LEAD: float = 96.0
-const COVER_AT: float = 0.44
+const COVER_AT: float = 0.38
 
-var duration: float = 0.48
+var duration: float = 0.46
 var _t: float = 1.0
 var _dir: float = -1.0
 var _covered_sent: bool = true
@@ -35,6 +35,8 @@ func _init() -> void :
 
 func play(direction: float, alice: bool = false, title: String = "") -> void :
 	_dir = direction
+	# Retour en arrière plus vif que l'aller.
+	duration = 0.36 if direction > 0.0 else 0.46
 	_ink = Color("140a10") if alice else Color("0b0d14")
 	_red = Color("e0314f") if alice else T.RED
 	_title = title
@@ -88,13 +90,13 @@ func _group(w: float, ink_w: float) -> float:
 	var cover: float = - INK_LEAD - 150.0
 	var hold: float = cover - 46.0
 	var finish: float = - (INK_LEAD + ink_w + 120.0 + 300.0)
-	if _t < 0.4:
-		var p: float = _t / 0.4
+	if _t < 0.36:
+		var p: float = _t / 0.36
 		return lerpf(start, cover, 1.0 - pow(1.0 - p, 3.0))
-	if _t < 0.56:
-		return lerpf(cover, hold, (_t - 0.4) / 0.16)
-	var q: float = (_t - 0.56) / 0.44
-	return lerpf(hold, finish, q * q * q)
+	if _t < 0.5:
+		return lerpf(cover, hold, (_t - 0.36) / 0.14)
+	var q: float = (_t - 0.5) / 0.5
+	return lerpf(hold, finish, q * q)
 
 
 # Feuille entre deux bords inclinés déchirés (lead → trail, en x à mi-hauteur).
@@ -147,7 +149,7 @@ func _draw() -> void :
 	if _dir > 0.0: draw_set_transform(Vector2.ZERO)
 	# Titre de la page suivante plaqué en lettres découpées sur l'encre.
 	if _title.is_empty(): return
-	var slam: float = clampf((_t - 0.22) / 0.18, 0.0, 1.0)
+	var slam: float = clampf((_t - 0.18) / 0.18, 0.0, 1.0)
 	if slam <= 0.0: return
 	var k: float = h / 900.0
 	var px: float = 118.0 * k
@@ -165,7 +167,7 @@ func _draw() -> void :
 		var shift: float = fposmod(_t * 900.0 * (1.0 if row == 0 else -0.7) + travel * 0.5, maxf(giant_w, 1.0))
 		draw_set_transform(Vector2(- shift + (- giant_w if row == 1 else 0.0), h * (0.36 + 0.5 * float(row))), -0.12, Vector2.ONE)
 		for copy: int in range(4):
-			draw_string_outline(font, Vector2(giant_w * float(copy), 0), shown, HORIZONTAL_ALIGNMENT_LEFT, -1, giant, int(3.0 * k), Color(_red, 0.24 * slam * (1.0 - clampf((_t - 0.56) / 0.16, 0.0, 1.0))))
+			draw_string_outline(font, Vector2(giant_w * float(copy), 0), shown, HORIZONTAL_ALIGNMENT_LEFT, -1, giant, int(3.0 * k), Color(_red, 0.24 * slam * (1.0 - clampf((_t - 0.5) / 0.16, 0.0, 1.0))))
 		draw_set_transform(Vector2.ZERO)
 	var base: Transform2D = Transform2D(-0.12, Vector2(scale, scale), 0.0, center) * Transform2D(0.0, Vector2(- width * 0.5, px * 0.3))
 	C.draw_word(self, shown, base, px, seed_value, 1.0, _red, minf(1.0, slam * 2.0), 0, false, T.CREAM, _red)

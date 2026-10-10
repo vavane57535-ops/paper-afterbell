@@ -89,6 +89,14 @@ func _key(action: StringName) -> void :
 		event.pressed = pressed
 		Input.parse_input_event(event)
 
+func _raw_key(code: Key) -> void :
+	for pressed: bool in [true, false]:
+		var event: InputEventKey = InputEventKey.new()
+		event.keycode = code
+		event.physical_keycode = code
+		event.pressed = pressed
+		Input.parse_input_event(event)
+
 func _joy(button: JoyButton) -> void :
 	for pressed: bool in [true, false]:
 		var event: InputEventJoypadButton = InputEventJoypadButton.new()
@@ -152,7 +160,13 @@ func _run() -> void :
 		_key(&"ui_down")
 		await _wait_game(0.2)
 		_note("focus réglages : " + _focus_name())
+		_key(&"ui_down")
+		await _wait_game(0.1)
+		await _burst("settings_row", func() -> void : _key(&"ui_down"), [0, 60, 140, 300])
+		_note("focus ligne : " + _focus_name())
 		await _burst("settings_tab", func() -> void : ui._settings_switch("audio"), [0, 80, 200, 500])
+		await _burst("settings_pagedown", func() -> void : _raw_key(KEY_PAGEDOWN), [0, 120, 400])
+		_note("onglet après Page suiv. : " + str(ui.settings_tab))
 		await _burst("settings_controls", func() -> void : ui._settings_switch("controls"), [0, 300])
 		await _burst("settings_access", func() -> void : ui._settings_switch("access"), [0, 300])
 		ui.settings_tab = "game"
@@ -220,12 +234,21 @@ func _run() -> void :
 			_note("focus confirmation : " + _focus_name())
 			await _burst("pause_confirm_close", func() -> void : _key(&"ui_cancel"), [0, 120])
 			_note("focus après annulation : " + _focus_name())
-			_key(&"ui_up")
-			_key(&"ui_up")
+			# Manette : croix directionnelle (ui_up) deux fois.
+			_joy(JOY_BUTTON_DPAD_UP)
+			await _wait_game(0.1)
+			_joy(JOY_BUTTON_DPAD_UP)
 			await _wait_game(0.3)
-			_note("focus avant réglages : " + _focus_name())
+			_note("focus avant réglages (manette) : " + _focus_name())
 			await _burst("pause_settings", func() -> void : _activate_focus(), [0, 80, 160, 300, 600])
 			await _burst("pause_settings_back", func() -> void : ui._settings_back(), [0, 80, 160, 300, 600])
+			await _wait_game(0.6)
+			var command: Control = _find_text(ui.overlay, "COMMANDES")
+			if command:
+				await _burst("pause_hover", func() -> void : _mouse_to(_hovered_center(command)), [0, 80, 240])
+				_mouse_to(Vector2(6, 6))
+				await _wait_game(0.2)
+				await _save("pause_hover_left")
 			await _burst("pause_close", func() -> void : _press_pause(), [0, 60, 120, 200, 320])
 		if "ending" in menus:
 			world.match_results = _fake_results()

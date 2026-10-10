@@ -87,6 +87,7 @@ var _hovered: String = ""
 var _look_sent: Vector4 = Vector4(-1, -1, -1, -1)
 var _aura: TextureRect
 var _hop_wait: float = 4.0
+var decor_holder: Control
 
 
 
@@ -134,6 +135,12 @@ func setup(owner_ui: Node, is_mobile: bool) -> void :
 	add_child(_bg)
 	_bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
+	# Décors des pages (bandes, mots géants, ruban) : derrière les personnages.
+	decor_holder = Control.new()
+	decor_holder.name = "PageDecor"
+	decor_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(decor_holder)
+	decor_holder.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_band = HeroBand.new()
 	add_child(_band)
 	for i: int in range(2):
