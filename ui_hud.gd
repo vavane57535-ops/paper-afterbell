@@ -462,7 +462,7 @@ func _build_hints() -> void :
 	hints_box.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	hints_box.grow_vertical = Control.GROW_DIRECTION_BEGIN
 	hints_box.modulate = Color(1, 1, 1, 0.78)
-	for spec: Array in [["emotes", "Émotes"], ["sprint", "Courir"], ["interact", "Interagir"], ["jump", "Saut"], ["pause_game", "Menu"]]:
+	for spec: Array in [["emotes", "Émotes"], ["sprint", "Courir"], ["interact", "Interagir"], ["jump", "Saut"], ["camera_mode", "Caméra"], ["pause_game", "Menu"]]:
 		var pair: HBoxContainer = HBoxContainer.new()
 		pair.add_theme_constant_override("separation", 6)
 		pair.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -870,7 +870,8 @@ func _update_spectator(a: PaperActor) -> void :
 	if not watching: return
 	var escaped: bool = a != null and bool(a.effects.get("escaped", false))
 	var head: String = _t("ÉVADÉ · TU ES EN SÉCURITÉ") if escaped else _t("SPECTATEUR")
-	_write(spectator_label, head + "  ·  " + _t(ui._touch_text("TAB : allié suivant")))
+	var camera_hint: String = "" if world.mobile_mode else "  ·  " + _t("%s : caméra") % _binding("camera_mode", "C")
+	_write(spectator_label, head + "  ·  " + _t(ui._touch_text("TAB : allié suivant")) + camera_hint)
 	var viewed: PaperActor = world.call("_view_actor") if world.has_method("_view_actor") else null
 	var shown: String = ""
 	if viewed and viewed != a:

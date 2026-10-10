@@ -1,7 +1,7 @@
 class_name PaperBindings
 extends RefCounted
 
-const LABELS: Dictionary = {"forward": "Avancer", "back": "Reculer", "left": "Gauche", "right": "Droite", "sprint": "Courir (maintenir)", "run_toggle": "Course (basculer)", "jump": "Sauter", "interact": "Interagir / attraper", "ability_0": "Capacité 1 / confirmer", "ability_1": "Capacité 2 (maintenir : charge)", "ability_2": "Capacité 3 / changer de mode", "ability_3": "Capacité 4", "ability_4": "Capacité 5", "ability_5": "True Form", "cancel_aim": "Annuler la visée", "emotes": "Roue d’émotes", "pause_game": "Pause", "spectate": "Changer de spectateur", "training_menu": "Terrain d’essai", "qte_0": "Archive : réponse gauche", "qte_1": "Archive : réponse centrale", "qte_2": "Archive : réponse droite"}
+const LABELS: Dictionary = {"forward": "Avancer", "back": "Reculer", "left": "Gauche", "right": "Droite", "sprint": "Courir (maintenir)", "run_toggle": "Course (basculer)", "jump": "Sauter", "interact": "Interagir / attraper", "ability_0": "Capacité 1 / confirmer", "ability_1": "Capacité 2 (maintenir : charge)", "ability_2": "Capacité 3 / changer de mode", "ability_3": "Capacité 4", "ability_4": "Capacité 5", "ability_5": "True Form", "cancel_aim": "Annuler la visée", "emotes": "Roue d’émotes", "pause_game": "Pause", "spectate": "Changer de spectateur", "training_menu": "Terrain d’essai", "qte_0": "Archive : réponse gauche", "qte_1": "Archive : réponse centrale", "qte_2": "Archive : réponse droite", "camera_mode": "Caméra : derrière / libre 360°"}
 var active_device: int = -1
 var controller_sprint: bool = false
 var look_sensitivity: float = 2.6
@@ -12,6 +12,7 @@ var _defaults: Dictionary = {}
 func setup() -> void :
 	var keys: Dictionary = {"forward": [KEY_W, KEY_Z, KEY_UP], "back": [KEY_S, KEY_DOWN], "left": [KEY_A, KEY_Q, KEY_LEFT], "right": [KEY_D, KEY_RIGHT], "sprint": [KEY_SHIFT], "run_toggle": [KEY_CAPSLOCK], "jump": [KEY_SPACE], "interact": [KEY_E], "cancel_aim": [KEY_R], "emotes": [KEY_G], "pause_game": [KEY_ESCAPE], "spectate": [KEY_TAB], "training_menu": [KEY_F2], "qte_0": [KEY_J], "qte_1": [KEY_K], "qte_2": [KEY_L]}
 	for slot: int in range(6): keys["ability_" + str(slot)] = [KEY_1 + slot]
+	keys["camera_mode"] = [KEY_C]
 	for action: String in LABELS:
 		if not InputMap.has_action(action): InputMap.add_action(action, deadzone)
 		InputMap.action_erase_events(action)
@@ -23,6 +24,7 @@ func setup() -> void :
 		var event: InputEventJoypadButton = InputEventJoypadButton.new();event.button_index = spec[1];event.device = -1;InputMap.action_add_event(spec[0], event)
 	for spec: Array in [["ability_0", MOUSE_BUTTON_LEFT], ["cancel_aim", MOUSE_BUTTON_RIGHT]]:
 		var event: InputEventMouseButton = InputEventMouseButton.new();event.button_index = spec[1];InputMap.action_add_event(spec[0], event)
+	var view_button: InputEventJoypadButton = InputEventJoypadButton.new();view_button.button_index = JOY_BUTTON_RIGHT_STICK;view_button.device = -1;InputMap.action_add_event("camera_mode", view_button)
 	for action: String in LABELS: _defaults[action] = InputMap.action_get_events(action).duplicate()
 	var settings: ConfigFile = ConfigFile.new()
 	if settings.load("user://controls.cfg") == OK:

@@ -7,8 +7,8 @@ const CoreArchives = preload("res://core_archives.gd")
 const CorePerf = preload("res://core_perf.gd")
 const PORT: int = 27842
 
-const PITCH_MIN: float = -0.6
-const PITCH_MAX: float = 0.55
+const PITCH_MIN: float = CoreCameraRig.PITCH_MIN
+const PITCH_MAX: float = CoreCameraRig.PITCH_MAX
 
 
 const CHASE_ENTER_DISTANCE: float = 14.0
@@ -106,7 +106,7 @@ var solo_killer: bool = false
 var pause_open: bool = false
 var yaw: float = 0.0
 var pitch: float = -0.16
-var sensitivity: float = 0.0022
+var sensitivity: float = 0.0025
 var cinema: float = 0.0
 var menu_time: float = 0.0
 var input_clock: float = 0.0
@@ -240,7 +240,7 @@ func _load_preferences() -> void :
 		selected = str(c.get_value("player", "character", "Ashura"))
 		selected_map = str(c.get_value("player", "map", "school"))
 		ruleset = "om"
-		sensitivity = float(c.get_value("settings", "sensitivity", 0.0022))
+		sensitivity = float(c.get_value("settings", "sensitivity", 0.0025))
 		mobile_profile = str(c.get_value("settings", "mobile_profile", "balanced"))
 		touch_sensitivity = clampf(float(c.get_value("settings", "touch_sensitivity", 0.0036)), 0.001, 0.009)
 		tickets = maxi(0, int(c.get_value("shop", "tickets", PaperDances.STARTING_TICKETS)))
@@ -272,6 +272,7 @@ func save_preferences() -> void :
 	c.set_value("settings", "mobile_profile", mobile_profile)
 	c.set_value("shop", "tickets", tickets);c.set_value("shop", "owned", owned_dances)
 	for key: String in options: c.set_value("options", key, options[key])
+	if camera_rig: camera_rig.save_settings(c)
 	if audio: c.set_value("audio", "music", audio.music_volume);c.set_value("audio", "muted", audio.muted);c.set_value("audio", "effects", audio.effects_volume)
 	c.save("user://settings.cfg")
 
@@ -859,6 +860,7 @@ func _collect_input(delta: float) -> void :
 	var piloting: bool = bool(a.effects.get("drone_piloting", false))
 	if piloting: aim = Vector3(0, sin(pitch), - cos(pitch)).rotated(Vector3.UP, yaw)
 	a.aim = aim
+	camera_rig.apply_facing(a, delta)
 	if authoritative():
 		a.move_input = world_move;a.aim = aim;a.sprint = running
 		if piloting: combat.drone_input(a, _drone_movement(input, aim))
@@ -935,6 +937,9 @@ func command(kind: String, data: Dictionary) -> void :
 	if clock - float(request_times.get(key, -100)) < 0.07: return
 	request_times[key] = clock
 	var a: PaperActor = actors.get(sender)
+	if kind == "camera_mode":
+		if a: a.effects["cam_facing"] = clampi(int(data.get("mode", 0)), 0, 2)
+		return
 	if kind == "assist": combat.assist(sender, int(data.get("actor", -1)), str(data.get("choice", "health")));return
 	if not a or not a.active(): return
 	if kind == "emote": _start_emote(a, str(data.get("id", "")));return
@@ -1210,9 +1215,7 @@ func _process(delta: float) -> void :
 func _process_frame(delta: float) -> void :
 	_update_dance_music()
 	if bindings and phase == "playing" and not pause_open and not emote_wheel.visible:
-		var look: Vector2 = bindings.look()
-		yaw -= look.x * bindings.look_sensitivity * delta
-		pitch = clampf(pitch - look.y * bindings.look_sensitivity * delta, PITCH_MIN, PITCH_MAX)
+		camera_rig.pad_look(delta)
 	_update_teleport_warning(delta)
 	if map_interactables and exit_flow: map_interactables.update_exit(exit_flow.opened, exit_flow.true_form)
 	_update_network_stats(delta)
@@ -1465,13 +1468,14 @@ func _unhandled_input(e: InputEvent) -> void :
 		if e.is_action_pressed("run_toggle"): bindings.controller_sprint = not bindings.controller_sprint;return
 		if e.is_action_pressed("training_menu") and training: pause_open = true;Input.mouse_mode = Input.MOUSE_MODE_VISIBLE;ui.show_training_panel(true);return
 		if e.is_action_pressed("spectate"): mobile_spectate();return
+		if e.is_action_pressed("camera_mode"): camera_rig.toggle_mode();return
 		for slot: int in range(6):
 			if e.is_action_pressed("ability_" + str(slot)): request_ability(slot);return
 			if e.is_action_released("ability_" + str(slot)): release_ability(slot);return
 	if e is InputEventKey and e.pressed and e.keycode == KEY_F11 and not mobile_mode:
 		toggle_fullscreen()
 	if not mobile_mode and e is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED and phase == "playing" and not pause_open:
-		yaw -= e.relative.x * sensitivity;pitch = clampf(pitch - e.relative.y * sensitivity, PITCH_MIN, PITCH_MAX)
+		camera_rig.mouse_look(e)
 	if phase in ["menu", "lobby"] and e is InputEventJoypadButton and e.pressed and not get_viewport().gui_get_focus_owner():
 		var buttons: Array[Node] = ui.page.find_children("*", "Button", true, false)
 		if not buttons.is_empty(): buttons[0].grab_focus()
@@ -1846,7 +1850,7 @@ func _update_mobile_controls() -> void :
 	mobile_controls.refresh(local_actor())
 	if usable:
 		var look: Vector2 = mobile_controls.consume_look()
-		yaw -= look.x * touch_sensitivity;pitch = clampf(pitch - look.y * touch_sensitivity, PITCH_MIN, PITCH_MAX)
+		camera_rig.touch_look(look)
 
 func mobile_pause() -> void :
 	if phase != "playing": return

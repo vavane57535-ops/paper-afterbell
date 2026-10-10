@@ -1587,10 +1587,11 @@ func _settings_game(content: VBoxContainer) -> void :
 			world.touch_sensitivity = x
 			world.save_preferences()))
 	else:
-		_setting_row(content, "Sensibilité de la souris", "Vitesse de rotation de la caméra.", _slider(0.0007, 0.005, 0.0001, float(world.sensitivity), func(x: float) -> String: return "%d %%" % int(round(x / 0.0022 * 100.0)), func(x: float) -> void :
+		_setting_row(content, "Sensibilité de la souris", "Vitesse de rotation de la caméra.", _slider(0.0006, 0.008, 0.0001, float(world.sensitivity), func(x: float) -> String: return "%d %%" % int(round(x / 0.0025 * 100.0)), func(x: float) -> void :
 			world.sensitivity = x
 			world.save_preferences()))
 	_setting_row(content, "Caméra souple", "Suivi amorti derrière le personnage.", _check(bool(world.options.get("camera_smooth", true)), func(on: bool) -> void : _set_option("camera_smooth", on)))
+	_setting_row(content, "Mode de caméra", "Derrière : le personnage tourne avec la caméra. Libre 360° : la caméra tourne autour de lui.", _options(["Derrière le personnage", "Libre 360°"], 0 if world.camera_rig.is_behind() else 1, func(index: int) -> void : world.camera_rig.set_mode("behind" if index == 0 else "free", false)), 300)
 	_setting_row(content, "Champ de vision", "Angle de la caméra en jeu. Une valeur haute montre plus de décor.", _slider(60, 95, 1, float(world.options.get("fov", 72)), func(x: float) -> String: return "%d°" % int(x), func(x: float) -> void : _set_option("fov", int(x))))
 	_setting_row(content, "Secousses de caméra", "Tremblement lors des coups et des impacts.", _check(bool(world.options.get("camera_shake", true)), func(on: bool) -> void : _set_option("camera_shake", on)))
 	_setting_row(content, "Onomatopées", "Les « BAM ! » et « SHLAK ! » qui jaillissent des coups.", _check(bool(world.options.get("fx_words", true)), func(on: bool) -> void : _set_option("fx_words", on)))
@@ -1654,7 +1655,7 @@ func _settings_controls(content: VBoxContainer) -> void :
 		_key_line(alice, spec[0], str(spec[1]))
 	_spacer(alice, 10)
 	alice.add_child(_kicker("PARTOUT", T.PAPER_DIM, 12))
-	for spec: Array in [[[_binding("pause_game", "Échap")], "Pause / retour"], [[_binding("training_menu", "F2")], "Terrain d’essai"], [["F11"], "Plein écran"]]:
+	for spec: Array in [[[_binding("pause_game", "Échap")], "Pause / retour"], [[_binding("training_menu", "F2")], "Terrain d’essai"], [[_binding("camera_mode", "C")], "Caméra derrière / libre 360°"], [["F11"], "Plein écran"]]:
 		_key_line(alice, spec[0], str(spec[1]))
 	_spacer(content, 8)
 	var edit_row: HBoxContainer = _hbox(content, 14)
