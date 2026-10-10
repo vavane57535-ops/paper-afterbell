@@ -148,7 +148,7 @@ func _layout() -> void :
 		var px: float = float(item.font_size_px)
 		item.custom_minimum_size = Vector2.ZERO
 		item.size = Vector2(minf(view.x * 0.44, 680.0 * k), px * 1.6)
-		var home: Vector2 = Vector2(view.x * 0.055, view.y * 0.2 + float(i) * 128.0 * k - (8.0 * k if i == 0 else 0.0))
+		var home: Vector2 = Vector2(view.x * 0.055, view.y * 0.17 + float(i) * 120.0 * k - (8.0 * k if i == 0 else 0.0))
 		_entry_home.append(home)
 		item.position = home
 
@@ -471,9 +471,9 @@ func _paint_front(layer: Control) -> void :
 	# Étiquette « MENU · PAUSE » + chrono, scotchée en haut à droite.
 	var tag_p: float = _phase(0.22, 0.18)
 	if tag_p > 0.0:
-		var tag_pos: Vector2 = Vector2(view.x - 330.0 * k, 46.0 * k + (1.0 - _out(tag_p)) * -140.0 * k)
+		var tag_pos: Vector2 = Vector2(view.x - 400.0 * k, 46.0 * k + (1.0 - _out(tag_p)) * -140.0 * k)
 		var xform: Transform2D = Transform2D(0.05, tag_pos)
-		var tag: PackedVector2Array = G.cut(Rect2(Vector2.ZERO, Vector2(280, 122) * k), 41, 0.08)
+		var tag: PackedVector2Array = G.cut(Rect2(Vector2.ZERO, Vector2(360, 122) * k), 41, 0.08)
 		G.polygon(item, G.transformed(G.offset(tag, Vector2(8, 10) * k), xform), Color(0, 0, 0, 0.5))
 		G.polygon(item, G.transformed(tag, xform), Color(0.04, 0.035, 0.055))
 		layer.draw_set_transform_matrix(xform)
@@ -483,10 +483,12 @@ func _paint_front(layer: Control) -> void :
 		var clock: String = _clock_text()
 		layer.draw_string(digits, Vector2(16, 104) * k, clock, HORIZONTAL_ALIGNMENT_LEFT, -1, int(76 * k), T.CREAM)
 		var map_name: String = T.tr_text(str(world.MAP_NAMES.get(world.selected_map, ""))).to_upper()
-		layer.draw_string(T.font("caps"), Vector2(150, 70) * k, _person.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, 120.0 * k, int(16 * k), _accent)
-		layer.draw_string(T.font("caps"), Vector2(150, 94) * k, map_name, HORIZONTAL_ALIGNMENT_LEFT, 124.0 * k, int(11 * k), Color(T.CREAM, 0.6))
+		var clock_w: float = digits.get_string_size(clock, HORIZONTAL_ALIGNMENT_LEFT, -1, int(76 * k)).x
+		var side_x: float = 16.0 * k + clock_w + 14.0 * k
+		layer.draw_string(T.font("caps"), Vector2(side_x, 70.0 * k), _person.to_upper(), HORIZONTAL_ALIGNMENT_LEFT, 340.0 * k - side_x, int(16 * k), _accent)
+		layer.draw_string(T.font("caps"), Vector2(side_x, 94.0 * k), map_name, HORIZONTAL_ALIGNMENT_LEFT, 344.0 * k - side_x, int(11 * k), Color(T.CREAM, 0.6))
 		layer.draw_set_transform(Vector2.ZERO)
-		T.draw_tape(item, tag_pos + Vector2(140, 0) * k, 90.0 * k, -0.06, Color(0.96, 0.93, 0.84, 0.6), 7)
+		T.draw_tape(item, tag_pos + Vector2(180, 0) * k, 90.0 * k, -0.06, Color(0.96, 0.93, 0.84, 0.6), 7)
 	# Bande d'aide : description de la commande sélectionnée.
 	var hint_p: float = _phase(0.26, 0.16)
 	if hint_p > 0.0 and not _hint.is_empty():
@@ -495,7 +497,7 @@ func _paint_front(layer: Control) -> void :
 		var fs: int = int(19 * k)
 		var width: float = minf(font.get_string_size(shown, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x, view.x * 0.42)
 		var pop: float = 1.0 if reduced else _out(clampf(_hint_time / 0.14, 0.0, 1.0))
-		var at: Vector2 = Vector2(view.x * 0.06 + (1.0 - _out(hint_p)) * -400.0 * k, view.y * 0.735)
+		var at: Vector2 = Vector2(view.x * 0.06 + (1.0 - _out(hint_p)) * -400.0 * k, view.y * 0.755)
 		var band: Rect2 = Rect2(at + Vector2(-16, -30) * k, Vector2((width + 44.0 * k) * pop, 44.0 * k))
 		var shape: PackedVector2Array = G.strip(band, 12.0 * k, 2.0, 1.5, 3 + (G.boil_frame if not reduced else 0))
 		G.polygon(item, G.offset(shape, Vector2(6, 6) * k), Color(0, 0, 0, 0.6))
