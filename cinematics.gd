@@ -49,6 +49,8 @@ const GAPS: Array[float] = [1.5, 1.25, 1.05, 0.95, 0.88, 0.82]
 
 const BEYOND: float = 3.4
 
+const VictoryFilm = preload("res://film_victories.gd")
+
 var world: Node3D
 var cast: Array[PaperVisual] = []
 var takes: Array[Take] = []
@@ -95,6 +97,8 @@ var _shake_clock: float = 0.0
 var _spots: Array[Vector3] = []
 var _dark: bool = false
 
+var victory: RefCounted = VictoryFilm.new()
+
 
 
 
@@ -104,7 +108,7 @@ static func duration_for(film: String, names: Array = []) -> float:
 	match film:
 		"intro_alice": return 5.6
 		"intro_survivors": return 7.6
-		"ending_lms": return 11.4
+		"ending_lms": return VictoryFilm.duration_for(str(names[0]) if not names.is_empty() else "Ashura")
 		"ending_killer": return 10.6
 		_: return float(_team_schedule(names).duration)
 
@@ -112,16 +116,8 @@ static func catalogue() -> Array[Dictionary]:
 	var rows: Array[Dictionary] = []
 	rows.append(_entry("intro_survivors", "Première sonnerie", "intro", "intro_survivors", PaperData.NAMES.duplicate(), "Simon", "Les élèves arrivent, se saluent, plaisantent… puis la porte de l’école grince dans leur dos."))
 	rows.append(_entry("intro_alice", "La porte interdite", "intro", "intro_alice", [], "Alice", "La porte de la chambre noire s’ouvre. Alice en sort, révèle ses ombres et frappe."))
-	var wins: Dictionary = {
-		"Ashura": "Ashura esquive en rollers, envoie son drone, charge et file vers la sortie.", 
-		"Usayuko": "Usayuko bloque, contre, puis envoie Alice valser d’un dropkick.", 
-		"Simon": "Une esquive, une flashbang, un coup éclair et un sprint boosté hors de l’école.", 
-		"Lysia": "Lysia encaisse en surchauffe, repousse Alice et rejoint la sortie.", 
-		"Elly": "Elly recule, épaule son fusil et tire à bout portant avant de s’enfuir.", 
-		"Bleuette": "Bleuette tremble, croque son chocolat, retrouve son courage et s’échappe.", 
-	}
 	for person: String in PaperData.NAMES:
-		rows.append(_entry("lms_win_" + person, person + " · Dernière chance", "lms_win", "ending_lms", [person], person, wins[person]))
+		rows.append(_entry("lms_win_" + person, VictoryFilm.title_for(person), "lms_win", "ending_lms", [person], person, VictoryFilm.description_for(person)))
 		rows.append(_entry("lms_loss_" + person, "Alice · " + person + " rattrapé", "lms_loss", "ending_killer", [person], person, "La dernière tentative de " + person + " échoue. Alice le rattrape, frappe et l’achève au sol."))
 	for mask: int in range(1, 64):
 		var team: Array = []
@@ -206,7 +202,7 @@ func begin(next: String, participants: Array, focus: String = "Ashura") -> void 
 		"intro_survivors": _write_intro_survivors()
 		"intro_alice": _write_intro_alice()
 		"ending_killer": _write_kill()
-		"ending_lms": _write_last_stand()
+		"ending_lms": victory.write(self, people[0])
 		_: _write_escape()
 	_seal()
 	show()
@@ -233,6 +229,7 @@ func _add_actor(person: String) -> void :
 
 func stop() -> void :
 	var was_playing: bool = not kind.is_empty()
+	victory.stop()
 	if world and is_instance_valid(world.school) and world.school.has_method("set_cinematic_exit_open"): world.school.set_cinematic_exit_open(false)
 
 	for n: Node in get_children():
@@ -288,6 +285,7 @@ func update(t: float, delta: float) -> void :
 		if t >= float(cut[0]) and t < float(cut[1]): black = 1.0
 	_place_props(t)
 	_camera(t, delta)
+	if victory.active: victory.update(t, delta)
 
 
 func _jump(t: float) -> void :
