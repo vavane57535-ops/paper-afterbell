@@ -7,6 +7,7 @@ extends Control
 const T = preload("res://ui_theme.gd")
 const W = preload("res://ui_widgets.gd")
 const Icons = preload("res://ui_icons.gd")
+const HpOvercap = preload("res://ui_hp_overcap.gd")
 
 
 const SHORT: Dictionary = {
@@ -47,6 +48,7 @@ var role_label: Label
 var hp_label: Label
 var hp_unit: Label
 var hp_meter: W.Meter
+var hp_overcap: HpOvercap
 var aura_row: HBoxContainer
 var aura_label: Label
 var aura_state: Label
@@ -331,6 +333,8 @@ func _build_card() -> void :
 	hp_meter = _meter(T.GREEN, 10)
 	hp_meter.ticks = 4
 	column.add_child(hp_meter)
+	hp_overcap = HpOvercap.new()
+	hp_meter.add_child(hp_overcap)
 	aura_row = HBoxContainer.new()
 	aura_row.add_theme_constant_override("separation", 6)
 	aura_row.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -737,6 +741,7 @@ func _update_card(a: PaperActor) -> void :
 	var hp_color: Color = T.AMBER if life == "downed" else T.RED if a.killer else PaperStatusIcon.COLORS.get(life, T.GREEN)
 	if a.max_hp > 0 and a.hp / a.max_hp < 0.3 and life in ["alive", "second_life"]: hp_color = T.RED
 	hp_meter.set_color(hp_color)
+	_color(hp_label, T.GOLD if hp_overcap.update_from(a, life) else T.PAPER)
 	var survivor: bool = world.ruleset == "om" and not a.killer
 	aura_row.visible = survivor
 	aura_meter.visible = survivor
@@ -923,6 +928,7 @@ func _prompt_text(a: PaperActor) -> String:
 	if bool(a.effects.get("escaped", false)): return _t("ÉCHAPPÉ · TU ES EN SÉCURITÉ")
 	if bool(a.effects.get("boost_charging", false)): return _t("CHARGE %.1f s · NIVEAU %d · RELÂCHER POUR PARTIR") % [float(a.effects.get("boost_charge", 0)), int(a.effects.get("boost_level", 0))]
 	if bool(a.effects.get("grenade_aiming", false)): return _t("VISE · CAPACITÉ 1 POUR LANCER · ANNULER POUR RENONCER")
+	if float(a.effects.get("outlet_healing", 0)) > 0 and int(a.effects.get("outlet_ashura", -1)) >= 0: return _t("BRANCHÉE · ASHURA ×1,5 · +10 PV / 1,3 s · %.1f s · BOUGER / INTERAGIR / 4 : DÉBRANCHER") % float(a.effects.outlet_healing)
 	if float(a.effects.get("outlet_healing", 0)) > 0: return _t("BRANCHÉE · +10 PV / 2 s · %.1f s · BOUGER / INTERAGIR / 4 : DÉBRANCHER") % float(a.effects.outlet_healing)
 	if a.character == "Simon" and float(a.effects.get("speed_boost", 0)) > 0: return _t("INTERAGIR · DÉPOSER TON ALLIÉ") if int(a.effects.get("carrying_id", -1)) >= 0 else _t("INTERAGIR PRÈS D’UN ALLIÉ · L’EMPORTER (SAUF LYSIA)")
 	if not a.alive: return ""
@@ -936,7 +942,7 @@ func _prompt_text(a: PaperActor) -> String:
 	if bool(a.effects.get("shadow_hide", false)): return _t("OMBRE PORTÉE · ÉMERGENCE DERRIÈRE LA CIBLE…")
 	if float(a.effects.get("phase6", 0)) > 0: return _t("TRUE FORM · %.0f s · COMPÉTENCE 4 : BONDIR") % float(a.effects.phase6)
 	if float(a.effects.get("counter", 0)) > 0: return _t("2  ·  CONTRE DISPONIBLE !")
-	if float(a.effects.get("overheat_time", 0)) > 0: return _t("SURCHAUFFE · INVULNÉRABLE · %.1f s") % float(a.effects.overheat_time)
+	if float(a.effects.get("overheat_time", 0)) > 0: return _t("SURCHAUFFE · INVULNÉRABLE · ARMURE −%d PV · %.1f s") % [int(floor(PaperSurvivorMechanics.OVERHEAT_HP_COST * clampf(1.0 - float(a.effects.overheat_time) / PaperSurvivorMechanics.OVERHEAT_SECONDS, 0.0, 1.0))), float(a.effects.overheat_time)]
 	if float(a.effects.get("heal_time", 0)) > 0: return _t("SOIN EN COURS · %.1f s") % float(a.effects.heal_time)
 	if bool(a.effects.get("drone_piloting", false)): return _t("JOYSTICK + REGARD POUR PILOTER · ANNULER POUR QUITTER") if world.mobile_mode else _t("ZQSD / WASD + SOURIS : PILOTER · CLIC DROIT : QUITTER")
 	if bool(a.effects.get("drone_active", false)): return _t("DRONE EN VOL · BATTERIE %.1f / 10 s") % float(a.effects.get("drone_battery", 0))
@@ -949,6 +955,9 @@ func _prompt_text(a: PaperActor) -> String:
 				var blocked: float = world.archive_lock_remaining(i)
 				if blocked > 0: return _t("ARCHIVE BLOQUÉE · %.1f s") % blocked
 				return _t("MAINTENIR E · SCELLER · QTE J / K / L") + "   " + str(int(float(world.objective_progress.get(i, 0)) * 100)) + " %"
+		if a.character == "Ashura":
+			for other: PaperActor in world.actors.values():
+				if other.character == "Lysia" and int(other.effects.get("outlet_ashura", -1)) == a.id: return _t("ASHURA ×1,5 · TU ACCÉLÈRES LA RECHARGE DE LYSIA")
 		if a.character == "Lysia":
 			var outlet: Dictionary = world.combat.outlet_preview(a)
 			if bool(outlet.get("ready", false)): return _t("INTERAGIR / 4 · SE BRANCHER · 15 s DE SOIN")

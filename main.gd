@@ -197,6 +197,7 @@ func _ready() -> void :
 	online_menu = PaperOnlineMenu.new();ui.root.add_child(online_menu);online_menu.setup(self)
 	presentation = PaperEffects.new();add_child(presentation);presentation.setup(self)
 	reveals = PaperRevealController.new();add_child(reveals);reveals.setup(self)
+	var survivor_fx: PaperSurvivorFx = PaperSurvivorFx.new();add_child(survivor_fx);survivor_fx.setup(self)
 	film = PaperCinema.new();add_child(film);film.setup(self)
 	gallery = PaperGallery.new(self)
 	_build_objectives()
@@ -1555,7 +1556,7 @@ func _test_tick(delta: float) -> void :
 		if not test_mode: get_tree().quit()
 	if test_mode and test_elapsed >= test_duration:
 		var summary: Dictionary = {"map": selected_map, "phase": phase, "time": clock, "remaining": time_left, "archives": objective_done.size(), "objective_reduction": objective_seconds_removed, "lms": lms, "outcome": outcome, "events": event_count, "networked": networked, "roster_size": roster.size(), "snapshots_received": messages_received, "input_packets": input_packets, "remote_actions": remote_actions, "drones": drones, "training": training, "minions": minions, "projectiles": projectiles, "actors": []}
-		for a: PaperActor in actors.values(): summary.actors.append({"id": a.id, "character": a.character, "hp": a.hp, "alive": a.alive, "position": [a.position.x, a.position.y, a.position.z], "stamina": a.stamina, "effects": a.network_effects(), "cooldowns": a.cooldowns, "bot_state": str(a.bot_state)})
+		for a: PaperActor in actors.values(): summary.actors.append({"id": a.id, "character": a.character, "hp": a.hp, "max_hp": a.max_hp, "alive": a.alive, "position": [a.position.x, a.position.y, a.position.z], "stamina": a.stamina, "effects": a.network_effects(), "cooldowns": a.cooldowns, "bot_state": str(a.bot_state)})
 		if not test_report.is_empty():
 			var f: FileAccess = FileAccess.open(test_report, FileAccess.WRITE);f.store_string(JSON.stringify(summary, "  "))
 		if perf.enabled: print("PERF_SUMMARY ", JSON.stringify(perf.summary()))
