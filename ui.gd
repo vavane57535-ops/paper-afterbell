@@ -635,7 +635,7 @@ func _main_column(column: VBoxContainer, mobile: bool) -> Control:
 		["JOUER", "play", "Préparer une manche solo contre les bots : rôle, personnage et carte."], 
 		["ENTRE AMIS", "friends", "Salon Internet par code, connexion directe, comptes et groupes."], 
 		["TERRAIN D’ESSAI", "training", "École ouverte sans chrono : teste chaque capacité, le LMS et la True Form."], 
-		["CINÉMATHÈQUE", "gallery", "Introductions, fins d’équipe et LMS."], 
+		["CINÉMATHÈQUE", "gallery", "Prologue, fins d’équipe et LMS."], 
 		["BOUTIQUE", "shop", "Des danses à acheter avec tes tickets, à faire en partie (roue des émotes, Tab)."], 
 		["RÉGLAGES", "settings", "Jeu, graphismes, audio, commandes et accessibilité."], 
 		["CRÉDITS", "credits", "Musiques, bruitages, polices et icônes."], 
@@ -1738,7 +1738,7 @@ func show_gallery() -> void :
 	_backdrop(0.62, 0.9)
 	var v: VBoxContainer = _form_panel(680)
 	_form_header(v, "LES HISTOIRES APRÈS LA CLOCHE", "Cinémathèque")
-	_paragraph("Revois les introductions et choisis qui affronte Alice. Les fins d’équipe s’adaptent aux survivants présents.", v, 16)
+	_paragraph("Revois le prologue et choisis qui affronte Alice. Les fins d’équipe s’adaptent aux survivants présents.", v, 16)
 	var back: Button = _button("←  RETOUR AU JEU", func() -> void : world.gallery.close(), 0, "GhostButton")
 	back.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	v.add_child(back)
@@ -1747,7 +1747,7 @@ func show_gallery() -> void :
 	var choice: OptionButton = OptionButton.new()
 	choice.custom_minimum_size = Vector2(300, 46)
 	filters.add_child(choice)
-	for title: String in ["Toutes les scènes", "Introductions", "LMS · Le survivant s’échappe", "LMS · Alice gagne", "Fuite en équipe · Choisir les survivants"]: choice.add_item(title)
+	for title: String in ["Toutes les scènes", "Prologue", "LMS · Le survivant s’échappe", "LMS · Alice gagne", "Fuite en équipe · Choisir les survivants"]: choice.add_item(title)
 	choice.select(maxi(0, categories.find(world.gallery.category)))
 	choice.item_selected.connect( func(index: int) -> void :
 		world.gallery.category = categories[index]

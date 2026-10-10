@@ -45,6 +45,7 @@ func filtered_entries() -> Array:
 
 func browse() -> void :
 	playing = false;browsing = true
+	if _is_prologue(): world.prologue.stop()
 	world.audio.preview_end()
 	world.film.begin("intro_survivors", PaperData.NAMES, "Simon")
 	world.film.seek(2.4)
@@ -54,14 +55,18 @@ func browse() -> void :
 
 func play_entry(item: Dictionary) -> void :
 	if world.phase != "gallery" or item.is_empty(): return
+	if _is_prologue(): world.prologue.stop()
 	entry = item.duplicate(true);time = 0.0;browsing = false;playing = true
-	world.film.begin(str(entry.kind), entry.participants, str(entry.focus))
 	var music_mode: String = "lms" if str(entry.category).begins_with("lms") else "ambient" if str(entry.category) == "intro" else "ending"
 	world.audio.preview_begin(str(entry.focus), music_mode)
+	if _is_prologue():
+		world.film.stop();world.audio.preview_pause(true)
+		world.prologue.begin_prologue(true)
+	else: world.film.begin(str(entry.kind), entry.participants, str(entry.focus))
 	world.ui.show_film();world.ui.show_gallery_transport(entry)
-	world.film.seek(0.0)
-	world.ui.update_film("", "", world.film.black)
-	world.ui.update_gallery_transport(time, world.film.duration, playing)
+	_film().seek(0.0)
+	world.ui.update_film("", "", _film().black)
+	world.ui.update_gallery_transport(time, _film().duration, playing)
 
 func tick(delta: float) -> void :
 	if browsing:
@@ -70,36 +75,52 @@ func tick(delta: float) -> void :
 			_backdrop_clock = 1.0
 			world.film.update(2.4, 0.0)
 		return
+	var current: PaperCinema = _film()
 	if playing:
-		time = minf(world.film.duration, time + delta)
-		world.film.update(time, delta)
-		if time >= world.film.duration:
-			playing = false;world.audio.preview_pause(true)
-	else: world.film.update(time, 0.0)
-	world.ui.update_film("", "", world.film.black)
-	world.ui.update_gallery_transport(time, world.film.duration, playing)
+		time = minf(current.duration, time + delta)
+		current.update(time, delta)
+		if time >= current.duration:
+			playing = false
+			if _is_prologue(): world.prologue.set_paused(true)
+			else: world.audio.preview_pause(true)
+	else: current.update(time, 0.0)
+	world.ui.update_film("", "", current.black)
+	world.ui.update_gallery_transport(time, current.duration, playing)
 
 func toggle_pause() -> void :
 	if browsing: return
-	if time >= world.film.duration: restart();return
+	if time >= _film().duration: restart();return
 	playing = not playing
-	world.audio.preview_pause( not playing)
-	world.ui.update_gallery_transport(time, world.film.duration, playing)
+	if _is_prologue(): world.prologue.set_paused( not playing)
+	else: world.audio.preview_pause( not playing)
+	world.ui.update_gallery_transport(time, _film().duration, playing)
 
 func seek(seconds: float) -> void :
 	if browsing or not is_finite(seconds): return
-	time = clampf(seconds, 0.0, world.film.duration)
-	world.film.seek(time);world.audio.preview_seek(time)
-	if time >= world.film.duration: playing = false
-	world.audio.preview_pause( not playing)
-	world.ui.update_film("", "", world.film.black)
-	world.ui.update_gallery_transport(time, world.film.duration, playing)
+	var current: PaperCinema = _film()
+	time = clampf(seconds, 0.0, current.duration)
+	current.seek(time)
+	if time >= current.duration: playing = false
+	if _is_prologue(): world.prologue.set_paused( not playing)
+	else:
+		world.audio.preview_seek(time)
+		world.audio.preview_pause( not playing)
+	world.ui.update_film("", "", current.black)
+	world.ui.update_gallery_transport(time, current.duration, playing)
+
+# Le prologue « Yiero » a son propre film (PaperPrologue), sa musique et ses bruitages.
+func _is_prologue() -> bool:
+	return str(entry.get("kind", "")) == "intro_yiero" and is_instance_valid(world.get("prologue"))
+
+func _film() -> PaperCinema:
+	return world.prologue if _is_prologue() else world.film
 
 func restart() -> void :
 	if not entry.is_empty(): play_entry(entry)
 
 func close() -> void :
 	playing = false;browsing = true
+	if _is_prologue(): world.prologue.stop()
 	world.audio.preview_end();world.film.stop()
 	world.ui.hide_gallery_transport();world.ui.hide_film()
 	if saved_map != world.selected_map: world._rebuild_map(saved_map)
