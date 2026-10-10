@@ -147,7 +147,7 @@ func _layout() -> void :
 		item.font_size_px = int(round(float(item.get_meta("base_px", 60)) * k))
 		var px: float = float(item.font_size_px)
 		item.custom_minimum_size = Vector2.ZERO
-		item.size = Vector2(minf(view.x * 0.5, 760.0 * k), px * 1.75)
+		item.size = Vector2(minf(view.x * 0.44, 680.0 * k), px * 1.6)
 		var home: Vector2 = Vector2(view.x * 0.055, view.y * 0.2 + float(i) * 128.0 * k - (8.0 * k if i == 0 else 0.0))
 		_entry_home.append(home)
 		item.position = home
@@ -379,10 +379,9 @@ func _paint_back(layer: Control) -> void :
 	# Feuille de cahier crème inclinée qui glisse depuis la droite.
 	var sheet_p: float = _phase(0.03, 0.24)
 	var sheet_x: float = view.x * 0.62 * (1.0 - (_back_out(sheet_p) if _closing < 0.0 else _out(sheet_p)))
-	var sheet: PackedVector2Array = PackedVector2Array()
 	var top_left: Vector2 = Vector2(view.x * 0.5 + sheet_x, -60.0)
 	var bottom_left: Vector2 = Vector2(view.x * 0.33 + sheet_x, view.y + 60.0)
-	G.edge(sheet, top_left, bottom_left, 9.0 * k, 5, 16.0)
+	var sheet: PackedVector2Array = G.edge_points(top_left, bottom_left, 9.0 * k, 5, 16.0).duplicate()
 	sheet.append(bottom_left)
 	sheet.append(Vector2(view.x + 80.0 + sheet_x, view.y + 60.0))
 	sheet.append(Vector2(view.x + 80.0 + sheet_x, -60.0))
@@ -401,16 +400,15 @@ func _paint_back(layer: Control) -> void :
 	var red_from: Vector2 = Vector2(- view.x * 0.08, view.y * 1.12)
 	var red_to: Vector2 = Vector2(view.x * 0.66, - view.y * 0.14)
 	var red_tip: Vector2 = red_from.lerp(red_to, _back_out(red_p) if _closing < 0.0 else _out(red_p))
-	var breathe: float = sin(t * 2.1) * 6.0 * k * motion
 	if red_tip.distance_to(red_from) > 4.0:
-		var band: PackedVector2Array = G.band(red_from, red_tip, 470.0 * k + breathe, 11, 26.0 * k)
+		var band: PackedVector2Array = G.band(red_from, red_tip, 470.0 * k, 11, 26.0 * k)
 		G.polygon(item, G.offset(band, Vector2(18, 22) * k), Color(0, 0, 0, 0.45))
 		G.polygon(item, band, _red.darkened(0.1))
 		var lift: Vector2 = (red_to - red_from).normalized().orthogonal()
 		# Hachures d'encre rouge foncé dans la bande (texture imprimée).
 		for stripe: int in range(-3, 4):
 			var off: Vector2 = lift * (float(stripe) * 58.0 * k + fposmod(t * 18.0 * motion, 58.0 * k))
-			G.polygon(item, G.band(red_from + off, red_tip + off * 1.0, 7.0 * k, 31 + stripe, 2.0), Color(_red.darkened(0.42), 0.55))
+			G.polygon(item, G.quad_band(red_from + off, red_tip + off, 7.0 * k), Color(_red.darkened(0.42), 0.55))
 		G.polygon(item, G.band(red_from + lift * 262.0 * k, red_tip + lift * 262.0 * k, 12.0 * k, 17, 4.0), T.CREAM)
 	# Bande d'encre derrière la liste (contraste), légèrement décalée.
 	var ink_p: float = _phase(0.05, 0.2)

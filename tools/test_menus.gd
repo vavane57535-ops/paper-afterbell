@@ -144,7 +144,10 @@ func _run() -> void :
 	var ui: Node = world.ui
 	_note("viewport " + str(get_viewport().get_visible_rect().size))
 	if "main" in menus:
-		await _burst("main_open", func() -> void : ui.show_main(), [0, 80, 160, 300, 500, 900, 1600])
+		# Comme au lancement du jeu : page vide puis menu principal.
+		await _burst("main_open", func() -> void :
+			ui._clear(ui.page)
+			ui.show_main(), [0, 80, 160, 300, 500, 900, 1600])
 	if "nav" in menus:
 		await _wait_game(0.4)
 		await _burst("main_down", func() -> void : _key(&"ui_down"), [0, 60, 120, 240])

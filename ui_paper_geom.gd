@@ -63,41 +63,77 @@ static func cut(rect: Rect2, seed_value: int, sharp: float = 0.18) -> PackedVect
 	return points
 
 
+# Formes mémorisées : les décors redessinent chaque image les mêmes bandes
+# une fois leur entrée finie ; inutile de recalculer les bords en GDScript.
+static var _cache: Dictionary = {}
+
+static func _remember(key: Array, points: PackedVector2Array) -> PackedVector2Array:
+	if _cache.size() > 1500: _cache.clear()
+	_cache[key] = points
+	return points
+
 # Bande diagonale déchirée entre deux points, d'épaisseur donnée.
 static func band(from: Vector2, to: Vector2, thickness: float, seed_value: int, jitter: float = 10.0) -> PackedVector2Array:
+	var key: Array = [1, from.round(), to.round(), roundf(thickness), seed_value, roundf(jitter)]
+	if _cache.has(key): return _cache[key]
 	var points: PackedVector2Array = PackedVector2Array()
 	var length: float = from.distance_to(to)
 	if length < 1.0: return points
 	var normal: Vector2 = (to - from).normalized().orthogonal()
 	var half: float = thickness * 0.5
-	var steps: int = maxi(2, int(length / 40.0))
+	var steps: int = maxi(2, int(length / 60.0))
 	for i: int in range(steps + 1):
 		var t: float = float(i) / float(steps)
 		points.append(from.lerp(to, t) + normal * (half + (noise(seed_value, i) - 0.5) * jitter))
 	for i: int in range(steps, -1, -1):
 		var t: float = float(i) / float(steps)
 		points.append(from.lerp(to, t) - normal * (half + (noise(seed_value + 7, i) - 0.5) * jitter))
-	return points
+	return _remember(key, points)
+
+
+# Bande droite sans déchirure (hachures qui défilent) : 4 sommets.
+static func quad_band(from: Vector2, to: Vector2, thickness: float) -> PackedVector2Array:
+	var normal: Vector2 = (to - from).normalized().orthogonal() * thickness * 0.5
+	return PackedVector2Array([from + normal, to + normal, to - normal, from - normal])
+
+
+# Bord découpé mémorisé (même usage que edge, renvoie les points).
+static func edge_points(from: Vector2, to: Vector2, jitter: float, seed_value: int, step: float = 10.0) -> PackedVector2Array:
+	var key: Array = [2, from.round(), to.round(), roundf(jitter * 10.0), seed_value, roundf(step)]
+	if _cache.has(key): return _cache[key]
+	var points: PackedVector2Array = PackedVector2Array()
+	edge(points, from, to, jitter, seed_value, step)
+	return _remember(key, points)
 
 
 static func offset(points: PackedVector2Array, by: Vector2) -> PackedVector2Array:
+	var key: Array = [3, hash(points), points.size(), by]
+	if _cache.has(key): return _cache[key]
 	var result: PackedVector2Array = PackedVector2Array()
 	result.resize(points.size())
 	for i: int in range(points.size()): result[i] = points[i] + by
-	return result
+	return _remember(key, result)
 
 
 static func transformed(points: PackedVector2Array, xform: Transform2D) -> PackedVector2Array:
-	var result: PackedVector2Array = PackedVector2Array()
-	result.resize(points.size())
-	for i: int in range(points.size()): result[i] = xform * points[i]
-	return result
+	var key: Array = [4, hash(points), points.size(), xform]
+	if _cache.has(key): return _cache[key]
+	return _remember(key, xform * points)
 
 
 # Remplit un polygone sans message d'erreur si la triangulation échoue.
+static var _triangles: Dictionary = {}
+
 static func polygon(item: RID, points: PackedVector2Array, color: Color) -> void :
 	if points.size() < 3 or color.a <= 0.003: return
-	var triangles: PackedInt32Array = Geometry2D.triangulate_polygon(points)
+	var key: int = hash(points) ^ points.size()
+	var triangles: PackedInt32Array
+	var known: Variant = _triangles.get(key)
+	if known is Array and int(known[0]) == points.size(): triangles = known[1]
+	else:
+		triangles = Geometry2D.triangulate_polygon(points)
+		if _triangles.size() > 600: _triangles.clear()
+		_triangles[key] = [points.size(), triangles]
 	if triangles.is_empty(): return
 	RenderingServer.canvas_item_add_triangle_array(item, triangles, points, PackedColorArray([color]))
 

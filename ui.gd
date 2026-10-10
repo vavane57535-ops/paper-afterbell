@@ -424,7 +424,7 @@ func _begin_page(id: String, preview: String = "", focus_x: float = 0.66) -> voi
 	_cascade_lists.clear()
 	# Même page reconstruite (aperçu de danse, choix de carte…) : pas de
 	# nouvelle entrée en cascade ni de glissement du panneau.
-	_page_rerender = previous == id and not _quiet_page
+	_page_rerender = previous == id and not _quiet_page and page.visible and page.get_child_count() > 0
 	_retire_decors(animate)
 	if animate: _retire_page(id)
 	else:
