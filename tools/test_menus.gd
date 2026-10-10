@@ -108,8 +108,11 @@ func _mouse_to(point: Vector2) -> void :
 	var motion: InputEventMouseMotion = InputEventMouseMotion.new()
 	motion.position = point
 	motion.global_position = point
-	get_viewport().warp_mouse(point)
+	Input.warp_mouse(point)
 	Input.parse_input_event(motion)
+	var local: Vector2 = get_tree().root.get_final_transform().affine_inverse() * point
+	var hovered: Control = get_viewport().gui_get_hovered_control()
+	_note("souris → %s (canevas %s) : %s" % [point, local, hovered.get_class() + ":" + str(hovered.get("text")) if hovered else "<rien>"])
 
 func _click(point: Vector2) -> void :
 	_mouse_to(point)
@@ -127,9 +130,12 @@ func _focus_name() -> String:
 	var text: String = str(focus.get("text")) if "text" in focus else ""
 	return focus.get_class() + ":" + text
 
+# Centre du contrôle en coordonnées de la fenêtre (les événements souris
+# injectés sont convertis par l'étirement « canvas_items »).
 func _hovered_center(control: Control) -> Vector2:
 	var rect: Rect2 = control.get_global_rect()
-	return get_viewport().get_screen_transform() * rect.get_center()
+	var stretch: Transform2D = get_tree().root.get_final_transform()
+	return stretch * rect.get_center()
 
 func _find_text(node: Node, text: String) -> Control:
 	for child: Node in node.get_children():

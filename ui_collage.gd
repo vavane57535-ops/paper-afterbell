@@ -14,7 +14,9 @@ const CHIP_CREAM: int = 1
 const CHIP_INK: int = 2
 const CHIP_RED: int = 3
 const INK_CHIP: Color = Color("15131b")
-const KEEP_CASE: String = "ÉÈÊËÀÂÇÔÛÙÎÏ’'·-–—!?.:,0123456789"
+# Lettres jamais passées en minuscule : accents, et I/J/L/T dont la minuscule
+# se confond avec une autre lettre dans la police d'affichage.
+const KEEP_CASE: String = "ÉÈÊËÀÂÇÔÛÙÎÏIJLT’'·-–—!?.:,0123456789"
 
 static var _layouts: Dictionary = {}
 

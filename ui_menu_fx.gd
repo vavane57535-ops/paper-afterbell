@@ -15,6 +15,7 @@ extends Node
 const T = preload("res://ui_theme.gd")
 const G = preload("res://ui_paper_geom.gd")
 const C = preload("res://ui_collage.gd")
+const Sound = preload("res://ui_sound.gd")
 
 const BOIL_STEP: float = 0.125
 
@@ -101,7 +102,10 @@ func _set_lit(previous: Control, next: Control) -> void :
 	var next_row: Control = _row_of(next) if is_instance_valid(next) else null
 	if row != next_row:
 		if is_instance_valid(row): row.call("set_row_lit", false, reduced)
-		if is_instance_valid(next_row): next_row.call("set_row_lit", true, reduced)
+		if is_instance_valid(next_row):
+			next_row.call("set_row_lit", true, reduced)
+			# Survol d'une ligne à la souris : petit « tic » de curseur.
+			if T.pointer_mode and not (next is BaseButton): Sound.play("hover")
 		_row = weakref(next_row)
 	if not is_instance_valid(next) or reduced: return
 	if _owns_motion(next) or not (next is BaseButton) or (next is BaseButton and (next as BaseButton).disabled): return
