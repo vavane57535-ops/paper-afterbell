@@ -7,11 +7,14 @@ var lms_keeps_exit: bool = false
 var escaped: Array[int] = []
 var escaped_names: Array[String] = []
 var true_form: bool = false
+# Une fois ouverte par le chrono, la sortie le reste : le bonus de +45 s d'une
+# élimination ne la referme pas (True Form et LMS gardent leurs règles).
+var held_open: bool = false
 
 func _init(owner: Node) -> void : world = owner
 
 func clear() -> void :
-	opened = false;lms_keeps_exit = false;true_form = false;escaped.clear();escaped_names.clear()
+	opened = false;lms_keeps_exit = false;true_form = false;held_open = false;escaped.clear();escaped_names.clear()
 	if world.school: world.school.set_cinematic_exit_open(false)
 
 func is_open() -> bool: return opened
@@ -35,7 +38,8 @@ func unpack(data: Dictionary) -> void :
 func tick() -> void :
 	if world.training or world.phase != "playing": return
 	true_form = timer_paused()
-	var desired: bool = (world.time_left <= 80.0 or (world.lms and lms_keeps_exit)) and not true_form
+	if world.time_left <= 80.0 and not world.lms: held_open = true
+	var desired: bool = (world.time_left <= 80.0 or (world.lms and lms_keeps_exit) or (held_open and not world.lms)) and not true_form
 	if desired != opened:
 		opened = desired;world.school.set_cinematic_exit_open(opened)
 		world.event("exit_state", {"state": pack(), "position": world.school.escape_position, "text": "LA SORTIE EST OUVERTE · ÉCHAPPEZ-VOUS" if opened else "TRUE FORM · LA SORTIE SE REFERME" if true_form else "LMS · LA SORTIE SE REFERME"})

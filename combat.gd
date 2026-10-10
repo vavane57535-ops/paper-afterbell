@@ -123,8 +123,16 @@ func _fatal_damage(victim, source_id: int, cause: String):
 		var data: Dictionary = _life_event(victim, source_id, cause)
 		data["bleedout"] = BLEEDOUT_SECONDS
 		world.event("downed", data)
-	else:
+	elif not _begin_execution(victim, source_id, cause):
 		_begin_death(victim, source_id, cause)
+
+# Dernière vie + coup fatal d'Alice : exécution mise en scène (kill_scenes.gd).
+func _begin_execution(victim, source_id: int, cause: String) -> bool:
+	var scenes = world.get("kill_scenes")
+	return scenes != null and scenes.begin(victim, source_id, cause)
+
+func _kill_locked(actor) -> bool:
+	return actor != null and float(actor.effects.get("kill_lock", 0.0)) > 0.0
 
 func _interrupt_life_actions(actor):
 	_cancel_charge(actor)
@@ -453,9 +461,12 @@ func tick(delta: float):
 	_tick_projectiles(delta)
 	_tick_drones(delta)
 	_tick_zones(delta)
+	var scenes = world.get("kill_scenes")
+	if scenes != null: scenes.tick(delta)
 
 
 func damage(victim, amount: float, source, indirect: bool = false, cause: String = "slash", origin: Variant = null):
+	if _kill_locked(victim): return
 	if not _can_act(victim) or amount <= 0.0 or _effect(victim, "recover") > 0.0 or _effect(victim, "revive_invuln") > 0.0 or _effect(victim, "overheat_time") > 0 or _effect(victim, "overheat_charge") > 0:
 		return
 	if bool(victim.effects.get("shadow_hide", false)): return
@@ -509,6 +520,7 @@ func damage(victim, amount: float, source, indirect: bool = false, cause: String
 		_fatal_damage(victim, source_id, cause)
 
 func stun(victim, duration: float, source):
+	if _kill_locked(victim): return
 	if not _can_act(victim) or duration <= 0.0:
 		return
 	if bool(victim.effects.get("shadow_hide", false)): return
