@@ -20,6 +20,10 @@ static func _pocket_r(flare: float = 0.5) -> Dictionary:
 static func _pocket(flare_l: float = 0.5, flare_r: float = 0.5) -> Dictionary:
 	return M([_pocket_l(flare_l), _pocket_r(flare_r)])
 
+# En marchant / trottinant : mains enfoncées dans les poches avant de la veste, coudes un peu pliés vers l'arrière.
+static func _pocket_walk(flare_l: float = 0.55, flare_r: float = 0.55) -> Dictionary:
+	return M([Lt(-0.1, -0.75, 0.22, flare_l), Rt(-0.1, -0.75, 0.22, flare_r)])
+
 
 
 static func _slouch() -> Dictionary:
@@ -59,32 +63,30 @@ static func _carriage(c: Dictionary) -> void :
 		[1.2, M([FL(0.06, 0.19), FR(0.14, -0.17), H(-0.02, -0.25, 0.01), R(0.62, -0.68, 0.24, 0.25)])], 
 	]}
 
+	# Marche et footing sans sprint : mains dans les poches (pocket@Ashura, posé par-dessus la foulée
+	# procédurale de character_visual.gd). Il les sort dès qu'il sprinte et les bras reprennent leur balancier.
 	c["walk@Ashura"] = {"len": 1.0, "loop": true, "add": true, "keys": [
-		[0.0, M([{"curl": 0.7}])], 
-		[0.1, M([C(0.05, 0.2, 0.1)])], 
-		[0.18, M([HD(-0.05, -0.16, -0.08), _pocket(0.65, 0.35)])], 
-		[0.43, M([HD(0.02, 0.0, 0.0)])], 
-		[0.6, M([C(0.05, -0.2, -0.1)])], 
-		[0.68, M([HD(-0.05, 0.16, 0.08), _pocket(0.35, 0.65)])], 
-		[0.93, M([HD(0.02, 0.0, 0.0)])], 
+		[0.0, M([C(0.03, 0.06, 0.03), HD(-0.03, -0.07, -0.04)])],
+		[0.25, M([C(0.04, 0.0, 0.0), HD(0.0, 0.0, 0.0)])],
+		[0.5, M([C(0.03, -0.06, -0.03), HD(-0.03, 0.07, 0.04)])],
+		[0.75, M([C(0.04, 0.0, 0.0), HD(0.0, 0.0, 0.0)])],
+	]}
+
+	c["pocket@Ashura"] = {"len": 1.0, "loop": true, "add": true, "keys": [
+		[0.0, M([_pocket_walk(0.55, 0.45), C(0.05, 0.0, 0.0), {"curl": 0.8}])],
+		[0.25, M([_pocket_walk(0.5, 0.5), C(0.07, 0.0, 0.0)])],
+		[0.5, M([_pocket_walk(0.45, 0.55), C(0.05, 0.0, 0.0)])],
+		[0.75, M([_pocket_walk(0.5, 0.5), C(0.07, 0.0, 0.0)])],
 	]}
 
 	c["run@Ashura"] = {"len": 1.0, "loop": true, "add": true, "keys": [
-		[0.0, M([C(0.04, 0.26, -0.08), {"curl": 0.25}])], 
-		[0.06, M([R(0.42, -0.72, 0.5, 0.15), L(0.62, -0.58, -0.5, 0.4), HD(0.02, -0.2, 0.05)])], 
-		[0.16, M([WR(-0.4), WL(0.35)])], 
-		[0.5, M([C(0.04, -0.26, 0.08)])], 
-		[0.56, M([L(0.42, -0.72, 0.5, 0.15), R(0.62, -0.58, -0.5, 0.4), HD(0.02, 0.2, -0.05)])], 
-		[0.66, M([WL(-0.4), WR(0.35)])], 
+		[0.0, M([HD(0.02, -0.05, 0.03), {"curl": 0.4}])],
+		[0.5, M([HD(0.02, 0.05, -0.03)])],
 	]}
 
 	c["sprint@Ashura"] = {"len": 1.0, "loop": true, "add": true, "keys": [
-		[0.0, M([B(0.12), C(0.08, 0.32, -0.1), HD(0.3, -0.28, 0.06), {"curl": 0.15}])], 
-		[0.05, M([R(-0.32, -0.5, 0.6, 0.25), L(0.7, -0.02, -0.68, 0.4)])], 
-		[0.3, M([R(0.3, -0.9, 0.05, 0.1), L(0.35, -0.9, 0.0, 0.1)])], 
-		[0.5, M([C(0.08, -0.32, 0.1), HD(0.3, 0.28, -0.06)])], 
-		[0.55, M([L(-0.32, -0.5, 0.6, 0.25), R(0.7, -0.02, -0.68, 0.4)])], 
-		[0.8, M([L(0.3, -0.9, 0.05, 0.1), R(0.35, -0.9, 0.0, 0.1)])], 
+		[0.0, M([C(0.04, 0.0, 0.0), HD(0.08, -0.04, 0.02), {"curl": 0.4}])],
+		[0.5, M([C(0.04, 0.0, 0.0), HD(0.08, 0.04, -0.02)])],
 	]}
 
 

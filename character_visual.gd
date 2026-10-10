@@ -9,9 +9,7 @@ const AnimFace = preload("res://anim_face.gd")
 const AnimStyle = preload("res://anim_style.gd")
 const AnimClip = preload("res://anim_clip.gd")
 const AnimLibrary = preload("res://anim_library.gd")
-const CADENCE_SPEEDS: PackedFloat32Array = [0.0, 1.0, 2.0, 3.5, 6.3, 10.2, 14.0, 22.0]
-const CADENCE_VALUES: PackedFloat32Array = [0.8, 0.95, 1.08, 1.25, 1.42, 1.68, 1.82, 2.0]
-const SWING_KNOTS: PackedFloat32Array = [0.0, 0.2, 0.45, 0.7, 0.88, 1.0]
+const AnimGait = preload("res://anim_gait.gd")
 
 
 
@@ -150,6 +148,15 @@ var _g_lift: float = 0.0
 var _g_run: float = 0.0
 var _g_sprint: float = 0.0
 var _g_move: float = 0.0
+var _g_boost: float = 0.0
+var _g_flight: float = 0.0
+var _g_pocket: float = 0.0
+var _g_lift_off: Dictionary = {}
+var _g_weights: PackedFloat32Array = PackedFloat32Array([1.0, 0.0, 0.0, 0.0])
+var _g_par: PackedFloat32Array = PackedFloat32Array()
+var _g_thigh: PackedFloat32Array = PackedFloat32Array()
+var _g_knee: PackedFloat32Array = PackedFloat32Array()
+var _g_ankle: PackedFloat32Array = PackedFloat32Array()
 var _stride_factor: float = 1.0
 var _arm_weight: float = 1.0
 
@@ -216,6 +223,7 @@ var _st_piloting: bool = false
 var _st_grinding: bool = false
 var _st_charge: float = 0.0
 var _st_speed_boost: bool = false
+var _st_sprinting: bool = false
 var _st_carrying: bool = false
 var _st_carried: bool = false
 var _st_eating: float = 0.0
@@ -314,8 +322,6 @@ var _speak_left: float = 0.0
 var _speak_intensity: float = 1.0
 
 var _calm: bool = false
-var _swing_z: PackedFloat32Array = PackedFloat32Array([0, 0, 0, 0, 0, 0])
-var _swing_y: PackedFloat32Array = PackedFloat32Array([0, 0, 0, 0, 0, 0])
 
 var last_cue: String = ""
 var last_cue_time: float = 0.0
@@ -925,6 +931,7 @@ func _read_state(velocity: Vector3) -> void :
 		_st_chased = false;_st_lms = false;_st_om = false;_st_injured = false
 		_st_block = false;_st_grab_hold = false;_st_knocked = false;_st_aim_flash = false
 		_st_overheat_dash = false;_st_blind = false;_st_shadow_hide = false;_was_shadow_hidden = false
+		_st_sprinting = false
 		return
 	_st_grounded = bool(s.get("grounded", true))
 	_st_vertical = float(s.get("vertical_speed", velocity.y))
@@ -953,6 +960,7 @@ func _read_state(velocity: Vector3) -> void :
 	var ashura: bool = character_name == "Ashura"
 
 	_st_boost_time = ashura and boosted
+	_st_sprinting = bool(s.get("sprinting", false))
 	_st_speed_boost = boosted and not ashura
 	_st_grinding = ashura and bool(s.get("grinding", false))
 	_st_eating = float(s.get("chocolate_eating", 0)) if character_name == "Bleuette" else 0.0
@@ -1332,29 +1340,34 @@ func _reset_pose(legs: bool = true) -> void :
 
 func _update_gait(speed: float) -> void :
 	var leg_m: float = maxf(_leg_reach * _model_scale, 0.3)
-	var size: float = sqrt(leg_m / 0.64)
 	_g_move = smoothstep(0.08, 0.6, speed)
-	_g_run = smoothstep(2.0, 4.6, speed)
-	_g_sprint = smoothstep(7.2, 10.2, speed)
-	var cadence: float = _curve(CADENCE_SPEEDS, CADENCE_VALUES, speed) / size * float(_style.cadence)
+	_g_run = smoothstep(2.0, 3.6, speed)
+	_g_sprint = smoothstep(6.6, 10.0, speed)
+	_g_boost = smoothstep(12.0, 19.0, speed)
+	_g_weights[AnimGait.WALK] = 1.0 - _g_run
+	_g_weights[AnimGait.RUN] = _g_run * (1.0 - _g_sprint)
+	_g_weights[AnimGait.SPRINT] = _g_run * _g_sprint * (1.0 - _g_boost)
+	_g_weights[AnimGait.BOOST] = _g_run * _g_sprint * _g_boost
+	AnimGait.mix(_g_weights, _g_par, _g_thigh, _g_knee, _g_ankle, float(_style.knee_lift), float(_style.heel_kick))
 
-	var sweep_legs: float = lerpf(0.74, 0.92, _g_run) * float(_style.stride)
-	var sweep_m: float = leg_m * minf(sweep_legs, 0.25 + 0.9 * smoothstep(0.0, 1.4, speed))
-	var stance: float = clampf(sweep_m * cadence / maxf(speed, 0.001), 0.1, 0.66)
+	# Cadence réelle selon la vitesse (jambes courtes = pas plus rapides), puis course du pied d'appui :
+	# le pied posé recule exactement à la vitesse du sol, la part d'appui en découle (pas de glissement).
+	var cadence: float = AnimGait.cadence(speed) * sqrt(AnimGait.REFERENCE_LEG / leg_m) * float(_style.cadence)
+	var sweep_max: float = leg_m * _g_par[AnimGait.P_SWEEP] * float(_style.stride)
+	var duty_goal: float = _g_par[AnimGait.P_DUTY]
+	var sweep_m: float = minf(sweep_max, duty_goal * speed / maxf(cadence, 0.1))
 
-	stance = maxf(stance, 0.53 * (1.0 - _g_run))
+	var walk_cadence: float = 0.56 * speed / maxf(sweep_max, 0.05)
+	cadence = lerpf(cadence, maxf(cadence, walk_cadence), _g_weights[AnimGait.WALK])
+	sweep_m = minf(sweep_max, duty_goal * speed / maxf(cadence, 0.1))
+	var stance: float = clampf(sweep_m * cadence / maxf(speed, 0.001), 0.08, 0.66)
 	_g_cadence = cadence if speed > 0.02 else 0.0
 	_g_stance = stance
 	_g_sweep = sweep_m / _model_scale
-	_g_lift = lerpf(0.62, 1.0, _g_sprint) * float(_style.knee_lift)
 
-static func _curve(xs: PackedFloat32Array, ys: PackedFloat32Array, x: float) -> float:
-	if x <= xs[0]: return ys[0]
-	for i in range(1, xs.size()):
-		if x < xs[i]:
-			var u: float = (x - xs[i - 1]) / (xs[i] - xs[i - 1])
-			return lerpf(ys[i - 1], ys[i], u)
-	return ys[ys.size() - 1]
+	var flight: float = maxf(0.0, 0.5 - stance) / maxf(cadence, 0.1)
+	_g_flight = 9.8 * flight * flight / 8.0 / _model_scale
+	_g_lift = float(_style.knee_lift)
 
 func _locomotion(dt: float) -> void :
 	_update_gait(_move_blend)
@@ -1389,6 +1402,13 @@ func _style_overlays(dt: float) -> void :
 	if walking > 0.01:
 		var walk: Dictionary = _get_clip("walk")
 		if not walk.is_empty(): _apply_clip(walk, _gait_phase * float(walk.len), walking, before * float(walk.len))
+	var pocket: Dictionary = _get_clip("pocket")
+	if not pocket.is_empty():
+
+
+		var keep: bool = not _st_sprinting and not _st_speed_boost and not _st_boost_time and _move_blend < 8.6 and _life_state == "alive"
+		_g_pocket = move_toward(_g_pocket, (1.0 - 0.6 * _air_blend) if keep else 0.0, dt * (3.5 if keep else 5.0))
+		if _g_pocket * _g_move > 0.01: _apply_clip(pocket, _gait_phase * float(pocket.len), _g_pocket * _g_move, before * float(pocket.len))
 	var running: float = _g_run * _g_move
 	if running > 0.01:
 		var boost: Dictionary = _get_clip("boost") if _boost_blend > 0.01 else {}
@@ -1487,146 +1507,178 @@ func _idle_pose(dt: float) -> void :
 func _gait_pose(phase: float, direction: Vector3) -> void :
 	var move: float = _g_move
 	var run: float = _g_run * move
-	var sprint: float = _g_sprint * move
+	var par: PackedFloat32Array = _g_par
 	var stance: float = _g_stance
-	var half: float = _g_sweep * 0.5
 	var leg: float = _leg_reach
 	var cycle: float = TAU * phase
 	var forward: float = clampf( - direction.z, -1.0, 1.0)
 	var ahead: float = maxf(forward, 0.0)
 	var glide: float = float(_style.glide)
 	var snappy: float = float(_style.snappy)
+	var pocket: float = _g_pocket
+
+
 
 	var step: float = fposmod(phase * 2.0, 1.0)
 	var step_stance: float = minf(stance * 2.0, 1.0)
-	var walk_bob: float = 0.02 * leg * cos(TAU * (step - 0.5))
+	var lead: float = _g_sweep * par[AnimGait.P_LEAD]
+	var rest_drop: float = (float(_hip_rest[-1].y) + float(_hip_rest[1].y) - float(_foot_rest[-1].y) - float(_foot_rest[1].y)) * 0.5
+	var reach: float = leg * 0.97
+	var touchdown: float = maxf(0.0, rest_drop - sqrt(maxf(reach * reach - lead * lead, 0.0)))
+	var crouch: float = (par[AnimGait.P_CROUCH] * leg + touchdown * _g_run) * move * (1.0 - 0.5 * glide)
+	var walk_bob: float = - 0.6 * touchdown * (0.5 + 0.5 * cos(TAU * step)) + 0.006 * leg
 	var run_bob: float = 0.0
-	if step < step_stance: run_bob = -0.03 * leg * sin(PI * step / maxf(step_stance, 0.01))
-	else: run_bob = (0.045 + 0.025 * _g_sprint + 0.03 * float(_style.hop)) * leg * sin(PI * (step - step_stance) / maxf(1.0 - step_stance, 0.01))
-	var bob: float = lerpf(walk_bob, run_bob, _g_run) * float(_style.bob) * move
-	var crouch: float = (0.012 + 0.03 * _g_run + 0.02 * _g_sprint) * leg * move * (1.0 - 0.5 * glide)
-	var sway: float = - (0.022 - 0.014 * _g_run) * leg * float(_style.sway) * move * sin(cycle)
-	var roll: float = - (0.045 - 0.025 * _g_run) * float(_style.sway) * move * sin(cycle)
-	var pelvis_yaw: float = - (0.08 + 0.05 * _g_run + 0.03 * _g_sprint) * move * cos(cycle) * (1.0 - 0.5 * glide)
-	var lean: float = (0.06 + 0.3 * _g_run + 0.26 * _g_sprint) * float(_style.lean) * move
-	var pitch: float = - lean * lerpf(0.4, 1.0, ahead) + 0.05 * move * maxf( - forward, 0.0) + _lean_pitch
+	if step < step_stance: run_bob = - par[AnimGait.P_PRESS] * float(_style.press) * leg * sin(PI * step / maxf(step_stance, 0.01))
+	else: run_bob = _g_flight * (1.0 + 0.5 * float(_style.hop)) * sin(PI * (step - step_stance) / maxf(1.0 - step_stance, 0.01))
+	var bob: float = lerpf(walk_bob, run_bob, _g_run) * float(_style.bob) * move * (1.0 - 0.6 * glide)
+	var sway: float = - par[AnimGait.P_SWAY] * leg * float(_style.sway) * move * sin(cycle)
+
+	var list: float = 0.0
+	for side in [-1, 1]:
+		var p: float = phase if side < 0 else fposmod(phase + 0.5, 1.0)
+		if p < stance: list += float(side) * sin(PI * p / maxf(stance, 0.01))
+	var roll: float = list * par[AnimGait.P_ROLL] * float(_style.sway) * move * (1.0 - 0.5 * glide)
+	var pelvis_yaw: float = - par[AnimGait.P_YAW] * move * cos(cycle + 0.12) * (1.0 - 0.5 * glide) * lerpf(1.0, 0.45, snappy)
+	var lean: float = par[AnimGait.P_LEAN] * float(_style.lean) * move * lerpf(0.4, 1.0, ahead)
+	var dip: float = - 0.025 * run * cos(TAU * step - 0.9)
+	var pitch: float = - lean * 0.45 + dip + 0.05 * move * maxf( - forward, 0.0) + _lean_pitch
 	var body_roll: float = roll + _lean_roll
 	var hips: Vector3 = Vector3(sway, bob - crouch, 0.0)
 	var body_rot: Vector3 = Vector3(pitch, pelvis_yaw, body_roll)
 
-	var chest_yaw: float = - pelvis_yaw * (1.6 - 0.6 * snappy)
-	var chest_rot: Vector3 = Vector3( - float(_style.slouch) * 0.6 - 0.04 * _g_sprint * move, chest_yaw, - body_roll * 0.45)
+
+	var twist: float = par[AnimGait.P_TWIST] * float(_style.twist) * (1.0 + 0.7 * pocket)
+	var chest_yaw: float = - pelvis_yaw * (1.0 + twist) * (1.0 - 0.75 * snappy)
+	var chest_rot: Vector3 = Vector3( - float(_style.slouch) * 0.6 - lean * 0.55 - dip * 0.5, chest_yaw, - body_roll * 0.6)
 	var turn_look: float = clampf(_yaw_rate * 0.12, -0.45, 0.45)
 	var nod: float = 0.0
-	if snappy < 0.5: nod = 0.035 * _g_run * move * sin(TAU * step - 0.6)
-	var head_rot: Vector3 = Vector3( - (pitch + chest_rot.x) * 0.6 + nod - float(_style.head_fwd) * 0.4 * move, - (pelvis_yaw + chest_yaw) * 0.85 + turn_look, - body_roll * 0.55)
+	if snappy < 0.5: nod = par[AnimGait.P_NOD] * run * sin(TAU * step - 0.6)
+	var head_rot: Vector3 = Vector3( - (pitch + chest_rot.x) * 0.68 + nod - float(_style.head_fwd) * 0.4 * move, - (pelvis_yaw + chest_yaw) * 0.85 + turn_look, - body_roll * 0.55)
 	_blend_body(hips, body_rot, chest_rot, head_rot, move)
 
 
 
 	var swing_amount: float = float(_style.arm_swing)
-	var lag: float = 0.22
 	for side in [-1, 1]:
 		var sign_side: float = 1.0 if side > 0 else -1.0
-		var swing: float = cos(cycle - lag) * sign_side
-		var swing_elbow: float = cos(cycle - lag - float(_style.elbow_lag)) * sign_side
+
+		var arm_phase: float = cycle + 0.15 + (PI if side < 0 else 0.0)
+		var swing: float = cos(arm_phase)
+		var swing_elbow: float = cos(arm_phase - float(_style.elbow_lag))
 		if snappy > 0.5:
 			swing = tanh(2.4 * swing) / tanh(2.4)
 			swing_elbow = swing
 		var front: float = maxf(0.0, swing)
 		var back: float = maxf(0.0, - swing)
-		var arm_x: float = lerpf(0.3 * swing, 0.06 + 0.6 * swing, _g_run)
-		arm_x = lerpf(arm_x, 0.1 + 0.92 * swing, _g_sprint) * swing_amount
-		var elbow: float = lerpf(0.2 + 0.18 * maxf(0.0, swing_elbow), 1.2 + 0.28 * maxf(0.0, swing_elbow) - 0.12 * maxf(0.0, - swing_elbow), _g_run)
-		elbow = lerpf(elbow, 1.4 + 0.4 * maxf(0.0, swing_elbow) - 0.3 * maxf(0.0, - swing_elbow), _g_sprint) + float(_style.elbow) * _g_run
-		var arm_z: float = side * (0.11 + 0.07 * _g_run + float(_style.arm_out))
-		var arm_y: float = side * 0.28 * front * _g_run
+		var arm_x: float = (par[AnimGait.P_ARM_F] * front - par[AnimGait.P_ARM_B] * back) * swing_amount + 0.06 * run
+		var elbow: float = par[AnimGait.P_ELB] + par[AnimGait.P_ELB_F] * maxf(0.0, swing_elbow) - par[AnimGait.P_ELB_B] * maxf(0.0, - swing_elbow) + float(_style.elbow) * _g_run
+
+		if snappy > 0.5: elbow = lerpf(elbow, par[AnimGait.P_ELB] + 0.1 * _g_run + float(_style.elbow) * _g_run, snappy)
+		var arm_z: float = sign_side * (par[AnimGait.P_ABD] + float(_style.arm_out) + 0.05 * back * _g_run)
+		var arm_y: float = sign_side * par[AnimGait.P_CROSS] * front * float(_style.cross) - (pelvis_yaw + chest_yaw) * front * 0.8
 		var arm_node: Node3D = _right_arm if side > 0 else _left_arm
 		var elbow_node: Node3D = _right_elbow if side > 0 else _left_elbow
 		var hand_node: Node3D = _right_hand if side > 0 else _left_hand
 		arm_node.rotation = _idle_arm[side].lerp(Vector3(arm_x, arm_y, arm_z), move)
-		elbow_node.rotation = Vector3(lerpf(_idle_elbow[side], elbow, move), 0.0, 0.0)
+		elbow_node.rotation = Vector3(lerpf(_idle_elbow[side], clampf(elbow, 0.0, 2.3), move), 0.0, 0.0)
 
-		hand_node.rotation = Vector3(-0.12 * back * run + 0.05 * front * run, 0.0, side * 0.05 * (1.0 - move))
+		hand_node.rotation = Vector3(-0.16 * back * run + 0.1 * front * run, 0.0, sign_side * 0.05 * (1.0 - move) - sign_side * 0.08 * run)
 	var breath_clav: float = _idle_clav * (1.0 - move) + 0.012 * sin(_breath_phase) * run
 	_left_clav.rotation = Vector3(0.0, 0.0, - breath_clav)
 	_right_clav.rotation = Vector3(0.0, 0.0, breath_clav)
 
-	var foot_x: float = _hip_half_width * 0.85 * float(_style.stance)
-	var heel: float = 0.24 * move * (1.0 - _g_run)
-	var toe_off: float = (0.38 + 0.3 * _g_run) * move
+
+
+	var foot_x: float = _hip_half_width * par[AnimGait.P_WIDTH] * float(_style.stance)
 	var stagger: float = smoothstep(0.0, 0.35, _move_blend)
-	var lift: float = _g_lift
+	var last: int = AnimGait.KNOTS.size() - 1
+	var shank_start: float = _g_thigh[0] - _g_knee[0]
+	var shank_end: float = _g_thigh[last] - _g_knee[last]
+	var height_scale: float = 1.0 if forward >= 0.5 else lerpf(0.35, 1.0, ahead * 2.0)
 	for side in [-1, 1]:
 		var p: float = phase if side < 0 else fposmod(phase + 0.5, 1.0)
-		var along: float = 0.0
-		var height: float = 0.0
+		var base: Vector3 = Vector3(side * foot_x, _foot_rest[side].y, _foot_rest[side].z)
+		var target: Vector3 = Vector3.ZERO
 		var foot_pitch: float = 0.0
 		if p < stance:
 			var s: float = p / stance
-			along = lerpf(half, - half, s)
-			var contact_pitch: float = lerpf(heel, -0.1 * move, _g_run)
-			foot_pitch = contact_pitch * (1.0 - smoothstep(0.0, 0.28, s)) - toe_off * smoothstep(0.6, 1.0, s)
+			target = base + direction * lerpf(lead, lead - _g_sweep, s) * stagger
+			foot_pitch = _stance_pitch(s)
 		else:
 			var s: float = (p - stance) / (1.0 - stance)
-			var point: Vector2 = _swing_point(s, half, leg, lift)
-			along = point.x
-			height = point.y * move
-			foot_pitch = - toe_off * (1.0 - smoothstep(0.0, 0.3, s)) + lerpf(0.12, -0.05, _g_run) * move * smoothstep(0.35, 0.8, s) + heel * smoothstep(0.75, 1.0, s)
-		along *= stagger
-		var gait_target: Vector3 = Vector3(side * foot_x, _foot_rest[side].y + height, _foot_rest[side].z) + direction * along
+			var knee_node: Node3D = _left_knee if side < 0 else _right_knee
+			var leg_node: Node3D = _left_leg if side < 0 else _right_leg
+			var upper: float = knee_node.position.length()
+			var lower: float = _ankles[side].position.length()
+			var hip: Vector3 = _body.position + _body.quaternion * leg_node.position
+			var hip_along: float = (hip - _hip_rest[side]).dot(direction)
+			var thigh: float = AnimGait.sample(_g_thigh, s)
+			var shank: float = thigh - AnimGait.sample(_g_knee, s)
+			var path: Vector2 = Vector2(upper * sin(thigh) + lower * sin(shank), upper * cos(thigh) + lower * cos(shank))
+			var path_start: Vector2 = Vector2(upper * sin(_g_thigh[0]) + lower * sin(shank_start), upper * cos(_g_thigh[0]) + lower * cos(shank_start))
+			var path_end: Vector2 = Vector2(upper * sin(_g_thigh[last]) + lower * sin(shank_end), upper * cos(_g_thigh[last]) + lower * cos(shank_end))
 
-		if forward < 0.5: gait_target.y = _foot_rest[side].y + height * lerpf(0.35, 1.0, maxf(forward, 0.0) * 2.0)
+
+			var lift_off: Vector3 = base + direction * (lead - _g_sweep) * stagger
+			var toe_pitch: float = par[AnimGait.P_TOE]
+			lift_off.y += _toe_length * sin( - toe_pitch)
+			if _g_lift_off.has(side):
+				var left: Array = _g_lift_off[side]
+				lift_off = left[0]
+				toe_pitch = float(left[1])
+			var landing: Vector3 = base + direction * lead * stagger
+			landing.y += _toe_length * maxf(0.0, sin( - par[AnimGait.P_C0]))
+			# Trajectoire du pied par la cinématique directe (cuisse, genou), recalée sur le point de décollage au début
+			# et sur le point de pose à la fin ; au milieu, le pied suit le rebond du bassin.
+			var fk: Vector3 = base + direction * ((hip_along + path.x) * stagger)
+			fk.y = hip.y - bob - path.y + bob * sin(PI * s)
+			var fk_start: Vector3 = base + direction * ((hip_along + path_start.x) * stagger)
+			fk_start.y = hip.y - bob - path_start.y
+			var fk_end: Vector3 = base + direction * ((hip_along + path_end.x) * stagger)
+			fk_end.y = hip.y - bob - path_end.y
+			var early: float = 1.0 - smoothstep(0.0, 0.5, s)
+			var late: float = smoothstep(0.45, 1.0, s)
+			target = fk + (lift_off - fk_start) * early + (landing - fk_end) * late
+			target.y = _foot_rest[side].y + (target.y - _foot_rest[side].y) * height_scale
+			var ankle: float = AnimGait.sample(_g_ankle, s)
+			foot_pitch = shank + ankle
+			foot_pitch += (toe_pitch - (shank_start + _g_ankle[0])) * (1.0 - smoothstep(0.0, 0.4, s))
+			foot_pitch += (par[AnimGait.P_C0] - (shank_end + _g_ankle[last])) * smoothstep(0.6, 1.0, s)
+			var clearance: float = _foot_rest[side].y + _toe_length * maxf(0.0, sin( - foot_pitch)) * 0.8
+			target.y = maxf(target.y, clearance)
+
 		var idle_foot: Vector3 = _idle_feet.get(side, _foot_rest[side])
-		var target: Vector3 = idle_foot.lerp(gait_target, move)
+		target = idle_foot.lerp(target, move)
+		foot_pitch *= move
 
-		var hip: Vector3 = _hip_rest[side]
-		var reach: float = float(_leg_length[side]) * 0.985
-		var offset: Vector2 = Vector2(target.x - hip.x, target.z - hip.z)
-		var reach_height: float = sqrt(maxf(reach * reach - offset.length_squared(), 0.0))
-		var peel: float = maxf(0.0, (hip.y + _body.position.y - _base_height) - reach_height - target.y)
+		var hip_rest: Vector3 = _hip_rest[side]
+		var leg_reach: float = float(_leg_length[side]) * 0.985
+		var offset: Vector2 = Vector2(target.x - hip_rest.x, target.z - hip_rest.z)
+		var reach_height: float = sqrt(maxf(leg_reach * leg_reach - offset.length_squared(), 0.0))
+		var peel: float = maxf(0.0, (hip_rest.y + _body.position.y - _base_height) - reach_height - target.y)
+
+		if p < stance and foot_pitch < 0.0:
+			var toe_rest: Vector3 = (_toes[side] as Node3D).position
+			target += toe_rest - Quaternion(Vector3.RIGHT, foot_pitch) * toe_rest
 		if peel > 0.0:
 			target.y += peel
-			foot_pitch = minf(foot_pitch, - clampf(peel / maxf(_toe_length, 0.06), 0.0, 0.7))
-		elif foot_pitch < 0.0: target.y += _toe_length * sin( - foot_pitch)
+			if p < stance: foot_pitch = minf(foot_pitch, - clampf(peel / maxf(_toe_length, 0.06), 0.0, 0.7))
 		_foot_target[side] = target
 		_foot_pitch[side] = foot_pitch
+		if p < stance and move > 0.999: _g_lift_off[side] = [target, foot_pitch]
+		elif p < stance: _g_lift_off.erase(side)
 		_leg_ik(side, target, foot_pitch, 1.0)
 	_ik_body = _body.transform
 
 
-
-func _swing_point(s: float, half: float, leg: float, lift: float) -> Vector2:
-	var run: float = _g_run
-
-	_swing_z[0] = - half
-	_swing_z[1] = lerpf(-0.7 * half, - half - 0.12 * leg, run)
-	_swing_z[2] = lerpf(-0.1 * half, -0.24 * leg, run)
-	_swing_z[3] = lerpf(0.55 * half, 0.3 * leg, run)
-	_swing_z[4] = lerpf(0.97 * half, half + 0.07 * leg, run)
-	_swing_z[5] = half
-	_swing_y[0] = 0.0
-	_swing_y[1] = lerpf(0.07, 0.3 * lift, run) * leg
-	_swing_y[2] = lerpf(0.11, 0.66 * lift, run) * leg
-	_swing_y[3] = lerpf(0.08, 0.5 * lift, run) * leg
-	_swing_y[4] = lerpf(0.03, 0.14, run) * leg
-	_swing_y[5] = 0.0
-	return Vector2(_hermite_curve(SWING_KNOTS, _swing_z, s), maxf(0.0, _hermite_curve(SWING_KNOTS, _swing_y, s)))
-
-static func _hermite_curve(xs: PackedFloat32Array, ys: PackedFloat32Array, x: float) -> float:
-	var count: int = xs.size()
-	var i: int = count - 2
-	for k in range(count - 1):
-		if x < xs[k + 1]:
-			i = k
-			break
-	var span: float = xs[i + 1] - xs[i]
-	var u: float = clampf((x - xs[i]) / span, 0.0, 1.0)
-	var m0: float = 0.0 if i == 0 else (ys[i + 1] - ys[i - 1]) / (xs[i + 1] - xs[i - 1])
-	var m1: float = 0.0 if i + 2 >= count else (ys[i + 2] - ys[i]) / (xs[i + 2] - xs[i])
-	var u2: float = u * u
-	var u3: float = u2 * u
-	return ys[i] * (2.0 * u3 - 3.0 * u2 + 1.0) + m0 * span * (u3 - 2.0 * u2 + u) + ys[i + 1] * (-2.0 * u3 + 3.0 * u2) + m1 * span * (u3 - u2)
+func _stance_pitch(s: float) -> float:
+	var par: PackedFloat32Array = _g_par
+	var flat: float = par[AnimGait.P_FLAT]
+	if s < 0.3: return lerpf(par[AnimGait.P_C0], flat, smoothstep(0.0, 0.3, s))
+	var rise: float = par[AnimGait.P_RISE]
+	if s < rise: return flat
+	var u: float = (s - rise) / maxf(1.0 - rise, 0.01)
+	return lerpf(flat, par[AnimGait.P_TOE], u * u)
 
 
 func _blend_body(hips: Vector3, body_rot: Vector3, chest_rot: Vector3, head_rot: Vector3, move: float) -> void :
@@ -1660,6 +1712,11 @@ func _leg_ik(side: int, target: Vector3, foot_pitch: float, weight: float) -> vo
 	var height: float = sqrt(maxf(0.0, upper * upper - along * along))
 
 	var pole: Vector3 = body_q * Vector3(side * (0.12 + 0.15 * (float(_style.stance) - 1.0)), 0.0, -1.0)
+
+	var facing: Vector3 = body_q * Vector3.FORWARD
+	if facing.y < -0.4:
+		var flat: Vector3 = Vector3(facing.x, 0.0, facing.z)
+		if flat.length_squared() > 0.0001: pole = Quaternion(facing.normalized(), flat.normalized() * 0.9165 + Vector3(0.0, -0.4, 0.0)) * pole
 	var bend: Vector3 = pole - direction * pole.dot(direction)
 	if bend.length_squared() < 1e-06: bend = body_q * Vector3.FORWARD
 	bend = bend.normalized()
