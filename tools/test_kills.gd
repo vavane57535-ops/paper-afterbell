@@ -153,6 +153,8 @@ func _scene(victim_name: String, phase6: bool) -> void:
 	var total: float = float(scene.lead) + float(scene.length)
 	var stun_seen: float = 0.0
 	var lock_seen: bool = false
+	var lag_max: float = 0.0
+	var lag_release: float = 0.0
 	if not headless: Engine.time_scale = time_scale
 	var index: int = 0
 	var shots: Array[float] = frames.duplicate()
@@ -160,6 +162,9 @@ func _scene(victim_name: String, phase6: bool) -> void:
 		var t: float = float(world.clock) - clock0
 		if float(alice.effects.get("kill_lock", 0.0)) > 0.0: lock_seen = true
 		stun_seen = maxf(stun_seen, float(alice.effects.get("stun", 0.0)))
+		for sh: Dictionary in world.kill_scenes._shows.values():
+			lag_max = maxf(lag_max, float(sh.get("lag", 0.0)))
+			if t >= float(scene.lead) + float(scene.lock): lag_release = maxf(lag_release, float(sh.get("lag", 0.0)))
 		if index < shots.size() and t >= shots[index]:
 			Engine.time_scale = 0.0
 			for cam: String in cams:
@@ -191,7 +196,7 @@ func _scene(victim_name: String, phase6: bool) -> void:
 	Engine.time_scale = 1.0
 	await get_tree().create_timer(0.2).timeout
 	var gained: float = float(world.time_left) - before + (float(world.clock) - clock0)
-	var line: String = "%s alive=%s lock=%s stun=%.1f time+%.1f alice_lock_now=%.2f" % [tag, str(victim.alive), str(lock_seen), stun_seen, gained, float(alice.effects.get("kill_lock", 0.0))]
+	var line: String = "%s alive=%s lock=%s stun=%.1f time+%.1f alice_lock_now=%.2f lag_max=%.2f lag_release=%.2f" % [tag, str(victim.alive), str(lock_seen), stun_seen, gained, float(alice.effects.get("kill_lock", 0.0)), lag_max, lag_release]
 	if preset_time >= 0.0:
 		line += " exit=%s->%s time_left=%.1f" % [str(exit_before), str(world.exit_flow.opened), float(world.time_left)]
 		if exit_before and not world.exit_flow.opened and not phase6: failures.append(tag + ": la sortie s'est refermée après le bonus")

@@ -351,10 +351,52 @@ func on_event(kind: String, data: Dictionary) -> void :
 		"kill_bonus": _show_bonus(float(data.get("seconds", KILL_BONUS)))
 		"lysia_explosion":
 			var id: int = int(data.get("execution", 0))
-			if _shows.has(id): _wreck_lysia(_shows[id])
+			if _shows.has(id): _wreck_when_due(_shows[id])
 			else:
 				for show: Dictionary in _shows.values():
-					if int(show.victim) == int(data.get("actor", -1)): _wreck_lysia(show)
+					if int(show.victim) == int(data.get("actor", -1)): _wreck_when_due(show)
+
+
+# Le ralenti local peut mettre la mise en scène en retard sur l'hôte :
+# l'explosion de Lysia attend alors son instant dans la chorégraphie.
+func _wreck_when_due(show: Dictionary) -> void :
+	if float(show.t) - float(show.lead) < _blast_time(show) - 0.02: show["wreck_pending"] = true
+	else: _wreck_lysia(show)
+
+
+func _blast_time(show: Dictionary) -> float:
+	var spec: Dictionary = VARIANTS.get(str(show.variant), {})
+	return float(spec.get("blast", show.lock))
+
+
+# Ralenti visuel pour les joueurs impliqués (victime, Alice, ou leur spectateur) :
+# la chorégraphie et les clips des deux acteurs avancent moins vite, puis
+# rattrapent le retard (accéléré léger) ; l'hôte garde son horloge (positions,
+# verrous et mort restent synchronisés).
+func _slow_rate(show: Dictionary, local: float, delta: float) -> float:
+	var rate: float = 1.0
+	var slowed: bool = false
+	if _involved(show):
+		for track: Dictionary in show.tracks:
+			if str(track.k) == "slow" and local >= float(track.t0) and local <= float(track.t1):
+				slowed = true
+				rate = minf(rate, float(track.get("rate", 0.5)))
+	var lag: float = float(show.get("lag", 0.0))
+	if not slowed and lag > 0.0: rate = 1.0 + minf(0.6, lag / maxf(delta, 0.001))
+	return rate
+
+
+func _slow_clips(victim, alice, amount: float) -> void :
+	var visuals: Array = []
+	if victim != null and is_instance_valid(victim.visual): visuals.append(victim.visual)
+	if alice != null and is_instance_valid(alice.visual):
+		visuals.append(alice.visual)
+		var form: PaperVisual = alice.visual.fx_source()
+		if form != alice.visual: visuals.append(form)
+	for visual: PaperVisual in visuals:
+		var left: float = float(visual._action_time)
+		if left > 0.0 and float(visual._hold_left) <= 0.0:
+			visual._action_time = clampf(left + amount, 0.0, float(visual._action_duration))
 
 
 func _start_show(data: Dictionary) -> void :
@@ -426,11 +468,17 @@ func _process(delta: float) -> void :
 	for id: Variant in _shows.keys():
 		var show: Dictionary = _shows[id]
 		var hold: float = float(show.get("hold", 0.0))
-		if hold > 0.0: show["hold"] = maxf(0.0, hold - delta)
-		else: show.t = float(show.t) + delta
-		var local: float = float(show.t) - float(show.lead)
 		var victim: PaperActor = world.actors.get(int(show.victim))
 		var alice: PaperActor = world.actors.get(int(show.killer))
+		if hold > 0.0:
+			show["hold"] = maxf(0.0, hold - delta)
+			show["lag"] = float(show.get("lag", 0.0)) + delta
+		else:
+			var rate: float = _slow_rate(show, float(show.t) - float(show.lead), delta)
+			show.t = float(show.t) + delta * rate
+			show["lag"] = maxf(0.0, float(show.get("lag", 0.0)) + delta * (1.0 - rate))
+			if rate != 1.0: _slow_clips(victim, alice, delta * (1.0 - rate))
+		var local: float = float(show.t) - float(show.lead)
 		if not bool(show.started) and local >= 0.0:
 			show.started = true
 			if victim != null and is_instance_valid(victim.visual):
@@ -446,6 +494,9 @@ func _process(delta: float) -> void :
 		while int(show.cue) < cues.size() and float(cues[int(show.cue)][0]) <= local:
 			_run_cue(show, cues[int(show.cue)])
 			show.cue = int(show.cue) + 1
+		if bool(show.get("wreck_pending", false)) and local >= _blast_time(show):
+			show.wreck_pending = false
+			_wreck_lysia(show)
 		if local > float(show.length) + 1.1: _end_show(int(id))
 	_update_words(delta)
 	_update_bars(delta)
@@ -1319,7 +1370,7 @@ func _burst_drone(show: Dictionary, holder: PaperVisual) -> void :
 func _script_usayuko(show: Dictionary) -> void :
 	var cues: Array = show.cues
 	var tracks: Array = show.tracks
-	tracks.append({"k": "slow", "t0": 0.6, "t1": 1.2, "w": 0.34})
+	tracks.append({"k": "slow", "t0": 0.6, "t1": 1.2, "w": 0.34, "rate": 0.5})
 	var shots: Array = show.shots
 	var half: float = float(show.gap) * 0.5
 	tracks.append({"k": "reach", "who": "v", "side": 1, "to": "a", "socket": "eyes", "offset": Vector3(0.09, -0.05, -0.04), "t0": 0.38, "t1": 0.7, "in": 0.06, "out": 0.14})
@@ -1358,7 +1409,7 @@ func _script_usayuko(show: Dictionary) -> void :
 func _script_elly(show: Dictionary) -> void :
 	var cues: Array = show.cues
 	var tracks: Array = show.tracks
-	tracks.append({"k": "slow", "t0": 0.55, "t1": 1.55, "w": 0.32})
+	tracks.append({"k": "slow", "t0": 0.55, "t1": 1.55, "w": 0.32, "rate": 0.65})
 	var shots: Array = show.shots
 	var half: float = float(show.gap) * 0.5
 	tracks.append({"k": "reach", "who": "a", "side": -1, "to": "v", "socket": "hand_l", "offset": Vector3(0.0, 0.03, 0.3), "t0": 1.48, "t1": 1.66, "in": 0.06, "out": 0.06})
@@ -1400,7 +1451,8 @@ func _script_elly(show: Dictionary) -> void :
 func _script_lysia(show: Dictionary) -> void :
 	var cues: Array = show.cues
 	var tracks: Array = show.tracks
-	tracks.append({"k": "slow", "t0": 2.3, "t1": 3.25, "w": 0.3})
+	tracks.append({"k": "slow", "t0": 0.62, "t1": 1.1, "w": 0.3, "rate": 0.5})
+	tracks.append({"k": "slow", "t0": 2.3, "t1": 3.25, "w": 0.3, "rate": 1.0})
 	var shots: Array = show.shots
 	var half: float = float(show.gap) * 0.5
 	tracks.append({"k": "reach", "who": "a", "side": -1, "to": "v", "socket": "hand_r", "t0": 0.08, "t1": 0.78, "in": 0.1, "out": 0.04})
@@ -1467,7 +1519,7 @@ func _script_lysia(show: Dictionary) -> void :
 func _script_simon(show: Dictionary) -> void :
 	var cues: Array = show.cues
 	var tracks: Array = show.tracks
-	tracks.append({"k": "slow", "t0": 1.45, "t1": 2.92, "w": 0.38})
+	tracks.append({"k": "slow", "t0": 1.45, "t1": 2.92, "w": 0.38, "rate": 0.75})
 	var shots: Array = show.shots
 	var half: float = float(show.gap) * 0.5
 	tracks.append({"k": "prop", "prop": "photo", "who": "v", "socket": "hand_r", "offset": Vector3(0.0, 0.05, 0.04), "t0": 1.08, "t1": 1.42, "face": "eyes", "scale": 1.0})
@@ -1504,7 +1556,7 @@ func _script_simon(show: Dictionary) -> void :
 func _script_ashura(show: Dictionary) -> void :
 	var cues: Array = show.cues
 	var tracks: Array = show.tracks
-	tracks.append({"k": "slow", "t0": 0.66, "t1": 1.34, "w": 0.3})
+	tracks.append({"k": "slow", "t0": 0.66, "t1": 1.34, "w": 0.3, "rate": 0.5})
 	var shots: Array = show.shots
 	var half: float = float(show.gap) * 0.5
 	tracks.append({"k": "reach", "who": "v", "side": 1, "to": "a", "socket": "hand_r", "offset": Vector3(0.0, 0.0, -0.06), "t0": 0.44, "t1": 0.7, "in": 0.06, "out": 0.1})
@@ -1544,7 +1596,7 @@ func _script_ashura(show: Dictionary) -> void :
 func _script_bleuette(show: Dictionary) -> void :
 	var cues: Array = show.cues
 	var tracks: Array = show.tracks
-	tracks.append({"k": "slow", "t0": 0.45, "t1": 1.95, "w": 0.34})
+	tracks.append({"k": "slow", "t0": 0.45, "t1": 1.95, "w": 0.34, "rate": 0.75})
 	var shots: Array = show.shots
 	tracks.append({"k": "reach", "who": "a", "side": -1, "to": "v", "socket": "chest", "offset": Vector3(0.0, 0.1, 0.1), "t0": 0.0, "t1": 0.34, "in": 0.08, "out": 0.12})
 	tracks.append({"k": "attach", "socket": "chest", "from": "hand_l", "offset": Vector3(0.0, -0.13, -0.15), "t0": 0.22, "t1": 2.42, "in": 0.15, "out": 0.2})
@@ -1581,7 +1633,7 @@ func _script_bleuette(show: Dictionary) -> void :
 func _script_slam(show: Dictionary) -> void :
 	var cues: Array = show.cues
 	var tracks: Array = show.tracks
-	tracks.append({"k": "slow", "t0": 0.6, "t1": 1.0, "w": 0.3})
+	tracks.append({"k": "slow", "t0": 0.6, "t1": 1.0, "w": 0.3, "rate": 0.4})
 	var shots: Array = show.shots
 	var half: float = float(show.gap) * 0.5
 	tracks.append({"k": "reach", "who": "a", "side": 1, "to": "v", "socket": "chest", "offset": Vector3(0.0, 0.0, 0.08), "t0": 0.0, "t1": 0.26, "in": 0.1, "out": 0.08})
