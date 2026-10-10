@@ -275,6 +275,8 @@ class Decor extends Control:
 	var band_b: Vector2 = Vector2(-1, -1)
 	var band_width: float = 250.0
 	var band_fill: Color = Color(0, 0, 0, 0)
+	# Attente avant l'entrée (le temps que la transition couvre l'écran).
+	var start_delay: float = 0.0
 	var _time: float = 0.0
 	var _enter: float = 0.0
 
@@ -286,6 +288,10 @@ class Decor extends Control:
 		_enter = 1.0 if reduced else 0.0
 
 	func _process(delta: float) -> void :
+		if start_delay > 0.0:
+			start_delay -= delta
+			queue_redraw()
+			return
 		_time += delta
 		if _enter < 1.0: _enter = minf(1.0, _enter + delta / 0.38)
 		queue_redraw()
@@ -294,7 +300,7 @@ class Decor extends Control:
 
 	func _draw() -> void :
 		var view: Vector2 = size
-		if view.x < 10.0: return
+		if view.x < 10.0 or start_delay > 0.0: return
 		var k: float = view.y / 900.0
 		var e: float = 1.0 - pow(1.0 - _enter, 3.0)
 		var motion: float = 0.0 if reduced or G.calm else 1.0

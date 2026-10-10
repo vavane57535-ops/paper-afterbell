@@ -216,7 +216,7 @@ func _run() -> void :
 		await _burst("lobby_open", func() -> void : ui.show_lobby(), [0, 160, 600, 1200])
 		world.quit_to_menu()
 		await _wait_game(0.5)
-	if "pause" in menus or "ending" in menus:
+	if "pause" in menus or "ending" in menus or "emotes" in menus:
 		world.selected = "Simon"
 		world.start_solo(false)
 		var waited: float = 0.0
@@ -225,6 +225,13 @@ func _run() -> void :
 			waited += get_process_delta_time()
 		_note("phase partie : " + str(world.phase))
 		await _wait_game(1.5)
+		if "emotes" in menus:
+			world.emote_wheel.open()
+			world.emote_wheel.call("_set_selected", 2)
+			await _wait_game(0.2)
+			await _save("emotes_wheel")
+			world.emote_wheel.close()
+			await _wait_game(0.2)
 		if "pause" in menus:
 			await _burst("pause_open", func() -> void : _press_pause(), [0, 40, 80, 120, 160, 220, 300, 450, 700])
 			await _burst("pause_down", func() -> void : _key(&"ui_down"), [0, 60, 120, 240])

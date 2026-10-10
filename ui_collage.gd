@@ -50,6 +50,9 @@ static func layout(text: String, size_px: float, seed_value: int, plain: bool = 
 			"dy": 0.0 if plain else (G.noise(seed_value, i * 5 + 7) - 0.5) * size_px * 0.12,
 			"rot": 0.0 if plain else (G.noise(seed_value, i * 5 + 9) - 0.5) * 0.19,
 			"chip": chip, "seed": seed_value * 31 + i,
+			# Accent au-dessus / cédille en dessous : morceau de papier agrandi.
+			"top": 1.02 if "ÉÈÊËÀÂÄÔÖÛÙÜÎÏ".find(shown) >= 0 else 0.79,
+			"bottom": 0.3 if shown == "Ç" or shown == "ç" else 0.11,
 		})
 		x += advance + pad * 2.0
 		letter += 1
@@ -97,7 +100,8 @@ static func draw_word(ci: CanvasItem, text: String, base: Transform2D, size_px: 
 		if on: chip = CHIP_CREAM if chip in [CHIP_NONE, CHIP_RED] else CHIP_INK
 		var ink: Color = letter_color
 		if chip != CHIP_NONE:
-			var box: Rect2 = Rect2(Vector2(- half - fs * 0.06, - fs * 0.79), Vector2(float(glyph.adv) + fs * 0.12, fs * 0.9))
+			var top: float = float(glyph.get("top", 0.79))
+			var box: Rect2 = Rect2(Vector2(- half - fs * 0.06, - fs * top), Vector2(float(glyph.adv) + fs * 0.12, fs * (top + float(glyph.get("bottom", 0.11)))))
 			var paper: PackedVector2Array = G.cut(box, int(glyph.seed), 0.1)
 			var chip_color: Color = T.CREAM if chip == CHIP_CREAM else INK_CHIP if chip == CHIP_INK else red_chip
 			G.polygon(item, G.offset(paper, Vector2(fs * 0.05, fs * 0.07)), Color(0, 0, 0, 0.5 * alpha))

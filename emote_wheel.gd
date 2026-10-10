@@ -144,30 +144,36 @@ func _draw() -> void :
 		var steps: int = 14
 		for s: int in range(steps + 1): points.append(center + Vector2.from_angle(lerpf(start, end, float(s) / steps)) * outer)
 		for s: int in range(steps, -1, -1): points.append(center + Vector2.from_angle(lerpf(start, end, float(s) / steps)) * INNER)
-		draw_colored_polygon(points, Color(0.08, 0.16, 0.17, 0.94) if hovered else Color(0.06, 0.07, 0.1, 0.88))
+		# Secteur survolé : papier rouge découpé avec ombre d'encre (menus 0.16).
+		if hovered:
+			var shadow: PackedVector2Array = PackedVector2Array()
+			for point: Vector2 in points: shadow.append(point + Vector2(6, 8))
+			draw_colored_polygon(shadow, Color(0, 0, 0, 0.6))
+		draw_colored_polygon(points, T.RED if hovered else Color(0.06, 0.07, 0.1, 0.88))
 		var edge: PackedVector2Array = points.duplicate()
 		edge.append(points[0])
-		draw_polyline(edge, T.TEAL if hovered else Color(1, 1, 1, 0.08), 2.0 if hovered else 1.0, true)
+		draw_polyline(edge, T.CREAM if hovered else Color(1, 1, 1, 0.08), 3.0 if hovered else 1.0, true)
 		var mid: Vector2 = center + Vector2.from_angle((start + end) * 0.5) * (INNER + outer) * 0.5
 		var text: String = PaperLanguage.t(str(labels[i])) if i < labels.size() else "—"
 		var size_px: int = 16 if text.length() < 12 else 14
 		var width: float = body.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px).x
 		if width > 118.0:
-			draw_multiline_string(body, mid + Vector2(-60, 6), text, HORIZONTAL_ALIGNMENT_CENTER, 120, size_px, 2, T.PAPER if hovered else T.PAPER_DIM)
+			draw_multiline_string(body, mid + Vector2(-60, 6), text, HORIZONTAL_ALIGNMENT_CENTER, 120, size_px, 2, T.CREAM if hovered else T.PAPER_DIM)
 		else:
-			draw_string(body, mid + Vector2( - width * 0.5, 12), text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px, T.PAPER if hovered else T.PAPER_DIM)
+			draw_string(body, mid + Vector2( - width * 0.5, 12), text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px, T.CREAM if hovered else T.PAPER_DIM)
 		var key: String = str(i + 1)
 		var cap: Rect2 = Rect2(mid + Vector2(-10, -26), Vector2(20, 20))
 		var cap_style: StyleBoxFlat = StyleBoxFlat.new()
-		cap_style.bg_color = T.TEAL if hovered else Color("3a4357")
+		cap_style.bg_color = T.CREAM if hovered else Color("3a4357")
 		cap_style.set_corner_radius_all(4)
 		draw_style_box(cap_style, cap)
 		draw_string(caps, cap.position + Vector2(6, 15), key, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("10141c") if hovered else T.PAPER)
-	draw_circle(center, INNER - 8.0, Color(0.04, 0.05, 0.075, 0.96))
-	draw_arc(center, INNER - 8.0, 0, TAU, 48, Color(T.TEAL, 0.5), 1.5, true)
+	draw_circle(center + Vector2(4, 6), INNER - 8.0, Color(0, 0, 0, 0.55))
+	draw_circle(center, INNER - 8.0, T.CREAM)
+	draw_arc(center, INNER - 8.0, 0, TAU, 48, Color(T.RED, 0.8), 3.0, true)
 	var head: String = PaperLanguage.t("ÉMOTES" if page == 0 else "DANSES")
-	var head_width: float = title.get_string_size(head, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
-	draw_string(title, center + Vector2( - head_width * 0.5, 2), head, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, T.PAPER)
+	var head_width: float = T.font("display").get_string_size(head, HORIZONTAL_ALIGNMENT_LEFT, -1, 24).x
+	draw_string(T.font("display"), center + Vector2( - head_width * 0.5, 4), head, HORIZONTAL_ALIGNMENT_LEFT, -1, 24, T.INK_TEXT)
 	var hint: String = PaperLanguage.t("TAB · Danses" if page == 0 else ("TAB · Émotes" if not world.owned_dances.is_empty() else "Boutique du menu"))
 	var hint_width: float = caps.get_string_size(hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
-	draw_string(caps, center + Vector2( - hint_width * 0.5, 24), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, T.PAPER_DIM)
+	draw_string(caps, center + Vector2( - hint_width * 0.5, 24), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, T.INK_MUTED)

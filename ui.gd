@@ -330,6 +330,16 @@ func _badge(texture: Texture2D, size_px: float, bg: Color, tint: Color) -> Panel
 	panel.add_child(rect)
 	return panel
 
+# Contour de focus « découpé » pour les zones cliquables transparentes.
+func _paper_focus() -> StyleBox:
+	var outline: StyleBox = T.strip(Color(0, 0, 0, 0), 0, 0, 5.0, 77)
+	outline.set("line", T.RED)
+	outline.set("line_width", 3.0)
+	outline.set("shadow", Color(0, 0, 0, 0))
+	outline.set("grow_rect", Vector2(6, 6))
+	outline.set("boil", true)
+	return outline
+
 func _paper_style(seed_value: int, margin: float = 22.0, tape: bool = false) -> W.PaperStyle:
 	var style: W.PaperStyle = W.PaperStyle.new(margin)
 	style.seed_value = seed_value
@@ -421,6 +431,7 @@ func _begin_page(id: String, preview: String = "", focus_x: float = 0.66) -> voi
 	menu_paper = false
 	_page_serial += 1
 	var animate: bool = previous != id and not reduced_motion and world.phase in ["menu", "lobby"] and previous in MENU_PAGES and id in MENU_PAGES and page.visible and page.get_child_count() > 0
+	var came_from_game: bool = not page.visible
 	_cascade_lists.clear()
 	# Même page reconstruite (aperçu de danse, choix de carte…) : pas de
 	# nouvelle entrée en cascade ni de glissement du panneau.
@@ -434,7 +445,7 @@ func _begin_page(id: String, preview: String = "", focus_x: float = 0.66) -> voi
 		page.modulate.a = 1.0
 		if reduced_motion and previous != id and not _quiet_page: _soft_fade(page)
 	_clear(overlay)
-	if not animate and not reduced_motion and not _wipe_hold and previous != id and id in MENU_PAGES and previous in ["loading", "ending", "gallery"] and world.phase in ["menu", "lobby"]:
+	if not animate and not reduced_motion and not _wipe_hold and previous != id and id in MENU_PAGES and (previous in ["loading", "ending", "gallery"] or came_from_game) and world.phase in ["menu", "lobby"]:
 		_wipe.reveal(1.0, str(PAGE_TITLES.get(id, "")))
 	_set_backdrop_mode(id, preview, 0.22 if animate else 0.0)
 	hud.hide()
@@ -596,6 +607,7 @@ func _page_decor(title: String, accent: Color = T.RED_DEEP, side: float = 1.0) -
 # Les décors vont derrière les personnages du fond de menu (et sous les scènes
 # 3D animées) ; en partie (réglages par-dessus le jeu), dans la page.
 func _place_decor(decor: Control) -> void :
+	if is_instance_valid(_wipe) and _wipe.busy() and decor is MenuFx.Decor: (decor as MenuFx.Decor).start_delay = _wipe.time_to_cover()
 	if _decor_in_backdrop():
 		menu_backdrop.decor_holder.add_child(decor)
 		return
@@ -990,7 +1002,7 @@ func _add_loadout_note(mobile: bool) -> void :
 	var hit: Button = Button.new()
 	hit.flat = true
 	for state: String in ["normal", "hover", "pressed", "hover_pressed", "disabled"]: hit.add_theme_stylebox_override(state, T.empty_style())
-	hit.add_theme_stylebox_override("focus", T.focus_style(4))
+	hit.add_theme_stylebox_override("focus", _paper_focus())
 	hit.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	note.add_child(hit)
 	hit.pressed.connect(_show_setup.bind("", -1))
@@ -1352,7 +1364,7 @@ func _alice_dossier(column: VBoxContainer, compact: bool = false) -> Control:
 	var focus: Button = Button.new()
 	focus.flat = true
 	for state: String in ["normal", "hover", "pressed", "hover_pressed", "disabled"]: focus.add_theme_stylebox_override(state, T.empty_style())
-	focus.add_theme_stylebox_override("focus", T.focus_style(4))
+	focus.add_theme_stylebox_override("focus", _paper_focus())
 	card.add_child(focus)
 	focus.pressed.connect(_sfx.bind("click"))
 	return focus
