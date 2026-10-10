@@ -4,6 +4,7 @@ extends Control
 const ClientScript = preload("res://game_social_client.gd")
 const T = preload("res://ui_theme.gd")
 const Sound = preload("res://ui_sound.gd")
+const MenuFx = preload("res://ui_menu_fx.gd")
 
 const INK: Color = Color("ece5d5")
 const PAPER: Color = Color("0d0f16")
@@ -41,8 +42,10 @@ func close() -> void :
 func _unhandled_input(event: InputEvent) -> void :
 	if visible and event.is_action_pressed("ui_cancel"): close();get_viewport().set_input_as_handled()
 
-func _style(background: Color, border: Color = T.LINE) -> StyleBoxFlat:
-	return T.box(background, border, 1, 6, 18, 12)
+func _style(background: Color, border: Color = T.LINE) -> StyleBox:
+	var style: StyleBox = T.strip(background, 18, 12, 6.0, 37)
+	style.set("line", Color(border, 0.6))
+	return style
 
 func _label(value: String, font_size: int = 19, color: Color = INK) -> Label:
 	var label: Label = Label.new()
@@ -81,6 +84,12 @@ func _build() -> void :
 	background.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	background.add_theme_stylebox_override("panel", T.box(Color(PAPER, 0.97), Color(0, 0, 0, 0), 0, 0, 0, 0))
 	add_child(background)
+	var decor: MenuFx.Decor = MenuFx.Decor.new()
+	decor.title = "EN LIGNE"
+	decor.accent = Color("6fa8ff").lerp(T.RED_DEEP, 0.55)
+	decor.giant_alpha = 0.06
+	decor.ribbon_text = "LE CARNET DES ÉLÈVES"
+	add_child(decor)
 	var margin: MarginContainer = MarginContainer.new()
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	for side in ["left", "right"]: margin.add_theme_constant_override("margin_" + side, 48)
@@ -101,6 +110,7 @@ func _clear(page: String, title: String) -> int:
 	_page = page;_page_generation += 1;_waiting_group = false;heading.text = title;status_label.text = ""
 	for child in content.get_children(): content.remove_child(child);child.queue_free()
 	scroll.scroll_vertical = 0
+	if is_instance_valid(world.ui.fx): world.ui.fx.cascade_children.call_deferred(content, 0.0, 0.035, Vector2(-60, 0), -0.05, 0.24)
 	return _page_generation
 
 func _card(title: String, description: String = "", title_user: bool = false, description_user: bool = false) -> VBoxContainer:
