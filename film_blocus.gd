@@ -392,8 +392,8 @@ func _write_cast() -> void :
 
 func _write_story(speakers: Array[int], turn_beats: float) -> void :
 	var who: String = film.people[lead]
-	var shout: String = who + " (mégaphone)"
-	var all: String = "Tout le monde" if not others.is_empty() else who
+	var shout: String = who + " (" + PaperLanguage.t("mégaphone") + ")"
+	var all: String = PaperLanguage.t("Tout le monde") if not others.is_empty() else who
 	_cue_sound(0.1, "bell", L(0, 3, 0), 0.8)
 	_caption(5.5, 7.5, "", "16 h 47. Alice a quitté la partie.")
 	_caption(7.5, 9.45, "", "Les survivants décident alors de… bloquer l’école.")
@@ -489,9 +489,10 @@ func _build_overlay() -> void :
 	(layer as Control).add_child(overlay)
 	for row: Array in _pending_captions: overlay.caption(float(row[0]), float(row[1]), str(row[2]), str(row[3]))
 	_pending_captions.clear()
-	# Générique WordArt avec faute de frappe corrigée au feutre.
-	overlay.card("title", 0.3, 4.15, "LE BLOCSU", 118, Vector2(0.5, 0.4), {"rainbow": true, "wobble": 7.0, "spin": 1.0, "tilt": -4.0, "fly_out": true})
-	overlay.correction("title", 1.7, 7, 9, "US")
+	# Générique WordArt avec faute de frappe corrigée au feutre (les fautes sont propres à chaque langue).
+	var english: bool = PaperLanguage.language == "en"
+	overlay.card("title", 0.3, 4.15, "THE BLOKCADE" if english else "LE BLOCSU", 118, Vector2(0.5, 0.4), {"rainbow": true, "wobble": 7.0, "spin": 1.0, "tilt": -4.0, "fly_out": true})
+	overlay.correction("title", 1.7, 7, 9, "CK" if english else "US")
 	overlay.card("subtitle", 2.3, 4.15, PaperLanguage.t("DE L’ÉCOLE FONDAMENTALE"), 46, Vector2(0.5, 0.58), {"font": "title", "color": Color("ffe14d"), "shadow": Color("b0306a"), "tilt": 3.0, "fly_out": true})
 	overlay.card("subtitle2", 2.9, 4.15, PaperLanguage.t("(ALICE A RAGE QUIT)"), 30, Vector2(0.62, 0.67), {"font": "hand", "color": Color("ffffff"), "shadow": Color(0, 0, 0, 0.5), "tilt": -6.0, "fly_out": true})
 	overlay.failed_fade(4.15, 5.3)
@@ -510,8 +511,8 @@ func _build_overlay() -> void :
 	overlay.card("victory_small", b(57.6), b(59.0) + 0.3, PaperLanguage.t("(sans jouer)"), 36, Vector2(0.66, 0.56), {"font": "hand", "color": Color("ffffff"), "tilt": -8.0})
 	overlay.star_wipe(b(59.0), b(59.0) + 0.75)
 	overlay.end_background(b(59.0) + 0.37)
-	overlay.card("end", b(59.0) + 0.37, DURATION + 1.0, "FNI", 170, Vector2(0.5, 0.4), {"rainbow": true, "wobble": 4.0, "tilt": -3.0})
-	overlay.correction("end", 37.05, 1, 3, "IN")
+	overlay.card("end", b(59.0) + 0.37, DURATION + 1.0, "EDN" if english else "FNI", 170, Vector2(0.5, 0.4), {"rainbow": true, "wobble": 4.0, "tilt": -3.0})
+	overlay.correction("end", 37.05, 1, 3, "ND" if english else "IN")
 	overlay.card("end_note", 37.45, DURATION + 1.0, PaperLanguage.t("Aucune Alice n’a été blessée pendant ce blocus."), 30, Vector2(0.5, 0.7), {"font": "medium", "color": Color("ffffff"), "shadow": Color(0, 0, 0, 0.45), "outline": 6})
 	overlay.card("end_note2", 37.85, DURATION + 1.0, PaperLanguage.t("(Elle était partie.)"), 34, Vector2(0.5, 0.77), {"font": "hand", "color": Color("ffe14d"), "shadow": Color(0, 0, 0, 0.45), "outline": 6, "tilt": -2.0})
 

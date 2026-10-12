@@ -13,6 +13,7 @@ var people: Array = []
 var focus: String = ""
 var map_id: String = "school"
 var size: Vector2i = Vector2i(1280, 720)
+var language: String = ""
 
 func setup(owner: Node) -> void :
 	world = owner
@@ -28,12 +29,15 @@ func setup(owner: Node) -> void :
 			"--people": people = Array(value.split(","))
 			"--focus": focus = value
 			"--film-map": map_id = value
+			"--film-lang": language = value
 	_run.call_deferred()
 
 func _run() -> void :
 	DirAccess.make_dir_recursive_absolute(out_dir)
 	get_window().size = size
 	for i: int in range(8): await get_tree().process_frame
+	if not language.is_empty():
+		world.options["language"] = language;world.apply_options()
 	if people.is_empty(): people = PaperData.NAMES.duplicate()
 	if focus.is_empty(): focus = str(people[0])
 	world.gallery.open()
