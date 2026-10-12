@@ -16,6 +16,8 @@ var times: Array[float] = [0.0, 80.0, 160.0, 300.0, 600.0]
 var slow: float = 0.12
 var _clock: float = 0.0
 var _log: PackedStringArray = PackedStringArray()
+var _english: bool = false
+var _reduced: bool = false
 
 func setup(game_world: Node) -> void :
 	world = game_world
@@ -27,14 +29,18 @@ func setup(game_world: Node) -> void :
 		if args[i] == "--menu-times" and i + 1 < args.size():
 			times.clear()
 			for part: String in args[i + 1].split(","): times.append(float(part))
-		if args[i] == "--menu-reduced": world.options["reduce_flashes"] = true
+		if args[i] == "--menu-reduced": _reduced = true
 		if args[i] == "--menu-size" and i + 1 < args.size():
 			var parts: PackedStringArray = args[i + 1].split("x")
 			if parts.size() == 2: get_window().size = Vector2i(int(parts[0]), int(parts[1]))
-		if args[i] == "--menu-en": world.options["language"] = "en"
+		if args[i] == "--menu-en": _english = true
 	DirAccess.make_dir_recursive_absolute(out_dir)
-	world.apply_options()
-	world.ui.reduced_motion = bool(world.options.get("reduce_flashes", false))
+	# Langue et « Réduire les flashs » changés pour cette session seulement :
+	# world.options n'est pas touché, sinon une sauvegarde des préférences
+	# (fin de manche…) les garderait dans user://settings.cfg, partagé par
+	# toutes les copies du projet.
+	if _english: PaperLanguage.language = "en"
+	world.ui.reduced_motion = bool(world.options.get("reduce_flashes", false)) or _reduced
 	_run.call_deferred()
 
 func _process(delta: float) -> void :
