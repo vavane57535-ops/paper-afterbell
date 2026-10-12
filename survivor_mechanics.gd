@@ -52,16 +52,31 @@ static func outlet_partner(combat, lysia):
 	return null
 
 
-# +65 PV au début du LMS, sans dépasser 150. Les élèves dont le maximum est sous 150 voient
-# leur maximum porté à 150 ; Usayuko (165) et Lysia (200) gardent leur armure naturelle,
-# mais le bonus ne les fait pas monter au-delà de 150. Seul le courage de Bleuette dépasse 150.
+# +65 PV au début du LMS, sans dépasser 150 : pendant le LMS, le maximum de PV est 150 pour tout le
+# monde. Exception sans perte : un élève qui entre en LMS au-dessus de 150 (Usayuko 165, armure de
+# Lysia jusqu'à 200) garde ces PV, mais ne pourra jamais les regagner une fois perdus (voir heal_ceiling).
+# Seul le courage de Bleuette (Je peux le faire, PV max +30) fait passer au-dessus de 150.
 static func apply_lms_health(actor) -> float:
 	var before: float = float(actor.hp)
-	if float(actor.max_hp) < LMS_HP_CAP:
-		actor.max_hp = LMS_HP_CAP
-		actor.effects["lms_hp_cap"] = LMS_HP_CAP
-	actor.hp = minf(float(actor.max_hp), maxf(before, minf(before + LMS_HP_BONUS, LMS_HP_CAP)))
-	return float(actor.hp) - before
+	var after: float = maxf(before, minf(before + LMS_HP_BONUS, LMS_HP_CAP))
+	actor.max_hp = maxf(LMS_HP_CAP, after)
+	actor.hp = after
+	actor.effects["lms_hp_cap"] = LMS_HP_CAP
+	return after - before
+
+
+# Plafond des soins : le maximum de PV hors LMS ; en LMS, 150 (ou les PV actuels s'ils sont déjà
+# au-dessus, sans jamais remonter). Bleuette n'est pas concernée : son maximum vaut 150, ou 180 après le courage.
+static func heal_ceiling(actor) -> float:
+	var top: float = float(actor.max_hp)
+	if not bool(actor.lms) or float(actor.effects.get("lms_hp_cap", 0.0)) <= 0.0 or str(actor.character) == "Bleuette": return top
+	return minf(top, maxf(float(actor.effects.get("lms_hp_cap", LMS_HP_CAP)), float(actor.hp)))
+
+
+# Hausse de PV max autorisée en LMS (QTE d'armure de Lysia) : aucune au-delà de 150, sauf pour Bleuette.
+static func lms_max_growth(actor, added: float) -> float:
+	if not bool(actor.lms) or float(actor.effects.get("lms_hp_cap", 0.0)) <= 0.0 or str(actor.character) == "Bleuette": return added
+	return clampf(float(actor.effects.get("lms_hp_cap", LMS_HP_CAP)) - float(actor.max_hp), 0.0, added)
 
 
 static func boost_summary(character_name: String) -> String:

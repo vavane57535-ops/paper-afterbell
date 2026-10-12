@@ -599,7 +599,7 @@ func interact(actor):
 			var drone: Dictionary = world.drones[index]
 			var drone_pos: Vector3 = drone.position
 			if str(drone.state) == "salvage" and actor.position.distance_to(drone_pos) < 2.8 and _los(actor.position, drone_pos):
-				if actor.hp >= actor.max_hp:
+				if actor.hp >= PaperSurvivorMechanics.heal_ceiling(actor):
 					_feedback(actor, "wreck_full", "Armure déjà complète : conserve cette épave pour plus tard.")
 					return
 				_heal(actor, 7.0, actor)
@@ -680,7 +680,7 @@ func _unlock_lms(actor):
 	if actor.character == "Usayuko": instruction = "AURA ÉVEILLÉE · 4 : Dropkick unique (5 s de stun)"
 	elif actor.character == "Elly": instruction = "AURA ÉVEILLÉE · 4 : Shotgun unique (3 s de stun)"
 	elif actor.character == "Bleuette": instruction = "AURA ÉVEILLÉE · 4 : Je peux le faire !"
-	elif actor.character == "Lysia": instruction = "AURA ÉVEILLÉE · un allié éliminé peut renforcer ton armure."
+	elif actor.character == "Lysia": instruction = "AURA ÉVEILLÉE · un allié éliminé peut réparer ton armure (150 PV max)."
 	_message(actor, instruction)
 	world.event("aura_unlock", {"actor": actor.id, "position": actor.position, "character": actor.character})
 
@@ -718,14 +718,15 @@ func assist(helper_id: int, actor_id: int, choice: String):
 	actor.effects["lms_qte_next"] = float(world.clock) + ASSIST_PERIOD
 	var multiplier: float = 1.5 if bool(actor.effects.get("consumed", false)) else 1.0
 	var outcome: String = "armure renforcée"
-	if choice == "health":
+	var grown: float = PaperSurvivorMechanics.lms_max_growth(actor, 10.0 * multiplier) if choice == "health" else 0.0
+	if choice == "health" and grown > 0.0:
 		var added: float = 10.0 * multiplier
-		actor.max_hp = float(actor.max_hp) + added
-		actor.hp = minf(float(actor.max_hp), float(actor.hp) + added)
+		actor.max_hp = float(actor.max_hp) + grown
+		actor.hp = minf(PaperSurvivorMechanics.heal_ceiling(actor), float(actor.hp) + added)
 	elif _om(actor):
-
+		# En LMS, l'armure ne dépasse pas 150 : « + ARMURE » répare alors comme « + SOINS ».
 		var repaired: float = 15.0 * multiplier
-		actor.hp = minf(float(actor.max_hp), float(actor.hp) + repaired)
+		actor.hp = minf(PaperSurvivorMechanics.heal_ceiling(actor), float(actor.hp) + repaired)
 		outcome = "armure réparée"
 	else:
 		var added: float = 15.0 * multiplier
@@ -876,7 +877,7 @@ func _tick_drones(delta: float):
 		if str(drone.state) == "salvage":
 			var recycled: bool = false
 			for collector in world.actors.values():
-				if collector.character == "Lysia" and _can_act(collector) and collector.hp < collector.max_hp and collector.position.distance_to(drone.position) <= 1.25 and _los(collector.position, drone.position):
+				if collector.character == "Lysia" and _can_act(collector) and collector.hp < PaperSurvivorMechanics.heal_ceiling(collector) and collector.position.distance_to(drone.position) <= 1.25 and _los(collector.position, drone.position):
 					_heal(collector, 7.0, collector)
 					world.event("drone_eaten", {"actor": collector.id, "position": collector.position, "amount": 7.0})
 					_remove_drone(index, "recycled");recycled = true;break
@@ -1769,7 +1770,7 @@ func _tick_zones(delta: float):
 		_dispel_radius(pos, float(zone.get("radius", 5.0)), int(zone.get("owner", -1)))
 		for actor in world.actors.values():
 
-			if _can_act(actor) and not actor.killer and actor.character != "Lysia" and float(actor.hp) < float(actor.max_hp) and actor.position.distance_to(pos) <= float(zone.get("radius", 5.0)) and _zone_sees(pos, actor):
+			if _can_act(actor) and not actor.killer and actor.character != "Lysia" and float(actor.hp) < PaperSurvivorMechanics.heal_ceiling(actor) and actor.position.distance_to(pos) <= float(zone.get("radius", 5.0)) and _zone_sees(pos, actor):
 				if active * 2.0 > float(recipients.get(actor.id, {}).get("amount", 0.0)): recipients[actor.id] = {"amount": active * 2.0, "owner": int(zone.get("owner", -1))}
 		zone["left"] = maxf(0.0, left - delta)
 		if float(zone.left) <= 0.0: world.zones.remove_at(index)
@@ -1777,7 +1778,7 @@ func _tick_zones(delta: float):
 		var actor = _actor(int(actor_id))
 		if actor == null: continue
 		var before: float = actor.hp
-		actor.hp = minf(float(actor.max_hp), before + float(recipients[actor_id].amount))
+		actor.hp = minf(PaperSurvivorMechanics.heal_ceiling(actor), before + float(recipients[actor_id].amount))
 		_reward("heal", _actor(int(recipients[actor_id].owner)), actor.hp - before)
 
 func _zone_sees(center: Vector3, actor) -> bool:
@@ -1857,7 +1858,7 @@ func _heal(actor, amount: float, source):
 	if not _can_act(actor) or actor.killer: return
 	if actor.character == "Lysia" and source != null and source.character == "Elly": return
 	var before: float = float(actor.hp)
-	actor.hp = minf(float(actor.max_hp), before + amount)
+	actor.hp = minf(PaperSurvivorMechanics.heal_ceiling(actor), before + amount)
 	_reward("heal", source, float(actor.hp) - before)
 	world.event("heal", {"actor": actor.id, "source": -1 if source == null else source.id, "amount": float(actor.hp) - before, "position": actor.position})
 
@@ -2519,7 +2520,7 @@ func outlet_preview(actor) -> Dictionary:
 		var distance: float = actor.position.distance_to(point)
 		if distance < nearest and _los(actor.position, point):
 			nearest = distance;result.index = index;result.position = point
-	result.ready = int(result.index) >= 0 and float(actor.cooldowns.get(3, 0)) <= 0 and actor.hp < actor.max_hp
+	result.ready = int(result.index) >= 0 and float(actor.cooldowns.get(3, 0)) <= 0 and actor.hp < PaperSurvivorMechanics.heal_ceiling(actor)
 	result.remaining = float(actor.cooldowns.get(3, 0))
 	return result
 
@@ -2558,7 +2559,7 @@ func _stop_outlet(actor, reason: String = "interrupted"):
 	if healed > 0.0: _set_cd(actor, 3, OUTLET_COOLDOWN)
 	else: actor.cooldowns[3] = maxf(float(actor.cooldowns.get(3, 0.0)), OUTLET_EMPTY_LOCKOUT)
 	world.event("outlet_heal", {"actor": actor.id, "position": actor.position, "active": false, "reason": reason, "healed": healed})
-	if reason == "full": _message(actor, "Armure pleine · prise débranchée")
+	if reason == "full": _message(actor, "Armure pleine · prise débranchée" if float(actor.hp) >= float(actor.max_hp) else "LMS · armure au maximum (150) · prise débranchée")
 
 func _tick_outlet(actor, delta: float):
 	var left: float = _effect(actor, "outlet_healing")
@@ -2581,7 +2582,7 @@ func _tick_outlet(actor, delta: float):
 		_heal(actor, 10.0, actor)
 		actor.effects["outlet_healed"] = _effect(actor, "outlet_healed") + float(actor.hp) - before
 		if partner != null: _reward("heal", partner, (float(actor.hp) - before) * (1.0 - 1.0 / rate))
-	if float(actor.hp) >= float(actor.max_hp):
+	if float(actor.hp) >= PaperSurvivorMechanics.heal_ceiling(actor):
 		_stop_outlet(actor, "full")
 		return
 	if left <= delta: _stop_outlet(actor, "done")

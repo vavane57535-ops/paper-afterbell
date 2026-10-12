@@ -11,6 +11,7 @@ const Mech = preload("res://survivor_mechanics.gd")
 var world: Node
 var _shots: String = ""
 var _only: PackedStringArray = []
+var _outlet: int = 0
 var _summary: Dictionary = {}
 var _failures: Array[String] = []
 
@@ -21,6 +22,7 @@ func setup(owner: Node) -> void :
 	for i: int in range(args.size()):
 		if args[i] == "--mech-shots" and i + 1 < args.size(): _shots = args[i + 1]
 		if args[i] == "--mech-only" and i + 1 < args.size(): _only = args[i + 1].split(",")
+		if args[i] == "--mech-outlet" and i + 1 < args.size(): _outlet = int(args[i + 1])
 	if not _shots.is_empty(): DirAccess.make_dir_recursive_absolute(_shots)
 	_run()
 
@@ -104,7 +106,7 @@ func _test_outlet(with_ashura: bool) -> void :
 	var alice: PaperActor = world.killer_actor()
 	_reset(lysia);_reset(ashura);_reset(alice)
 	_place(alice, world.school.killer_spawn)
-	var outlet: Vector3 = world.school.healing_outlets[0]
+	var outlet: Vector3 = world.school.healing_outlets[clampi(_outlet, 0, world.school.healing_outlets.size() - 1)]
 	_place(lysia, outlet + Vector3(0, 0.08, 0))
 	var side: Vector3 = _free_offset(outlet, 2.0, [Vector3(1, 0, 0.35), Vector3(-1, 0, 0.35), Vector3(0.7, 0, 1), Vector3(-0.7, 0, 1), Vector3(0, 0, 1)])
 	_place(ashura, side if with_ashura else world.school.spawn_points[1])
@@ -112,6 +114,8 @@ func _test_outlet(with_ashura: bool) -> void :
 	lysia.hp = 100.0
 	lysia.cooldowns[3] = 0.0
 	_face(lysia, outlet + Vector3(0, 0, -1))
+	# Ashura se tourne vers Lysia (comme le bot dans _ashura_support) pour que son pouce levé soit lisible.
+	if with_ashura: _face(ashura, lysia.global_position)
 	if _is_local(lysia):
 		var middle: Vector3 = (outlet + Vector3(0, 0, -0.8)).lerp(ashura.global_position, 0.35) if with_ashura else outlet + Vector3(0, 0, -0.8)
 		_look(lysia.global_position + Vector3(0, 0, 0.01), middle, -0.22)
@@ -132,7 +136,7 @@ func _test_outlet(with_ashura: bool) -> void :
 		if fx != null and fx.link_active(lysia.id): link_seen = true
 		if at_6 < 0.0 and t >= 6.0: at_6 = float(lysia.hp) - hp0
 		if t60 < 0.0 and float(lysia.hp) - hp0 >= 60.0 - 0.001: t60 = t
-		if with_ashura and _is_local(lysia) and ((shots == 0 and t >= 0.9) or (shots == 1 and t >= 3.0)):
+		if with_ashura and _is_local(lysia) and ((shots == 0 and t >= 0.6) or (shots == 1 and t >= 1.2) or (shots == 2 and t >= 3.0)):
 			shots += 1
 			await _shot("outlet_ashura_%d" % shots)
 		if t60 >= 0.0 and at_6 >= 0.0: break
@@ -294,7 +298,7 @@ func _test_lms() -> void :
 			rows.append(row)
 			print("MECH lms ", JSON.stringify(row))
 			var expected: float = maxf(before, minf(before + 65.0, 150.0))
-			_check(absf(float(actor.hp) - expected) < 0.01 and float(actor.max_hp) == maxf(base_max, 150.0), "LMS " + name + " (" + start + ") : %.0f PV attendus, mesuré %.0f / %.0f" % [expected, actor.hp, actor.max_hp])
+			_check(absf(float(actor.hp) - expected) < 0.01 and absf(float(actor.max_hp) - maxf(expected, 150.0)) < 0.01, "LMS " + name + " (" + start + ") : %.0f / %.0f PV attendus, mesuré %.0f / %.0f" % [expected, maxf(expected, 150.0), actor.hp, actor.max_hp])
 	_summary["lms"] = rows
 	var bleuette: PaperActor = _by("Bleuette")
 	bleuette.effects["aura_charge"] = 100.0
@@ -317,6 +321,86 @@ func _test_lms() -> void :
 		other.hp = other.max_hp
 		world.combat._heal(other, 50.0, other)
 		_check(float(other.hp) <= 150.0, name + " ne doit pas dépasser 150 PV en LMS, mesuré %.0f" % other.hp)
+	await _test_lms_ceiling()
+
+
+# Plafond de 150 PV en LMS pour tous sauf Bleuette : soins, prise, QTE d'armure de Lysia, zone d'Elly.
+func _test_lms_ceiling() -> void :
+	var lysia: PaperActor = _by("Lysia")
+	var usayuko: PaperActor = _by("Usayuko")
+	var bleuette: PaperActor = _by("Bleuette")
+	var rows: Dictionary = {}
+	# Lysia entrée en LMS blessée : 40 → 105 / 150, la prise s'arrête à 150.
+	_lms_fresh(lysia, 40.0)
+	var outlet: Vector3 = world.school.healing_outlets[0]
+	_place(lysia, outlet + Vector3(0, 0.08, 0))
+	_place(world.killer_actor(), world.school.killer_spawn)
+	await _wait(0.4)
+	lysia.hp = 130.0
+	lysia.cooldowns[3] = 0.0
+	var plugged: bool = world.combat.start_outlet_heal(lysia)
+	var t0: float = world.clock
+	while world.clock - t0 < 15.5 and float(lysia.effects.get("outlet_healing", 0.0)) > 0.0: await get_tree().physics_frame
+	rows["lysia_outlet"] = {"plugged": plugged, "hp": lysia.hp, "max_hp": lysia.max_hp, "seconds": snappedf(world.clock - t0, 0.01)}
+	_check(plugged and absf(float(lysia.hp) - 150.0) < 0.01 and float(lysia.max_hp) == 150.0, "LMS Lysia : la prise doit s'arrêter à 150 / 150, mesuré " + JSON.stringify(rows["lysia_outlet"]))
+	# QTE « + ARMURE » de Lysia en LMS : pas de PV max au-delà de 150, réparation à la place.
+	lysia.hp = 120.0
+	lysia.effects["lms_qte_ready"] = true
+	lysia.effects["lms_qte_expires"] = world.clock + 5.0
+	lysia.effects["lms_buff_unlocked"] = true
+	world.combat.assist(-1, lysia.id, "health")
+	rows["lysia_qte"] = {"hp": lysia.hp, "max_hp": lysia.max_hp}
+	_check(float(lysia.max_hp) <= 150.0 and float(lysia.hp) > 120.0 and float(lysia.hp) <= 150.0, "LMS Lysia QTE + ARMURE : max 150, réparation, mesuré " + JSON.stringify(rows["lysia_qte"]))
+	# Lysia entrée en LMS au-dessus de 150 : garde 200, mais ne regagne pas ce qu'elle perd au-delà de 150.
+	_lms_fresh(lysia, 200.0)
+	var entered: Array = [lysia.hp, lysia.max_hp]
+	lysia.hp = 170.0
+	world.combat._heal(lysia, 7.0, lysia)
+	var after_hit: float = lysia.hp
+	var ready_above: bool = bool(world.combat.outlet_preview(lysia).get("ready", false))
+	if _is_local(lysia):
+		await _wait(0.6)
+		await _shot("lysia_lms_170")
+	lysia.hp = 120.0
+	world.combat._heal(lysia, 50.0, lysia)
+	if _is_local(lysia):
+		await _wait(0.6)
+		await _shot("lysia_lms_150_capped")
+	rows["lysia_above"] = {"entered": entered, "healed_at_170": after_hit, "outlet_ready_at_170": ready_above, "healed_from_120": lysia.hp}
+	_check(float(entered[0]) == 200.0 and after_hit == 170.0 and not ready_above and absf(float(lysia.hp) - 150.0) < 0.01, "LMS Lysia entrée à 200 : garde 200, jamais de soin au-delà de 150, mesuré " + JSON.stringify(rows["lysia_above"]))
+	# Usayuko entrée pleine (165) : la zone de soin d'Elly ne la remonte pas au-delà de 150.
+	_lms_fresh(usayuko, 165.0)
+	usayuko.hp = 140.0
+	var elly: PaperActor = _by("Elly")
+	_place(usayuko, world.school.spawn_points[3])
+	await _wait(0.3)
+	world.zones.append({"position": usayuko.position, "radius": 5.0, "left": 7.0, "owner": elly.id})
+	await _wait(7.2)
+	rows["usayuko_zone"] = {"hp": usayuko.hp, "max_hp": usayuko.max_hp}
+	_check(absf(float(usayuko.hp) - 150.0) < 0.01, "LMS Usayuko : zone de soin plafonnée à 150, mesuré " + JSON.stringify(rows["usayuko_zone"]))
+	# Bleuette après le courage : son chocolat la soigne au-delà de 150.
+	_lms_fresh(bleuette, 40.0)
+	bleuette.effects["aura_charge"] = 100.0
+	world.combat._unlock_lms(bleuette)
+	world.combat.use(bleuette, 3)
+	bleuette.hp = 150.0
+	world.combat._heal(bleuette, 20.0, bleuette)
+	rows["bleuette_heal"] = {"hp": bleuette.hp, "max_hp": bleuette.max_hp}
+	_check(float(bleuette.max_hp) == 180.0 and float(bleuette.hp) == 170.0, "LMS Bleuette : soin au-delà de 150 après le courage, mesuré " + JSON.stringify(rows["bleuette_heal"]))
+	print("MECH lms_ceiling ", JSON.stringify(rows))
+	_summary["lms_ceiling"] = rows
+
+
+func _lms_fresh(actor: PaperActor, hp: float) -> void :
+	_reset(actor)
+	actor.lms = false
+	actor.effects["lms_applied"] = false
+	actor.effects["lms_buff_unlocked"] = false
+	actor.effects["aura_used"] = false
+	actor.effects.erase("lms_hp_cap")
+	actor.max_hp = float(PaperData.STATS[actor.character][0])
+	actor.hp = minf(hp, actor.max_hp)
+	world.combat.apply_lms(actor)
 
 
 

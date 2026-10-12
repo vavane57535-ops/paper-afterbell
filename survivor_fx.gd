@@ -366,5 +366,6 @@ func _link_started(lysia: PaperActor, partner: PaperActor, from: Vector3, to: Ve
 	if audio != null and world.has_method("_listener_position"):
 		audio.sfx("camera_switch", middle, world._listener_position(), 0.4, 1.3)
 	var speed: float = Vector2(partner.velocity.x, partner.velocity.z).length()
-	if is_instance_valid(partner.visual) and speed < 1.2 and not partner.visual.is_performing_action():
+	var busy: bool = bool(partner.effects.get("drone_piloting", false)) or bool(partner.effects.get("boost_charging", false)) or bool(partner.effects.get("grinding", false))
+	if is_instance_valid(partner.visual) and speed < 1.2 and not busy and not partner.visual.is_performing_action():
 		partner.visual.trigger("thumbsup")
