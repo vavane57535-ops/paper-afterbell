@@ -60,8 +60,8 @@ const GAITS: Dictionary = {
 	"Simon": {"cadence": 1.08, "bob": 1.1, "lean": 1.2, "arm_swing": 1.05, "arm_out": 0.08, "knee_lift": 1.12, "heel_kick": 1.1,
 		"fist": 0.85, "hop": 0.35, "twist": 1.0, "cross": 0.45, "press": 0.8},
 
-	"Lysia": {"cadence": 1.0, "bob": 0.6, "sway": 0.4, "lean": 0.9, "arm_swing": 0.85, "arm_out": 0.04, "elbow": 0.05,
-		"knee_lift": 1.0, "heel_kick": 0.72, "snappy": 1.0, "elbow_lag": 0.0, "fist": 0.8, "twist": 0.35, "cross": 0.0, "press": 0.7},
+	"Lysia": {"cadence": 1.1, "stride": 0.82, "bob": 0.6, "sway": 0.4, "lean": 0.9, "arm_swing": 0.85, "arm_out": 0.04, "elbow": 0.05,
+		"knee_lift": 0.82, "heel_kick": 0.72, "snappy": 1.0, "elbow_lag": 0.0, "fist": 0.8, "twist": 0.35, "cross": 0.0, "press": 0.7},
 
 	"Elly": {"cadence": 0.95, "stride": 1.08, "bob": 0.85, "sway": 0.8, "lean": 0.85, "arm_swing": 0.85, "arm_out": 0.02,
 		"elbow": -0.12, "knee_lift": 1.0, "heel_kick": 1.0, "fist": 0.35, "twist": 0.9, "cross": 0.7, "press": 0.85},

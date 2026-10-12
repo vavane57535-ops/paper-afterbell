@@ -22,7 +22,7 @@ static func _pocket(flare_l: float = 0.5, flare_r: float = 0.5) -> Dictionary:
 
 # En marchant / trottinant : mains enfoncées dans les poches avant de la veste, coudes un peu pliés vers l'arrière.
 static func _pocket_walk(flare_l: float = 0.55, flare_r: float = 0.55) -> Dictionary:
-	return M([Lt(-0.1, -0.75, 0.22, flare_l), Rt(-0.1, -0.75, 0.22, flare_r)])
+	return M([Lt(-0.04, -0.78, 0.18, flare_l), Rt(-0.04, -0.78, 0.18, flare_r)])
 
 
 

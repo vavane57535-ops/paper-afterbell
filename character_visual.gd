@@ -290,6 +290,7 @@ var _st_overheat_dash: bool = false
 var _st_blind: bool = false
 var _st_shadow_hide: bool = false
 var _boost_blend: float = 0.0
+var _boost_face: String = ""
 var _death_hold: float = 0.0
 var _transition_time: float = TRANSITION_TIME
 var _stun_snap: bool = false
@@ -384,6 +385,7 @@ func _reset_motion_state() -> void :
 	_land_offset = 0.0;_land_speed = 0.0;_air_blend = 0.0;_calm = false
 	_overlay_name = "";_speak_left = 0.0;_fidget_time = -1.0;_hold_left = 0.0;_clip_turn = 0.0;_clip_squash = 1.0
 	_state_clocks.clear();_boost_blend = 0.0;_alert_blend = 0.0;_gait_previous = -1.0;_death_hold = 0.0
+	_g_pocket = 0.0;_g_lift_off.clear();_boost_face = ""
 	_hit_rot = Vector3.ZERO;_hit_vel = Vector3.ZERO;_hit_head = Vector3.ZERO;_hit_head_vel = Vector3.ZERO
 	_hit_arm = 0.0;_hit_arm_vel = 0.0;_hit_drop = 0.0;_hit_drop_vel = 0.0
 	_look = Vector2.ZERO;_look_speed = Vector2.ZERO;_glance_back = 0.0;_fatigue = 0.0
@@ -780,6 +782,7 @@ func animate(delta: float, velocity: Vector3, stunned: bool, phase: bool) -> voi
 	_apply_injury_pose(dt, speed)
 	if _injury_blend > 0.3 and mood == _base_mood(): mood = "hurt"
 	if _st_chased and _action_time <= 0 and _life_state == "alive" and not _is_alice: mood = "panic" if speed > 4.0 else "fear"
+	if not _boost_face.is_empty() and _action_time <= 0 and not stunned and _life_state == "alive": mood = _boost_face
 	if _st_lms and _action_time <= 0 and not stunned: mood = "determined"
 	if character_name == "TrueForm" and not stunned: mood = "angry"
 	if not _st_emote.is_empty() and _is_emote(_st_emote) and _life_state == "alive" and not stunned and speed < 0.35 and _action_time <= 0:
@@ -1406,10 +1409,12 @@ func _style_overlays(dt: float) -> void :
 	if not pocket.is_empty():
 
 
-		var keep: bool = not _st_sprinting and not _st_speed_boost and not _st_boost_time and _move_blend < 8.6 and _life_state == "alive"
+		# Il sort aussi les mains quand il est poursuivi ou en LMS (posture « alert »), comme à l'arrêt.
+		var keep: bool = not _st_sprinting and not _st_speed_boost and not _st_boost_time and not tense and _move_blend < 8.6 and _life_state == "alive"
 		_g_pocket = move_toward(_g_pocket, (1.0 - 0.6 * _air_blend) if keep else 0.0, dt * (3.5 if keep else 5.0))
 		if _g_pocket * _g_move > 0.01: _apply_clip(pocket, _gait_phase * float(pocket.len), _g_pocket * _g_move, before * float(pocket.len))
 	var running: float = _g_run * _g_move
+	_boost_face = ""
 	if running > 0.01:
 		var boost: Dictionary = _get_clip("boost") if _boost_blend > 0.01 else {}
 		var boost_weight: float = _boost_blend if not boost.is_empty() else 0.0
@@ -1419,7 +1424,9 @@ func _style_overlays(dt: float) -> void :
 		var run_weight: float = (1.0 - sprint_weight) * (1.0 - boost_weight) if not run.is_empty() else 0.0
 		if run_weight > 0.01: _apply_clip(run, _gait_phase * float(run.len), running * run_weight, before * float(run.len))
 		if sprint_weight > 0.01: _apply_clip(sprint, _gait_phase * float(sprint.len), running * sprint_weight, before * float(sprint.len))
-		if boost_weight > 0.01: _apply_clip(boost, _gait_phase * float(boost.len), running * boost_weight, before * float(boost.len))
+		if boost_weight > 0.01:
+			var face: String = _apply_clip(boost, _gait_phase * float(boost.len), running * boost_weight, before * float(boost.len))
+			if boost_weight * running > 0.5: _boost_face = face
 
 	if _g_move > 0.6 and _st_grounded and _life_state == "alive" and not _st_boost_time and not _st_grinding:
 		var beat: int = int(_gait_phase * 2.0)
@@ -1712,11 +1719,14 @@ func _leg_ik(side: int, target: Vector3, foot_pitch: float, weight: float) -> vo
 	var height: float = sqrt(maxf(0.0, upper * upper - along * along))
 
 	var pole: Vector3 = body_q * Vector3(side * (0.12 + 0.15 * (float(_style.stance) - 1.0)), 0.0, -1.0)
-
-	var facing: Vector3 = body_q * Vector3.FORWARD
-	if facing.y < -0.4:
-		var flat: Vector3 = Vector3(facing.x, 0.0, facing.z)
-		if flat.length_squared() > 0.0001: pole = Quaternion(facing.normalized(), flat.normalized() * 0.9165 + Vector3(0.0, -0.4, 0.0)) * pole
+	# Garde-fou : le genou reste du côté avant de la ligne hanche → cheville (dans le repère du bassin), même quand
+	# le bassin plonge ou que le pied part loin devant (sprint, starting-blocks). Les poses déjà correctes ne changent pas.
+	var local_dir: Vector3 = body_q.inverse() * direction
+	var front: Vector3 = body_q * Vector3(0.0, - local_dir.z, local_dir.y)
+	var plain: Vector3 = pole - direction * pole.dot(direction)
+	if front.length_squared() > 0.01 and plain.length_squared() > 1e-06:
+		var fix: float = (1.0 - smoothstep(-0.25, 0.1, plain.normalized().dot(front.normalized()))) * smoothstep(0.1, 0.3, front.length())
+		if fix > 0.0: pole = pole.lerp(front.normalized() + body_q * Vector3(side * 0.12, 0.0, 0.0), fix)
 	var bend: Vector3 = pole - direction * pole.dot(direction)
 	if bend.length_squared() < 1e-06: bend = body_q * Vector3.FORWARD
 	bend = bend.normalized()

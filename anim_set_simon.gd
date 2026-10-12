@@ -90,10 +90,10 @@ static func _carriage(c: Dictionary) -> void :
 	# Boost de vitesse : sur-sprint façon anime. Le buste plonge vers l'avant (allure « boost » de anim_gait.gd),
 	# les genoux montent haut, les talons claquent sous les fesses, les poings pompent ; la tête reste levée vers l'avant.
 	c["boost@Simon"] = {"len": 1.0, "loop": true, "add": true, "face": "determined", "keys": [
-		[0.0, M([C(0.08, 0.0, 0.0), HD(0.12, -0.04, 0.0), {"curl": 1.0}])],
-		[0.25, M([C(0.1, 0.0, 0.0), HD(0.1, 0.0, 0.0)])],
-		[0.5, M([C(0.08, 0.0, 0.0), HD(0.12, 0.04, 0.0)])],
-		[0.75, M([C(0.1, 0.0, 0.0), HD(0.1, 0.0, 0.0)])],
+		[0.0, M([C(0.08, 0.0, 0.0), HD(0.24, -0.04, 0.0), {"curl": 1.0}])],
+		[0.25, M([C(0.1, 0.0, 0.0), HD(0.21, 0.0, 0.0)])],
+		[0.5, M([C(0.08, 0.0, 0.0), HD(0.24, 0.04, 0.0)])],
+		[0.75, M([C(0.1, 0.0, 0.0), HD(0.21, 0.0, 0.0)])],
 	]}
 
 
