@@ -521,8 +521,14 @@ func _test_modes(character: String) -> void :
 
 	rig.toggle_mode()
 	var free_badge: bool = rig._badge.visible and str(rig._badge._title.text) == PaperLanguage.t("CAMÉRA : LIBRE 360°")
+	# Pause ouverte pendant l'affichage : le bandeau disparaît au lieu de rester sur le menu.
+	await _frames(2)
+	world.pause_open = true
+	await _frames(2)
+	var badge_paused: bool = not rig._badge.visible
+	world.pause_open = false
 	await _wait(0.6)
-	_check("toggle_free_%s" % tag, rig.mode == Rig.MODE_FREE and free_badge and int(actor.effects.get("cam_facing", 0)) == Rig.FACING_FREE, "retour en Libre 360° par la même touche, bandeau « %s » : %s" % [PaperLanguage.t("CAMÉRA : LIBRE 360°"), str(free_badge)])
+	_check("toggle_free_%s" % tag, rig.mode == Rig.MODE_FREE and free_badge and badge_paused and int(actor.effects.get("cam_facing", 0)) == Rig.FACING_FREE, "retour en Libre 360° par la même touche, bandeau « %s » : %s, masqué si la pause s'ouvre : %s" % [PaperLanguage.t("CAMÉRA : LIBRE 360°"), str(free_badge), str(badge_paused)])
 
 	var config: ConfigFile = ConfigFile.new()
 	rig.mode = Rig.MODE_BEHIND
@@ -678,6 +684,16 @@ func _test_control_api() -> void :
 	rig.drive_look_at(holder, eye, focus, 40.0)
 	await _frames(2)
 	placed = placed and world.camera.global_position.distance_to(eye) < 0.001 and _cam_forward().angle_to((focus - eye).normalized()) < 0.001
+	# Plan zénithal (visée parallèle à UP) : accepté, la caméra regarde bien vers le bas.
+	rig.drive_look_at(holder, focus + Vector3.UP * 6.0, focus, 50.0)
+	await _frames(2)
+	var top_shot: bool = _cam_forward().angle_to(Vector3.DOWN) < 0.01 and world.camera.global_basis.is_finite()
+	# La touche de mode est ignorée pendant le plan : pas de bascule, pas de bandeau par-dessus le film.
+	var mode_before: String = rig.mode
+	var badge_time: float = float(rig._badge._time) if is_instance_valid(rig._badge) else 0.0
+	rig.toggle_mode()
+	await _frames(2)
+	var ignored: bool = rig.mode == mode_before and not rig.recentering() and (not is_instance_valid(rig._badge) or float(rig._badge._time) <= badge_time + 0.001)
 	rig.release_control(holder, 0.45)
 	await _wait(0.12)
 	var mid: Vector3 = world.camera.global_position
@@ -694,6 +710,7 @@ func _test_control_api() -> void :
 	var auto_released: bool = not rig.has_control()
 	holder.queue_free()
 	_check("cinematic_api", placed and locked and blending and back_home and held and auto_released, "take_control/drive/drive_look_at : plan appliqué %s, regard bloqué %s ; release_control : fondu %s puis retour exact %s ; propriétaire libéré → rendu auto %s" % [str(placed), str(locked), str(blending), str(back_home), str(auto_released)])
+	_check("cinematic_guard", top_shot and ignored, "plan zénithal via drive_look_at : %s ; touche de mode ignorée pendant le plan (mode %s inchangé, pas de bandeau) : %s" % [str(top_shot), mode_before, str(ignored)])
 	await _wait(0.3)
 
 func _test_spectator() -> void :
@@ -742,6 +759,11 @@ func _test_drone() -> void :
 	await _wait(0.5)
 	var drone: Dictionary = world.combat.piloted_drone(actor)
 	var piloting: bool = not drone.is_empty() and bool(actor.effects.get("drone_piloting", false))
+	# Passage en « Derrière » pendant le vol : la souris pilote le drone, aucun recentrage ne doit
+	# démarrer (ni s'appliquer, périmé, à l'atterrissage).
+	world.yaw = 0.4 + PI * 0.5
+	rig.toggle_mode()
+	var no_swing: bool = rig.mode == Rig.MODE_BEHIND and not rig.recentering()
 	world.pitch = Rig.PITCH_MIN
 	await _frames(3)
 	var aligned: float = rad_to_deg(_cam_forward().angle_to(Rig.view_direction(world.yaw, world.pitch))) if piloting else 180.0
@@ -751,8 +773,11 @@ func _test_drone() -> void :
 	world.request_cancel_aim()
 	await _wait(1.2)
 	var back: bool = not bool(actor.effects.get("drone_piloting", false)) and _cam_forward().angle_to(Rig.view_direction(world.yaw, world.pitch)) < 0.002 and actor.visual.visible
+	no_swing = no_swing and absf(angle_difference(world.yaw, 0.4 + PI * 0.5)) < 0.001 and not rig.recentering()
 	world.pitch = Rig.DEFAULT_PITCH
 	_check("drone", piloting and aligned < 0.05 and at_drone < 0.3 and back, "vue drone d'Ashura : caméra sur le drone (%.2f m), regard %.0f° vers le bas aligné (%.3f°) ; retour fluide derrière Ashura à l'atterrissage : %s" % [at_drone, down, aligned, str(back)])
+	_check("drone_mode_toggle", no_swing, "touche de mode pendant le vol du drone : mode Derrière pris, aucun recentrage parasite à l'atterrissage : %s" % str(no_swing))
+	await _settle_mode(Rig.MODE_FREE)
 	await _wait(0.3)
 
 func _finish(original_mode: String) -> void :

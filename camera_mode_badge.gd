@@ -121,6 +121,11 @@ func show_mode(next: String) -> void :
 
 func _process(delta: float) -> void :
 	if not visible: return
+	# Fin de manche, retour au menu ou pause pendant l'affichage : le bandeau ne reste pas par-dessus.
+	if world != null and (str(world.get("phase")) != "playing" or bool(world.get("pause_open"))):
+		_time = 0.0
+		hide()
+		return
 	_time = maxf(0.0, _time - delta)
 	_apply()
 	if _time <= 0.0: hide()
