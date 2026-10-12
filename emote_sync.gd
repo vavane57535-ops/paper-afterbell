@@ -137,8 +137,10 @@ func extrapolate(delta: float) -> void :
 func update_music() -> void :
 	# Un lecteur 3D par groupe de danseurs synchronisés (même danse, même époque). Les lecteurs
 	# sont rattachés au groupe par son époque, pas par ses membres : quelqu'un qui rejoint ou
-	# quitte le groupe ne coupe pas la musique.
+	# quitte le groupe ne coupe pas la musique. Le son part du danseur le plus proche de la
+	# caméra (un groupe peut être dispersé sur la carte).
 	var clusters: Array[Dictionary] = []
+	var listener: Vector3 = world.camera.global_position if world.camera and world.camera.is_inside_tree() else Vector3.ZERO
 	if world.phase == "playing":
 		for actor: PaperActor in world.actors.values():
 			var id: String = str(actor.effects.get("emote_id", ""))
@@ -151,11 +153,16 @@ func update_music() -> void :
 					found = cluster
 					break
 			if found.is_empty():
-				found = {"id": id, "time": t, "epoch": epoch, "sum": Vector3.ZERO, "count": 0}
+				found = {"id": id, "time": t, "epoch": epoch, "at": actor.position, "near": INF}
 				clusters.append(found)
-			found.sum += actor.position
-			found.count += 1
+			var distance: float = actor.position.distance_squared_to(listener)
+			if distance < float(found.near):
+				found.at = actor.position
+				found.near = distance
 	for entry: Dictionary in _music: entry.used = false
+	# Pause en solo : l'horloge de la partie est figée, la musique s'arrête avec elle (sinon elle
+	# se recalerait sans cesse sur le même instant et bégaierait).
+	var frozen: bool = world.pause_open and not world.networked
 	for cluster: Dictionary in clusters:
 		var stream: AudioStream = PaperDances.music(str(cluster.id))
 		if stream == null: continue
@@ -177,7 +184,9 @@ func update_music() -> void :
 		entry.epoch = cluster.epoch
 		entry.used = true
 		player.volume_db = _music_db()
-		player.global_position = cluster.sum / float(cluster.count) + Vector3.UP * 1.2
+		player.global_position = Vector3(cluster.at) + Vector3.UP * 1.2
+		if player.stream_paused != frozen: player.stream_paused = frozen
+		if frozen: continue
 		if not player.playing: player.play(want)
 		else:
 			var drift: float = absf(player.get_playback_position() - want)
@@ -235,6 +244,8 @@ func _sfx_stream(sfx_name: String) -> AudioStream:
 
 func _bot_safe(bot: PaperActor) -> bool:
 	if not bot.active() or bool(bot.effects.get("chased", false)) or bool(bot.effects.get("downed", false)): return false
+	# Pas de pause danse quand il faut fuir : dernier survivant ou sortie ouverte.
+	if world.lms or (world.exit_flow and world.exit_flow.is_open()): return false
 	for key: String in ["revive_target", "heal_target", "carrying_id", "carried_by", "grabbed_by"]:
 		if int(bot.effects.get(key, -1)) >= 0: return false
 	if float(bot.effects.get("heal_time", 0)) > 0 or bool(bot.effects.get("boost_charging", false)) or int(bot.effects.get("archive_qte_id", 0)) > 0: return false
@@ -257,11 +268,17 @@ func _tick_bots() -> void :
 		_pending.remove_at(i)
 		var bot: PaperActor = world.actors.get(int(plan.actor))
 		var id: String = str(plan.id)
-		if bot == null or bot.effects.has("emote_id") or not _bot_safe(bot) or _partner(bot, id) == null: continue
+		if bot == null or bot.effects.has("emote_id") or not _bot_safe(bot): continue
+		var lead: PaperActor = _partner(bot, id)
+		if lead == null: continue
 		bot.move_input = Vector3.ZERO
 		if start(bot, id):
 			var long: bool = PaperDances.is_dance(id) or PaperEmotes.holds(id)
 			_bot_until[bot.id] = world.clock + (rng.randf_range(7.0, 14.0) if long else PaperEmotes.duration(id) + 0.3)
+			# Danse : en formation, tourné comme le meneur. Émote : tourné vers lui.
+			var yaw: float = lead.visual.rotation.y if is_instance_valid(lead.visual) else 0.0
+			var face: Vector3 = Vector3(- sin(yaw), 0.0, - cos(yaw)) if long and not PaperEmotes.holds(id) else Vector3(lead.position.x - bot.position.x, 0.0, lead.position.z - bot.position.z)
+			if face.length_squared() > 0.0001: bot.aim = face.normalized()
 
 # Appelé par le cerveau des bots : vrai tant que le bot doit rester sur place pour son émote.
 func holds_bot(actor: PaperActor) -> bool:
@@ -269,10 +286,17 @@ func holds_bot(actor: PaperActor) -> bool:
 	if not actor.effects.has("emote_id"):
 		_bot_until.erase(actor.id)
 		return false
-	if world.clock > float(_bot_until[actor.id]) or not _bot_safe(actor):
+	if world.clock > float(_bot_until[actor.id]) or not _bot_safe(actor) or not _joined_human(actor):
 		cancel(actor)
 		return false
 	return true
+
+# Le bot s'arrête avec le joueur qu'il accompagnait : plus aucun joueur près de lui ne fait la même émote.
+func _joined_human(bot: PaperActor) -> bool:
+	var id: String = str(bot.effects.get("emote_id", ""))
+	for other: PaperActor in world.actors.values():
+		if other != bot and not other.bot and str(other.effects.get("emote_id", "")) == id and other.position.distance_to(bot.position) < 20.0: return true
+	return false
 
 func clear() -> void :
 	_pending.clear()

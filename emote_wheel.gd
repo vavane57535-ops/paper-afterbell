@@ -125,7 +125,7 @@ func _input(event: InputEvent) -> void :
 			close()
 			get_viewport().set_input_as_handled()
 			return
-		if event.keycode == KEY_TAB or event.keycode == KEY_0:
+		if event.keycode == KEY_TAB or event.physical_keycode == KEY_0:
 			_flip(-1 if event.shift_pressed else 1)
 			get_viewport().set_input_as_handled()
 			return

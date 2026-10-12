@@ -197,8 +197,10 @@ func _run_sync() -> void :
 	ok = await _case("danse rejointe à 0,7 s (dance_floss)", survivors[0], survivors[1], "dance_floss", 0.7, "join") and ok
 	ok = await _case("danse rejointe à 0,7 s (nouvelle danse)", survivors[1], survivors[2], str(PaperDances.LIST[PaperDances.LIST.size() - 1].id), 0.7, "join") and ok
 	ok = await _case_far("même émote hors de portée : pas de synchro", survivors[0], survivors[2], "heart") and ok
+	ok = await _case_far_dance("même danse à 70 m : synchro sur toute la carte, une seule musique", survivors[0], survivors[2]) and ok
 	ok = await _case_music("la musique continue sans coupure quand un danseur rejoint puis quitte le groupe", survivors[0], survivors[1], survivors[2]) and ok
 	ok = await _case_long("danse rejointe tard : le nouveau venu garde toute sa durée", survivors[0], survivors[1]) and ok
+	ok = await _case_pause("pause solo : la musique de danse s'arrête puis reprend au même endroit", survivors[0]) and ok
 	ok = await _case_sit("en tailleur rejoint tard : le nouveau venu s'assoit à son rythme, le groupe reste assis", survivors[0], survivors[1]) and ok
 	ok = await _bot_join(survivors[0], survivors[1]) and ok
 	_finish(ok)
@@ -256,6 +258,24 @@ func _case_far(label: String, a: PaperActor, b: PaperActor, id: String) -> bool:
 	await _reset([a, b])
 	return pass_case
 
+func _case_far_dance(label: String, a: PaperActor, b: PaperActor) -> bool:
+	await _reset([a, b])
+	var keep: Vector3 = b.position
+	b.position = a.position + Vector3(70.0, 0.0, 0.0)
+	world._start_emote(a, "dance_retro")
+	await _wait_clock(0.7)
+	world._start_emote(b, "dance_retro")
+	await _wait_clock(0.3)
+	var gap: float = absf(float(a.effects.get("emote_time", 0.0)) - float(b.effects.get("emote_time", 0.0)))
+	var players: int = 0
+	for entry: Dictionary in world.emote_sync._music:
+		if str(entry.id) == "dance_retro": players += 1
+	var pass_case: bool = gap < 0.001 and players == 1
+	_log("%s %s : écart=%.4f s, lecteurs de musique=%d" % ["OK" if pass_case else "FAIL", label, gap, players])
+	b.position = keep
+	await _reset([a, b])
+	return pass_case
+
 func _music_players() -> Array:
 	var result: Array = []
 	for entry: Dictionary in world.emote_sync._music: result.append((entry.player as Node).get_instance_id())
@@ -280,6 +300,31 @@ func _case_music(label: String, a: PaperActor, b: PaperActor, c: PaperActor) -> 
 	_log("%s %s : lecteurs %s -> %s -> %s" % ["OK" if pass_case else "FAIL", label, str(first), str(joined), str(left)])
 	c.position = keep
 	await _reset([a, b, c])
+	return pass_case
+
+func _case_pause(label: String, a: PaperActor) -> bool:
+	await _reset([a])
+	world._start_emote(a, "dance_golden")
+	await _wait_clock(0.8)
+	var player: AudioStreamPlayer3D = null
+	for entry: Dictionary in world.emote_sync._music:
+		if str(entry.id) == "dance_golden": player = entry.player
+	if player == null or world.networked:
+		_log("FAIL %s : pas de lecteur de musique" % label)
+		return false
+	world.pause_open = true
+	for i: int in range(10): await get_tree().process_frame
+	var clock_before: float = world.clock
+	var p1: float = player.get_playback_position()
+	for i: int in range(30): await get_tree().process_frame
+	var p2: float = player.get_playback_position()
+	var paused: bool = player.stream_paused and absf(world.clock - clock_before) < 0.0001
+	world.pause_open = false
+	await _wait_clock(0.4)
+	var resumed: bool = is_instance_valid(player) and not player.stream_paused and player.playing
+	var pass_case: bool = paused and absf(p2 - p1) < 0.02 and resumed
+	_log("%s %s : en pause=%s, position %.3f -> %.3f, reprise=%s" % ["OK" if pass_case else "FAIL", label, str(paused), p1, p2, str(resumed)])
+	await _reset([a])
 	return pass_case
 
 func _case_long(label: String, a: PaperActor, b: PaperActor) -> bool:
@@ -326,9 +371,26 @@ func _bot_join(human: PaperActor, bot: PaperActor) -> bool:
 			joined = absf(float(bot.effects.get("emote_epoch", 0.0)) - float(human.effects.get("emote_epoch", 1.0))) < 0.0001
 			break
 		await _reset([human, bot])
+	# Danse : le bot rejoint, puis s'arrête quand le joueur s'arrête.
+	await _reset([human, bot])
+	var danced: bool = false
+	var stopped: bool = false
+	for attempt: int in range(6):
+		# Le bot a pu repartir entre deux essais : on le remet à côté du joueur.
+		bot.position = human.position + Vector3(1.6, 0.0, 0.0);bot.net_position = bot.position;bot.move_input = Vector3.ZERO
+		world._start_emote(human, "dance_amapiano")
+		await _wait_clock(1.6)
+		if str(bot.effects.get("emote_id", "")) == "dance_amapiano":
+			danced = true
+			world.emote_sync.cancel(human)
+			await _wait_clock(0.3)
+			stopped = not bot.effects.has("emote_id")
+			break
+		await _reset([human, bot])
 	bot.bot = false
 	_log("%s un bot proche rejoint l'émote du joueur, synchronisé" % ("OK" if joined else "FAIL"))
-	return joined
+	_log("%s un bot qui danse avec le joueur s'arrête avec lui (rejoint=%s, arrêté=%s)" % ["OK" if danced and stopped else "FAIL", str(danced), str(stopped)])
+	return joined and danced and stopped
 
 func _finish(ok: bool) -> void :
 	_log("RESULT " + ("PASS" if ok else "FAIL"))
