@@ -13,6 +13,11 @@ const ALARM_PATHS: Array[String] = ["res://audio/sfx/exit_alarm_00.wav", "res://
 const RUSH_SPAN: float = 80.0
 const RUSH_LEAD: float = 3.0
 const FINAL_CALL: float = 59.97
+# Bonus de +45 s d'une élimination pendant que la sortie est ouverte : le chrono repasse au-dessus du
+# début de la musique. Au lieu d'un silence (jusqu'à 45 s), la course tourne en boucle sur sa première
+# phrase rythmée (mesures 5 à 8, 4 mesures à 128 BPM), puis reprend son cours quand le chrono la rattrape.
+const HOLD_START: float = 7.48
+const HOLD_LENGTH: float = 7.5
 const BANNER_SECONDS: float = 3.9
 const LAMP_RED: Color = Color(1.0, 0.13, 0.1)
 const AMBIENT_RED: Color = Color(0.95, 0.3, 0.3)
@@ -234,8 +239,10 @@ func _process(delta: float) -> void :
 	var music: bool = open and not bool(world.lms)
 	if audio and audio.has_method("set_rush"):
 		var frozen: bool = bool(world.pause_open) and not bool(world.networked)
-		audio.set_rush(_rush if music else 0.0, RUSH_SPAN - float(world.time_left) - RUSH_LEAD if music else -1.0, frozen)
+		audio.set_rush(_rush if music else 0.0, _rush_position() if music else -1.0, frozen)
 		audio.heartbeat_floor = _heart_floor() if open else 0.0
+	# Une élimination (+45 s) a fait ressortir le chrono du final : le dernier appel pourra se rejouer.
+	if open and _final_done and float(world.time_left) > RUSH_SPAN - RUSH_LEAD - FINAL_CALL + 2.0: _final_done = false
 	if open and not _final_done and final_stretch():
 		_final_done = true
 		_final_call()
@@ -255,6 +262,12 @@ func _process(delta: float) -> void :
 		_final_done = false
 		# partie quittée pendant l'alerte : la sirène ne suit pas le joueur au menu
 		if _alarm.playing: _alarm.stop()
+
+func _rush_position() -> float:
+	var position: float = RUSH_SPAN - float(world.time_left) - RUSH_LEAD
+	# seules les 3 premières secondes après l'ouverture sont « sirène seule »
+	if position < 0.0 and _since > RUSH_LEAD: position = HOLD_START + fposmod(position, HOLD_LENGTH)
+	return position
 
 func _heart_floor() -> float:
 	var me: PaperActor = world.local_actor()
