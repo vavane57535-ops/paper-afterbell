@@ -1336,7 +1336,7 @@ func _fire(kind: String, data: Dictionary) -> void :
 			if "_word_clock" in comic: comic.set("_word_clock", float(data.get("seconds", 1.0)))
 		"thunder":
 			if is_instance_valid(_thunder_player) and _thunder_player.stream and is_instance_valid(world.audio):
-				_thunder_player.volume_db = float(world.audio.volume_to_db(float(world.audio.effects_volume))) + linear_to_db(0.7 * float(data.get("gain", 1.0)))
+				_thunder_player.volume_db = float(world.audio.volume_to_db(float(world.audio.effects_volume))) + linear_to_db(0.6 * float(data.get("gain", 1.0)))
 				_thunder_player.play(0.0)
 		"sound":
 			cinema._sound(str(data.kind), cinema._spot(data.at), float(data.get("gain", 1.0)), float(data.get("pitch", 1.0)))
@@ -1569,6 +1569,7 @@ func _update_audio(t: float, delta: float) -> void :
 	var audio: Node = world.audio
 	var music_db: float = -80.0
 	var sfx_db: float = -80.0
+	# the scores are mastered at -18 LUFS like the game's tracks: same level as PaperAudio.MUSIC_LEVEL
 	if is_instance_valid(audio):
 		music_db = float(audio.volume_to_db(float(audio.music_volume))) + linear_to_db(0.82)
 		sfx_db = float(audio.volume_to_db(float(audio.effects_volume)))
@@ -1582,7 +1583,7 @@ func _update_audio(t: float, delta: float) -> void :
 	var tv_level: float = 0.0
 	if t < t_cut: tv_level = smoothstep(0.0, 0.3, t) * (1.0 - 0.4 * smoothstep(1.7, 2.2, t))
 	elif t >= t_back: tv_level = 1.0 - smoothstep(t_off, t_off + 0.4, t)
-	_sync(_tv_player, t, sfx_db + linear_to_db(maxf(0.0001, tv_level * 0.32)), paused or tv_level <= 0.0, true)
+	_sync(_tv_player, t, sfx_db + linear_to_db(maxf(0.0001, tv_level * 0.22)), paused or tv_level <= 0.0, true)
 
 
 func _sync(player: AudioStreamPlayer, t: float, volume: float, paused: bool, looped: bool) -> void :
