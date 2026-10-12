@@ -87,6 +87,27 @@ func _run() -> void :
 	await _keys("boutique bas x2", [KEY_DOWN])
 	ui.show_main()
 	await _wait(1.0)
+	# Cinémathèque par le volet, puis retour à la manette (B).
+	ui._main_action("gallery")
+	await _wait(1.5)
+	_note("cinémathèque : phase=%s page=%s" % [world.phase, ui.current_page])
+	await _keys("cinémathèque B", ["pad_b"], 1.2)
+	_note("après B : phase=%s page=%s" % [world.phase, ui.current_page])
+	# Terrain d'essai par le volet, pause « ESSAI », retour au menu.
+	ui._main_action("training")
+	var waited_training: float = 0.0
+	while world.phase != "playing" and waited_training < 60.0:
+		await get_tree().process_frame
+		waited_training += get_process_delta_time()
+	await _wait(1.0)
+	_note("terrain d'essai : phase=%s training=%s" % [world.phase, world.get("training")])
+	_press(KEY_ESCAPE)
+	await _wait(0.6)
+	var pause_node: Node = ui.get("_pause_menu")
+	_note("pause essai : ouverte=%s chrono=%s" % [is_instance_valid(pause_node), pause_node.call("_clock_text") if is_instance_valid(pause_node) else "-"])
+	world.quit_to_menu()
+	await _wait(1.0)
+	_note("retour menu : phase=%s page=%s" % [world.phase, ui.current_page])
 	world.selected = "Simon"
 	world.start_solo(false)
 	var waited: float = 0.0
