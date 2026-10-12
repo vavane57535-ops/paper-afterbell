@@ -10,6 +10,8 @@ extends Node
 # caméra (avancer / strafe / diagonale, sans dérive à l'écran), modes Derrière / Libre 360° et leurs
 # transitions, collisions de la perche, prise de contrôle cinématique, spectateur. Écrit
 # camera_report.json (+ captures .png en rendu) et quitte avec le code 1 si un test échoue.
+# En headless, « collisions » fait aussi des tours de caméra contre de vrais murs de l'école.
+# Réseau (commande client → hôte + effet synchronisé) : voir tools/test_camera_net.gd.
 
 const Rig = preload("res://core_camera_rig.gd")
 
@@ -662,6 +664,56 @@ func _test_collisions() -> void :
 	_drop_props()
 	_check("collision_sweep", render or pops == 0, "tour complet de caméra le long d'un mur (%d images) : %d saut(s) de perche > 0,6 m, plus grand pas %.2f m" % [steps, pops, worst_jump])
 	await _wait(0.5)
+	if not render: await _test_real_walls()
+
+# Vrais murs de l'école (pas des accessoires du test) : perso à moins de 1,3 m d'un mur, tour de caméra
+# complet en 4 s ; on compte les images où un mur coupe la ligne de vue caméra → tête du perso.
+func _test_real_walls() -> void :
+	var actor: PaperActor = _actor()
+	var space: PhysicsDirectSpaceState3D = world.get_world_3d().direct_space_state
+	var spots: Array = []
+	for x: int in range(-52, 53, 3):
+		for z: int in range(-42, 48, 3):
+			var p: Vector3 = Vector3(x, 0.05, z)
+			if not world.school.can_walk(p): continue
+			for dir: Vector3 in [Vector3.RIGHT, Vector3.LEFT, Vector3.FORWARD, Vector3.BACK]:
+				var hit: Dictionary = space.intersect_ray(PhysicsRayQueryParameters3D.create(p + Vector3.UP * 1.6, p + Vector3.UP * 1.6 + dir * 1.3, 1))
+				if not hit.is_empty():
+					spots.append([p, dir])
+					break
+	var picked: Array = []
+	for i: int in range(0, spots.size(), maxi(1, spots.size() / 8)): picked.append(spots[i])
+	picked = picked.slice(0, 8)
+	var frames: int = 0
+	var blocked: int = 0
+	var longest: float = 0.0
+	for pick: Array in picked:
+		var dir: Vector3 = pick[1]
+		var along: float = atan2( - dir.z, dir.x)
+		_place(actor, pick[0], along)
+		world.yaw = along
+		world.pitch = Rig.DEFAULT_PITCH
+		await _wait(0.6)
+		var run: float = 0.0
+		var elapsed: float = 0.0
+		while elapsed < 4.0:
+			rig.turn(Vector2(TAU / 4.0 * maxf(get_process_delta_time(), 1.0 / 240.0), 0.0))
+			await get_tree().process_frame
+			elapsed += get_process_delta_time()
+			var head: Vector3 = world.actor_render_position(actor) + Vector3.UP * 1.35
+			frames += 1
+			if not space.intersect_ray(PhysicsRayQueryParameters3D.create(world.camera.global_position, head, 1)).is_empty():
+				blocked += 1
+				run += get_process_delta_time()
+				longest = maxf(longest, run)
+			else:
+				run = 0.0
+	var rate: float = float(blocked) / maxf(1.0, float(frames))
+	metrics["real_walls_blocked_rate"] = rate
+	metrics["real_walls_longest_blocked_s"] = longest
+	_check("collision_real_walls", picked.size() >= 4 and rate < 0.02 and longest < 0.2, "%d endroits contre de vrais murs de l'école, tour complet de caméra : mur entre la caméra et le perso sur %.1f %% des images (%d / %d), au plus %.2f s d'affilée" % [picked.size(), rate * 100.0, blocked, frames, longest])
+	world.yaw = 0.3
+	await _wait(0.4)
 
 
 
