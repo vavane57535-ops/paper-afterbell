@@ -209,7 +209,7 @@ func _ready() -> void :
 	reveals = PaperRevealController.new();add_child(reveals);reveals.setup(self)
 	var survivor_fx: PaperSurvivorFx = PaperSurvivorFx.new();add_child(survivor_fx);survivor_fx.setup(self)
 	film = PaperCinema.new();add_child(film);film.setup(self)
-	prologue = PrologueFilm.new();add_child(prologue);prologue.setup_prologue(self)
+	if not dedicated: prologue = PrologueFilm.new();add_child(prologue);prologue.setup_prologue(self)
 	if not dedicated: exit_alarm = ExitAlarm.new();add_child(exit_alarm);exit_alarm.setup(self)
 	kill_scenes = KillScenes.new();add_child(kill_scenes);kill_scenes.setup(self)
 	gallery = PaperGallery.new(self)
@@ -549,7 +549,7 @@ func register_player(player_name: String, char_name: String, protocol: int = 0, 
 	if not authoritative() or not networked: return
 	var peer: int = multiplayer.get_remote_sender_id()
 	if protocol != PaperRules.PROTOCOL:
-		selection_notice.rpc_id(peer, "Tous les joueurs doivent utiliser Paper Afterbell 0.14 · OM.")
+		selection_notice.rpc_id(peer, "Tous les joueurs doivent utiliser Paper Afterbell 0.16 · OM.")
 		return
 	if dedicated and not service.authenticated.has(peer):
 		service.authenticate_peer(peer, player_name, char_name, ticket)
@@ -683,6 +683,7 @@ func _clear_round() -> void :
 	if presentation: presentation.clear_entities()
 	if ui and ui.screen_fx: ui.screen_fx.clear()
 	if film: film.stop()
+	_show_exit_sign(true)
 	if kill_scenes: kill_scenes.clear()
 	if ui: ui.hide_film()
 	if presentation: presentation.show()
@@ -1803,6 +1804,7 @@ func _begin_film(introduction: bool) -> void :
 
 	stage.hide();presentation.clear_entities()
 	for node: Node3D in objective_nodes: node.hide()
+	_show_exit_sign(false)
 	var kind: String = "intro_survivors" if cinema < SURVIVOR_INTRO_DURATION else "intro_alice"
 	if not introduction: kind = ending_kind;people = ending_people.duplicate()
 	film.begin(kind, people, ending_focus);ui.show_film();ending_presented = false
@@ -1818,9 +1820,15 @@ func _update_round_film(delta: float) -> void :
 
 func _end_film() -> void :
 	film.stop();ui.hide_film();presentation.visible = true
+	_show_exit_sign(true)
 	for node: Node3D in objective_nodes: node.show()
 	for actor: PaperActor in actors.values(): actor.visible = true
 	if phase == "intro": capture_gameplay_mouse()
+
+# Panneau de jeu « SORTIE · À 01:20 » (billboard au-dessus de la sortie) : caché pendant tous les films
+# de fin, comme le font déjà les victoires LMS et le blocus (sinon il flotte devant la porte dans le film).
+func _show_exit_sign(on: bool) -> void :
+	if is_instance_valid(map_interactables) and is_instance_valid(map_interactables.exit_sign): map_interactables.exit_sign.visible = on
 
 func _pack_entities(items: Array[Dictionary], grenades: bool) -> Array:
 	var rows: Array = []

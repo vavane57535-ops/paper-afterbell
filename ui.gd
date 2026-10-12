@@ -20,7 +20,7 @@ const PAGE_TITLES: Dictionary = {"main": "MENU", "characters": "ÉLÈVES", "alic
 
 const MENU_PAGES: Array[String] = ["main", "characters", "alice", "maps", "network", "connecting", "advanced", "lobby", "settings", "credits", "shop"]
 
-const VERSION_TEXT: String = "v0.15  ·  OM  ·  PC + Android"
+const VERSION_TEXT: String = "v0.16  ·  OM  ·  PC + Android"
 const INK = Color("15171c")
 const PAPER = Color("ece5d5")
 const MUTED = Color("a9acac")
