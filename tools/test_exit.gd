@@ -1,7 +1,7 @@
 extends Node
 
 # Vérification de l'ouverture de la sortie (0.16).
-# Lance : godot -- --simulate Simon --duration 70 --tool test_exit [--exit-out <dossier>] [--exit-audio] [--exit-plan quick|full|lms|tf|observe|pause]
+# Lance : godot -- --simulate Simon --duration 70 --tool test_exit [--exit-out <dossier>] [--exit-audio] [--exit-plan quick|full|lms|tf|tf_late|observe|pause]
 # Force time_left près de 80 s, capture des images (avant, annonce, pulsation rouge, +20 s, dernier appel)
 # et, avec --exit-audio, enregistre le mixage final (bus Master) en WAV pour mesurer les niveaux.
 
@@ -23,6 +23,7 @@ var _done: bool = false
 var _lms_requested: bool = false
 var _true_form_at: float = -1.0
 var _last_open: bool = true
+var _last_banner: String = ""
 
 func setup(game_world: Node) -> void :
 	world = game_world
@@ -90,6 +91,10 @@ func _process(delta: float) -> void :
 		if killer:
 			killer.effects["phase6"] = 4.0
 			_note("forced True Form on Alice (4 s)")
+	var banner: String = str(world.exit_alarm.get("_banner_title")) if bool(world.exit_alarm.get("_banner").visible) else ""
+	if banner != _last_banner:
+		_last_banner = banner
+		if not banner.is_empty(): _note("banner '%s' time_left=%.2f" % [banner, world.time_left])
 	if _open_at >= 0.0 and world.exit_flow.opened != _last_open:
 		_last_open = world.exit_flow.opened
 		_note("exit opened=%s time_left=%.2f mode=%s track=%s" % [str(_last_open), world.time_left, world.audio.mode, world.audio.active_track])
@@ -137,6 +142,11 @@ func _schedule() -> void :
 		# partie solo en pause : chrono figé, la course doit se suspendre puis reprendre au même endroit
 		_pauses = [[t + 5.0, true], [t + 8.0, false]]
 		_finish_at(t + 10.0)
+	elif plan == "tf_late":
+		# dernier appel, puis True Form et réouverture dans les dernières secondes : pas de second dernier appel
+		_jumps = [[t + 3.0, 19.0]]
+		_true_form_at = t + 6.0
+		_finish_at(t + 14.0)
 	elif plan == "tf":
 		# True Form : la sortie se referme (chrono suspendu) puis se rouvre
 		_shots += [[t + 7.0, "b_true_form"], [t + 12.6, "c_reopen"]]

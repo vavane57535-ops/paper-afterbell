@@ -19,6 +19,10 @@ const AMBIENT_RED: Color = Color(0.95, 0.3, 0.3)
 const FOG_RED: Color = Color(0.32, 0.03, 0.05)
 const EXIT_GLOW: Color = Color(1.0, 0.86, 0.58)
 const BEACON_RED: Color = Color(1.0, 0.22, 0.08)
+const DOME_RED: Color = Color(1.0, 0.03, 0.02)
+# panneau « SORTIE » de la carte : vert d'issue de secours, cerné de noir (lisible sous la lumière de la sortie)
+const SIGN_GREEN: Color = Color(0.42, 1.0, 0.56)
+const SIGN_INK: Color = Color(0.0, 0.07, 0.03)
 
 const GRADE_SHADER: String = """
 shader_type canvas_item;
@@ -95,6 +99,9 @@ var _beacon_lights: Array[SpotLight3D] = []
 var _beacon_domes: Array[StandardMaterial3D] = []
 var _beam_material: StandardMaterial3D
 var _timer_touched: bool = false
+var _signs: Array[Label3D] = []
+var _sign_looks: Array = []
+var _signs_touched: bool = false
 
 
 func setup(game_world: Node) -> void :
@@ -121,7 +128,9 @@ func setup(game_world: Node) -> void :
 	_banner.visible = false
 	_banner.draw.connect(_draw_banner)
 	world.ui.hud.add_child(_banner)
-	world.ui.hud.move_child(_banner, 0)
+	# au-dessus de la liste des élèves (sinon les cartes mordent sur le bandeau), sous la carte du perso et les capacités
+	var roster: Control = world.ui.hud.get("roster")
+	world.ui.hud.move_child(_banner, roster.get_index() + 1 if roster and roster.get_parent() == world.ui.hud else 0)
 	_banner.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_compass = Control.new()
 	_compass.name = "ExitCompass"
@@ -238,6 +247,7 @@ func _process(delta: float) -> void :
 	_update_lamps()
 	_update_environment()
 	_update_rig(delta)
+	_update_signs()
 	_update_timer()
 	_update_hud(delta)
 	if phase in ["menu", "lobby", "loading"]:
@@ -257,7 +267,10 @@ func _on_open() -> void :
 	var serial: int = int(world.round_serial)
 	var first: bool = _round_seen != serial
 	_round_seen = serial
-	_final_done = final_stretch()
+	# _open n'est pas encore vrai ici (final_stretch() répondrait toujours non) : on teste le chrono directement.
+	# Réouverture après la True Form ou client qui arrive dans les dernières secondes : pas de second « dernier appel ».
+	if first: _final_done = false
+	_final_done = _final_done or float(world.time_left) <= RUSH_SPAN - RUSH_LEAD - FINAL_CALL
 	_play_alarm(0, -7.0 if bool(world.lms) or not first else -4.0)
 	if not calm():
 		world.add_camera_trauma(0.8)
@@ -406,7 +419,7 @@ func _update_rig(delta: float) -> void :
 	if not is_instance_valid(_rig) or _rig.get_parent() != world.school: _build_rig()
 	if not _rig.visible: _rig.show()
 	var calm_mode: bool = calm()
-	_rig_light.light_energy = _level * (2.8 + (0.4 if calm_mode else 1.8) * _pulse)
+	_rig_light.light_energy = _level * (2.3 + (0.4 if calm_mode else 1.5) * _pulse)
 	var spin: float = TAU * (0.35 if calm_mode else 0.95)
 	for index: int in range(_beacons.size()):
 		var pivot: Node3D = _beacons[index]
@@ -468,6 +481,16 @@ func _build_rig() -> void :
 		pivot.position = post + Vector3.UP * 3.42
 		pivot.rotation.y = 0.0 if sign_value < 0.0 else PI
 		_rig.add_child(pivot)
+		var socket: MeshInstance3D = MeshInstance3D.new()
+		var socket_mesh: CylinderMesh = CylinderMesh.new()
+		socket_mesh.top_radius = 0.24
+		socket_mesh.bottom_radius = 0.28
+		socket_mesh.height = 0.14
+		socket_mesh.radial_segments = 16
+		socket.mesh = socket_mesh
+		socket.material_override = pole_material
+		socket.position = post + Vector3.UP * 3.3
+		_rig.add_child(socket)
 		var dome: MeshInstance3D = MeshInstance3D.new()
 		var sphere: SphereMesh = SphereMesh.new()
 		sphere.radius = 0.3
@@ -476,7 +499,8 @@ func _build_rig() -> void :
 		var dome_material: StandardMaterial3D = StandardMaterial3D.new()
 		dome_material.albedo_color = BEACON_RED
 		dome_material.emission_enabled = true
-		dome_material.emission = BEACON_RED
+		# rouge profond : multiplié par l'émission, le rouge clair virait au jaune (lampadaire)
+		dome_material.emission = DOME_RED
 		dome_material.emission_energy_multiplier = 2.0
 		dome.material_override = dome_material
 		pivot.add_child(dome)
@@ -505,6 +529,47 @@ func _build_rig() -> void :
 		_beacons.append(pivot)
 		_beacon_lights.append(light)
 		_beacon_domes.append(dome_material)
+
+
+func _update_signs() -> void :
+	if _level <= 0.001:
+		if _signs_touched: _restore_signs()
+		return
+	if not _signs_touched or (not _signs.is_empty() and not is_instance_valid(_signs[0])): _collect_signs()
+	for index: int in range(_signs.size()):
+		if not is_instance_valid(_signs[index]): continue
+		var label: Label3D = _signs[index]
+		var look: Array = _sign_looks[index]
+		label.modulate = (look[0] as Color).lerp(SIGN_GREEN, _level)
+		label.outline_modulate = (look[1] as Color).lerp(SIGN_INK, _level)
+		label.outline_size = int(round(lerpf(float(look[2]), 14.0, _level)))
+
+# Seuls les panneaux posés par la carte (enfants directs de school, près de l'issue) :
+# celui de map_interactables est déjà recoloré chaque image par update_exit.
+func _collect_signs() -> void :
+	if _signs_touched: _restore_signs()
+	_signs_touched = true
+	if not is_instance_valid(world.school): return
+	var exit_at: Vector3 = world.school.escape_position
+	for node: Node in world.school.get_children():
+		if not node is Label3D: continue
+		var label: Label3D = node
+		var offset: Vector3 = label.position - exit_at
+		if Vector2(offset.x, offset.z).length() > 9.0 or offset.y < 2.0: continue
+		_signs.append(label)
+		_sign_looks.append([label.modulate, label.outline_modulate, label.outline_size])
+
+func _restore_signs() -> void :
+	for index: int in range(_signs.size()):
+		if not is_instance_valid(_signs[index]): continue
+		var label: Label3D = _signs[index]
+		var look: Array = _sign_looks[index]
+		label.modulate = look[0]
+		label.outline_modulate = look[1]
+		label.outline_size = int(look[2])
+	_signs.clear()
+	_sign_looks.clear()
+	_signs_touched = false
 
 
 
