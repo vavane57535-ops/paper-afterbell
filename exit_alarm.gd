@@ -12,6 +12,8 @@ const T = preload("res://ui_theme.gd")
 const ALARM_PATHS: Array[String] = ["res://audio/sfx/exit_alarm_00.wav", "res://audio/sfx/exit_alarm_01.wav"]
 const RUSH_SPAN: float = 80.0
 const RUSH_LEAD: float = 3.0
+# 16 premières mesures de exit_rush.ogg (128 BPM) : passage calme qui se reboucle proprement.
+const RUSH_LOOP: float = 30.0
 const FINAL_CALL: float = 59.97
 const BANNER_SECONDS: float = 3.9
 const LAMP_RED: Color = Color(1.0, 0.13, 0.1)
@@ -228,19 +230,27 @@ func _process(delta: float) -> void :
 	if open and not _open: _on_open()
 	elif not open and _open: _on_close()
 	_open = open
-	if open: _since += delta
+	var frozen: bool = bool(world.pause_open) and not bool(world.networked)
+	# partie solo en pause : le chrono est figé, l'amorce de la sirène attend avec lui
+	if open and not frozen: _since += delta
 	_rush = clampf((RUSH_SPAN - float(world.time_left)) / RUSH_SPAN, 0.0, 1.0) if open else 0.0
 	var audio: PaperAudio = world.audio
 	var music: bool = open and not bool(world.lms)
 	if audio and audio.has_method("set_rush"):
-		var frozen: bool = bool(world.pause_open) and not bool(world.networked)
-		audio.set_rush(_rush if music else 0.0, RUSH_SPAN - float(world.time_left) - RUSH_LEAD if music else -1.0, frozen)
+		audio.set_rush(_rush if music else 0.0, _rush_position() if music else -1.0, frozen, RUSH_LOOP)
 		audio.heartbeat_floor = _heart_floor() if open else 0.0
+	# Fin de manche juste après l'ouverture : la sirène s'efface au lieu de déborder sur le film de fin.
+	if phase == "ending" and _alarm.playing:
+		_alarm.volume_db = move_toward(_alarm.volume_db, -60.0, delta * 160.0)
+		if _alarm.volume_db <= -59.5: _alarm.stop()
 	if open and not _final_done and final_stretch():
 		_final_done = true
 		_final_call()
 	var cinematic: bool = world.ui.film_layer.visible if is_instance_valid(world.ui) and world.ui.get("film_layer") else false
-	var goal: float = 1.0 if open and not cinematic else 0.0
+	# Plan d'exécution (caméra de cinéma) : l'alerte reste présente mais atténuée, l'éclairage du plan reste lisible.
+	var scenes: Variant = world.get("kill_scenes")
+	var shot: bool = scenes != null and is_instance_valid(scenes) and scenes.has_method("cinematic") and bool(scenes.cinematic())
+	var goal: float = (0.45 if shot else 1.0) if open and not cinematic else 0.0
 	_level = move_toward(_level, goal, delta * (2.6 if goal > _level else (0.9 if playing else 2.5)))
 	_update_pulse(delta)
 	_update_screen()
@@ -255,6 +265,15 @@ func _process(delta: float) -> void :
 		_final_done = false
 		# partie quittée pendant l'alerte : la sirène ne suit pas le joueur au menu
 		if _alarm.playing: _alarm.stop()
+
+# Position de la musique de course, calée sur le chrono pour finir avec lui. Le bonus de +45 s par
+# élimination peut faire repasser le chrono au-dessus des 77 s de la course (la sortie reste ouverte) :
+# la musique ne se coupe pas, elle tourne sur ses 16 premières mesures jusqu'à ce que le chrono la
+# rejoigne. Tous les sauts restent sur la mesure (45 s = 24 mesures, 30 s = 16 mesures à 128 BPM).
+func _rush_position() -> float:
+	var position: float = RUSH_SPAN - float(world.time_left) - RUSH_LEAD
+	if position < 0.0 and _since >= RUSH_LEAD: position = fposmod(position, RUSH_LOOP)
+	return position
 
 func _heart_floor() -> float:
 	var me: PaperActor = world.local_actor()

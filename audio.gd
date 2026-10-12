@@ -69,6 +69,10 @@ var _rush_trim: float = 1.0
 var _rush_filter: AudioEffectLowPassFilter
 var _rush_filter_on: bool = false
 var _rush_hold: bool = false
+# Grand saut de la course (bonus de +45 s, chrono qui avance d'un coup) : fondu bref avant le saut.
+var _rush_dip: float = 1.0
+var _rush_jumping: bool = false
+var _rush_loop: float = 0.0
 var _heart_slot: int = -1
 
 var dance_presence: float = 0.0
@@ -113,6 +117,7 @@ const RUSH_BEAT_OFFSET: float = -0.02
 const RUSH_TRIM_DB: Vector2 = Vector2(0.0, 1.5)
 const RUSH_CUTOFF: Vector2 = Vector2(1500.0, 20000.0)
 const RUSH_PITCH: float = 0.025
+const RUSH_JUMP: float = 2.0
 const HEARTBEAT_PATH: String = "res://audio/fx_heartbeat.wav"
 const LMS_THEMES: Dictionary = {
 	"Ashura": "lms_ashura", "Usayuko": "lms_usayuko", "Simon": "lms_simon", 
@@ -427,10 +432,11 @@ func _enter_rush() -> void :
 	_sync_rush()
 
 
-func set_rush(level: float, position: float, hold: bool = false) -> void :
+func set_rush(level: float, position: float, hold: bool = false, loop: float = 0.0) -> void :
 	_rush_level = clampf(level, 0.0, 1.0) if is_finite(level) else 0.0
 	_rush_position = position if is_finite(position) else -1.0
 	_rush_hold = hold
+	_rush_loop = loop if is_finite(loop) and loop > 0.0 else 0.0
 
 func rush_beat() -> float:
 	var player: AudioStreamPlayer = tracks.get("exit")
@@ -447,6 +453,7 @@ func _sync_rush() -> void :
 	if _rush_position < 0.0:
 		if player.playing or player.stream_paused: player.stop();player.stream_paused = false
 		_start_requests.erase("exit")
+		_rush_jumping = false;_rush_dip = 1.0
 		return
 	if player.stream == null:
 		if not _start_requests.has("exit"): _play_from("exit", _rush_position, true)
@@ -457,10 +464,26 @@ func _sync_rush() -> void :
 		return
 	if player.stream_paused: player.stream_paused = false
 	if _rush_position >= player.stream.get_length() - 0.05: return
-	if not player.playing: player.play(_rush_position)
-	elif absf(player.get_playback_position() - _rush_position) > 0.35: player.seek(_rush_position)
+	if not player.playing:
+		_rush_jumping = false;_rush_dip = 1.0
+		player.play(_rush_position)
+		return
+	var drift: float = absf(player.get_playback_position() - _rush_position)
+	# Bouclage du passage calme (chrono repassé au-dessus de la course) : saut direct, même temps fort.
+	if _rush_loop > 0.0 and absf(drift - _rush_loop) < 0.35:
+		_rush_jumping = false
+		player.seek(_rush_position)
+	# Grand saut (bonus de +45 s, chrono qui avance d'un coup) : la piste s'efface en 0,12 s, saute
+	# (sur la mesure : 45 s = 24 mesures à 128 BPM), puis revient en 0,6 s, au lieu d'un coupé net.
+	elif drift > RUSH_JUMP:
+		_rush_jumping = true
+		if _rush_dip <= 0.02: player.seek(_rush_position)
+	else:
+		_rush_jumping = false
+		if drift > 0.35: player.seek(_rush_position)
 
-func _update_rush() -> void :
+func _update_rush(delta: float = 0.0) -> void :
+	_rush_dip = move_toward(_rush_dip, 0.0 if _rush_jumping else 1.0, delta * (8.0 if _rush_jumping else 1.7))
 	_rush_trim = db_to_linear(lerpf(RUSH_TRIM_DB.x, RUSH_TRIM_DB.y, _rush_level))
 	var cutoff: float = RUSH_CUTOFF.x * pow(RUSH_CUTOFF.y / RUSH_CUTOFF.x, smoothstep(0.0, 0.45, _rush_level))
 	var player: AudioStreamPlayer = tracks.get("exit")
@@ -688,11 +711,11 @@ func _process(delta: float) -> void :
 		var envelope: float = move_toward(float(_envelopes.get(key, 0.0)), goal, delta * speed)
 		_envelopes[key] = envelope
 
-		var gain: float = sin(envelope * PI * 0.5) * level * float(TRACK_GAINS.get(key, 1.0)) * (_rush_trim if key == "exit" else 1.0) * (dance_gain if key in AMBIENT_KEYS else 1.0)
+		var gain: float = sin(envelope * PI * 0.5) * level * float(TRACK_GAINS.get(key, 1.0)) * (_rush_trim * _rush_dip if key == "exit" else 1.0) * (dance_gain if key in AMBIENT_KEYS else 1.0)
 		p.volume_db = linear_to_db(gain) if gain > 0.0001 and not muted else -80.0
 		if key != active_track and p.playing and envelope <= 0.0001:
 			_resume[key] = p.get_playback_position();p.stop()
-	_update_rush()
+	_update_rush(delta)
 	_follow_phase()
 	_update_bed(delta)
 	_update_heartbeat(delta)
@@ -1128,6 +1151,7 @@ func clear_event_history() -> void :
 	_rush_level = 0.0
 	_rush_position = -1.0
 	_rush_hold = false
+	_rush_jumping = false;_rush_dip = 1.0
 	_resume["exit"] = 0.0
 	_exit_open_heard = false
 	_escapes_heard = 0
