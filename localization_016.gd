@@ -247,12 +247,16 @@ const TEXT: Dictionary = {
 	"J-je vais bien… je crois…": "I-I'm fine… I think…",
 	"Armure à 40 %… Je tiens encore.": "Armor at 40%… I'm still standing.",
 	"Tous les joueurs doivent utiliser Paper Afterbell 0.16 · OM.": "All players must use Paper Afterbell 0.16 · OM.",
+	# Partie en jeu (vérification finale) : roue des émotes et spectateur évadé, restés en français.
+	"DANSES": "DANCES",
+	"Boutique du menu": "Shop in the main menu",
+	"ÉVADÉ · TU ES EN SÉCURITÉ": "ESCAPED · YOU ARE SAFE",
+	# Encourager de Bleuette : tous les alliés sont désormais concernés (plus d'allié « compatible »).
+	"Vise un allié à moins de 6 m": "Aim at an ally within 6 m",
 	# Vérification finale des menus (boutique, salon, réglages, toasts).
 	"APERÇU": "PREVIEW",
-	"DANSES": "DANCES",
 	"✓ À TOI": "✓ YOURS",
 	"Boutique de danses": "Dance shop",
-	"Boutique du menu": "Main menu shop",
 	"Des danses à acheter avec tes tickets, à faire en partie : roue des émotes (G), puis Tab.": "Dances to buy with your tickets and perform in a match: emote wheel (G), then Tab.",
 	"Pas assez de tickets : joue une manche pour en gagner.": "Not enough tickets: play a round to earn some.",
 	"Pas de chrono": "No timer",
