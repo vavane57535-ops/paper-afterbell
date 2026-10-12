@@ -130,7 +130,8 @@ func _build() -> void :
 		label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		row.add_child(label)
 		var button: Button = Button.new()
-		button.text = world.bindings.label(action, choosing_pad)
+		# Libellés de souris et de manette traduits (« Clic D », « Croix ↑ »…) ; les noms de touches restent tels quels.
+		button.text = PaperLanguage.t(world.bindings.label(action, choosing_pad))
 		button.custom_minimum_size = Vector2(330, 42)
 		button.set_meta("language_user_text", true)
 		row.add_child(button)

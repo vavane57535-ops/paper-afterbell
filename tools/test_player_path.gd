@@ -4,8 +4,9 @@ extends Node
 # manette, et une capture rendue à chaque écran.
 #   XDG_DATA_HOME=<dossier vierge> xvfb-run -a -s "-screen 0 1280x800x24" godot --rendering-driver opengl3 \
 #       -- --tool test_player_path --first-launch --pp-out DIR \
-#       [--pp-steps first,main,setup,settings,friends,shop,gallery,pause,results] \
+#       [--pp-steps first,main,setup,settings,friends,shop,gallery,pause,results,verdicts] \
 #       [--pp-size 1920x1080] [--pp-en] [--pp-skip escape|enter|click]
+# Sans rendu (vérifications seules, pas de captures) : godot --headless -- --tool test_player_path ...
 # Étapes :
 #   first     premier lancement : le prologue démarre seul, on le passe en maintenant
 #             Échap (ou Entrée / clic), on vérifie qu'on arrive au menu sans rien activer.
