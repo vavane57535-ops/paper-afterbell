@@ -141,7 +141,7 @@ func _click(control: Control, settle: float = 0.3) -> void :
 	var point: Vector2 = _window_point(control)
 	await _mouse_to(point)
 	var hovered: Control = get_viewport().gui_get_hovered_control()
-	if hovered != control and not control.is_ancestor_of(hovered):
+	if hovered == null or (hovered != control and not control.is_ancestor_of(hovered)):
 		_note("clic « %s » : la souris survole %s" % [str(control.get("text")), (hovered.get_class() + ":" + str(hovered.get("text")) + " @" + str(hovered.get_path())) if hovered else "<rien>"])
 	for pressed: bool in [true, false]:
 		var event: InputEventMouseButton = InputEventMouseButton.new()
