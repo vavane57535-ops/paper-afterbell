@@ -353,6 +353,28 @@ func _step_settings() -> void :
 		if scroll_s: scroll_s.ensure_control_visible(sens)
 		await _wait(0.5)
 		await _shot("carnet_commandes_manette")
+	# Vue manette du carnet : l'action caméra est sur R3 (clic du stick droit).
+	var device: OptionButton = null
+	for node: Node in world.controls_menu.find_children("*", "OptionButton", true, false):
+		if (node as Control).is_visible_in_tree(): device = node as OptionButton
+	if device and device.item_count > 1:
+		device.select(1)
+		device.item_selected.emit(1)
+		await _wait(0.6)
+		var pad_row: Control = _find(PaperBindings.LABELS["camera_mode"], world.controls_menu)
+		if pad_row:
+			var pad_scroll: ScrollContainer = _scroll_parent(pad_row)
+			if pad_scroll: pad_scroll.ensure_control_visible(pad_row)
+			await _wait(0.5)
+		_check(_find("R3", world.controls_menu) != null, "vue manette : caméra sur R3")
+		await _shot("carnet_vue_manette")
+		# Le carnet s'est reconstruit : on reprend sa nouvelle liste pour revenir au clavier.
+		for node: Node in world.controls_menu.find_children("*", "OptionButton", true, false):
+			if (node as Control).is_visible_in_tree(): device = node as OptionButton
+		if is_instance_valid(device):
+			device.select(0)
+			device.item_selected.emit(0)
+		await _wait(0.4)
 	await _pad(JOY_BUTTON_B, 1.0)
 	_check(not world.controls_menu.visible, "B ferme le carnet")
 	await _tap(KEY_ESCAPE, 1.0)
