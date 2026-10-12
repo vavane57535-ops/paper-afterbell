@@ -215,7 +215,8 @@ func _scene(victim_name: String, phase6: bool) -> void:
 				var cam_tag: String = ("x%d" % cams.find(cam)) if cam.begins_with("x:") else cam
 				var path: String = "%s/%s_%s_%s_%02d_%.2f.png" % [out_dir, tag, view, cam_tag, index, float(world.clock) - clock0]
 				image.save_png(path)
-				print("KILL_FRAME ", path)
+				var local_t: float = (float(show.t) - float(show.lead)) if not show.is_empty() else -1.0
+				print("KILL_FRAME ", path, " local=%.2f lag=%.2f" % [local_t, float(show.get("lag", 0.0))])
 				world.camera_rig = rig
 			world.kill_scenes.camera_enabled = true
 			Engine.time_scale = time_scale
