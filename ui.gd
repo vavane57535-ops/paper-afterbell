@@ -1996,7 +1996,7 @@ func _settings_game(content: VBoxContainer) -> void :
 	_setting_row(content, "Champ de vision", "Angle de la caméra en jeu. Une valeur haute montre plus de décor.", _slider(60, 95, 1, float(world.options.get("fov", 72)), func(x: float) -> String: return "%d°" % int(x), func(x: float) -> void : _set_option("fov", int(x))))
 	_setting_row(content, "Secousses de caméra", "Tremblement lors des coups et des impacts.", _check(bool(world.options.get("camera_shake", true)), func(on: bool) -> void : _set_option("camera_shake", on)))
 	_setting_row(content, "Onomatopées", "Les « BAM ! » et « SHLAK ! » qui jaillissent des coups.", _check(bool(world.options.get("fx_words", true)), func(on: bool) -> void : _set_option("fx_words", on)))
-	_setting_row(content, "Effets d’écran", "Lignes de vitesse, encre sur l’écran et halos selon l’état du personnage.", _check(bool(world.options.get("screen_fx", true)), func(on: bool) -> void : _set_option("screen_fx", on)))
+	_setting_row(content, "Effets d’écran", "Lignes de vitesse, encre sur l’écran, halos selon l’état du personnage et filtre rouge de l’alerte de sortie.", _check(bool(world.options.get("screen_fx", true)), func(on: bool) -> void : _set_option("screen_fx", on)))
 	_spacer(content, 6)
 	_paragraph("Objectif : atteindre la sortie lorsqu’elle s’ouvre à 01:20. Le dernier survivant a un LMS de la durée de sa musique. Alice ferme la sortie et suspend le chrono pendant sa True Form, une seule fois après 15 stuns. Simon et Ashura : maintenir la capacité 2 pour charger, puis relâcher. Le boost dure 3, 4 ou 6 s selon la charge.", content, 14, T.MUTED)
 

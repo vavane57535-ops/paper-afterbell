@@ -20,6 +20,8 @@ extends Node
 #   pause     Partie solo lancée depuis la préparation, menu pause et ses sous-menus.
 #   results   Fins réelles : victoire, défaite, forfait (blocus) puis écran de résultats.
 #   verdicts  Les trois écrans de résultats seuls (résultats factices), pour juger la mise en page.
+#   extras    Onglets Graphismes et Accessibilité, crédits, terrain d'essai (panneau F2) et roue
+#             d'émotes en partie (G), avec retour par Échap / B.
 # Journal : lignes « PATH » (étapes, focus) et « PATH_CHECK OK|FAIL » ; DIR/log.txt.
 # Le dossier XDG_DATA_HOME doit être vierge et dédié : l'outil écrit user://settings.cfg.
 
@@ -215,6 +217,7 @@ func _run() -> void :
 			"pause": await _step_pause()
 			"results": await _step_results()
 			"verdicts": await _step_verdicts()
+			"extras": await _step_extras()
 	_note("fin · %d échec(s)" % _fails)
 	var file: FileAccess = FileAccess.open(out_dir.path_join("log.txt"), FileAccess.WRITE)
 	if file: file.store_string("\n".join(_log))
@@ -665,3 +668,48 @@ func _step_verdicts() -> void :
 		await _shot("verdict_" + str(spec[3]))
 	world.quit_to_menu()
 	await _wait(0.6)
+
+func _step_extras() -> void :
+	world.ui.show_main()
+	await _wait(1.0)
+	await _click(_find("RÉGLAGES", world.ui.page), 1.3)
+	for tab: String in ["display", "access"]:
+		world.ui._settings_switch(tab)
+		await _wait(0.8)
+		await _mouse_to(Vector2(8, 8))
+		await _shot("reglages_" + tab)
+	world.ui._settings_switch("game")
+	await _tap(KEY_ESCAPE, 1.0)
+	_check(world.ui.current_page == "main", "Échap quitte les réglages (onglets Graphismes / Accessibilité)")
+	await _click(_find("CRÉDITS", world.ui.page), 1.3)
+	_check(world.ui.current_page == "credits", "CRÉDITS ouverts")
+	await _mouse_to(Vector2(8, 8))
+	await _shot("credits")
+	await _pad(JOY_BUTTON_B, 1.0)
+	_check(world.ui.current_page == "main", "B quitte les crédits")
+	# Terrain d'essai : entrée du menu, puis panneau F2.
+	await _click(_find("TERRAIN D’ESSAI", world.ui.page), 0.5)
+	var ok: bool = await _wait_phase("playing", 90.0)
+	_check(ok and bool(world.training), "TERRAIN D’ESSAI lance l'école ouverte (%s)" % world.phase)
+	if ok:
+		await _wait(2.0)
+		await _tap(KEY_F2, 1.2)
+		_check(bool(world.pause_open), "F2 ouvre le panneau du terrain d'essai")
+		await _mouse_to(Vector2(8, 8))
+		await _shot("terrain_essai_panneau")
+		await _tap(KEY_F2, 0.8)
+		if world.pause_open: await _tap(KEY_ESCAPE, 0.8)
+		_check(not bool(world.pause_open), "le panneau se referme")
+		world.quit_to_menu()
+		await _wait(1.0)
+	# Roue d'émotes en partie (G), puis Échap.
+	if await _start_round():
+		await _tap(KEY_G, 0.9)
+		_check(world.emote_wheel.visible, "G ouvre la roue d'émotes")
+		await _shot("roue_emotes")
+		await _tap(KEY_TAB, 0.7)
+		await _shot("roue_emotes_danses")
+		await _tap(KEY_ESCAPE, 0.6)
+		_check(not world.emote_wheel.visible and not bool(world.pause_open), "Échap referme la roue sans ouvrir la pause")
+		world.quit_to_menu()
+		await _wait(0.6)

@@ -262,6 +262,7 @@ const TEXT: Dictionary = {
 	"Caméra au stick droit. Accélération et zone morte : Commandes.": "Right-stick camera. Acceleration and deadzone: Controls.",
 	"https://adresse-du-service": "https://service-address",
 	"VOUS ÊTES TOMBÉE": "YOU ARE DOWN",
+	"Lignes de vitesse, encre sur l’écran, halos selon l’état du personnage et filtre rouge de l’alerte de sortie.": "Speed lines, ink on the screen, glows for the state of your character and the red filter of the exit alarm.",
 }
 
 # Modèles avec valeurs (%d, %s, %.1f) : [français, anglais].
