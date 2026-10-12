@@ -6,6 +6,7 @@ const CoreMenuStage = preload("res://core_menu_stage.gd")
 const CoreArchives = preload("res://core_archives.gd")
 const CorePerf = preload("res://core_perf.gd")
 const PrologueFilm = preload("res://film_intro_yiero.gd")
+const ExitAlarm = preload("res://exit_alarm.gd")
 const PORT: int = 27842
 
 const PITCH_MIN: float = -0.6
@@ -28,6 +29,7 @@ var bindings: PaperBindings
 var controls_menu: PaperControlsMenu
 var exit_flow: PaperEscapeFlow
 var map_interactables: PaperMapInteractables
+var exit_alarm: Node
 var teleport_warning: float = 0.0
 var warning_lamps: Array[Light3D] = []
 var warning_energies: Array[float] = []
@@ -203,6 +205,7 @@ func _ready() -> void :
 	reveals = PaperRevealController.new();add_child(reveals);reveals.setup(self)
 	film = PaperCinema.new();add_child(film);film.setup(self)
 	prologue = PrologueFilm.new();add_child(prologue);prologue.setup_prologue(self)
+	if not dedicated: exit_alarm = ExitAlarm.new();add_child(exit_alarm);exit_alarm.setup(self)
 	gallery = PaperGallery.new(self)
 	_build_objectives()
 	_build_stage()
@@ -281,6 +284,7 @@ func save_preferences() -> void :
 	c.set_value("story", "intro_seen", intro_seen)
 	for key: String in options: c.set_value("options", key, options[key])
 	if audio: c.set_value("audio", "music", audio.music_volume);c.set_value("audio", "muted", audio.muted);c.set_value("audio", "effects", audio.effects_volume)
+	if audio: c.set_value("audio", "master", audio.master_volume)
 	c.save("user://settings.cfg")
 
 func can_manage_lobby() -> bool:
@@ -1088,7 +1092,7 @@ func _event_local(kind: String, data: Dictionary) -> void :
 	var listener: Vector3 = _listener_position()
 	if kind in ["exit_state", "escaped"]:
 		exit_flow.unpack(data.get("state", {}))
-		ui.toast(str(data.get("text", str(data.get("character", "Un élève")) + " s’est échappé.")), 4)
+		if not (exit_alarm and str(data.get("text", "")) == "LA SORTIE EST OUVERTE · ÉCHAPPEZ-VOUS"): ui.toast(str(data.get("text", str(data.get("character", "Un élève")) + " s’est échappé.")), 4)
 		if kind == "exit_state": audio.sfx("door_open", data.get("position", Vector3.ZERO), listener, 0.65)
 		return
 	if kind == "shadow_decoys": teleport_warning = 1.35
@@ -1299,7 +1303,11 @@ func _update_music(delta: float) -> void :
 				break
 		audio.set_mode("lms")
 		return
-	audio.set_mode("chase" if _chase_music(_view_actor(), k, delta) else "ambient")
+	var chased: bool = _chase_music(_view_actor(), k, delta)
+	if exit_flow and exit_flow.opened and audio.has_method("set_rush"):
+		audio.set_mode("exit")
+		return
+	audio.set_mode("chase" if chased else "ambient")
 
 
 
@@ -2058,6 +2066,7 @@ func _build_accessibility() -> void :
 	var config: ConfigFile = ConfigFile.new()
 	if config.load("user://settings.cfg") == OK:
 		audio.music_volume = float(config.get_value("audio", "music", audio.music_volume));audio.muted = bool(config.get_value("audio", "muted", false));audio.effects_volume = float(config.get_value("audio", "effects", 1.0))
+		audio.master_volume = clampf(float(config.get_value("audio", "master", 1.0)), 0.0, 1.0)
 
 func apply_options() -> void :
 	_sanitize_options()

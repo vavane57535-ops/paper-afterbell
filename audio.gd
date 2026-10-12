@@ -60,6 +60,17 @@ var _eliminations_heard: Dictionary = {}
 var _wood_regions: Array[AABB] = []
 var _prefetch_clock: float = 0.0
 
+var master_volume: float = 1.0
+var heartbeat_floor: float = 0.0
+var _applied_bus_db: Dictionary = {}
+var _rush_level: float = 0.0
+var _rush_position: float = -1.0
+var _rush_trim: float = 1.0
+var _rush_filter: AudioEffectLowPassFilter
+var _rush_filter_on: bool = false
+var _rush_hold: bool = false
+var _heart_slot: int = -1
+
 var _bed_player: AudioStreamPlayer
 var _bed_map: String = ""
 var _bed_level: float = 0.0
@@ -76,7 +87,19 @@ const CROSSFADE_SECONDS: float = 1.35
 
 const SUSPEND_FADE_SECONDS: float = 0.6
 
-const MUSIC_LEVEL: float = 0.82
+
+# 0.16 : toutes les musiques sont normalisées à -18 LUFS dans les fichiers ;
+# ce niveau (-8,5 dB) s'applique au bus PaperMusic avec le curseur Musique.
+const MUSIC_LEVEL: float = 0.376
+
+# Course vers la sortie : 3 s de sirène, puis exit_rush.ogg (80 s, 128 BPM)
+# calée sur le chrono pour finir avec lui ; set_rush() pilote filtre et volume.
+const RUSH_BUS: StringName = &"PaperRush"
+const RUSH_BEAT: float = 60.0 / 128.0
+const RUSH_BEAT_OFFSET: float = -0.02
+const RUSH_TRIM_DB: Vector2 = Vector2(0.0, 1.5)
+const RUSH_CUTOFF: Vector2 = Vector2(1500.0, 20000.0)
+const RUSH_PITCH: float = 0.025
 const HEARTBEAT_PATH: String = "res://audio/fx_heartbeat.wav"
 const LMS_THEMES: Dictionary = {
 	"Ashura": "lms_ashura", "Usayuko": "lms_usayuko", "Simon": "lms_simon", 
@@ -92,7 +115,8 @@ const USER_OST_FILES: Dictionary = {
 	"lms_Simon": "lms_simon_user.mp3", "lms_Usayuko": "fx_lms_usayuko_user.ogg", "lms_Bleuette": "lms_bleuette_user.mp3"
 }
 const BASE_TRACKS: Dictionary = {"ambient": "01_empty_corridors", "chase": "02_shadow_in_pursuit", "ending": "04_after_the_bell", "true_form": "02_shadow_in_pursuit", 
-	"menu": "music_menu", "ambient_forest": "music_forest", "ambient_snow": "music_snow", "defeat": "music_defeat"}
+	"menu": "music_menu", "ambient_forest": "music_forest", "ambient_snow": "music_snow", "defeat": "music_defeat",
+	"exit": "exit_rush"}
 
 const EAGER_TRACKS: Array[String] = ["ambient", "chase", "ending", "true_form", "menu"]
 
@@ -109,13 +133,13 @@ const LMS_DURATIONS: Dictionary = {
 
 
 const TRACK_GAINS: Dictionary = {
-	"ambient": 0.64, "chase": 0.89, "ending": 0.89, 
+	"ambient": 0.5, "chase": 0.891, "ending": 0.891, "true_form": 1.0, "exit": 0.891,
 
 
-	"menu": 0.7, "ambient_forest": 0.5, "ambient_snow": 0.5, "defeat": 0.92, 
+	"menu": 0.75, "ambient_forest": 0.5, "ambient_snow": 0.5, "defeat": 0.891,
 
-	"lms_Ashura": 1.0, "lms_Usayuko": 0.448745, "lms_Simon": 1.166809617, 
-	"lms_Lysia": 1.0, "lms_Elly": 1.0, "lms_Bleuette": 0.251189
+	"lms_Ashura": 1.0, "lms_Usayuko": 1.0, "lms_Simon": 1.0,
+	"lms_Lysia": 1.0, "lms_Elly": 1.0, "lms_Bleuette": 1.0
 }
 const VARIANT_COUNTS: Dictionary = {
 	"step_concrete": 5, "step_wood": 5, "step_grass": 5, "step_snow": 5, "step_floor": 6, "step_dirt": 6, 
@@ -148,7 +172,7 @@ const FX_PRIORITY: Dictionary = {
 const HEART_BANDS: Array = [[0.0, 64.0, 0.94], [0.34, 88.0, 1.0], [0.67, 118.0, 1.06]]
 
 const STINGERS: Dictionary = {
-	"exit_open": [["bell", 1.0, 0.9, 0.0], ["door_open", 0.92, 0.5, 0.12]], 
+	"exit_open": [["door_open", 0.92, 0.5, 0.35]],
 	"escape": [["bell", 1.26, 0.5, 0.0], ["encourage", 1.0, 0.45, 0.06], ["heal", 1.12, 0.4, 0.12]], 
 	"elimination": [["bell", 0.71, 0.75, 0.0], ["ground_impact", 0.74, 0.5, 0.05]], 
 	"chase": [["shadow", 0.78, 0.5, 0.0], ["ground_impact", 0.86, 0.42, 0.0]]
@@ -166,6 +190,7 @@ func setup() -> void :
 		var p: AudioStreamPlayer = AudioStreamPlayer.new();add_child(p)
 		p.bus = MUSIC_BUS;p.volume_db = -80.0
 		if key == "true_form": p.pitch_scale = 0.86
+		if key == "exit": p.bus = RUSH_BUS
 		if USER_OST_FILES.has(key): p.finished.connect(_restart_complete_ost.bind(key))
 		tracks[key] = p;_envelopes[key] = 0.0;_resume[key] = 0.0
 
@@ -231,6 +256,17 @@ func _setup_mix() -> void :
 	_lowpass_on = false
 	_ensure_bus(MUSIC_BUS, WORLD_BUS)
 	_ensure_bus(FEEDBACK_BUS, MIX_BUS)
+	var rush: int = _ensure_bus(RUSH_BUS, MUSIC_BUS)
+	if AudioServer.get_bus_effect_count(rush) == 0:
+		_rush_filter = AudioEffectLowPassFilter.new()
+		_rush_filter.cutoff_hz = RUSH_CUTOFF.y
+		_rush_filter.resonance = 0.62
+		AudioServer.add_bus_effect(rush, _rush_filter)
+	else: _rush_filter = AudioServer.get_bus_effect(rush, 0) as AudioEffectLowPassFilter
+	AudioServer.set_bus_effect_enabled(rush, 0, false)
+	_rush_filter_on = false
+	_applied_bus_db.clear()
+	_apply_bus_volumes()
 
 
 
@@ -243,6 +279,18 @@ func _slider_gain(value: float) -> float:
 	return db_to_linear(volume_to_db(value))
 
 
+func _apply_bus_volumes() -> void :
+	_set_bus_db(MIX_BUS, volume_to_db(master_volume))
+	_set_bus_db(MUSIC_BUS, volume_to_db(music_volume) + linear_to_db(MUSIC_LEVEL))
+
+func _set_bus_db(bus_name: StringName, value: float) -> void :
+	if absf(float(_applied_bus_db.get(bus_name, 999.0)) - value) < 0.01: return
+	var index: int = AudioServer.get_bus_index(bus_name)
+	if index < 0: return
+	AudioServer.set_bus_volume_db(index, value)
+	_applied_bus_db[bus_name] = value
+
+
 
 
 
@@ -253,7 +301,7 @@ func _track_path(key: String) -> String:
 	return "res://audio/" + str(LMS_THEMES.get(character_name, "lms_ashura")) + ".ogg"
 
 func _configure_loop(key: String, stream: AudioStream) -> void :
-	var complete: bool = USER_OST_FILES.has(key)
+	var complete: bool = USER_OST_FILES.has(key) or key == "exit"
 	if stream is AudioStreamOggVorbis:
 		stream.loop = not complete;stream.loop_offset = 0.0
 	elif stream is AudioStreamMP3: stream.loop = not complete
@@ -351,7 +399,67 @@ func set_mode(next: String) -> void :
 		return
 	if previous == "true_form" or next == "ending": _lms_resume_after_true_form = -1.0
 	if next == "chase" and previous == "ambient": stinger("chase")
+	if next == "exit":
+		_enter_rush()
+		return
 	_select_track(_track_for(next), next == "ending")
+
+func _enter_rush() -> void :
+	if active_track != "exit":
+		if "--audio-log" in OS.get_cmdline_user_args(): print("AUDIO track ", active_track, " -> exit")
+		if tracks.has(active_track): _fade_speed[active_track] = 2.0
+	active_track = "exit"
+	_fade_speed.erase("exit")
+	tracks["exit"].stream_paused = false
+	_sync_rush()
+
+
+func set_rush(level: float, position: float, hold: bool = false) -> void :
+	_rush_level = clampf(level, 0.0, 1.0) if is_finite(level) else 0.0
+	_rush_position = position if is_finite(position) else -1.0
+	_rush_hold = hold
+
+func rush_beat() -> float:
+	var player: AudioStreamPlayer = tracks.get("exit")
+	if player == null or not player.playing or active_track != "exit": return -1.0
+	return (player.get_playback_position() - RUSH_BEAT_OFFSET) / RUSH_BEAT
+
+func _sync_rush() -> void :
+	var player: AudioStreamPlayer = tracks.get("exit")
+	if player == null or _silent or not _preview_snapshot.is_empty(): return
+	if active_track != "exit":
+		# une course mise en pause puis quittée (retour au menu, LMS…) ne doit pas rester suspendue
+		if player.stream_paused: player.stop();player.stream_paused = false
+		return
+	if _rush_position < 0.0:
+		if player.playing or player.stream_paused: player.stop();player.stream_paused = false
+		_start_requests.erase("exit")
+		return
+	if player.stream == null:
+		if not _start_requests.has("exit"): _play_from("exit", _rush_position, true)
+		return
+	# partie solo en pause : le chrono est figé, la course attend avec lui (sinon elle bégaierait en se recalant)
+	if _rush_hold:
+		if player.playing: player.stream_paused = true
+		return
+	if player.stream_paused: player.stream_paused = false
+	if _rush_position >= player.stream.get_length() - 0.05: return
+	if not player.playing: player.play(_rush_position)
+	elif absf(player.get_playback_position() - _rush_position) > 0.35: player.seek(_rush_position)
+
+func _update_rush() -> void :
+	_rush_trim = db_to_linear(lerpf(RUSH_TRIM_DB.x, RUSH_TRIM_DB.y, _rush_level))
+	var cutoff: float = RUSH_CUTOFF.x * pow(RUSH_CUTOFF.y / RUSH_CUTOFF.x, smoothstep(0.0, 0.45, _rush_level))
+	var player: AudioStreamPlayer = tracks.get("exit")
+	# les 16 dernières secondes accélèrent à peine (+43 cents) : la bande « s'emballe »
+	if player: player.pitch_scale = 1.0 + RUSH_PITCH * smoothstep(0.8, 1.0, _rush_level)
+	var on: bool = cutoff < 18500.0 and player != null and player.playing
+	if on != _rush_filter_on:
+		_rush_filter_on = on
+		var bus: int = AudioServer.get_bus_index(RUSH_BUS)
+		if bus >= 0 and AudioServer.get_bus_effect_count(bus) > 0: AudioServer.set_bus_effect_enabled(bus, 0, on)
+	if on and _rush_filter: _rush_filter.cutoff_hz = cutoff
+	_sync_rush()
 
 func _enter_lms(previous: String) -> void :
 	var key: String = "lms_" + lms_character
@@ -555,7 +663,9 @@ func _process(delta: float) -> void :
 
 	var duck_goal: float = 0.72 if _duck_time > 0 else 1.0
 	_duck_gain = move_toward(_duck_gain, duck_goal, delta * (6.0 if duck_goal < _duck_gain else 1.6))
-	var level: float = _slider_gain(music_volume) * MUSIC_LEVEL * _duck_gain
+
+	_apply_bus_volumes()
+	var level: float = _duck_gain
 	for key: String in tracks:
 		var p: AudioStreamPlayer = tracks[key]
 		var goal: float = 1.0 if key == active_track else 0.0
@@ -563,10 +673,11 @@ func _process(delta: float) -> void :
 		var envelope: float = move_toward(float(_envelopes.get(key, 0.0)), goal, delta * speed)
 		_envelopes[key] = envelope
 
-		var gain: float = sin(envelope * PI * 0.5) * level * float(TRACK_GAINS.get(key, 1.0))
+		var gain: float = sin(envelope * PI * 0.5) * level * float(TRACK_GAINS.get(key, 1.0)) * (_rush_trim if key == "exit" else 1.0)
 		p.volume_db = linear_to_db(gain) if gain > 0.0001 and not muted else -80.0
 		if key != active_track and p.playing and envelope <= 0.0001:
 			_resume[key] = p.get_playback_position();p.stop()
+	_update_rush()
 	_follow_phase()
 	_update_bed(delta)
 	_update_heartbeat(delta)
@@ -589,6 +700,7 @@ func _follow_phase() -> void :
 func _prefetch_map() -> void :
 	var map_track: String = "ambient_" + _map_name()
 	if tracks.has(map_track): _request_track(map_track)
+	_request_track("exit")
 	var bed_path: String = str(AMBIENCE_BEDS.get(_map_name(), ""))
 	if bed_path.is_empty() or _bed_pending == bed_path: return
 	if ResourceLoader.load_threaded_request(bed_path, "AudioStream") == OK: _bed_pending = bed_path
@@ -633,20 +745,34 @@ func set_hurt(amount: float) -> void :
 
 func _update_heartbeat(delta: float) -> void :
 	if _heart_player == null: return
-	var goal: float = 0.0 if muted or not _preview_snapshot.is_empty() else _heart_target
+	var goal: float = 0.0 if muted or not _preview_snapshot.is_empty() else maxf(_heart_target, heartbeat_floor)
 	_heart_level = move_toward(_heart_level, goal, delta * (2.0 if goal > _heart_level else 0.8))
 	if _heart_level <= 0.02:
 
 		_heart_clock = 0.0
+		_heart_slot = -1
 		return
-	_heart_clock -= delta
-	if _heart_clock > 0.0: return
 	var band: Array = HEART_BANDS[0]
 	for entry: Array in HEART_BANDS:
 		if _heart_level >= float(entry[0]): band = entry
-	_heart_clock = maxf(_heart_clock + 60.0 / float(band[1]), 0.12)
+	var beat: float = rush_beat()
+	if beat >= 0.0:
+		# Pendant la course vers la sortie, le cœur bat sur la musique (1 temps sur 2, puis chaque temps).
+		var slot: int = floori(beat / (1.0 if _heart_level >= 0.67 else 2.0))
+		if _heart_slot < 0 or slot == _heart_slot:
+			if _heart_slot < 0: _heart_slot = slot
+			return
+		_heart_slot = slot
+		_heart_clock = 60.0 / float(band[1])
+	else:
+		_heart_slot = -1
+		_heart_clock -= delta
+		if _heart_clock > 0.0: return
+		_heart_clock = maxf(_heart_clock + 60.0 / float(band[1]), 0.12)
 	_heart_player.pitch_scale = float(band[2])
-	_heart_player.volume_db = linear_to_db(lerpf(0.26, 0.95, _heart_level)) + volume_to_db(effects_volume)
+	# Le battement « de fond » de la course vers la sortie reste discret (-10 dB) ; la proximité d'Alice le rend plein.
+	var heart_gain: float = 1.0 if heartbeat_floor <= 0.0 else lerpf(0.3, 1.0, clampf(_heart_target / heartbeat_floor, 0.0, 1.0))
+	_heart_player.volume_db = linear_to_db(lerpf(0.26, 0.95, _heart_level) * heart_gain) + volume_to_db(effects_volume)
 	_heart_player.play()
 
 func _update_hurt(delta: float) -> void :
@@ -964,6 +1090,11 @@ func clear_event_history() -> void :
 	_stinger_queue.clear()
 	_heart_target = 0.0
 	_hurt_target = 0.0
+	heartbeat_floor = 0.0
+	_rush_level = 0.0
+	_rush_position = -1.0
+	_rush_hold = false
+	_resume["exit"] = 0.0
 	_exit_open_heard = false
 	_escapes_heard = 0
 	_fade_speed.clear()

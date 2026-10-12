@@ -33,6 +33,8 @@ Sur Android, le même menu ouvre l'éditeur tactile : déplacer le joystick et l
 
 Une manche commence à **5:20** par défaut. À **1:20**, l'issue s'ouvre : il faut l'atteindre pour s'échapper. Attendre la fin du temps dans la carte ne donne plus de victoire. Si aucun élève ne sort, Alice gagne.
 
+L'ouverture déclenche l'alerte de l'école (0.16) : sirène et sonnerie, annonce « LA SORTIE EST OUVERTE » avec la direction et la distance de la sortie (rappelées ensuite sous le chrono), filtre rouge qui pulse, lumières d'urgence rouges dans toute la carte, gyrophares et éclairage à la sortie, puis la musique de course qui monte jusqu'à la fin du chrono (dernier appel à 0:17). Pendant un LMS, sa musique reste prioritaire. « Réduire les flashs » adoucit les pulsations et « Effets d'écran » coupe le filtre.
+
 Chaque LMS dure la longueur réelle de sa musique. Si le LMS commence après l'ouverture de la sortie, une aura pleine conserve l'ouverture et accorde les bonus. Sans aura pleine, la sortie se ferme et le LMS commence sans bonus ; elle se rouvre dans ses 80 dernières secondes.
 
 La **True Form** se débloque après 15 étourdissements reçus, une seule utilisation par partie. Elle dure 30 secondes, suspend le chronomètre et ferme la sortie. Son bond remplace la téléportation et inflige 40 dégâts. Après un étourdissement, Alice porte une aura rouge : elle résiste aux nouveaux étourdissements pendant 5 secondes après sa récupération.
