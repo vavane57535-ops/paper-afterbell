@@ -398,7 +398,8 @@ func _write_closing() -> void :
 	var c: Node3D = cinema
 	var ink: float = t_ink
 	# paper background: white, held, then down to grey and black (OM)
-	_later(ink - 0.03, "mute_words", {"seconds": 2.6})
+	# before the heroes' last triggers (from ink - 0.06), so their clip words stay off the paper
+	_later(ink - 0.1, "mute_words", {"seconds": 2.7})
 	_bg.append([ink, Color("f4efe4")])
 	_bg.append([ink + 1.45, Color("f1ece1")])
 	_bg.append([ink + 2.05, Color("8f8b86")])
@@ -1381,6 +1382,13 @@ func _fire(kind: String, data: Dictionary) -> void :
 			comic.mark(6, muzzle + Vector3.UP * 0.1, Color("d9d4cc", 0.55), 0.15, 0.6, 0.9, {"vel": Vector3.UP * 0.7, "drag": 1.5, "fade": 0.3, "ink": Color("6f6a66")})
 		"mute_words":
 			if "_word_clock" in comic: comic.set("_word_clock", float(data.get("seconds", 1.0)))
+			# words are pinned to the camera: one still showing would follow the cut onto the paper
+			var words: Variant = comic.get("_words")
+			if words is Array:
+				for item: Variant in words:
+					if bool(item.active):
+						item.active = false
+						item.node.visible = false
 		"thunder":
 			if is_instance_valid(_thunder_player) and _thunder_player.stream and is_instance_valid(world.audio):
 				_thunder_player.volume_db = float(world.audio.volume_to_db(float(world.audio.effects_volume))) + linear_to_db(0.6 * float(data.get("gain", 1.0)))
