@@ -2721,7 +2721,10 @@ func show_ending(winner: String, was_lms: bool) -> void :
 	actions.offset_top = -30
 	actions.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	actions.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	var again: Button = _button("RETOUR AU SALON" if world.networked else "NOUVELLE MANCHE", func() -> void : world.return_to_lobby(), 280, "PrimaryButton")
+	var again: Button = _button("RETOUR AU SALON" if world.networked else "NOUVELLE MANCHE", func() -> void :
+		world.return_to_lobby()
+		# Solo : « Nouvelle manche » rouvre la préparation (rôle, élève, carte) au lieu du menu principal.
+		if not world.networked and world.phase == "menu": _show_setup(), 280, "PrimaryButton")
 	actions.add_child(_button("MENU PRINCIPAL", func() -> void : world.quit_to_menu(), 220))
 	actions.add_child(again)
 	if not world.match_results.is_empty(): _present_result(world.match_results[0])

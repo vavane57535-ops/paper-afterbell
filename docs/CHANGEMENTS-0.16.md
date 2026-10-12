@@ -77,6 +77,7 @@ Protocole réseau **16** : tous les joueurs doivent avoir la 0.16 pour jouer ens
   - Feuilles de papier qui balayent l'écran aux transitions, avec le titre de la page suivante.
   - Décors animés en boucle et sons de curseur papier.
 - **Menu pause** : le jeu se fige en trame rouge, une feuille de cahier glisse, la silhouette du personnage arrive, puis les entrées s'ouvrent en éventail, avec une confirmation en volet.
+- Résultats en solo : « Nouvelle manche » rouvre la préparation (rôle, élève, carte) au lieu du menu principal.
 - Clavier, souris et manette : A valide, B revient (y compris depuis le carnet de commandes), LB/RB changent d'onglet, et les listes défilent pour garder la sélection à l'écran. Dans la cinémathèque, pendant un film : A met en pause, la croix avance ou recule d'une seconde. Lisible en 1280×800 comme en 1920×1080.
 
 ## Mécaniques des survivants

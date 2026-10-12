@@ -284,7 +284,7 @@ func _step_setup() -> void :
 	world.ui.show_main()
 	await _wait(1.0)
 	await _tap(KEY_DOWN, 0.2)
-	if not _focus().ends_with("JOUER"): await _tap(KEY_UP, 0.2)
+	if not _focus().ends_with(_tr("JOUER")): await _tap(KEY_UP, 0.2)
 	_note("avant Entrée : " + _state())
 	await _tap(KEY_ENTER, 1.4)
 	_note("préparation : " + _state())
@@ -577,6 +577,12 @@ func _step_results() -> void :
 		await _mouse_to(Vector2(8, 8))
 		await _shot("resultats_%s" % spec[2])
 		_note("résultats %s : %s" % [spec[2], _state()])
+		if str(spec[2]) == "victoire":
+			# « NOUVELLE MANCHE » en solo : retour à la préparation, prête à relancer.
+			await _click(_find("NOUVELLE MANCHE", world.ui.overlay), 1.2)
+			_check(world.phase == "menu" and world.ui.current_page in ["characters", "alice"], "NOUVELLE MANCHE ouvre la préparation (%s)" % world.ui.current_page)
+			await _shot("nouvelle_manche_preparation")
+			continue
 		await _click(_find("MENU PRINCIPAL", world.ui.overlay), 1.0)
 		_check(world.phase == "menu", "MENU PRINCIPAL depuis les résultats")
 
