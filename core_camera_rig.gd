@@ -356,7 +356,7 @@ func drive(owner: Object, shot: Transform3D, fov: float = -1.0) -> void :
 func drive_look_at(owner: Object, eye: Vector3, focus: Vector3, fov: float = -1.0) -> void :
 	var direction: Vector3 = focus - eye
 	if direction.length_squared() < 1e-06: return
-	# Plan zénithal / contre-plongée pure : Basis.looking_at refuse une visée parallèle à UP.
+	# Plan zénithal / contre-plongée pure : avec UP, Basis.looking_at avertit (« colinear ») et le roulis est arbitraire.
 	var up: Vector3 = Vector3.UP if absf(direction.normalized().y) < 0.999 else Vector3.FORWARD
 	drive(owner, Transform3D(Basis.looking_at(direction, up), eye), fov)
 
