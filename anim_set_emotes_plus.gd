@@ -111,13 +111,17 @@ static func _sulk(c: Dictionary) -> void :
 
 
 static func _heart(c: Dictionary) -> void :
-	c["heart"] = _heart_clip(0.0)
-	c["heart@Simon"] = _heart_clip(0.5)
+	c["heart"] = _heart_clip(0.0, 0.04)
+	c["heart@Simon"] = _heart_clip(0.5, 0.04)
+	# Mains qui se touchent juste au centre, sans croiser les avant-bras (carrures différentes).
+	c["heart@Ashura"] = _heart_clip(0.0, 0.01, -0.07, 0.8)
+	c["heart@Bleuette"] = _heart_clip(0.0, 0.14)
 
-# Petit cœur avec les doigts devant la poitrine, puis grand cœur avec les bras au-dessus de la tête.
-static func _heart_clip(front: float) -> Dictionary:
-	var small: Dictionary = M([Lt(-0.31, -0.2, 0.52, 0.5), Rt(-0.31, -0.2, 0.52, 0.5), WL(-0.9, 0.9, 0.0), WR(-0.9, -0.9, 0.0), {"curl": 0.6, "curl_l": 0.6}])
-	var big: Dictionary = M([L(-0.1, 0.9 - 0.1 * front, 0.1 + front, 0.95), R(-0.1, 0.9 - 0.1 * front, 0.1 + front, 0.95), WL(1.1, 0.0, 0.0), WR(1.1, 0.0, 0.0), {"curl": 0.25, "curl_l": 0.25}])
+# Petit cœur avec les mains devant la poitrine (bouts des doigts joints, coudes ouverts),
+# puis grand cœur avec les bras au-dessus de la tête.
+static func _heart_clip(front: float, inward: float, big_out: float = -0.1, big_up: float = 0.9) -> Dictionary:
+	var small: Dictionary = M([Lt(- inward, -0.2, 0.56, 0.9), Rt(- inward, -0.2, 0.56, 0.9), WL(-0.6, 1.3, 0.0), WR(-0.6, -1.3, 0.0), {"curl": 0.55, "curl_l": 0.55}])
+	var big: Dictionary = M([L(big_out, big_up - 0.1 * front, 0.1 + front, 0.95), R(big_out, big_up - 0.1 * front, 0.1 + front, 0.95), WL(1.1, 0.0, 0.0), WR(1.1, 0.0, 0.0), {"curl": 0.25, "curl_l": 0.25}])
 	return {"len": 2.9, "in": 0.1, "out": 0.3, "face": "smile", "keys": [
 		[0.0, _start()],
 		[0.2, M([H(0.0, -0.04, 0.0), B(0.05), C(0.08), HD(-0.08), Lt(-0.12, -0.32, 0.45, 0.3), Rt(-0.12, -0.32, 0.45, 0.3), {"sq": 0.97, "curl": 0.3, "curl_l": 0.3}])],
