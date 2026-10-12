@@ -1285,6 +1285,7 @@ func _player(label: String, path: String, bus: StringName) -> AudioStreamPlayer:
 func update(t: float, delta: float) -> void :
 	if not active or not is_instance_valid(_grade): return
 	var camera: Camera3D = world.camera
+	_reset_bodies(t)
 	_apply_spins(t)
 	_apply_tilts(t)
 	_run_fx(t, delta)
@@ -1300,6 +1301,22 @@ func _look_at_time(t: float) -> String:
 	if t < t_ink: return "rain"
 	if t < t_back: return "ink"
 	return "tv"
+
+
+# Spins and tilts are layered over the pose the film step placed. While the film
+# is paused (cinémathèque) no step runs, so the bodies they touch are put back
+# first: otherwise the tilt would compound frame after frame.
+func _reset_bodies(t: float) -> void :
+	var touched: Dictionary = {}
+	for spin: Array in _spins:
+		if t >= float(spin[0]) and t <= float(spin[1]) + 0.02: touched[int(spin[2])] = true
+	for tilt: Array in _tilts:
+		if t >= float(tilt[0]) and t <= float(tilt[1]): touched[int(tilt[2])] = true
+	var at: float = maxf(float(cinema._time), 0.0)
+	for index: Variant in touched:
+		var take: Variant = cinema.takes[int(index)]
+		take.visual.position = cinema._world_spot(cinema._where(take, at))
+		take.visual.rotation = Vector3(0.0, take.yaw, 0.0)
 
 
 func _apply_spins(t: float) -> void :
