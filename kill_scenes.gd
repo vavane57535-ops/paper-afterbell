@@ -910,7 +910,9 @@ func _keep_in_frame(camera: Camera3D, at: Vector3, label: Label3D, scale: float)
 	if depth <= 0.05 or view.y <= 0.0: return at
 	var per_px: float = 2.0 * depth * tan(deg_to_rad(camera.fov) * 0.5) / view.y
 	var glyph: float = float(label.font_size) * label.pixel_size * scale / per_px
-	var half: Vector2 = Vector2(0.5 * 0.5 * glyph * float(label.text.length()), 0.62 * glyph)
+	# Largeur d'Anton en capitales (~0,52 em par signe) plus le contour épais et
+	# l'inclinaison : sinon le bord du mot sortait encore du cadre.
+	var half: Vector2 = Vector2(0.5 * glyph * (0.52 * float(label.text.length()) + 0.8), 0.7 * glyph)
 	var bar: float = view.y * 0.095 * smoothstep(0.0, 1.0, _bars_amount)
 	var screen: Vector2 = camera.unproject_position(at)
 	var low: Vector2 = Vector2(half.x + 12.0, bar + half.y + 8.0)
@@ -1630,7 +1632,7 @@ func _script_usayuko(show: Dictionary) -> void :
 	cues.append([2.62, "sfx", "ground_impact", 0.45, 1.1])
 	cues.append([3.16, "sfx", "ground_impact", 0.85, 0.8])
 	cues.append([3.16, "shake", 0.25])
-	shots.append([-1.0, {"eye": [Vector3(1.6, 1.5, -half - 0.95), Vector3(1.45, 1.5, -half - 0.78)], "look": {"who": "a", "s": "eyes", "o": Vector3(0, -0.12, 0)}, "fov": [44.0, 40.0]}])
+	shots.append([-1.0, {"eye": [Vector3(2.0, 1.45, -half - 0.85), Vector3(1.85, 1.45, -half - 0.7)], "look": {"who": "a", "s": "eyes", "o": Vector3(0, -0.12, 0)}, "fov": [44.0, 40.0]}])
 	shots.append([0.42, {"eye": [Vector3(2.25, 1.4, 0.2), Vector3(2.1, 1.42, 0.25)], "look": {"who": "a", "s": "eyes", "mix": 0.5, "o": Vector3(0, -0.1, 0)}, "fov": [38.0, 35.0], "ease": "out"}])
 	shots.append([0.66, {"eye": [Vector3(-1.05, 1.55, 0.05), Vector3(-0.85, 1.6, -0.1)], "look": {"who": "a", "s": "eyes", "o": Vector3(0, -0.08, 0)}, "fov": [36.0, 32.0]}])
 	shots.append([1.25, {"eye": [Vector3(2.3, 0.6, 0.15), Vector3(2.15, 0.65, 0.35)], "look": Vector3(0, 1.25, 0.05), "fov": 50.0}])
@@ -1743,7 +1745,7 @@ func _script_lysia(show: Dictionary) -> void :
 	cues.append([3.3, "screen", "pulse", Color(1.0, 0.55, 0.2, 0.42), 1.0])
 	shots.append([-1.0, {"eye": [Vector3(2.1, 1.45, -0.75), Vector3(1.9, 1.4, -0.6)], "look": {"who": "v", "s": "chest", "mix": 0.45, "o": Vector3(0, 0.1, 0)}, "fov": 44.0}])
 	shots.append([0.68, {"eye": [Vector3(2.3, 0.75, 0.65), Vector3(2.4, 0.85, 0.85)], "look": Vector3(0.35, 1.15, -0.1), "fov": 50.0, "ease": "out"}])
-	shots.append([1.2, {"eye": [Vector3(-0.62, 1.55, half + 0.85), Vector3(-0.55, 1.5, half + 0.7)], "look": {"who": "v", "s": "eyes", "o": Vector3(0, -0.12, 0)}, "fov": 40.0}])
+	shots.append([1.2, {"eye": [Vector3(-0.88, 1.55, half + 0.85), Vector3(-0.8, 1.5, half + 0.74)], "look": {"who": "v", "s": "eyes", "o": Vector3(0, -0.12, 0)}, "fov": 40.0}])
 	shots.append([2.0, {"eye": [Vector3(-1.2, 1.35, 0.1), Vector3(-1.05, 1.35, 0.05)], "look": {"who": "v", "s": "eyes", "o": Vector3(0, -0.12, 0)}, "fov": [40.0, 36.0]}])
 	shots.append([2.5, {"eye": [Vector3(2.0, 1.2, 0.0), Vector3(1.45, 1.25, 0.0)], "look": Vector3(0, 1.15, 0.0), "fov": [44.0, 38.0]}])
 	shots.append([3.3, {"eye": [Vector3(3.2, 2.0, -1.0), Vector3(4.1, 2.7, -1.7)], "look": Vector3(0, 0.9, 0.0), "fov": 55.0, "ease": "out"}])
@@ -1856,8 +1858,11 @@ func _script_bleuette(show: Dictionary) -> void :
 	cues.append([3.1, "sfx", "ground_impact", 0.75, 0.85])
 	cues.append([3.1, "shake", 0.2])
 	shots.append([-1.0, {"eye": [Vector3(1.9, 1.3, 0.1), Vector3(1.75, 1.3, 0.15)], "look": Vector3(0, 1.25, 0.0), "fov": 44.0}])
-	shots.append([0.35, {"eye": [{"who": "a", "s": "head", "o": Vector3(-0.46, 0.1, 0.46)}, {"who": "a", "s": "head", "o": Vector3(-0.4, 0.06, 0.4)}], "look": {"who": "v", "s": "eyes", "o": Vector3(0, -0.06, 0)}, "fov": [38.0, 33.0]}])
-	shots.append([1.25, {"eye": [Vector3(-1.6, 1.5, 0.25), Vector3(-1.45, 1.55, 0.3)], "look": {"who": "a", "s": "eyes", "mix": 0.5, "o": Vector3(0, -0.1, 0)}, "fov": 40.0}])
+	# Terreur : son visage de trois-quarts face, un peu en contre-plongée (par-dessus
+	# l'épaule d'Alice, sa frange et les cheveux d'Alice le cachaient), puis plus bas,
+	# la larme et la main d'Alice qui la tient.
+	shots.append([0.35, {"eye": [{"who": "v", "s": "eyes", "o": Vector3(0.6, -0.1, 0.55)}, {"who": "v", "s": "eyes", "o": Vector3(0.5, -0.08, 0.48)}], "look": {"who": "v", "s": "eyes", "o": Vector3(0, -0.03, 0)}, "fov": [36.0, 32.0]}])
+	shots.append([1.25, {"eye": [{"who": "v", "s": "eyes", "o": Vector3(0.3, -0.5, 0.35)}, {"who": "v", "s": "eyes", "o": Vector3(0.38, -0.46, 0.42)}], "look": {"who": "v", "s": "eyes", "o": Vector3(0, -0.02, 0)}, "fov": [40.0, 37.0]}])
 	shots.append([1.95, {"eye": [Vector3(1.45, 0.55, -0.75), Vector3(1.35, 0.6, -0.85)], "look": Vector3(0, 1.35, 0.0), "fov": 52.0}])
 	shots.append([2.6, {"eye": [Vector3(1.4, 2.5, -1.4), Vector3(1.2, 2.9, -1.8)], "look": {"who": "v", "s": "hips"}, "fov": 48.0}])
 
