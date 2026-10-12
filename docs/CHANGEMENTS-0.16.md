@@ -111,6 +111,7 @@ Protocole réseau **16** : tous les joueurs doivent avoir la 0.16 pour jouer ens
 
 ## Traductions
 - Tous les nouveaux textes ont leur version anglaise.
+- En français, les messages de partie s'accordent enfin au féminin pour Lysia, Elly et Bleuette (« éliminée », « s'est échappée », « ÉVADÉE », « TOMBÉE »…), dans les bulles, la liste des élèves et le bulletin.
 
 ## Limites connues
 - La musique et les sons ont été composés et réglés sans possibilité d'écoute, par mesures et analyses. Une écoute humaine reste conseillée.
