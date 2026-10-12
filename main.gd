@@ -1365,7 +1365,9 @@ func _update_music(delta: float) -> void :
 		audio.set_mode("lms")
 		return
 	var chased: bool = _chase_music(_view_actor(), k, delta)
-	if exit_flow and exit_flow.opened and audio.has_method("set_rush"):
+	# Sortie tenue ouverte mais chrono repassé au-dessus de 80 s (+45 s d'une élimination) : la course,
+	# calée pour finir avec le chrono, n'a pas encore de place ; musique normale en attendant (sinon silence).
+	if exit_flow and exit_flow.opened and audio.has_method("set_rush") and time_left <= ExitAlarm.RUSH_SPAN:
 		audio.set_mode("exit")
 		return
 	audio.set_mode("chase" if chased else "ambient")

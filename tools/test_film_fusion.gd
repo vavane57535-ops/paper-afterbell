@@ -299,6 +299,12 @@ func _run_kill() -> void :
 	_check((world.camera.cull_mask & world.kill_scenes.SIGN_LAYER) != 0, "panneau SORTIE rendu à la caméra de jeu après l'exécution")
 	for k: int in range(20): await get_tree().process_frame
 	_check(world.exit_alarm._grade.visible, "filtre rouge revenu après l'exécution")
+	await _wait(1.5)
+	var rush: AudioStreamPlayer = world.audio.tracks.get("exit")
+	var track: String = str(world.audio.active_track)
+	var music_on: bool = (track == "exit" and rush != null and rush.playing) or (track != "exit" and world.audio.tracks.has(track) and (world.audio.tracks[track] as AudioStreamPlayer).playing)
+	print("FF_AFTER_KILL time_left=%.1f exit_open=%s track=%s rush_playing=%s" % [float(world.time_left), str(world.exit_flow.opened), track, str(rush.playing if rush else false)])
+	_check(music_on, "musique après le bonus de +45 s pendant la sortie ouverte (piste %s)" % track)
 	await _shot("kill_after")
 
 
