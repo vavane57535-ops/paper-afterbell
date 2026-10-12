@@ -11,6 +11,7 @@ const Mech = preload("res://survivor_mechanics.gd")
 var world: Node
 var _shots: String = ""
 var _only: PackedStringArray = []
+var _outlet: int = 0
 var _summary: Dictionary = {}
 var _failures: Array[String] = []
 
@@ -21,6 +22,7 @@ func setup(owner: Node) -> void :
 	for i: int in range(args.size()):
 		if args[i] == "--mech-shots" and i + 1 < args.size(): _shots = args[i + 1]
 		if args[i] == "--mech-only" and i + 1 < args.size(): _only = args[i + 1].split(",")
+		if args[i] == "--mech-outlet" and i + 1 < args.size(): _outlet = int(args[i + 1])
 	if not _shots.is_empty(): DirAccess.make_dir_recursive_absolute(_shots)
 	_run()
 
@@ -104,7 +106,7 @@ func _test_outlet(with_ashura: bool) -> void :
 	var alice: PaperActor = world.killer_actor()
 	_reset(lysia);_reset(ashura);_reset(alice)
 	_place(alice, world.school.killer_spawn)
-	var outlet: Vector3 = world.school.healing_outlets[0]
+	var outlet: Vector3 = world.school.healing_outlets[clampi(_outlet, 0, world.school.healing_outlets.size() - 1)]
 	_place(lysia, outlet + Vector3(0, 0.08, 0))
 	var side: Vector3 = _free_offset(outlet, 2.0, [Vector3(1, 0, 0.35), Vector3(-1, 0, 0.35), Vector3(0.7, 0, 1), Vector3(-0.7, 0, 1), Vector3(0, 0, 1)])
 	_place(ashura, side if with_ashura else world.school.spawn_points[1])
@@ -112,6 +114,8 @@ func _test_outlet(with_ashura: bool) -> void :
 	lysia.hp = 100.0
 	lysia.cooldowns[3] = 0.0
 	_face(lysia, outlet + Vector3(0, 0, -1))
+	# Ashura se tourne vers Lysia (comme le bot dans _ashura_support) pour que son pouce levé soit lisible.
+	if with_ashura: _face(ashura, lysia.global_position)
 	if _is_local(lysia):
 		var middle: Vector3 = (outlet + Vector3(0, 0, -0.8)).lerp(ashura.global_position, 0.35) if with_ashura else outlet + Vector3(0, 0, -0.8)
 		_look(lysia.global_position + Vector3(0, 0, 0.01), middle, -0.22)
@@ -132,7 +136,7 @@ func _test_outlet(with_ashura: bool) -> void :
 		if fx != null and fx.link_active(lysia.id): link_seen = true
 		if at_6 < 0.0 and t >= 6.0: at_6 = float(lysia.hp) - hp0
 		if t60 < 0.0 and float(lysia.hp) - hp0 >= 60.0 - 0.001: t60 = t
-		if with_ashura and _is_local(lysia) and ((shots == 0 and t >= 0.9) or (shots == 1 and t >= 3.0)):
+		if with_ashura and _is_local(lysia) and ((shots == 0 and t >= 0.6) or (shots == 1 and t >= 1.2) or (shots == 2 and t >= 3.0)):
 			shots += 1
 			await _shot("outlet_ashura_%d" % shots)
 		if t60 >= 0.0 and at_6 >= 0.0: break
