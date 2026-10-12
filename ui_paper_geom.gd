@@ -29,8 +29,15 @@ static func edge(points: PackedVector2Array, from: Vector2, to: Vector2, jitter:
 		points.append(from.lerp(to, t) + normal * shift)
 
 
-# Quadrilatère penché (italique) aux bords déchirés.
+# Quadrilatère penché (italique) aux bords déchirés (mémorisé : les boutons,
+# lignes et bandeaux redessinent souvent la même bande).
 static func strip(rect: Rect2, skew: float, jitter_x: float, jitter_y: float, seed_value: int) -> PackedVector2Array:
+	var key: Array = [5, rect.position.round(), rect.size.round(), roundf(skew * 4.0), roundf(jitter_x * 8.0), roundf(jitter_y * 8.0), seed_value]
+	var known: Variant = _cache.get(key)
+	if known != null: return known
+	return _remember(key, _strip(rect, skew, jitter_x, jitter_y, seed_value))
+
+static func _strip(rect: Rect2, skew: float, jitter_x: float, jitter_y: float, seed_value: int) -> PackedVector2Array:
 	var s: float = clampf(skew, - rect.size.x * 0.25, rect.size.x * 0.25)
 	s = clampf(s, - rect.size.y * 0.9, rect.size.y * 0.9)
 	var a: Vector2 = Vector2(rect.position.x + maxf(s, 0.0), rect.position.y)
@@ -126,16 +133,27 @@ static var _triangles: Dictionary = {}
 
 static func polygon(item: RID, points: PackedVector2Array, color: Color) -> void :
 	if points.size() < 3 or color.a <= 0.003: return
-	var key: int = hash(points) ^ points.size()
-	var triangles: PackedInt32Array
-	var known: Variant = _triangles.get(key)
-	if known is Array and int(known[0]) == points.size(): triangles = known[1]
-	else:
-		triangles = Geometry2D.triangulate_polygon(points)
-		if _triangles.size() > 600: _triangles.clear()
-		_triangles[key] = [points.size(), triangles]
+	var triangles: PackedInt32Array = _triangulated(points)
 	if triangles.is_empty(): return
 	RenderingServer.canvas_item_add_triangle_array(item, triangles, points, PackedColorArray([color]))
+
+# Polygone qui bouge à chaque image (bouts de papier qui volent…) : la
+# triangulation de la forme de départ sert telle quelle une fois déplacée ou
+# tournée, sans remplir les caches.
+static func polygon_xform(item: RID, points: PackedVector2Array, xform: Transform2D, color: Color) -> void :
+	if points.size() < 3 or color.a <= 0.003: return
+	var triangles: PackedInt32Array = _triangulated(points)
+	if triangles.is_empty(): return
+	RenderingServer.canvas_item_add_triangle_array(item, triangles, xform * points, PackedColorArray([color]))
+
+static func _triangulated(points: PackedVector2Array) -> PackedInt32Array:
+	var key: int = hash(points) ^ points.size()
+	var known: Variant = _triangles.get(key)
+	if known is Array and int(known[0]) == points.size(): return known[1]
+	var triangles: PackedInt32Array = Geometry2D.triangulate_polygon(points)
+	if _triangles.size() > 600: _triangles.clear()
+	_triangles[key] = [points.size(), triangles]
+	return triangles
 
 
 static var _grain: Texture2D

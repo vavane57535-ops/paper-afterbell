@@ -102,11 +102,17 @@ static func draw_word(ci: CanvasItem, text: String, base: Transform2D, size_px: 
 		if on: chip = CHIP_CREAM if chip in [CHIP_NONE, CHIP_RED] else CHIP_INK
 		var ink: Color = letter_color
 		if chip != CHIP_NONE:
-			var top: float = float(glyph.get("top", 0.79))
-			var box: Rect2 = Rect2(Vector2(- half - fs * 0.06, - fs * top), Vector2(float(glyph.adv) + fs * 0.12, fs * (top + float(glyph.get("bottom", 0.11)))))
-			var paper: PackedVector2Array = G.cut(box, int(glyph.seed), 0.1)
+			# Morceau de papier de la lettre : fixe pour une mise en page donnée,
+			# calculé une fois puis gardé dans la lettre.
+			if not glyph.has("paper"):
+				var top: float = float(glyph.get("top", 0.79))
+				var box: Rect2 = Rect2(Vector2(- half - fs * 0.06, - fs * top), Vector2(float(glyph.adv) + fs * 0.12, fs * (top + float(glyph.get("bottom", 0.11)))))
+				var cut_paper: PackedVector2Array = G.cut(box, int(glyph.seed), 0.1)
+				glyph["paper"] = cut_paper
+				glyph["paper_shade"] = G.offset(cut_paper, Vector2(fs * 0.05, fs * 0.07))
+			var paper: PackedVector2Array = glyph.paper
 			var chip_color: Color = T.CREAM if chip == CHIP_CREAM else INK_CHIP if chip == CHIP_INK else red_chip
-			G.polygon(item, G.offset(paper, Vector2(fs * 0.05, fs * 0.07)), Color(0, 0, 0, 0.5 * alpha))
+			G.polygon(item, glyph.paper_shade, Color(0, 0, 0, 0.5 * alpha))
 			G.polygon(item, paper, Color(chip_color, alpha))
 			ink = T.INK_TEXT if chip == CHIP_CREAM else T.CREAM
 		elif on:

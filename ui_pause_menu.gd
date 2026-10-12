@@ -46,6 +46,7 @@ var _confirm: Control
 var _confirm_t: float = 0.0
 var _confirm_buttons: Array[Button] = []
 var _scraps: PackedVector3Array = PackedVector3Array()
+var _scrap_shapes: Array[PackedVector2Array] = []
 # Commande sélectionnée à l'ouverture (retour depuis les réglages ou le
 # carnet de commandes : on retrouve la commande d'où l'on vient).
 var start_action: String = ""
@@ -451,9 +452,11 @@ func _paint_back(layer: Control) -> void :
 			var s: Vector3 = _scraps[i]
 			var px: float = fposmod(s.x * view.x + t * (30.0 + s.z * 40.0), view.x + 80.0) - 40.0
 			var py: float = fposmod(s.y * view.y + t * (14.0 + s.z * 20.0), view.y + 60.0) - 30.0
-			var scrap: Rect2 = Rect2(Vector2(-9, -6) * (0.6 + s.z), Vector2(18, 12) * (0.6 + s.z))
+			if _scrap_shapes.size() <= i:
+				var scrap: Rect2 = Rect2(Vector2(-9, -6) * (0.6 + s.z), Vector2(18, 12) * (0.6 + s.z))
+				_scrap_shapes.append(G.cut(scrap, i * 7 + 3, 0.2))
 			var xform: Transform2D = Transform2D(t * (0.6 + s.z) + float(i), Vector2(px, py))
-			G.polygon(item, G.transformed(G.cut(scrap, i * 7 + 3, 0.2), xform), Color(T.CREAM if i % 3 else _red, 0.55 * _open_amount()))
+			G.polygon_xform(item, _scrap_shapes[i], xform, Color(T.CREAM if i % 3 else _red, 0.55 * _open_amount()))
 
 
 func _paint_front(layer: Control) -> void :
