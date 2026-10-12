@@ -2,8 +2,8 @@ class_name PaperFilmExecutionEnd
 extends RefCounted
 
 # Fin de manche par l'EXÉCUTION du dernier survivant (0.16).
-# Le plan d'exécution vient de montrer la mise à mort : le film « Alice · X rattrapé(e) » la
-# remontrait entière, puis la tuait une seconde fois. À la place, un épilogue sans victime :
+# Le plan d'exécution vient de montrer la mise à mort : le film « Alice · X rattrapé(e) » remontrait
+# la victime entière, puis la tuait une seconde fois. À la place, un épilogue sans victime :
 # Alice rentre dans sa chambre (le décor de l'ancien film intro_alice, « DO NOT OPEN »), se retourne
 # sur le seuil pour savourer sa victoire, puis disparaît dans le noir et la porte claque.
 # Écran noir d'abord (le temps de quitter le plan d'exécution), puis fondu d'ouverture.
