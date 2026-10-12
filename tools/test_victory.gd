@@ -11,6 +11,8 @@ extends Node
 #           --vreal <nom> : joue la fin comme main.gd en fin de manche (phase « ending »,
 #           puis écran des résultats), sur la carte choisie avec --map school|forest|snow
 #           --vquit <s> : avec --vreal, quitte le jeu en plein film (test de fermeture)
+#           --vpause <s> : met le film en pause à <s> pendant 60 images et vérifie que
+#           les corps (Alice qui tourne ou bascule) ne bougent pas pendant la pause
 
 var world: Node
 var films: Array[String] = []
@@ -22,6 +24,7 @@ var clean: bool = false
 var real: String = ""
 var quit_at: float = INF
 var seek_first: bool = false
+var pause_at: float = INF
 
 
 func setup(game_world: Node) -> void :
@@ -43,6 +46,7 @@ func setup(game_world: Node) -> void :
 			"--vreal": real = value
 			"--vquit": quit_at = float(value)
 			"--vseek": seek_first = true
+			"--vpause": pause_at = float(value)
 	if films.is_empty(): films.append("lms_win_Simon")
 	if not out_dir.is_empty(): DirAccess.make_dir_recursive_absolute(out_dir)
 	_run.call_deferred()
@@ -75,10 +79,15 @@ func _run() -> void :
 		var next_capture: float = from_time
 		var frames: int = 0
 		var started: int = Time.get_ticks_msec()
+		var paused_once: bool = false
 		while world.gallery.playing:
 			await get_tree().process_frame
 			frames += 1
 			var t: float = float(world.gallery.time)
+			if not paused_once and t >= pause_at:
+				paused_once = true
+				errors += await _check_pause()
+				continue
 			if step > 0.0 and not out_dir.is_empty() and t >= next_capture and t <= to_time:
 				next_capture += step
 				await RenderingServer.frame_post_draw
@@ -92,6 +101,21 @@ func _run() -> void :
 	await get_tree().process_frame
 	print("VICTORY_TEST complete errors=", errors)
 	get_tree().quit()
+
+
+func _check_pause() -> int:
+	world.gallery.toggle_pause()
+	await get_tree().process_frame
+	var before: Array[Transform3D] = []
+	for take: Variant in world.film.takes: before.append(take.visual.transform)
+	for i: int in range(60): await get_tree().process_frame
+	var drift: float = 0.0
+	for k: int in range(before.size()):
+		var now: Transform3D = world.film.takes[k].visual.transform
+		drift = maxf(drift, (now.origin - before[k].origin).length() + (now.basis.x - before[k].basis.x).length() + (now.basis.y - before[k].basis.y).length())
+	print("VICTORY_TEST pause at ", world.gallery.time, " drift=", drift)
+	world.gallery.toggle_pause()
+	return 1 if drift > 0.001 else 0
 
 
 func _run_real() -> void :

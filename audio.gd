@@ -792,10 +792,15 @@ func _update_hurt(delta: float) -> void :
 
 
 # 0.16: a film that plays its own score (LMS victories) hushes the music tracks;
-# the ending music starts over once it is released.
+# the ending music starts over once it is released. The running track (the LMS
+# theme) is gone within the film's black opening instead of the 1.35 s
+# crossfade, which ran over the television's music box.
 func hold_music(on: bool) -> void :
 	if _music_hold == on: return
 	_music_hold = on
+	for key: String in tracks:
+		if on: _fade_speed[key] = 1.0 / 0.3
+		elif is_equal_approx(float(_fade_speed.get(key, 0.0)), 1.0 / 0.3): _fade_speed.erase(key)
 	if not on and mode == "ending" and _preview_snapshot.is_empty() and tracks.has(active_track): _play_from(active_track, 0.0)
 
 

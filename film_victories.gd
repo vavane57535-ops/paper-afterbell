@@ -34,6 +34,8 @@ const GLINT: Dictionary = {
 	"Ashura": Color("bff4ff"), "Usayuko": Color("ffe7a6"), "Simon": Color("e6dcff"),
 	"Lysia": Color("b8fff0"), "Elly": Color("cffbff"), "Bleuette": Color("cfe0ff"), "Alice": Color("ff3b55"),
 }
+# painted eyes below the rig's "eyes" socket (metres, measured on the eyelid patches)
+const EYE_DROP: Dictionary = {"Ashura": -0.07, "Usayuko": -0.05, "Lysia": -0.02, "Elly": -0.12, "Bleuette": -0.05}
 # start of the paper-silhouette cut for each film; the TV comes back 2.6 s later
 const INK_AT: Dictionary = {"Ashura": 9.85, "Usayuko": 8.95, "Simon": 9.4, "Lysia": 8.65, "Elly": 8.95, "Bleuette": 8.7}
 const TAIL: float = 4.2
@@ -252,7 +254,7 @@ func _smear(t0: float, t1: float, amount: Vector2) -> void : _smears.append([t0,
 func _later(t: float, kind: String, data: Dictionary = {}) -> void : _fx.append([t, kind, data])
 func _glint(t0: float, t1: float, who: int, size: float = 1.0) -> void : _glints.append([t0, t1, who, size])
 func _spin(t0: float, t1: float, who: int, turns: float, ease: String = "out") -> void : _spins.append([t0, t1, who, turns, ease])
-func _tilt(t0: float, t1: float, who: int, from: Vector3, to: Vector3) -> void : _tilts.append([t0, t1, who, from, to, 0.0])
+func _tilt(t0: float, t1: float, who: int, from: Vector3, to: Vector3, ease: String = "smooth") -> void : _tilts.append([t0, t1, who, from, to, 0.0, ease])
 func _rain_burst(t: float, at: Vector3, seconds: float = 0.6) -> void : _rain_bursts.append([t, at, seconds])
 func _bolt(t: float, seconds: float = 0.25, energy: float = 1.0) -> void :
 	_lightning.append([t, seconds, energy])
@@ -280,13 +282,16 @@ func _burst(t: float, at: Vector3, direction: Vector3, count: int, speed: float,
 
 
 # Close-up framed on the eyes: `facing` is the direction the character faces
-# (film axes), `side` shifts the camera to one cheek.
-func _closeup(t: float, who: int, facing: Vector3, side: float = 1.0, distance: float = 0.95, fov: float = 26.0) -> void :
+# (film axes), `side` shifts the camera to one cheek, `rise` lifts the camera
+# above the eyes (negative: a low angle looking up at a bowed head).
+func _closeup(t: float, who: int, facing: Vector3, side: float = 1.0, distance: float = 0.95, fov: float = 26.0, rise: float = 0.05) -> void :
 	var front: Vector3 = Vector3(facing.x, 0.0, facing.z).normalized()
 	var cheek: Vector3 = Vector3.UP.cross(front).normalized() * side * 0.3
-	var from: Vector3 = front * distance + cheek + Vector3.UP * 0.05
-	var to: Vector3 = front * distance * 0.82 + cheek * 0.8 + Vector3.UP * 0.04
-	cinema._shot(t, {"rel": {"a": who, "s": "eyes"}, "eye": [from, to], "look": {"a": who, "s": "eyes"}, "fov": [fov, fov - 3.0], "hand": 0.25})
+	var from: Vector3 = front * distance + cheek + Vector3.UP * rise
+	var to: Vector3 = front * distance * 0.82 + cheek * 0.8 + Vector3.UP * (rise - 0.01)
+	# the rig's "eyes" socket sits above the painted eyes of the supplied models
+	var drop: float = float(EYE_DROP.get(str(cinema.takes[who].person), 0.0))
+	cinema._shot(t, {"rel": {"a": who, "s": "eyes", "h": drop}, "eye": [from, to], "look": {"a": who, "s": "eyes", "h": drop}, "fov": [fov, fov - 3.0], "hand": 0.25})
 
 
 func _turn_vector(v: Vector3) -> Vector3: return v.rotated(Vector3.UP, turn)
@@ -398,7 +403,8 @@ func _write_closing() -> void :
 	var c: Node3D = cinema
 	var ink: float = t_ink
 	# paper background: white, held, then down to grey and black (OM)
-	_later(ink - 0.03, "mute_words", {"seconds": 2.6})
+	# before the heroes' last triggers (from ink - 0.06), so their clip words stay off the paper
+	_later(ink - 0.1, "mute_words", {"seconds": 2.7})
 	_bg.append([ink, Color("f4efe4")])
 	_bg.append([ink + 1.45, Color("f1ece1")])
 	_bg.append([ink + 2.05, Color("8f8b86")])
@@ -601,15 +607,17 @@ func _write_usayuko() -> void :
 	var land: float = maxf(5.0, minf(12.5, room - 1.2))
 	c._move(a, fly, fly + 0.35, _r(0.0, lerpf(2.5, land, 0.45), 1.6), "out")
 	c._move(a, fly + 0.35, fly + 0.82, _r(0.0, land, 0.0), "in")
-	# thrown back and tumbling: a fast lean, then a full turn in the air
-	_tilt(fly, fly + 0.25, a, Vector3(0, 0, 0), Vector3(-1.35, 0, 0.35))
-	_tilt(fly + 0.25, fly + 0.83, a, Vector3(-1.35, 0, 0.35), Vector3(-1.55, 0, 0.6))
+	# the head snaps back (a positive pitch leans her away from Usayuko), she
+	# backflips and slams face down: the downed pose blends in during the flip
+	# (it starts from the standing pose, so it must not begin on the ground) and
+	# the flip ends level with it, without ever passing upright again
+	_tilt(fly, fly + 0.25, a, Vector3(0, 0, 0), Vector3(1.35, 0, 0.35))
+	_tilt(fly + 0.25, fly + 0.82, a, Vector3(1.35, 0, 0.35), Vector3(TAU, 0, 0.0), "linear")
 	_spin(fly + 0.05, fly + 0.8, a, 1.0, "out")
+	c._do(a, fly + 0.3, "life", "downed")
 	_burst(fly + 0.18, _r(0.0, lerpf(2.5, land, 0.3), 1.5), Vector3(0, 0.4, -1.0), 12, 1.8, {"spread": 0.9, "lift": 0.6, "gravity": 2.5, "drag": 1.0, "life": 1.4, "size": 0.1})
 	var crash: float = fly + 0.82
 	c._do(a, crash, "unset", ["forced_time", "force_name", "grounded"])
-	# she stays down where she crashed
-	c._do(a, crash, "life", "downed")
 	c._cue(crash, "crack", {"a": a}, 1.8)
 	c._cue(crash, "dust_ring", {"a": a}, 1.6)
 	c._cue(crash, "sound", "ground_impact", {"a": a}, 1.0, 0.8)
@@ -644,8 +652,9 @@ func _write_usayuko() -> void :
 	c._do(a, ink, "life", "alive")
 	c._do(a, ink, "stun", false)
 	c._do(a, ink, "state", {"forced_time": 3.0, "force_name": "knock", "grounded": false})
-	c._move(a, ink + 0.01, ink + 2.5, _ink(2.4, 1.15, -0.3), "out")
-	_tilt(ink, ink + 2.6, a, Vector3(0, 0, 0.55), Vector3(0, 0, 0.95))
+	c._move(a, ink + 0.01, ink + 2.5, _ink(2.05, 1.2, -0.3), "out")
+	# flung away from the fist (a negative roll leans her toward screen right)
+	_tilt(ink, ink + 2.6, a, Vector3(0, 0, -0.5), Vector3(0, 0, -0.95))
 	_burst(ink, _ink(0.4, 1.2, 0.0), Vector3(1, 0.25, 0), 36, 3.6, {"spread": 0.6, "lift": 0.6, "gravity": 0.9, "drag": 0.9, "life": 2.6, "size": 0.13})
 	_burst(ink + 0.02, _ink(0.2, 1.3, 0.0), Vector3(1, 0.6, 0.1), 12, 2.4, {"spread": 0.5, "lift": 0.8, "gravity": 0.6, "drag": 0.7, "life": 2.6, "size": 0.26})
 	c._shot(ink, {"eye": [_ink(0.35, 1.1, 6.3), _ink(0.4, 1.1, 5.9)], "look": [_ink(0.35, 1.05, 0.0), _ink(0.45, 1.05, 0.0)], "fov": 42, "hand": 0.1, "safe": false})
@@ -859,8 +868,8 @@ func _write_lysia() -> void :
 	_hold_pose(s, ink + 0.32, ink + 2.6)
 	c._do(a, ink, "stun", false)
 	c._do(a, ink, "state", {"forced_time": 3.0, "force_name": "knock", "grounded": false})
-	c._move(a, ink + 0.01, ink + 2.5, _ink(2.3, 0.6, 0.0), "out")
-	_tilt(ink, ink + 2.6, a, Vector3(0, 0, 0.35), Vector3(0, 0, 0.6))
+	c._move(a, ink + 0.01, ink + 2.5, _ink(2.0, 0.7, 0.0), "out")
+	_tilt(ink, ink + 2.6, a, Vector3(0, 0, -0.35), Vector3(0, 0, -0.65))
 	for k: int in range(9): _later(ink + 0.05 + 0.25 * float(k), "bolts", {"at": _ink(0.0, 1.15, 0.0), "color": Color("d9fbff"), "count": 3, "radius": 1.0, "size": 1.3})
 	_burst(ink, _ink(0.6, 1.0, 0.0), Vector3(1, 0.2, 0), 26, 2.6, {"spread": 0.7, "lift": 0.6, "gravity": 0.5, "drag": 0.8, "life": 2.6, "size": 0.1})
 	c._shot(ink, {"eye": [_ink(0.2, 1.05, 6.2), _ink(0.25, 1.05, 5.8)], "look": [_ink(0.2, 1.0, 0.0), _ink(0.3, 1.0, 0.0)], "fov": 42, "hand": 0.1, "safe": false})
@@ -889,7 +898,8 @@ func _write_elly() -> void :
 	c._do(s, 4.4, "unset", ["second_life"])
 	c._do(s, 4.4, "mood", "determined")
 	c._move(a, 4.2, 5.0, _r(0.2, 2.6), "smooth")
-	_closeup(4.5, s, Vector3(0, 0, 1), 1.0, 1.3, 30.0)
+	# she is still bowed when the shot starts: a low angle finds her eyes under the fringe
+	_closeup(4.5, s, Vector3(0, 0, 1), 1.0, 1.3, 30.0, -0.32)
 	_glint(4.55, 5.1, s, 1.1)
 	# C · the claw, the dodge
 	var swing: float = 5.2
@@ -946,8 +956,8 @@ func _write_elly() -> void :
 	_hold_pose(s, ink + 0.01, ink + 2.6)
 	c._do(a, ink, "stun", false)
 	c._do(a, ink, "state", {"forced_time": 3.0, "force_name": "knock", "grounded": false})
-	c._move(a, ink + 0.01, ink + 2.5, _ink(2.5, 0.45, 0.0), "out")
-	_tilt(ink, ink + 2.6, a, Vector3(0, 0, 0.4), Vector3(0, 0, 0.7))
+	c._move(a, ink + 0.01, ink + 2.5, _ink(2.1, 0.55, 0.0), "out")
+	_tilt(ink, ink + 2.6, a, Vector3(0, 0, -0.4), Vector3(0, 0, -0.75))
 	_burst(ink, _ink(-0.2, 1.3, 0.0), Vector3(1, 0.05, 0), 30, 4.5, {"spread": 0.35, "lift": 0.2, "gravity": 0.3, "drag": 1.6, "life": 2.6, "size": 0.07})
 	_burst(ink + 0.02, _ink(-0.9, 1.35, 0.0), Vector3(-0.3, 1, 0.2), 2, 2.2, {"spread": 0.2, "lift": 1.2, "gravity": 3.0, "drag": 0.3, "life": 2.6, "size": 0.08})
 	c._shot(ink, {"eye": [_ink(0.0, 1.15, 6.4), _ink(0.05, 1.15, 6.0)], "look": [_ink(0.0, 1.05, 0.0), _ink(0.1, 1.05, 0.0)], "fov": 42, "hand": 0.1, "safe": false})
@@ -1285,6 +1295,7 @@ func _player(label: String, path: String, bus: StringName) -> AudioStreamPlayer:
 func update(t: float, delta: float) -> void :
 	if not active or not is_instance_valid(_grade): return
 	var camera: Camera3D = world.camera
+	_reset_bodies(t)
 	_apply_spins(t)
 	_apply_tilts(t)
 	_run_fx(t, delta)
@@ -1302,6 +1313,22 @@ func _look_at_time(t: float) -> String:
 	return "tv"
 
 
+# Spins and tilts are layered over the pose the film step placed. While the film
+# is paused (cinémathèque) no step runs, so the bodies they touch are put back
+# first: otherwise the tilt would compound frame after frame.
+func _reset_bodies(t: float) -> void :
+	var touched: Dictionary = {}
+	for spin: Array in _spins:
+		if t >= float(spin[0]) and t <= float(spin[1]) + 0.02: touched[int(spin[2])] = true
+	for tilt: Array in _tilts:
+		if t >= float(tilt[0]) and t <= float(tilt[1]): touched[int(tilt[2])] = true
+	var at: float = maxf(float(cinema._time), 0.0)
+	for index: Variant in touched:
+		var take: Variant = cinema.takes[int(index)]
+		take.visual.position = cinema._world_spot(cinema._where(take, at))
+		take.visual.rotation = Vector3(0.0, take.yaw, 0.0)
+
+
 func _apply_spins(t: float) -> void :
 	for spin: Array in _spins:
 		var t0: float = float(spin[0])
@@ -1317,7 +1344,7 @@ func _apply_tilts(t: float) -> void :
 		var t0: float = float(tilt[0])
 		var t1: float = float(tilt[1])
 		if t < t0 or t > t1: continue
-		var u: float = smoothstep(0.0, 1.0, (t - t0) / maxf(0.01, t1 - t0))
+		var u: float = cinema._ease((t - t0) / maxf(0.01, t1 - t0), str(tilt[6]))
 		var euler: Vector3 = (tilt[3] as Vector3).lerp(tilt[4], u)
 		var visual: Node3D = cinema.takes[int(tilt[2])].visual
 		# pitch about the film's right axis, roll about its forward axis, pivoting on the hips
@@ -1362,6 +1389,13 @@ func _fire(kind: String, data: Dictionary) -> void :
 			comic.mark(6, muzzle + Vector3.UP * 0.1, Color("d9d4cc", 0.55), 0.15, 0.6, 0.9, {"vel": Vector3.UP * 0.7, "drag": 1.5, "fade": 0.3, "ink": Color("6f6a66")})
 		"mute_words":
 			if "_word_clock" in comic: comic.set("_word_clock", float(data.get("seconds", 1.0)))
+			# words are pinned to the camera: one still showing would follow the cut onto the paper
+			var words: Variant = comic.get("_words")
+			if words is Array:
+				for item: Variant in words:
+					if bool(item.active):
+						item.active = false
+						item.node.visible = false
 		"thunder":
 			if is_instance_valid(_thunder_player) and _thunder_player.stream and is_instance_valid(world.audio):
 				_thunder_player.volume_db = float(world.audio.volume_to_db(float(world.audio.effects_volume))) + linear_to_db(0.6 * float(data.get("gain", 1.0)))
@@ -1407,11 +1441,15 @@ func _place_debris(t: float) -> void :
 
 func _eye_points(visual: Node3D) -> Array[Vector3]:
 	var points: Array[Vector3] = []
-	var lids: Array[Node] = visual.find_children("Lid", "MeshInstance3D", true, false)
-	for lid: Node in lids:
-		var mesh: MeshInstance3D = lid as MeshInstance3D
-		if mesh and mesh.mesh: points.append(mesh.global_transform * mesh.mesh.get_aabb().get_center())
-	if points.size() >= 2: return points
+	# one eyelid patch per painted eye under the head's "Eyelids" attachment
+	# (only the first keeps the name "Lid"); Lysia, Elly and Bleuette show a
+	# single eye, the other one is under the hair. The rig's "eyes" socket sits
+	# up to 14 cm above the painted eyes, so it is only the fallback (Simon, Alice).
+	for holder: Node in visual.find_children("Eyelids", "BoneAttachment3D", true, false):
+		for child: Node in holder.get_children():
+			var mesh: MeshInstance3D = child as MeshInstance3D
+			if mesh and mesh.mesh: points.append(mesh.global_transform * mesh.mesh.get_aabb().get_center())
+	if not points.is_empty(): return points
 	points.clear()
 	var eyes: Vector3 = visual.socket_position("eyes")
 	var head: Variant = visual.get("_head")
