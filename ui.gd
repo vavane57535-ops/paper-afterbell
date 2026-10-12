@@ -96,6 +96,9 @@ var gallery_count: Label
 var gallery_updating: bool = false
 var gallery_dragging: bool = false
 var gallery_resume: bool = false
+# Cinémathèque : la barre de transport s'efface pendant la lecture après un moment sans action
+# (comme un lecteur vidéo) ; elle cachait le bas des films (sous-titres, titre du prologue).
+var _gallery_idle: float = 0.0
 var language_clock: float = 0
 
 
@@ -2235,6 +2238,7 @@ func _refresh_gallery_results() -> void :
 func show_gallery_transport(item: Dictionary) -> void :
 	gallery_dragging = false
 	gallery_resume = false
+	_gallery_idle = 0.0
 	if not is_instance_valid(gallery_controls):
 		gallery_controls = Control.new()
 		root.add_child(gallery_controls)
@@ -2242,6 +2246,7 @@ func show_gallery_transport(item: Dictionary) -> void :
 		gallery_controls.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_clear(gallery_controls)
 	gallery_controls.show()
+	gallery_controls.modulate.a = 1.0
 	var top: HBoxContainer = HBoxContainer.new()
 	gallery_controls.add_child(top)
 	top.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
@@ -2310,6 +2315,11 @@ func update_gallery_transport(seconds: float, total: float, playing: bool) -> vo
 	gallery_updating = false
 	gallery_pause.text = _t("PAUSE" if playing else "REJOUER" if seconds >= total else "LECTURE")
 	if not gallery_dragging: gallery_clock.text = "%.1f / %.1f s%s" % [seconds, total, _t(" · Scène terminée") if seconds >= total else ""]
+	var delta: float = get_process_delta_time()
+	_gallery_idle += delta
+	var tucked: bool = playing and not gallery_dragging and seconds < total and _gallery_idle > 2.5
+	var goal: float = 0.0 if tucked else 1.0
+	gallery_controls.modulate.a = goal if reduced_motion else move_toward(gallery_controls.modulate.a, goal, delta * (2.5 if tucked else 9.0))
 
 func hide_gallery_transport() -> void :
 	gallery_dragging = false
@@ -3411,6 +3421,8 @@ func _scroll_to_focused_field() -> void :
 	if focus and scroll and scroll.is_ancestor_of(focus): scroll.ensure_control_visible(focus)
 
 func _input(event: InputEvent) -> void :
+	# Toute action fait réapparaître la barre de transport de la cinémathèque.
+	if not (event is InputEventJoypadMotion and absf(event.axis_value) < 0.5): _gallery_idle = 0.0
 	if event is InputEventMouseMotion or event is InputEventMouseButton or event is InputEventScreenTouch or event is InputEventScreenDrag:
 		T.touch_mode = event is InputEventScreenTouch or event is InputEventScreenDrag or (event is InputEventMouse and event.device == InputEvent.DEVICE_ID_EMULATION)
 		_set_pointer_mode(true)

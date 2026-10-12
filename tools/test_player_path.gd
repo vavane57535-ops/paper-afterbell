@@ -519,6 +519,14 @@ func _step_gallery() -> void :
 		else: world.gallery.play_entry(wanted)
 		await _wait(0.6)
 		_check(world.gallery.playing, "lecture de « %s »" % wanted.title)
+		if str(spec[0]) == "intro":
+			# Sans action pendant la lecture, la barre de transport s'efface ; la souris la rappelle.
+			await _wait(3.2)
+			var bar: Control = world.ui.get("gallery_controls")
+			_check(is_instance_valid(bar) and bar.modulate.a < 0.15, "barre de transport effacée après 3 s sans action (%.2f)" % (bar.modulate.a if is_instance_valid(bar) else -1.0))
+			await _mouse_to(Vector2(200, 200))
+			await _wait(0.4)
+			_check(is_instance_valid(bar) and bar.modulate.a > 0.9, "la souris rappelle la barre (%.2f)" % (bar.modulate.a if is_instance_valid(bar) else -1.0))
 		if str(spec[0]) == "lms_win":
 			# Manette pendant la lecture : A met en pause, la croix avance d'une seconde, A relance.
 			await _pad(JOY_BUTTON_A, 0.3)
