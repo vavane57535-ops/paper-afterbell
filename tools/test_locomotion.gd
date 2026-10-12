@@ -336,12 +336,18 @@ func _metrics(person: String, gait: String) -> void :
 	var backward: int = 0
 	var body_min: float = 99.0
 	var body_max: float = -99.0
+	var trunk_sum: float = 0.0
+	var trunk_count: int = 0
 	var frames: int = int(2.4 / DT)
 	for f in range(frames):
 		host.position += Vector3(0, 0, - speed) * DT
 		visual.animate(DT, Vector3(0, 0, - speed), false, false)
 		if f < int(1.0 / DT): continue
 		var body_y: float = (visual.get("_body") as Node3D).global_position.y
+		# Inclinaison du buste (bassin → cou) vers l'avant, en degrés.
+		var trunk: Vector3 = (visual.get("_neck") as Node3D).global_position - (visual.get("_body") as Node3D).global_position
+		trunk_sum += rad_to_deg(atan2( - trunk.z, trunk.y))
+		trunk_count += 1
 		body_min = minf(body_min, body_y)
 		body_max = maxf(body_max, body_y)
 		for side in [-1, 1]:
@@ -394,7 +400,7 @@ func _metrics(person: String, gait: String) -> void :
 	for i in range(count):
 		if not grounded[0][i] and not grounded[1][i]: flight += 1
 	var mean: float = slide_sum / maxf(float(contact), 1.0)
-	var line: String = "METRIC %-8s %-7s v=%5.1f cad=%.2f duty=%.2f slide_mean=%.2f slide_max=%.2f contact=%d flight=%.0f%% knee=[%.0f..%.0f] backward=%d bob=%.3f" % [person, gait, speed, float(visual.get("_g_cadence")), float(visual.get("_g_stance")), mean, slide_max, contact, 100.0 * float(flight) / maxf(float(count), 1.0), knee_min, knee_max, backward, body_max - body_min]
+	var line: String = "METRIC %-8s %-7s v=%5.1f cad=%.2f duty=%.2f slide_mean=%.2f slide_max=%.2f contact=%d flight=%.0f%% knee=[%.0f..%.0f] backward=%d bob=%.3f trunk=%.1f" % [person, gait, speed, float(visual.get("_g_cadence")), float(visual.get("_g_stance")), mean, slide_max, contact, 100.0 * float(flight) / maxf(float(count), 1.0), knee_min, knee_max, backward, body_max - body_min, trunk_sum / maxf(float(trunk_count), 1.0)]
 	print(line)
 	var log_path: String = out_dir + "/metrics.txt"
 	var file: FileAccess = FileAccess.open(log_path, FileAccess.READ_WRITE if FileAccess.file_exists(log_path) else FileAccess.WRITE)

@@ -47,26 +47,27 @@ const STYLES: Dictionary = {
 }
 
 # Course et marche des élèves (0.16) : ces valeurs remplacent celles de STYLES pour la locomotion.
+# lean : inclinaison du buste (× celle de l'allure dans anim_gait.gd), plus marquée que chez Alice pour lire la vitesse.
 # knee_lift / heel_kick : montée du genou / repli du talon ; twist : contre-rotation des épaules ;
 # press : écrasement à l'appui ; cross : la main rentre vers l'axe du corps ; hop : rebond en plus.
 const GAITS: Dictionary = {
 
-	"Ashura": {"cadence": 0.97, "stride": 1.0, "bob": 0.9, "sway": 1.1, "lean": 0.9, "arm_swing": 0.9, "arm_out": 0.02,
+	"Ashura": {"cadence": 0.97, "stride": 1.0, "bob": 0.9, "sway": 1.1, "lean": 1.17, "arm_swing": 0.9, "arm_out": 0.02,
 		"elbow": -0.1, "knee_lift": 0.95, "heel_kick": 0.95, "fist": 0.45, "twist": 1.15, "cross": 0.7, "hop": 0.0, "press": 0.9},
 
-	"Usayuko": {"cadence": 0.94, "stride": 1.05, "bob": 1.1, "sway": 1.25, "lean": 1.15, "arm_swing": 1.15, "arm_out": 0.08,
+	"Usayuko": {"cadence": 0.94, "stride": 1.05, "bob": 1.1, "sway": 1.25, "lean": 1.5, "arm_swing": 1.15, "arm_out": 0.08,
 		"elbow": 0.0, "knee_lift": 1.05, "heel_kick": 0.95, "stance": 1.15, "fist": 1.0, "twist": 1.2, "cross": 0.5, "press": 1.5},
 
-	"Simon": {"cadence": 1.08, "bob": 1.1, "lean": 1.2, "arm_swing": 1.05, "arm_out": 0.08, "knee_lift": 1.12, "heel_kick": 1.1,
+	"Simon": {"cadence": 1.08, "bob": 1.1, "lean": 1.56, "arm_swing": 1.05, "arm_out": 0.08, "knee_lift": 1.12, "heel_kick": 1.1,
 		"fist": 0.85, "hop": 0.35, "twist": 1.0, "cross": 0.45, "press": 0.8},
 
-	"Lysia": {"cadence": 1.1, "stride": 0.82, "bob": 0.6, "sway": 0.4, "lean": 0.9, "arm_swing": 0.85, "arm_out": 0.04, "elbow": 0.05,
-		"knee_lift": 0.82, "heel_kick": 0.72, "snappy": 1.0, "elbow_lag": 0.0, "fist": 0.8, "twist": 0.35, "cross": 0.0, "press": 0.7},
+	"Lysia": {"cadence": 1.06, "stride": 0.9, "bob": 0.6, "sway": 0.4, "lean": 1.17, "arm_swing": 0.85, "arm_out": 0.04, "elbow": 0.05,
+		"knee_lift": 1.0, "heel_kick": 0.72, "snappy": 1.0, "elbow_lag": 0.0, "fist": 0.8, "twist": 0.35, "cross": 0.0, "press": 0.7},
 
-	"Elly": {"cadence": 0.95, "stride": 1.08, "bob": 0.85, "sway": 0.8, "lean": 0.85, "arm_swing": 0.85, "arm_out": 0.02,
+	"Elly": {"cadence": 0.95, "stride": 1.08, "bob": 0.85, "sway": 0.8, "lean": 1.1, "arm_swing": 0.85, "arm_out": 0.02,
 		"elbow": -0.12, "knee_lift": 1.0, "heel_kick": 1.0, "fist": 0.35, "twist": 0.9, "cross": 0.7, "press": 0.85},
 
-	"Bleuette": {"cadence": 1.1, "stride": 0.95, "bob": 1.3, "sway": 1.2, "lean": 1.0, "arm_swing": 1.1, "arm_out": 0.14,
+	"Bleuette": {"cadence": 1.1, "stride": 0.95, "bob": 1.3, "sway": 1.2, "lean": 1.3, "arm_swing": 1.1, "arm_out": 0.14,
 		"elbow": -0.05, "knee_lift": 1.12, "heel_kick": 1.05, "fist": 0.55, "hop": 0.7, "twist": 1.05, "cross": 0.8, "press": 1.0},
 }
 
