@@ -260,6 +260,7 @@ func _ensure_built() -> void :
 	dimension = VoidSet.new();dimension.name = "Dimension";_set_root.add_child(dimension)
 	dimension.position = DIM
 	dimension.build()
+	dimension.process_mode = Node.PROCESS_MODE_DISABLED
 	yiero = YieroModel.new();yiero.name = "Yiero";_set_root.add_child(yiero)
 	yiero.build()
 	_build_glows()
@@ -456,6 +457,7 @@ func _enter_stage(stage: String) -> void :
 	_stage = stage
 	var env: Environment = world.get("environment")
 	var school: Node3D = world.school
+	if is_instance_valid(dimension): dimension.process_mode = Node.PROCESS_MODE_INHERIT if stage == "void" else Node.PROCESS_MODE_DISABLED
 	if stage == "void":
 		if is_instance_valid(school): school.hide()
 		dimension.show();yiero.show()

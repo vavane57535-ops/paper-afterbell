@@ -1,492 +1,621 @@
 #!/usr/bin/env python3
-"""Synthèse de l'audio PROVISOIRE du prologue « Yiero » (Paper Afterbell 0.16).
+"""Bruitages synthétisés du prologue « Yiero » (Paper Afterbell 0.16) — version définitive.
 
-Produit :
-  audio/cinematic/intro_yiero.ogg  — musique provisoire de 196 s calée sur la feuille de minutage
-                                      de docs/INTRO-YIERO.md (à remplacer par une vraie composition)
-  audio/cinematic/sfx_*.wav         — bruitages synthétisés du film
+Produit audio/cinematic/sfx_*.wav (stéréo 44,1 kHz, 16 bits). La musique du film
+(audio/cinematic/intro_yiero.ogg) est une vraie composition : ce script n'y touche PAS.
 
-Usage : python3 tools/synth_intro_audio.py  (numpy + ffmpeg avec libvorbis)
+Chaque son est construit par synthèse « physique » simple : source glottale + formants pour
+les cris de Yiero (voix de géant : formants abaissés, sous-harmonique, friture vocale), transitoires
++ résonateurs pour les impacts, granulaire pour le papier, convolution par une réverbération
+synthétique pour l'espace. Les niveaux sont calés en RMS court terme (fenêtre 100 ms) pour que
+le film puisse doser les bruitages par rapport à la musique (voir FILM_SFX_LEVEL dans
+film_intro_yiero.gd).
+
+Usage : python3 tools/synth_intro_audio.py   (numpy uniquement)
 """
 import os
-import subprocess
 import sys
-import tempfile
 import wave
 
 import numpy as np
 
 SR = 44100
-LENGTH = 196.0
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUT = os.path.join(ROOT, "audio", "cinematic")
-rng = np.random.default_rng(1313)
+rng = np.random.default_rng(6661)
 
+
+# ---------------------------------------------------------------- outils de base
 
 def t_axis(seconds):
-    return np.arange(int(seconds * SR)) / SR
+	return np.arange(int(round(seconds * SR))) / SR
 
 
-def env_adsr(n, a, d, s, r, sustain=1.0):
-    e = np.ones(n) * s
-    na, nd, nr = int(a * SR), int(d * SR), int(r * SR)
-    na = min(na, n)
-    e[:na] = np.linspace(0, 1, na, endpoint=False) if na else e[:na]
-    if nd and na + nd < n:
-        e[na:na + nd] = np.linspace(1, s, nd, endpoint=False)
-    if nr:
-        nr = min(nr, n)
-        e[n - nr:] *= np.linspace(1, 0, nr)
-    return e * sustain
+def noise(n):
+	return rng.standard_normal(n)
 
 
-def lp_fast(x, cutoff):
-    """Passe-bas par FFT (pente douce), pour les longs signaux."""
-    n = len(x)
-    spec = np.fft.rfft(x)
-    freqs = np.fft.rfftfreq(n, 1 / SR)
-    spec *= 1.0 / np.sqrt(1.0 + (freqs / cutoff) ** 4)
-    return np.fft.irfft(spec, n)
+def pink(n):
+	spec = np.fft.rfft(noise(n))
+	f = np.fft.rfftfreq(n, 1 / SR)
+	spec[1:] /= np.sqrt(f[1:])
+	spec[0] = 0
+	x = np.fft.irfft(spec, n)
+	return x / (np.std(x) + 1e-12)
 
 
-def hp_fast(x, cutoff):
-    n = len(x)
-    spec = np.fft.rfft(x)
-    freqs = np.fft.rfftfreq(n, 1 / SR)
-    spec *= 1.0 - 1.0 / np.sqrt(1.0 + (freqs / max(cutoff, 1.0)) ** 4)
-    return np.fft.irfft(spec, n)
+def brown(n):
+	x = np.cumsum(noise(n))
+	x -= np.convolve(x, np.ones(2048) / 2048, mode="same")
+	return x / (np.std(x) + 1e-12)
 
 
-def bp_fast(x, low, high):
-    return hp_fast(lp_fast(x, high), low)
+def fft_filter(x, response):
+	"""Filtre statique : response(freqs) -> gain."""
+	n = len(x)
+	spec = np.fft.rfft(x)
+	spec *= response(np.fft.rfftfreq(n, 1 / SR))
+	return np.fft.irfft(spec, n)
 
 
-def saw(freq, t, detune=0.0):
-    phase = np.cumsum(np.full_like(t, freq) * (1 + detune) / SR) if np.isscalar(freq) else np.cumsum(freq * (1 + detune) / SR)
-    return 2 * (phase % 1.0) - 1
+def lowpass(x, fc, order=2):
+	return fft_filter(x, lambda f: 1.0 / np.sqrt(1.0 + (f / fc) ** (2 * order)))
 
 
-def sine_sweep(f0, f1, seconds, curve=2.0):
-    t = t_axis(seconds)
-    u = t / max(seconds, 1e-6)
-    f = f0 + (f1 - f0) * (u ** curve if f1 < f0 else 1 - (1 - u) ** curve)
-    return np.sin(2 * np.pi * np.cumsum(f) / SR)
+def highpass(x, fc, order=2):
+	return fft_filter(x, lambda f: 1.0 / np.sqrt(1.0 + (fc / np.maximum(f, 1e-3)) ** (2 * order)))
 
 
-def note(n):
-    """n = demi-tons depuis La4 (440 Hz)."""
-    return 440.0 * 2 ** (n / 12.0)
+def bandpass(x, lo, hi, order=2):
+	return highpass(lowpass(x, hi, order), lo, order)
 
 
-NOTES = {"D1": -43, "A1": -36, "D2": -31, "F2": -28, "G2": -26, "A2": -24, "Bb2": -23, "C3": -21, "D3": -19, "E3": -17, "F3": -16,
-         "G3": -14, "A3": -12, "Bb3": -11, "C4": -9, "C#4": -8, "D4": -7, "E4": -5, "F4": -4, "F#4": -3, "G4": -2, "G#4": -1, "A4": 0, "Bb4": 1,
-         "C5": 3, "D5": 5, "Eb5": 6, "E5": 7, "F5": 8, "G5": 10, "A5": 12, "D6": 17}
+def stft_filter(x, gain_at, frame=2048, hop=512):
+	"""Filtre variable dans le temps : gain_at(freqs, t) -> gain, appliqué trame par trame."""
+	n = len(x)
+	win = np.hanning(frame)
+	pad = np.concatenate([np.zeros(frame), x, np.zeros(frame)])
+	out = np.zeros(len(pad))
+	norm = np.zeros(len(pad))
+	freqs = np.fft.rfftfreq(frame, 1 / SR)
+	for start in range(0, len(pad) - frame, hop):
+		seg = pad[start:start + frame] * win
+		t = (start + frame / 2 - frame) / SR
+		spec = np.fft.rfft(seg) * gain_at(freqs, max(0.0, t))
+		out[start:start + frame] += np.fft.irfft(spec, frame) * win
+		norm[start:start + frame] += win ** 2
+	out /= np.maximum(norm, 1e-6)
+	return out[frame:frame + n]
 
 
-def hz(name):
-    return note(NOTES[name])
+def formants(freqs, table, scale=1.0):
+	"""Somme de résonances (fréquence, largeur, gain) : enveloppe spectrale d'une voyelle."""
+	g = np.zeros_like(freqs) + 0.002
+	for fc, bw, gain in table:
+		fc *= scale
+		bw *= scale
+		g += gain / (1.0 + ((freqs - fc) / (bw * 0.5)) ** 2)
+	return g
 
 
-class Mix:
-    def __init__(self, seconds):
-        self.n = int(seconds * SR)
-        self.l = np.zeros(self.n)
-        self.r = np.zeros(self.n)
-
-    def add(self, start, sig, gain=1.0, pan=0.0):
-        i = int(start * SR)
-        if i >= self.n or len(sig) == 0:
-            return
-        j = min(self.n, i + len(sig))
-        s = sig[: j - i] * gain
-        self.l[i:j] += s * np.sqrt(0.5 * (1 - pan))
-        self.r[i:j] += s * np.sqrt(0.5 * (1 + pan))
+# voyelles (Hz, largeur, gain) — voix adulte, abaissées ensuite pour le géant
+VOWEL_A = [(730, 90, 1.0), (1090, 110, 0.55), (2440, 170, 0.22), (3400, 250, 0.08)]
+VOWEL_O = [(570, 80, 1.0), (840, 100, 0.5), (2410, 170, 0.12), (3300, 250, 0.05)]
+VOWEL_U = [(300, 70, 1.0), (870, 100, 0.35), (2240, 160, 0.08)]
+VOWEL_E = [(530, 80, 1.0), (1840, 130, 0.45), (2480, 180, 0.2)]
 
 
-def pad(freqs, seconds, attack=1.5, release=1.5, bright=900.0, voices=3):
-    t = t_axis(seconds)
-    out = np.zeros(len(t))
-    for f in freqs:
-        for v in range(voices):
-            det = (v - (voices - 1) / 2) * 0.006
-            vib = 1 + 0.003 * np.sin(2 * np.pi * (4.8 + v * 0.3) * t + v)
-            out += saw(f * vib, t, det)
-    out = lp_fast(out, bright) / (len(freqs) * voices)
-    return out * env_adsr(len(t), attack, 0.3, 1.0, release)
+def glottal(freq_curve, jitter=0.02, sub=0.0, fry=0.0, fry_rate=28.0):
+	"""Source voisée : dent de scie adoucie + gigue + sous-harmonique + friture vocale."""
+	n = len(freq_curve)
+	jit = 1.0 + jitter * lowpass(noise(n), 30.0) / 0.2
+	f = freq_curve * jit
+	phase = np.cumsum(f / SR)
+	saw = 2.0 * (phase % 1.0) - 1.0
+	src = lowpass(saw, 2600.0, 1)
+	if sub > 0.0:
+		src += sub * (2.0 * ((phase * 0.5) % 1.0) - 1.0)
+	if fry > 0.0:
+		t = np.arange(n) / SR
+		pulse = 0.5 + 0.5 * np.sign(np.sin(2 * np.pi * fry_rate * t + 2.0 * np.sin(2 * np.pi * 3.1 * t)))
+		src *= (1.0 - fry) + fry * pulse
+	return src
 
 
-def choir(freqs, seconds, attack=1.2, release=1.5):
-    t = t_axis(seconds)
-    out = np.zeros(len(t))
-    for f in freqs:
-        for k, amp in [(1, 1.0), (2, 0.5), (3, 0.32), (4, 0.18), (5, 0.12)]:
-            vib = 1 + 0.004 * np.sin(2 * np.pi * 5.2 * t + f)
-            out += amp * np.sin(2 * np.pi * np.cumsum(np.full(len(t), f * k) * vib) / SR)
-    out /= len(freqs) * 2.0
-    return out * env_adsr(len(t), attack, 0.3, 1.0, release)
+def env_points(n, points):
+	"""Enveloppe linéaire par points [(t, valeur), …]."""
+	t = np.arange(n) / SR
+	ts = [p[0] for p in points]
+	vs = [p[1] for p in points]
+	return np.interp(t, ts, vs)
 
 
-def drone(freq, seconds, attack=2.0, release=2.0):
-    t = t_axis(seconds)
-    s = np.sin(2 * np.pi * freq * t) + 0.5 * np.sin(2 * np.pi * freq * 0.5 * t) + 0.25 * np.sin(2 * np.pi * freq * 1.5 * t + 0.4)
-    noise = lp_fast(rng.standard_normal(len(t)), 90.0) * 0.6
-    return (s * 0.5 + noise) * env_adsr(len(t), attack, 0.5, 1.0, release)
+def soft(x, drive=1.0):
+	return np.tanh(x * drive) / np.tanh(drive)
 
 
-def taiko(gain=1.0, pitch=1.0):
-    t = t_axis(0.9)
-    body = sine_sweep(150 * pitch, 48 * pitch, 0.9, 3.0) * np.exp(-t * 6.0)
-    click = lp_fast(rng.standard_normal(len(t)), 2500) * np.exp(-t * 60.0) * 0.5
-    return (body + click) * gain
+def reverb_ir(seconds, damp=3000.0, predelay=0.012, seed=0):
+	r = np.random.default_rng(seed)
+	n = int(seconds * SR)
+	t = np.arange(n) / SR
+	ir = r.standard_normal(n) * np.exp(-6.9 * t / seconds)
+	# les aigus s'éteignent plus vite
+	ir = stft_filter(ir, lambda f, tt: 1.0 / np.sqrt(1.0 + (f / (damp / (1.0 + 4.0 * tt))) ** 2))
+	ir = np.concatenate([np.zeros(int(predelay * SR)), ir])
+	return ir / (np.sqrt(np.sum(ir ** 2)) + 1e-12)
 
 
-def kick():
-    t = t_axis(0.35)
-    return sine_sweep(160, 45, 0.35, 4.0) * np.exp(-t * 11.0)
+def convolve(x, ir):
+	n = len(x) + len(ir) - 1
+	size = 1 << (n - 1).bit_length()
+	return np.fft.irfft(np.fft.rfft(x, size) * np.fft.rfft(ir, size), size)[:n]
 
 
-def snare():
-    t = t_axis(0.25)
-    return (bp_fast(rng.standard_normal(len(t)), 900, 7000) * 0.7 + np.sin(2 * np.pi * 190 * t) * 0.4) * np.exp(-t * 18.0)
+def space(x, seconds=2.0, mix=0.3, damp=3000.0, width=1.0, tail=True):
+	"""Réverbération stéréo (deux réponses décorrélées) ; renvoie un tableau (n, 2)."""
+	irl = reverb_ir(seconds, damp, 0.011, 11)
+	irr = reverb_ir(seconds, damp, 0.017, 23)
+	wl = convolve(x, irl)
+	wr = convolve(x, irr)
+	n = len(wl) if tail else len(x)
+	dry = np.zeros(n)
+	dry[:len(x)] = x
+	wl = wl[:n]
+	wr = wr[:n]
+	mid = (wl + wr) * 0.5
+	side = (wl - wr) * 0.5 * width
+	left = dry * (1.0 - mix) + (mid + side) * mix
+	right = dry * (1.0 - mix) + (mid - side) * mix
+	return np.stack([left, right], axis=1)
 
 
-def hat():
-    t = t_axis(0.06)
-    return hp_fast(rng.standard_normal(len(t)), 7000) * np.exp(-t * 70.0) * 0.5
+def stereo(x, pan=0.0):
+	return np.stack([x * np.sqrt(0.5 * (1 - pan)), x * np.sqrt(0.5 * (1 + pan))], axis=1)
 
 
-def stab(freqs, seconds=0.16, bright=2200.0):
-    t = t_axis(seconds)
-    out = sum(saw(f, t) for f in freqs) / len(freqs)
-    return lp_fast(out, bright) * np.exp(-t * 14.0)
+def fade_tail(x, seconds=0.05):
+	n = min(len(x), int(seconds * SR))
+	x = x.copy()
+	ramp = np.linspace(1.0, 0.0, n)
+	if x.ndim == 1:
+		x[-n:] *= ramp
+	else:
+		x[-n:] *= ramp[:, None]
+	return x
 
 
-def hit_big(gain=1.0, chord=("D2", "A2", "D3", "F3", "A3")):
-    t = t_axis(3.2)
-    boom = sine_sweep(110, 32, 3.2, 3.0) * np.exp(-t * 1.6)
-    noise = lp_fast(rng.standard_normal(len(t)), 3000) * np.exp(-t * 5.0) * 0.6
-    brass = lp_fast(sum(saw(hz(n), t) for n in chord) / len(chord), 1600) * np.exp(-t * 1.4) * 0.7
-    return (boom + noise + brass) * gain
+def short_rms_db(x):
+	mono = x.mean(axis=1) if x.ndim == 2 else x
+	hop = int(0.1 * SR)
+	best = 1e-9
+	for i in range(0, max(1, len(mono) - hop), hop // 2):
+		best = max(best, float(np.sqrt(np.mean(mono[i:i + hop] ** 2))))
+	return 20 * np.log10(best)
 
 
-def riser(seconds, gain=1.0):
-    t = t_axis(seconds)
-    u = t / seconds
-    noise = rng.standard_normal(len(t))
-    out = np.zeros(len(t))
-    seg = int(SR * 0.25)
-    for i in range(0, len(t), seg):
-        cut = 300 + 9000 * (i / len(t)) ** 2
-        out[i:i + seg] = bp_fast(noise[i:i + seg], cut * 0.5, cut)
-    tone = np.sin(2 * np.pi * np.cumsum(200 + 900 * u ** 2) / SR) * 0.25
-    return (out * 0.6 + tone) * u ** 2 * gain
+def level(x, target_db, ceiling_db=-1.0):
+	"""Cale le RMS court terme maximal sur target_db, sans dépasser le plafond crête."""
+	x = x - np.mean(x, axis=0)
+	gain = 10 ** ((target_db - short_rms_db(x)) / 20)
+	x = x * gain
+	peak = np.max(np.abs(x))
+	ceiling = 10 ** (ceiling_db / 20)
+	if peak > ceiling * 1.6:
+		x = np.tanh(x / ceiling) * ceiling
+	elif peak > ceiling:
+		x = x * ceiling / peak
+	# coupe la fin de la queue de réverbération sous -66 dB
+	mono = np.max(np.abs(x), axis=1) if x.ndim == 2 else np.abs(x)
+	loud = np.nonzero(mono > 10 ** (-66 / 20))[0]
+	if len(loud):
+		x = x[:min(len(x), loud[-1] + int(0.05 * SR))]
+	return fade_tail(x, 0.08)
 
 
-def piano(freq, seconds=3.0):
-    t = t_axis(seconds)
-    s = sum(a * np.sin(2 * np.pi * freq * k * t) * np.exp(-t * (1.2 + k * 0.6)) for k, a in [(1, 1.0), (2, 0.45), (3, 0.25), (4, 0.12)])
-    return s * np.minimum(1, t / 0.005)
+def resonator_hit(n, modes, strike=1.0):
+	"""Impact sur un corps résonant : modes (fréquence, décroissance /s, gain)."""
+	t = np.arange(n) / SR
+	out = np.zeros(n)
+	for f, decay, gain in modes:
+		out += gain * np.sin(2 * np.pi * f * t + rng.uniform(0, 6.28)) * np.exp(-decay * t)
+	click = noise(n) * np.exp(-t * 900.0) * strike
+	return out + click
 
 
-def musicbox(freq, seconds=1.6):
-    t = t_axis(seconds)
-    s = np.sin(2 * np.pi * freq * t) + 0.4 * np.sin(2 * np.pi * freq * 3.01 * t) * np.exp(-t * 4) + 0.2 * np.sin(2 * np.pi * freq * 5.4 * t) * np.exp(-t * 7)
-    return s * np.exp(-t * 2.2) * np.minimum(1, t / 0.003)
+def droplets(n, count, start, spread, lo=350.0, hi=1500.0, gain=1.0):
+	"""Gouttes : petits gazouillis ascendants (bulle qui éclate)."""
+	out = np.zeros(n)
+	for _ in range(count):
+		at = start + abs(rng.normal(0.0, spread))
+		i = int(at * SR)
+		if i >= n:
+			continue
+		length = rng.uniform(0.012, 0.04)
+		m = min(n - i, int(length * SR))
+		tt = np.arange(m) / SR
+		f0 = rng.uniform(lo, hi)
+		f = f0 * (1.0 + 1.6 * tt / length)
+		chirp = np.sin(2 * np.pi * np.cumsum(f) / SR) * np.exp(-tt / (length * 0.35))
+		out[i:i + m] += chirp * rng.uniform(0.25, 1.0) * gain * np.exp(-at * 1.2)
+	return out
 
 
-def build_music():
-    m = Mix(LENGTH)
-    # 0–5 ouverture : drone + vent
-    m.add(0.0, drone(36.7, 17.5, 3.0, 2.5), 0.55)
-    wind = bp_fast(rng.standard_normal(int(SR * 30)), 200, 900) * 0.18
-    m.add(0.0, wind * env_adsr(len(wind), 3.0, 0.5, 1.0, 4.0), 0.6, -0.3)
-    # 5–17 nappe sombre ré mineur + chœur lointain
-    m.add(5.0, pad([hz("D3"), hz("F3"), hz("A3")], 12.5, 4.0, 2.0, 700), 0.32)
-    m.add(7.0, choir([hz("D4"), hz("A4")], 10.0, 3.0, 2.0), 0.08, 0.2)
-    # 17–24 + pulsation sourde 50 bpm
-    m.add(16.5, drone(36.7, 13.0, 1.0, 1.0), 0.45)
-    m.add(17.0, pad([hz("D3"), hz("F3"), hz("Bb3")], 7.5, 1.0, 1.5, 650), 0.3)
-    for k in range(6):
-        m.add(17.0 + k * 1.2, taiko(0.45, 0.6), 0.7)
-    # 24–29 tension : trémolo aigu cluster crescendo
-    tt = t_axis(5.0)
-    trem = (np.sin(2 * np.pi * hz("D5") * tt) + np.sin(2 * np.pi * hz("Eb5") * tt)) * (0.5 + 0.5 * np.sin(2 * np.pi * 13 * tt))
-    m.add(24.0, trem * np.linspace(0.0, 1.0, len(tt)) ** 2 * 0.14, 1.0, 0.25)
-    m.add(24.0, pad([hz("D3"), hz("Eb5") / 2], 5.0, 1.0, 0.05, 800), 0.25)
-    # 29–30 silence ; 30–34 chute de sous-basse + note grave de piano
-    m.add(30.2, sine_sweep(90, 24, 3.0, 2.0) * np.exp(-t_axis(3.0) * 0.6), 0.45)
-    m.add(32.0, piano(hz("D2"), 4.0) + piano(hz("D1") * 2, 4.0) * 0.6, 0.35)
-    # 34–46 horreur : clusters dissonants montants + cuivres graves + tic-tac
-    for k, (a, b) in enumerate([("D3", "Eb5"), ("F3", "E5"), ("G#4", "A4")]):
-        m.add(34.0 + k * 0.4, pad([hz(a), hz(b), hz(a) * 1.06], 12.5 - k * 0.4, 3.0, 1.0, 1100 + k * 200), 0.2)
-    m.add(36.0, pad([hz("D2"), hz("A2") * 1.06], 10.0, 4.0, 0.5, 400), 0.22)
-    for k in range(24):
-        m.add(34.0 + k * 0.5, hp_fast(rng.standard_normal(1200) * np.exp(-np.arange(1200) / 140.0), 3000), 0.12, 0.4 if k % 2 else -0.4)
-    m.add(40.0, drone(30.0, 10.0, 1.0, 0.3), 0.3)
-    # 46–50 suspense, crescendo
-    m.add(46.0, pad([hz("D3"), hz("Eb5") / 2, hz("G#4") / 2, hz("A3")], 4.2, 2.5, 0.1, 1800), 0.32)
-    m.add(46.5, riser(3.7, 0.35))
-    # 50.2 rugissement : impact massif
-    m.add(50.2, hit_big(1.6), 1.0)
-    m.add(50.2, taiko(1.3, 0.7), 1.0)
-    # 52–58 montée héroïque : ostinato 140 bpm + taikos + chœur à 55
-    beat = 60.0 / 140.0
-    ost = ["D4", "D4", "F4", "D4", "A4", "D4", "F4", "E4"]
-    t0 = 52.0
-    k = 0
-    while t0 + k * beat / 2 < 58.0:
-        tt = t0 + k * beat / 2
-        m.add(tt, stab([hz(ost[k % 8])], 0.18, 2600), 0.18 + 0.12 * (tt - 52) / 6, 0.15 if k % 2 else -0.15)
-        if k % 2 == 0:
-            m.add(tt, taiko(0.5 + 0.4 * (tt - 52) / 6, 1.0), 0.7)
-        k += 1
-    m.add(55.0, choir([hz("D4"), hz("F4"), hz("A4")], 3.0, 0.6, 0.6), 0.22)
-    m.add(55.0, hit_big(0.5, ("D2", "A2", "D3")), 0.6)
-    m.add(55.0, riser(3.0, 0.45))
-    # 58–82 combat épique
-    prog = [("D3", "F3", "A3", "D2"), ("Bb2", "D3", "F3", "Bb2"), ("F3", "A3", "C4", "F2"), ("C3", "E3", "G3", "C3")]
-    bar = beat * 4
-    tt = 58.0
-    i = 0
-    while tt < 79.0:
-        chord = prog[(i // 2) % 4]
-        m.add(tt, pad([hz(c) for c in chord[:3]], bar + 0.1, 0.05, 0.15, 1800), 0.35)
-        m.add(tt, pad([hz(chord[3]) / 2], bar + 0.1, 0.02, 0.1, 300), 0.4)
-        m.add(tt, choir([hz(c) * 2 for c in chord[:3]], bar + 0.2, 0.2, 0.3), 0.12)
-        for s in range(8):
-            st = tt + s * beat / 2
-            m.add(st, stab([hz(chord[s % 3]) * 2], 0.15, 3000), 0.2, 0.2 if s % 2 else -0.2)
-        for s in [0, 1.5, 2, 3, 3.5]:
-            m.add(tt + s * beat, taiko(0.85 if s in (0, 2) else 0.55), 0.8)
-        tt += bar
-        i += 1
-    for hit_t, g in [(63.2, 0.8), (69.5, 0.7), (76.0, 0.6)]:
-        m.add(hit_t, hit_big(g), 0.8)
-    # 79–82 espoir : accord majeur
-    m.add(79.0, hit_big(1.0, ("D2", "A2", "D3", "F#4", "A3")), 0.9)
-    m.add(79.0, pad([hz("D3"), hz("F#4"), hz("A4"), hz("D5")], 3.2, 0.05, 0.8, 2400), 0.5)
-    m.add(79.0, choir([hz("D4"), hz("F#4"), hz("A4")], 3.2, 0.2, 0.8), 0.28)
-    # 82–87 moquerie : note grave tenue
-    m.add(82.0, pad([hz("D1") * 2], 5.2, 0.3, 1.0, 250), 0.6)
-    # 87–104 retournement : demi-tempo lourd
-    half = 60.0 / 70.0
-    dark = [("D3", "F3", "A3"), ("G2", "Bb2", "D3"), ("A2", "C#4", "E3"), ("D3", "F3", "A3")]
-    tt = 87.0
-    i = 0
-    while tt < 104.0:
-        chord = dark[i % 4]
-        m.add(tt, pad([hz(c) for c in chord], half * 4 + 0.2, 0.3, 0.4, 1200), 0.42)
-        m.add(tt, pad([hz(chord[0]) / 2], half * 4 + 0.2, 0.1, 0.3, 260), 0.45)
-        m.add(tt, taiko(1.0, 0.8), 0.9)
-        m.add(tt + half * 2, taiko(0.8, 0.8), 0.85)
-        tt += half * 4
-        i += 1
-    m.add(92.9, hit_big(0.9), 0.85)
-    m.add(99.4, hit_big(0.9, ("D2", "Bb2", "D3", "F3")), 0.85)
-    # 104–119.2 élégie
-    eleg = [("D3", "F3", "A3"), ("Bb2", "D3", "F3"), ("G2", "Bb2", "D3"), ("A2", "C#4", "E3")]
-    for k, chord in enumerate(eleg):
-        m.add(104.0 + k * 3.8, pad([hz(c) for c in chord], 4.2, 1.2, 1.2, 900), 0.36)
-    melody = [("A4", 104.5, 1.6), ("G4", 106.1, 0.8), ("F4", 106.9, 1.5), ("E4", 108.4, 1.2), ("D4", 109.6, 2.4), ("F4", 112.0, 1.5), ("E4", 113.5, 2.5)]
-    for n, st, du in melody:
-        m.add(st, choir([hz(n)], du + 0.4, 0.25, 0.4), 0.2, 0.1)
-    rev = riser(3.7, 0.4)
-    m.add(113.8, rev, 0.6)
-    # 119.2–121 silence + sifflement ; 121–122 menace
-    m.add(119.4, np.sin(2 * np.pi * 3600 * t_axis(1.6)) * np.linspace(0.05, 0, int(SR * 1.6)), 0.6)
-    m.add(121.0, sine_sweep(60, 40, 1.2, 1.5) * np.linspace(0, 1, int(SR * 1.2)), 0.6)
-    # 122–148 poursuite 160 bpm
-    b = 60.0 / 160.0
-    run = ["D4", "D4", "F4", "D4", "E4", "D4", "C4", "D4"]
-    tt = 122.0
-    k = 0
-    while tt < 148.0:
-        inten = 0.6 + 0.4 * (tt - 122.0) / 26.0
-        if k % 2 == 0:
-            m.add(tt, kick(), 0.7 * inten)
-        if k % 4 == 2:
-            m.add(tt, snare(), 0.45 * inten)
-        m.add(tt, hat(), 0.25)
-        m.add(tt, stab([hz(run[k % 8]), hz(run[k % 8]) / 2], 0.14, 2400), 0.22 * inten, 0.2 if k % 2 else -0.2)
-        if k % 8 == 0:
-            m.add(tt, pad([hz("D2")], b * 8, 0.02, 0.1, 280), 0.4)
-            m.add(tt, taiko(0.8, 0.9), 0.7 * inten)
-        tt += b / 2 if tt > 140 else b
-        k += 1
-    for st in (132.0, 133.6, 137.2, 138.4):
-        m.add(st, stab([hz("D2"), hz("A2"), hz("D3")], 0.6, 1400), 0.7)
-    m.add(140.0, pad([hz("A4"), hz("D5"), hz("E5")], 8.0, 0.8, 0.5, 4000), 0.22, 0.1)
-    # 148–150.6 accord tenu énorme
-    m.add(148.0, pad([hz("D2"), hz("A2"), hz("D3"), hz("E4"), hz("F4"), hz("A4")], 2.62, 0.3, 0.02, 3000), 0.6)
-    m.add(148.0, riser(2.6, 0.6))
-    # 150.6–153.2 silence blanc + acouphène
-    m.add(150.7, np.sin(2 * np.pi * 4100 * t_axis(2.4)) * np.linspace(0.06, 0, int(SR * 2.4)), 0.6)
-    # 153.2–157.5 école : piano doux
-    for st, n in [(153.6, "F4"), (154.1, "A4"), (154.6, "C5"), (155.1, "A4"), (155.6, "G4"), (156.3, "F4")]:
-        m.add(st, piano(hz(n), 2.5), 0.28)
-    # 157.5–179.7 bagarre déjantée 165 bpm (filtrée 166–173.5)
-    rb = 60.0 / 165.0
-    riffs = [("D3", "A3"), ("D3", "A3"), ("F3", "C4"), ("G3", "D4")]
-    groove = Mix(LENGTH)
-    tt = 157.5
-    k = 0
-    while tt < 179.7:
-        if k % 2 == 0:
-            groove.add(tt, kick(), 0.8)
-        if k % 4 == 2:
-            groove.add(tt, snare(), 0.55)
-        groove.add(tt, hat(), 0.3)
-        r = riffs[(k // 8) % 4]
-        guitar = np.tanh(stab([hz(r[0]), hz(r[1]), hz(r[0]) * 2], rb * 0.9, 3500) * 6) * 0.5
-        groove.add(tt, guitar, 0.32, 0.25 if k % 2 else -0.25)
-        groove.add(tt, stab([hz(r[0]) / 2], rb * 0.9, 600), 0.4)
-        tt += rb / 2
-        k += 1
-    gl = groove.l.copy()
-    gr = groove.r.copy()
-    a, z = int(166.0 * SR), int(173.5 * SR)
-    gl[a:z] = lp_fast(gl[a:z], 700) * 0.55
-    gr[a:z] = lp_fast(gr[a:z], 700) * 0.55
-    m.l += gl
-    m.r += gr
-    m.add(173.5, pad([hz("D3"), hz("F3"), hz("A3"), hz("D4")], 6.2, 2.0, 0.05, 2500), 0.3)
-    m.add(176.0, riser(3.7, 0.4))
-    m.add(179.72, hit_big(1.0, ("D2", "A2", "D3", "F#4", "A3")), 0.6)
-    cut = int(179.8 * SR)
-    fade = int(0.05 * SR)
-    for ch in (m.l, m.r):
-        ch[cut:cut + fade] *= np.linspace(1, 0, fade)
-        ch[cut + fade:int(182.0 * SR)] = 0.0
-    # 182–184.6 retour du démon
-    m.add(182.0, drone(36.7, 4.0, 1.5, 0.8), 0.5)
-    for st in (182.6, 183.4, 184.0):
-        m.add(st, taiko(0.6, 0.55), 0.6)
-    # 184.6 titre
-    m.add(184.6, hit_big(1.2, ("D2", "A2", "D3", "F3", "A3", "D4")), 0.95)
-    m.add(184.6, choir([hz("D4"), hz("F4"), hz("A4"), hz("D5")], 3.0, 0.05, 2.0), 0.3)
-    # 186.6–192 boîte à musique désaccordée
-    box = [("D5", 186.8), ("C5", 187.3), ("A4", 187.8), ("G#4", 188.4), ("D5", 189.4), ("C5", 189.9), ("A4", 190.4), ("G#4", 191.0)]
-    for n, st in box:
-        m.add(st, musicbox(hz(n) * 0.985, 1.8), 0.3, 0.2)
-    m.add(186.6, drone(36.7, 7.0, 1.0, 3.5), 0.35)
-    # réverbération globale douce
-    ir_len = int(2.6 * SR)
-    ir = rng.standard_normal(ir_len) * np.exp(-np.arange(ir_len) / (0.55 * SR))
-    ir = lp_fast(ir, 5000)
-    ir /= np.sqrt(np.sum(ir ** 2))
-    out = []
-    for ch in (m.l, m.r):
-        n = len(ch) + ir_len
-        size = 1 << (n - 1).bit_length()
-        wet = np.fft.irfft(np.fft.rfft(ch, size) * np.fft.rfft(ir, size), size)[: len(ch)]
-        out.append(ch * 0.8 + wet * 0.35)
-    st = np.stack(out, axis=1)
-    # silences francs demandés par la feuille de minutage
-    for a, z in [(29.0, 30.15), (119.25, 119.4), (150.62, 150.7), (179.8, 182.0)]:
-        st[int(a * SR):int(z * SR)] *= 0.04
-    st[int(192.0 * SR):] *= np.linspace(1, 0, len(st) - int(192.0 * SR))[:, None]
-    st /= max(1e-6, np.max(np.abs(st))) / 0.89
-    return st
+def crackle(n, density, lo=1200.0, hi=7000.0, start=0.0, end=None, shape=None):
+	"""Craquements (papier, débris) : impulsions filtrées réparties dans le temps."""
+	end = end if end is not None else n / SR
+	clicks = np.zeros(n)
+	duration = max(0.001, end - start)
+	count = int(density * duration)
+	for _ in range(count):
+		u = rng.uniform(0.0, 1.0)
+		if shape is not None:
+			u = shape(u)
+		i = int((start + u * duration) * SR)
+		if 0 <= i < n:
+			clicks[i] += rng.uniform(-1.0, 1.0) * rng.uniform(0.2, 1.0)
+	grains = convolve(clicks, noise(int(0.004 * SR)) * np.exp(-np.arange(int(0.004 * SR)) / (0.0012 * SR)))[:n]
+	return bandpass(grains, lo, hi)
+
+
+def sub_boom(n, f0, f1, decay, curve=3.0):
+	t = np.arange(n) / SR
+	u = np.clip(t / max(1e-3, decay * 2.5), 0.0, 1.0)
+	f = f1 + (f0 - f1) * (1.0 - u) ** curve
+	return np.sin(2 * np.pi * np.cumsum(f) / SR) * np.exp(-t / decay) * np.minimum(1.0, t / 0.004)
+
+
+# ---------------------------------------------------------------- voix de Yiero
+
+def giant_voice(seconds, pitch_points, amp_points, vowel_points, sub=0.45, fry=0.35, breath=0.25, scale=0.58, drive=2.2):
+	"""Voix de géant : source glottale (sous-harmonique, friture) filtrée par des formants abaissés
+	qui glissent d'une voyelle à l'autre ; souffle filtré par les mêmes formants."""
+	n = int(seconds * SR)
+	freq = env_points(n, pitch_points)
+	src = glottal(freq, jitter=0.03, sub=sub, fry=fry, fry_rate=26.0)
+	air = pink(n) * breath
+	vowel_t = [p[0] for p in vowel_points]
+	vowel_tab = [p[1] for p in vowel_points]
+
+	def response(f, tt):
+		k = int(np.searchsorted(vowel_t, tt, side="right")) - 1
+		k = max(0, min(k, len(vowel_t) - 1))
+		if k + 1 < len(vowel_t):
+			u = np.clip((tt - vowel_t[k]) / max(1e-3, vowel_t[k + 1] - vowel_t[k]), 0.0, 1.0)
+			return formants(f, vowel_tab[k], scale) * (1 - u) + formants(f, vowel_tab[k + 1], scale) * u
+		return formants(f, vowel_tab[k], scale)
+
+	voiced = stft_filter(src + air, response)
+	voiced = soft(voiced / (np.std(voiced) + 1e-9) * 0.35, drive)
+	return voiced * env_points(n, amp_points)
+
+
+def sfx_roar():
+	seconds = 3.0
+	n = int(seconds * SR)
+	t = np.arange(n) / SR
+	voice = giant_voice(seconds,
+		[(0.0, 62), (0.18, 88), (0.5, 104), (1.2, 96), (2.0, 78), (2.6, 52), (3.0, 46)],
+		[(0.0, 0.0), (0.06, 0.55), (0.25, 1.0), (1.6, 0.95), (2.3, 0.6), (2.75, 0.0), (3.0, 0.0)],
+		[(0.0, VOWEL_U), (0.25, VOWEL_A), (1.8, VOWEL_A), (2.6, VOWEL_O)], sub=0.6, fry=0.4, breath=0.35, scale=0.55, drive=2.8)
+	# deuxième « gorge » désaccordée pour l'épaisseur
+	voice2 = giant_voice(seconds,
+		[(0.0, 47), (0.2, 66), (0.5, 79), (1.2, 73), (2.0, 60), (2.6, 41), (3.0, 37)],
+		[(0.0, 0.0), (0.1, 0.4), (0.3, 0.8), (1.6, 0.8), (2.4, 0.4), (2.8, 0.0), (3.0, 0.0)],
+		[(0.0, VOWEL_O), (0.3, VOWEL_A), (2.6, VOWEL_U)], sub=0.3, fry=0.6, breath=0.2, scale=0.5, drive=3.2)
+	rumble = lowpass(brown(n), 90.0) * env_points(n, [(0, 0), (0.08, 1.0), (1.8, 0.8), (2.8, 0.0), (3.0, 0)])
+	sub = np.sin(2 * np.pi * np.cumsum(env_points(n, [(0, 34), (0.4, 44), (2.5, 30), (3.0, 28)])) / SR) * env_points(n, [(0, 0), (0.12, 1), (2.2, 0.7), (2.9, 0), (3.0, 0)])
+	hiss = bandpass(noise(n), 2500, 9000) * env_points(n, [(0, 0), (0.05, 0.6), (0.4, 0.25), (2.0, 0.15), (2.6, 0), (3.0, 0)])
+	x = voice * 1.0 + voice2 * 0.7 + rumble * 0.55 + sub * 0.5 + hiss * 0.12
+	return level(space(x, 3.4, 0.32, 2400.0), -9.0)
+
+
+def sfx_laugh():
+	seconds = 3.0
+	n = int(seconds * SR)
+	out = np.zeros(n)
+	# « HA… ha-ha-ha-HAAA » : syllabes courtes et détachées qui accélèrent, la dernière traîne.
+	starts = [0.0, 0.46, 0.76, 1.04, 1.3, 1.56]
+	pitches = [98, 90, 87, 84, 80, 72]
+	lengths = [0.2, 0.15, 0.14, 0.14, 0.14, 0.5]
+	for k, (st, p, ln) in enumerate(zip(starts, pitches, lengths)):
+		m = int((ln + 0.04) * SR)
+		syl = giant_voice(ln + 0.04,
+			[(0.0, p * 1.15), (ln * 0.25, p), (ln, p * 0.84), (ln + 0.04, p * 0.8)],
+			[(0.0, 0.0), (0.01, 0.9), (0.035, 1.0), (ln * 0.55, 0.75), (ln, 0.06), (ln + 0.04, 0.0)],
+			[(0.0, VOWEL_E), (0.03, VOWEL_A), (ln, VOWEL_O)], sub=0.55, fry=0.45, breath=0.45, scale=0.56, drive=2.5)
+		# aspiration « h » au début de chaque syllabe
+		h = bandpass(noise(m), 400, 3000) * np.exp(-np.arange(m) / (0.025 * SR)) * 0.55
+		i = int(st * SR)
+		j = min(n, i + m)
+		out[i:j] += (syl[:j - i] + h[:j - i]) * (1.0 - 0.05 * k)
+	return level(space(out, 2.2, 0.2, 2600.0), -12.0)
+
+
+def sfx_growl():
+	seconds = 1.3
+	n = int(seconds * SR)
+	x = giant_voice(seconds,
+		[(0.0, 44), (0.3, 52), (0.9, 47), (1.3, 40)],
+		[(0.0, 0.0), (0.08, 0.9), (0.7, 1.0), (1.15, 0.0), (1.3, 0.0)],
+		[(0.0, VOWEL_U), (0.5, VOWEL_O), (1.3, VOWEL_U)], sub=0.7, fry=0.7, breath=0.3, scale=0.5, drive=3.5)
+	return level(space(x, 1.8, 0.25, 2200.0), -12.0)
+
+
+def sfx_creak():
+	"""Le sourire qui se fend : cuir/os qui craque, salive, grondement sourd."""
+	seconds = 2.2
+	n = int(seconds * SR)
+	t = np.arange(n) / SR
+	rate = env_points(n, [(0, 9), (1.0, 22), (1.6, 34), (2.2, 14)])
+	phase = np.cumsum(rate * (1.0 + 0.35 * lowpass(noise(n), 6.0) / 0.1) / SR)
+	ticks = np.zeros(n)
+	edges = np.nonzero(np.diff(np.floor(phase)) > 0)[0]
+	ticks[edges] = rng.uniform(0.4, 1.0, len(edges)) * np.sign(rng.uniform(-1, 1, len(edges)))
+	body = convolve(ticks, resonator_hit(int(0.05 * SR), [(330, 70, 1.0), (760, 110, 0.6), (1450, 160, 0.35)], 0.2))[:n]
+	wet = stft_filter(noise(n), lambda f, tt: formants(f, [(900 + 500 * np.sin(tt * 5.0), 300, 1.0)]) * (0.3 + 0.7 * (np.sin(tt * 11.0) > 0.6)))
+	groan = giant_voice(seconds, [(0, 38), (1.2, 42), (2.2, 36)], [(0, 0), (0.5, 0.5), (1.7, 0.6), (2.2, 0)], [(0, VOWEL_U), (2.2, VOWEL_O)], sub=0.5, fry=0.8, breath=0.1, scale=0.45, drive=2.0)
+	envl = env_points(n, [(0, 0), (0.25, 0.8), (1.5, 1.0), (2.0, 0.4), (2.2, 0)])
+	x = (body * 1.0 + wet * 0.12 + groan * 0.6) * envl
+	return level(space(x, 1.6, 0.28, 3000.0), -15.0)
+
+
+def sfx_thump():
+	"""Battement de cœur lointain et gigantesque : « lub-dub » étouffé."""
+	seconds = 1.2
+	n = int(seconds * SR)
+	x = np.zeros(n)
+	for at, f0, g in ((0.0, 58.0, 1.0), (0.21, 50.0, 0.75)):
+		i = int(at * SR)
+		m = n - i
+		beat = sub_boom(m, f0, 34.0, 0.16, 2.0) + lowpass(noise(m), 180.0) * np.exp(-np.arange(m) / (0.03 * SR)) * 0.35
+		x[i:] += beat * g
+	x = lowpass(x, 260.0)
+	return level(space(x, 2.2, 0.3, 900.0), -12.0)
+
+
+def sfx_rumble():
+	seconds = 3.8
+	n = int(seconds * SR)
+	t = np.arange(n) / SR
+	mod = 0.65 + 0.35 * lowpass(noise(n), 4.0) / 0.03
+	base = lowpass(brown(n), 110.0) * np.clip(mod, 0.2, 1.4)
+	deep = np.sin(2 * np.pi * np.cumsum(env_points(n, [(0, 31), (3.8, 27)])) / SR) * 0.6
+	debris = crackle(n, 70, 900.0, 5000.0, 0.4, 3.2) * 0.25
+	x = (base + deep) * env_points(n, [(0, 0), (0.7, 1.0), (2.3, 0.9), (3.8, 0)]) + debris * env_points(n, [(0, 0), (1.0, 1.0), (3.2, 0)])
+	return level(space(x, 2.5, 0.25, 1200.0), -13.0)
+
+
+def sfx_splash():
+	"""Main géante qui crève la surface d'encre."""
+	seconds = 1.6
+	n = int(seconds * SR)
+	t = np.arange(n) / SR
+	bloosh = lowpass(noise(n), 500.0) * np.exp(-t / 0.18) * np.minimum(1.0, t / 0.01)
+	sheet = bandpass(noise(n), 700.0, 5000.0) * np.exp(-t / 0.35) * np.minimum(1.0, t / 0.03) * 0.5
+	thud = sub_boom(n, 70.0, 36.0, 0.18) * 0.8
+	drops = droplets(n, 46, 0.08, 0.35, 300.0, 1300.0, 0.5)
+	x = bloosh + sheet + thud + drops
+	return level(space(x, 1.8, 0.28, 3500.0), -13.0)
+
+
+def sfx_slam():
+	"""Griffe qui s'abat dans l'encre : énorme coup sourd, éclaboussure, débris."""
+	seconds = 2.4
+	n = int(seconds * SR)
+	t = np.arange(n) / SR
+	boom = sub_boom(n, 64.0, 28.0, 0.42) * 1.2
+	crunch = soft(bandpass(noise(n), 180.0, 2600.0) * np.exp(-t / 0.06) * 3.0, 2.0) * 0.7
+	crack = highpass(noise(n), 2500.0) * np.exp(-t / 0.012) * 0.6
+	splash = lowpass(noise(n), 900.0) * np.exp(-t / 0.3) * np.minimum(1.0, t / 0.02) * 0.6
+	drops = droplets(n, 60, 0.12, 0.5, 260.0, 1100.0, 0.45)
+	debris = crackle(n, 120, 800.0, 6000.0, 0.05, 1.6, lambda u: u ** 2) * 0.35
+	x = boom + crunch + crack + splash + drops + debris
+	return level(space(x, 2.8, 0.3, 2500.0), -10.0)
+
+
+def sfx_spike():
+	"""Griffe d'encre qui jaillit du sol."""
+	seconds = 1.2
+	n = int(seconds * SR)
+	t = np.arange(n) / SR
+	rise = stft_filter(noise(n), lambda f, tt: formants(f, [(300.0 + 9000.0 * min(tt, 0.16), 500.0 + 3000.0 * min(tt, 0.16), 1.0)])) * env_points(n, [(0, 0), (0.1, 0.8), (0.16, 1.0), (0.3, 0.2), (1.2, 0)])
+	crack = np.zeros(n)
+	i = int(0.15 * SR)
+	crack[i:] = resonator_hit(n - i, [(420, 30, 0.6), (1130, 45, 0.4), (2650, 70, 0.25)], 1.0)
+	wet = lowpass(noise(n), 1400.0) * np.exp(-np.maximum(0, t - 0.16) / 0.25) * (t > 0.15) * 0.5
+	drops = droplets(n, 22, 0.2, 0.3, 400.0, 1600.0, 0.4)
+	x = rise * 0.8 + crack * 0.7 + wet + drops
+	return level(space(x, 1.5, 0.25, 3500.0), -13.0)
+
+
+def sfx_whoosh():
+	seconds = 0.75
+	n = int(seconds * SR)
+	t = np.arange(n) / SR
+	center = env_points(n, [(0, 500), (0.32, 2600), (0.75, 700)])
+	src = noise(n)
+	x = stft_filter(src, lambda f, tt: formants(f, [(float(np.interp(tt, [0, 0.32, 0.75], [500, 2600, 700])), 900.0, 1.0)]), 1024, 256)
+	x *= np.sin(np.pi * np.clip(t / seconds, 0, 1)) ** 2.2
+	flutter = 1.0 + 0.25 * np.sin(2 * np.pi * 31.0 * t)
+	left = x * flutter * np.linspace(1.15, 0.6, n)
+	right = x * flutter * np.linspace(0.6, 1.15, n)
+	return level(np.stack([left, right], axis=1), -15.0)
+
+
+BELL = [(1.0, 1.0, 1.4), (2.76, 0.5, 2.2), (5.40, 0.28, 3.4), (8.93, 0.14, 5.0), (13.3, 0.07, 7.0)]
+
+
+def bell(n, f0, decay=1.0, gain=1.0):
+	t = np.arange(n) / SR
+	out = np.zeros(n)
+	for ratio, g, d in BELL:
+		out += g * np.sin(2 * np.pi * f0 * ratio * t + rng.uniform(0, 6.28)) * np.exp(-t * d / decay)
+	return out * gain * np.minimum(1.0, t / 0.002)
+
+
+def sfx_ignite():
+	"""Les poings s'embrasent de lumière dorée : souffle qui monte + carillon + chaleur."""
+	seconds = 2.0
+	n = int(seconds * SR)
+	t = np.arange(n) / SR
+	fwoom = stft_filter(noise(n), lambda f, tt: formants(f, [(200.0 + 2400.0 * min(tt, 0.3) / 0.3, 700.0, 1.0)])) * env_points(n, [(0, 0), (0.22, 1.0), (0.5, 0.45), (1.6, 0.15), (2.0, 0)])
+	flame = bandpass(noise(n), 900, 5000) * (0.6 + 0.4 * lowpass(noise(n), 18.0) / 0.12) * env_points(n, [(0, 0), (0.3, 0.3), (1.8, 0.1), (2.0, 0)])
+	chime = np.zeros(n)
+	for k, (f0, at) in enumerate(((587.3, 0.2), (880.0, 0.26), (1174.7, 0.32), (1760.0, 0.4))):
+		i = int(at * SR)
+		chime[i:] += bell(n - i, f0, 1.4, 0.5 - 0.08 * k)
+	warm = np.sin(2 * np.pi * 146.8 * t) * 0.3 + np.sin(2 * np.pi * 220.0 * t) * 0.18
+	warm *= env_points(n, [(0, 0), (0.3, 1.0), (1.4, 0.6), (2.0, 0)])
+	x = fwoom * 0.9 + flame * 0.5 + chime * 0.45 + warm
+	return level(space(x, 2.4, 0.33, 5000.0, 1.3), -14.0)
+
+
+def sfx_gold_hit():
+	"""Coup de poing béni : claque, corps grave, craquement, résonance dorée."""
+	seconds = 2.2
+	n = int(seconds * SR)
+	t = np.arange(n) / SR
+	snap = highpass(noise(n), 1800.0) * np.exp(-t / 0.008)
+	body = sub_boom(n, 110.0, 42.0, 0.2) * 1.1
+	crunch = soft(bandpass(noise(n), 300, 3500) * np.exp(-t / 0.035) * 4.0, 2.5) * 0.6
+	ring = bell(n, 659.3, 1.1, 0.35) + bell(n, 987.8, 0.9, 0.22)
+	air = bandpass(noise(n), 3000, 10000) * np.exp(-t / 0.4) * 0.08
+	x = snap * 0.8 + body + crunch + ring + air
+	return level(space(x, 2.4, 0.3, 4500.0, 1.2), -10.0)
+
+
+def sfx_metal():
+	"""Le drone d'Ashura ricoche sur une dent : tintement métallique + émail."""
+	seconds = 1.1
+	n = int(seconds * SR)
+	clang = resonator_hit(n, [(523, 5, 0.8), (1310, 7, 0.6), (2230, 10, 0.45), (3420, 14, 0.3), (4710, 18, 0.2), (6150, 24, 0.12)], 0.8)
+	tooth = resonator_hit(n, [(1900, 60, 0.6), (3100, 80, 0.4)], 0.5)
+	x = clang + tooth * 0.6
+	return level(space(x, 1.4, 0.25, 6000.0), -15.0)
+
+
+def sfx_erase():
+	"""Ashura effacé : papier qui se déchire de plus en plus, aspiration inversée, voile spectral."""
+	seconds = 4.0
+	n = int(seconds * SR)
+	t = np.arange(n) / SR
+	tear = crackle(n, 520, 1200.0, 7500.0, 0.1, 3.6, lambda u: u ** 0.7) * env_points(n, [(0, 0.3), (2.0, 0.8), (3.5, 1.0), (3.7, 0)])
+	rips = np.zeros(n)
+	for _ in range(14):
+		at = rng.uniform(0.2, 3.3)
+		ln = rng.uniform(0.08, 0.25)
+		i = int(at * SR)
+		m = min(n - i, int(ln * SR))
+		seg = bandpass(noise(m), 1500, 6500) * (0.5 + 0.5 * (rng.uniform(size=m) > 0.7)) * np.sin(np.linspace(0, np.pi, m)) ** 0.5
+		rips[i:i + m] += seg * rng.uniform(0.3, 0.8)
+	suction = stft_filter(pink(n), lambda f, tt: formants(f, [(200.0 + 3800.0 * (min(tt, 3.6) / 3.6) ** 2, 400.0 + 1500.0 * min(tt, 3.6) / 3.6, 1.0)]))
+	suction *= env_points(n, [(0, 0), (3.55, 1.0), (3.62, 0.0), (4.0, 0)]) ** 1.5
+	ghost = np.sin(2 * np.pi * np.cumsum(env_points(n, [(0, 880), (3.6, 220), (4.0, 200)])) / SR) * (0.7 + 0.3 * np.sin(2 * np.pi * 6.0 * t))
+	ghost *= env_points(n, [(0, 0), (0.6, 0.2), (3.4, 0.25), (3.6, 0), (4.0, 0)])
+	sparkle = np.zeros(n)
+	for _ in range(18):
+		at = rng.uniform(0.3, 3.4)
+		i = int(at * SR)
+		sparkle[i:] += bell(n - i, rng.uniform(1800, 3600), 0.25, 0.12)
+	x = tear * 0.55 + rips * 0.4 + suction * 0.9 + ghost * 0.2 + sparkle
+	return level(space(x, 2.6, 0.32, 4000.0, 1.4), -14.0)
+
+
+def sfx_chomp():
+	"""Les mâchoires de Yiero claquent derrière Simon : aspiration, CLAC d'émail, choc sourd."""
+	seconds = 1.6
+	n = int(seconds * SR)
+	t = np.arange(n) / SR
+	pre = stft_filter(noise(n), lambda f, tt: formants(f, [(400.0 + 3000.0 * min(tt, 0.09) / 0.09, 900.0, 1.0)])) * env_points(n, [(0, 0), (0.08, 1.0), (0.095, 0.0), (1.6, 0)])
+	hit_at = int(0.09 * SR)
+	clack = np.zeros(n)
+	clack[hit_at:] = resonator_hit(n - hit_at, [(720, 55, 1.0), (1330, 70, 0.8), (2550, 95, 0.55), (3900, 130, 0.3)], 1.5)
+	thud = np.zeros(n)
+	thud[hit_at:] = sub_boom(n - hit_at, 72.0, 30.0, 0.3) * 1.3
+	squelch = np.zeros(n)
+	squelch[hit_at:] = lowpass(noise(n - hit_at), 1200.0) * np.exp(-np.arange(n - hit_at) / (0.12 * SR)) * 0.4
+	x = pre * 0.5 + soft(clack, 1.5) * 0.9 + thud + squelch
+	return level(space(x, 2.2, 0.3, 3000.0), -9.0)
+
+
+def sfx_portal():
+	"""Le portail de papier se referme : souffle aspiré, « chlop » qui descend, étincelles."""
+	seconds = 1.6
+	n = int(seconds * SR)
+	t = np.arange(n) / SR
+	swell = stft_filter(pink(n), lambda f, tt: formants(f, [(1600.0 - 1300.0 * min(tt, 1.1) / 1.1, 700.0, 1.0)])) * env_points(n, [(0, 0), (0.9, 1.0), (1.1, 0.3), (1.6, 0)])
+	shloop = np.sin(2 * np.pi * np.cumsum(env_points(n, [(0, 900), (0.95, 900), (1.25, 140), (1.6, 120)])) / SR) * env_points(n, [(0, 0), (0.95, 0), (1.0, 0.6), (1.4, 0), (1.6, 0)])
+	pop = np.zeros(n)
+	i = int(1.1 * SR)
+	pop[i:] = sub_boom(n - i, 90.0, 45.0, 0.12) * 0.8
+	sparkle = np.zeros(n)
+	for _ in range(10):
+		at = rng.uniform(0.1, 1.0)
+		j = int(at * SR)
+		sparkle[j:] += bell(n - j, rng.uniform(1500, 3000), 0.3, 0.08)
+	x = swell * 0.7 + shloop * 0.5 + pop + sparkle
+	return level(space(x, 1.8, 0.3, 5000.0, 1.3), -14.0)
+
+
+def sfx_title():
+	"""Le logo en papier claque à l'écran (la musique porte l'impact orchestral)."""
+	seconds = 2.2
+	n = int(seconds * SR)
+	t = np.arange(n) / SR
+	flap = bandpass(noise(n), 700.0, 7000.0) * np.exp(-t / 0.05) * np.minimum(1.0, t / 0.002)
+	rustle = crackle(n, 260, 1500.0, 8000.0, 0.0, 0.5, lambda u: u ** 2) * 0.4
+	thump = sub_boom(n, 80.0, 38.0, 0.25)
+	x = flap * 0.8 + rustle + thump
+	return level(space(x, 2.4, 0.3, 4000.0), -13.0)
+
+
+def sfx_ink_step():
+	seconds = 0.35
+	n = int(seconds * SR)
+	t = np.arange(n) / SR
+	splat = lowpass(noise(n), 1600.0) * np.exp(-t / 0.035) * np.minimum(1.0, t / 0.004)
+	low = sub_boom(n, 120.0, 70.0, 0.04) * 0.4
+	drops = droplets(n, 4, 0.03, 0.05, 600.0, 1800.0, 0.3)
+	x = splat + low + drops
+	return level(stereo(x), -22.0)
+
+
+SOUNDS = {
+	"sfx_roar": sfx_roar, "sfx_laugh": sfx_laugh, "sfx_growl": sfx_growl, "sfx_creak": sfx_creak,
+	"sfx_thump": sfx_thump, "sfx_rumble": sfx_rumble, "sfx_splash": sfx_splash, "sfx_slam": sfx_slam,
+	"sfx_spike": sfx_spike, "sfx_whoosh": sfx_whoosh, "sfx_ignite": sfx_ignite, "sfx_gold_hit": sfx_gold_hit,
+	"sfx_metal": sfx_metal, "sfx_erase": sfx_erase, "sfx_chomp": sfx_chomp, "sfx_portal": sfx_portal,
+	"sfx_title": sfx_title, "sfx_ink_step": sfx_ink_step,
+}
 
 
 def write_wav(path, data):
-    data = np.clip(data, -1, 1)
-    with wave.open(path, "wb") as w:
-        channels = 1 if data.ndim == 1 else data.shape[1]
-        w.setnchannels(channels)
-        w.setsampwidth(2)
-        w.setframerate(SR)
-        w.writeframes((data * 32000).astype("<i2").tobytes())
-
-
-def norm(x, peak=0.9):
-    return x / max(1e-6, np.max(np.abs(x))) * peak
-
-
-def noise(seconds):
-    return rng.standard_normal(int(seconds * SR))
-
-
-def build_sfx():
-    s = {}
-    t = t_axis(0.7)
-    s["sfx_thump"] = norm(sine_sweep(70, 38, 0.7, 3) * np.exp(-t * 7) + lp_fast(noise(0.7), 120) * np.exp(-t * 9) * 0.4)
-    t = t_axis(2.6)
-    s["sfx_drop"] = norm(sine_sweep(95, 24, 2.6, 1.6) * np.exp(-t * 0.9))
-    t = t_axis(2.0)
-    creak = bp_fast(noise(2.0), 300, 1400) * (0.5 + 0.5 * np.sin(2 * np.pi * (7 + 9 * t) * t)) ** 3
-    groan = np.tanh(saw(60 + 15 * np.sin(2 * np.pi * 0.7 * t), t) * 3) * 0.4
-    s["sfx_creak"] = norm((creak * 0.7 + lp_fast(groan, 500)) * env_adsr(len(t), 0.4, 0.2, 1, 0.8))
-    t = t_axis(3.6)
-    s["sfx_rumble"] = norm(lp_fast(noise(3.6), 110) * env_adsr(len(t), 0.8, 0.5, 1, 1.6) + sine_sweep(45, 32, 3.6) * 0.4 * env_adsr(len(t), 0.5, 0.5, 1, 1.5))
-    t = t_axis(1.2)
-    s["sfx_splash"] = norm(bp_fast(noise(1.2), 200, 3000) * np.exp(-t * 5) + sine_sweep(90, 40, 1.2) * np.exp(-t * 6) * 0.6)
-    t = t_axis(2.6)
-    wob = 1 + 0.08 * np.sin(2 * np.pi * 6 * t) + 0.04 * np.sin(2 * np.pi * 17 * t)
-    roar = sum(saw(f * wob * (1 - 0.15 * t / 2.6), t) for f in (52, 58, 78, 104)) / 4
-    roar = np.tanh(roar * 4) * 0.6 + bp_fast(noise(2.6), 150, 2500) * 0.4
-    s["sfx_roar"] = norm(lp_fast(roar, 2200) * env_adsr(len(t), 0.12, 0.3, 0.9, 1.0))
-    t = t_axis(1.5)
-    shimmer = sum(np.sin(2 * np.pi * f * (1 + 0.4 * t) * t + k) for k, f in enumerate((523, 659, 784, 1046))) / 4
-    s["sfx_ignite"] = norm(shimmer * env_adsr(len(t), 0.05, 0.2, 0.8, 0.9) + bp_fast(noise(1.5), 600, 6000) * np.exp(-t * 3) * 0.5)
-    t = t_axis(0.65)
-    sw = np.zeros(len(t))
-    seg = int(SR * 0.05)
-    nz = noise(0.65)
-    for i in range(0, len(t), seg):
-        c = 400 + 4000 * np.sin(np.pi * i / len(t))
-        sw[i:i + seg] = bp_fast(nz[i:i + seg], c * 0.6, c)
-    s["sfx_whoosh"] = norm(sw * np.sin(np.pi * t / 0.65) ** 2)
-    t = t_axis(1.8)
-    s["sfx_slam"] = norm(sine_sweep(80, 30, 1.8, 3) * np.exp(-t * 2.2) + lp_fast(noise(1.8), 2500) * np.exp(-t * 6) * 0.8 + hp_fast(noise(1.8), 3000) * np.exp(-t * 25) * 0.4)
-    t = t_axis(1.1)
-    s["sfx_growl"] = norm(lp_fast(np.tanh(saw(68 * (1 + 0.1 * np.sin(2 * np.pi * 9 * t)), t) * 5), 900) * env_adsr(len(t), 0.06, 0.2, 0.8, 0.5))
-    t = t_axis(0.8)
-    s["sfx_metal"] = norm(sum(np.sin(2 * np.pi * f * t) * np.exp(-t * d) for f, d in ((523, 4), (1370, 6), (2210, 9), (3310, 12))) + hp_fast(noise(0.8), 2000) * np.exp(-t * 40) * 0.5)
-    t = t_axis(1.6)
-    s["sfx_gold_hit"] = norm(sine_sweep(120, 40, 1.6, 3) * np.exp(-t * 3) + sum(np.sin(2 * np.pi * f * t) for f in (880, 1320, 1760)) * np.exp(-t * 2.5) * 0.25 + lp_fast(noise(1.6), 5000) * np.exp(-t * 9) * 0.6)
-    t = t_axis(2.6)
-    laugh_env = np.clip(np.sin(2 * np.pi * 4.6 * t), 0, 1) ** 2 * env_adsr(len(t), 0.1, 0.2, 1, 0.6)
-    s["sfx_laugh"] = norm(lp_fast(np.tanh(saw(96 * (1 - 0.1 * t / 2.6), t) * 3) + bp_fast(noise(2.6), 300, 1200) * 0.3, 1200) * laugh_env)
-    t = t_axis(0.9)
-    s["sfx_spike"] = norm(bp_fast(noise(0.9), 300, 4000) * np.exp(-t * 7) + sine_sweep(60, 220, 0.9, 1.5) * np.exp(-t * 5) * 0.5)
-    t = t_axis(3.8)
-    tear = np.zeros(len(t))
-    for k in range(60):
-        st = rng.uniform(0, 3.4)
-        ln = rng.uniform(0.02, 0.12)
-        i = int(st * SR)
-        n = int(ln * SR)
-        tear[i:i + n] += hp_fast(noise(ln), 1500) * np.exp(-np.arange(n) / (n * 0.4)) * rng.uniform(0.3, 1)
-    swell = riser(3.8, 1.0) * 0.7
-    s["sfx_erase"] = norm(tear * 0.8 + swell)
-    t = t_axis(1.0)
-    s["sfx_chomp"] = norm(sine_sweep(100, 35, 1.0, 3) * np.exp(-t * 4) + bp_fast(noise(1.0), 400, 5000) * np.exp(-t * 14) + hp_fast(noise(1.0), 2500) * np.exp(-t * 30) * 0.6)
-    t = t_axis(2.6)
-    s["sfx_ring"] = norm(np.sin(2 * np.pi * 3900 * t) * np.linspace(1, 0, len(t)) ** 1.5, 0.5)
-    t = t_axis(1.3)
-    s["sfx_portal"] = norm(sine_sweep(900, 180, 1.3, 2) * np.exp(-t * 2) * 0.5 + bp_fast(noise(1.3), 300, 3000) * np.sin(np.pi * t / 1.3) ** 2)
-    t = t_axis(3.2)
-    gong = sum(np.sin(2 * np.pi * f * t) * np.exp(-t * d) for f, d in ((73.4, 0.8), (146.8, 1.0), (221, 1.3), (330, 1.8), (587, 2.6)))
-    s["sfx_title"] = norm(hit_big(1.0)[: len(t)] * 0.8 + gong * 0.3)
-    t = t_axis(0.28)
-    s["sfx_ink_step"] = norm(lp_fast(noise(0.28), 900) * np.exp(-t * 22) + sine_sweep(120, 60, 0.28) * np.exp(-t * 25) * 0.3, 0.6)
-    return s
+	data = np.clip(data, -1.0, 1.0)
+	if data.ndim == 1:
+		data = np.stack([data, data], axis=1)
+	with wave.open(path, "wb") as w:
+		w.setnchannels(2)
+		w.setsampwidth(2)
+		w.setframerate(SR)
+		w.writeframes((data * 32767).astype("<i2").tobytes())
 
 
 def main():
-    os.makedirs(OUT, exist_ok=True)
-    for name, data in build_sfx().items():
-        write_wav(os.path.join(OUT, name + ".wav"), data)
-        print("sfx", name, round(len(data) / SR, 2), "s")
-    music = build_music()
-    with tempfile.TemporaryDirectory() as tmp:
-        wav = os.path.join(tmp, "intro.wav")
-        write_wav(wav, music)
-        ogg = os.path.join(OUT, "intro_yiero.ogg")
-        subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", wav, "-c:a", "libvorbis", "-q:a", "4", ogg], check=True)
-    print("music", round(len(music) / SR, 2), "s ->", ogg)
+	args = sys.argv[1:]
+	out = OUT
+	if "--out" in args:
+		k = args.index("--out")
+		out = args[k + 1]
+		del args[k:k + 2]
+	os.makedirs(out, exist_ok=True)
+	only = set(args)
+	for name, build in SOUNDS.items():
+		if only and name not in only:
+			continue
+		data = build()
+		write_wav(os.path.join(out, name + ".wav"), data)
+		print("sfx %-14s %4.2f s  RMS court %5.1f dB  crête %5.1f dB" % (name, len(data) / SR, short_rms_db(data), 20 * np.log10(np.max(np.abs(data)) + 1e-9)))
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+	sys.exit(main())

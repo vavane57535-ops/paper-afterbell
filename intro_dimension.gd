@@ -290,7 +290,10 @@ func _build_debris() -> void :
 		var x: float = _rng.randf_range(-24.0, 24.0) if near_path else _rng.randf_range(-170.0, 170.0)
 		var z: float = _rng.randf_range(-330.0, 120.0)
 		var y: float = _rng.randf_range(0.6, 9.0) if near_path else _rng.randf_range(1.0, 70.0)
-		if big: y = _rng.randf_range(8.0, 60.0);x = _rng.randf_range(-160.0, 160.0)
+		if big:
+			y = _rng.randf_range(8.0, 60.0);x = _rng.randf_range(-160.0, 160.0)
+			# Pas de grands débris devant le visage de Yiero ni entre lui et les élèves (plans de révélation).
+			if absf(x) < 48.0 and z > -60.0: x = signf(x + 0.01) * (48.0 + fmod(absf(x) * 7.3, 110.0))
 		var size: float = _rng.randf_range(0.18, 0.75) if not big else _rng.randf_range(3.0, 8.0)
 		var basis: Basis = Basis.from_euler(Vector3(_rng.randf() * TAU, _rng.randf() * TAU, _rng.randf() * TAU)).scaled(Vector3(size, size * _rng.randf_range(0.7, 1.35), size))
 		multimesh.set_instance_transform(i, Transform3D(basis, Vector3(x, y, z)))

@@ -58,6 +58,7 @@ func _run() -> void :
 		"gallery": await _gallery()
 		"first": await _first()
 		"second": await _second()
+		"audio": await _audio_sheet()
 	print("INTRO_RESULT ", "OK" if failures.is_empty() else "FAIL " + ", ".join(failures))
 	get_tree().quit()
 
@@ -181,6 +182,41 @@ func _first() -> void :
 	_check(world.phase == "menu", "maintenir Échap passe le film et ouvre le menu")
 	await _frames(30)
 	await _save("first_menu_after")
+
+
+# Feuille audio du film (bruitages du film, blips de dialogue, chevauchements de répliques) écrite en
+# JSON dans --intro-out/audio_sheet.json : sert à vérifier la synchro avec la musique et à faire un
+# mixage de contrôle hors du jeu (le serveur de test n'a pas de sortie audio).
+func _audio_sheet() -> void :
+	world.play_prologue()
+	var film: Node = world.prologue
+	var cues: Array = []
+	for cue: Array in film._track:
+		if str(cue[1]) == "sfx": cues.append({"t": float(cue[0]), "name": str(cue[2]), "gain": float(cue[3]) if cue[3] != null else 1.0, "pitch": float(cue[4]) if cue[4] != null else 1.0})
+	var blips: Array = []
+	var lines: Array = []
+	for index: int in range(film._lines.size()):
+		var line: Array = film._lines[index]
+		var text: String = str(line[2])
+		var times: PackedFloat32Array = line[5]
+		var typed: float = float(line[0]) + (times[times.size() - 1] if times.size() > 0 else 0.0)
+		lines.append({"t": float(line[0]), "who": str(line[1]), "text": text, "typed": typed, "end": float(line[3])})
+		for i: int in range(text.length()):
+			var code: int = text.unicode_at(i)
+			if (code >= 48 and code <= 57) or (code >= 65 and code <= 90) or (code >= 97 and code <= 122) or code > 191:
+				blips.append({"t": float(line[0]) + times[i], "who": str(line[1])})
+		if index + 1 < film._lines.size():
+			var next: Array = film._lines[index + 1]
+			var reading: float = maxf(0.9, float(text.length()) / 18.0)
+			_check(float(next[0]) >= typed + minf(reading, 0.9) - 0.001, "réplique lisible avant la suivante : « %s »" % text)
+	var sub: String = "Bienvenue dans votre nouvel enfer."
+	for i: int in range(sub.length()):
+		if sub[i] != " ": blips.append({"t": 186.6 + float(i + 1) / 12.5, "who": "Yiero"})
+	var file: FileAccess = FileAccess.open(out_dir.path_join("audio_sheet.json"), FileAccess.WRITE)
+	file.store_string(JSON.stringify({"sfx": cues, "blips": blips, "lines": lines}, "\t"))
+	file.close()
+	print("INTRO_AUDIO sfx=", cues.size(), " blips=", blips.size(), " lignes=", lines.size())
+	world.end_prologue()
 
 
 func _second() -> void :
