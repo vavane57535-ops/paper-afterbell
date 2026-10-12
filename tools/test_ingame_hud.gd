@@ -12,6 +12,7 @@ extends Node
 #   kill_v   : exécution du joueur local (dernière vie) puis reprise de la caméra (spectateur).
 #   kill_a   : le joueur joue Alice et exécute un élève, puis reprise de la caméra.
 #   lms      : LMS de Bleuette : +65 PV, courage (au-delà de 150), annonce, barre de PV.
+#   kill_dance : le joueur danse quand Alice l'exécute (transition danse → exécution, plan tiers).
 #   pause    : élimination (+0:45) pendant l'alerte, puis menu pause ouvert aussitôt, puis reprise.
 #   lysia    : X-ray de Lysia (repères de prises) et prise avec Ashura (×1,5), puis les deux pendant l'alerte.
 # --hud-en : interface en anglais (sans rien enregistrer dans settings.cfg).
@@ -124,6 +125,7 @@ func _run() -> void :
 		"lms": await _plan_lms()
 		"lysia": await _plan_lysia()
 		"pause": await _plan_pause()
+		"kill_dance": await _plan_kill_dance()
 	print("HUD_RESULT ", "OK" if _failures.is_empty() else "FAIL", " ", JSON.stringify({"failures": _failures}))
 	get_tree().quit()
 
@@ -332,9 +334,10 @@ func _plan_lms() -> void :
 	# courage de Bleuette (case 4) si disponible
 	if local.character == "Bleuette":
 		local.effects["aura_charge"] = 100.0
-		world.request_ability(3)
-		await _wait(0.2)
-		world.release_ability(3)
+		world.combat._unlock_lms(local)
+		local.cooldowns[3] = 0.0
+		var used: bool = world.combat.use(local, 3)
+		_note("courage used=%s" % str(used))
 		await _wait(1.5)
 		_note("courage: hp=%.0f/%.0f" % [local.hp, local.max_hp])
 		local.hp = local.max_hp
@@ -419,3 +422,40 @@ func _plan_pause() -> void :
 	await _wait(0.5)
 	_note("pause_open=%s bonus_visible=%s" % [str(world.pause_open), str(world.kill_scenes._bonus_label.visible)])
 	await _shot("pause_01_resumed")
+
+
+func _plan_kill_dance() -> void :
+	var local: PaperActor = world.local_actor()
+	_freeze_bots()
+	local.bot = false
+	var alice: PaperActor = world.killer_actor()
+	var base: Vector3 = local.global_position
+	var index: int = 0
+	for a: PaperActor in _others(local):
+		_away(a, index)
+		index += 1
+	_place(alice, base + Vector3(0.5, 0, -2.6), Vector3(0, 0, 1))
+	local.aim = Vector3(0, 0, -1)
+	_look(Vector3(1, 0, -0.6).normalized(), -0.12)
+	world.owned_dances = ["dance_pikki", "dance_golden"]
+	await _wait(0.6)
+	world.request_emote("dance_pikki")
+	await _wait(1.4)
+	await _shot("kdance_00_dancing")
+	# la roue des émotes ouverte au moment du coup fatal doit se refermer d'elle-même
+	await _press_action("emotes")
+	await _frames(3)
+	_note("wheel open before execution=%s" % str(world.emote_wheel.visible))
+	local.effects["revived"] = true
+	local.hp = 1.0
+	for attempt in range(8):
+		world.combat.damage(local, 999.0, alice, false, "slash")
+		if bool(local.effects.get("dying", false)): break
+	_note("execution=%s emote=%s" % [str(not world.kill_scenes._scenes.is_empty()), str(local.effects.get("emote_id", ""))])
+	# transition vue par le joueur (plan du film) : la pose de danse ne doit pas rester figée ni casser
+	var started: float = float(world.clock)
+	for t: float in [0.1, 0.25, 0.45, 0.8]:
+		while float(world.clock) < started + t: await get_tree().process_frame
+		await _shot("kdance_%02d_transition" % int(t * 100))
+	_note("wheel open during execution=%s" % str(world.emote_wheel.visible))
+	if world.emote_wheel.visible: _failures.append("roue des émotes restée ouverte sur l'exécution")

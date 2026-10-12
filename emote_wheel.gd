@@ -42,6 +42,12 @@ func close() -> void :
 	release_focus()
 	if world.phase == "playing" and not world.pause_open: world.capture_gameplay_mouse()
 
+# Mis à terre ou exécuté la roue ouverte : elle se referme (sinon son voile restait sur le film de l'exécution).
+func _process(_delta: float) -> void :
+	if not visible or world == null: return
+	var actor: PaperActor = world.local_actor()
+	if world.phase != "playing" or actor == null or not actor.active(): close()
+
 # Pages de SECTORS (9) : toutes les émotes (gratuites), puis les danses achetées (une page vide
 # renvoie vers la boutique si aucune danse n'est achetée).
 func _pages() -> Array[Dictionary]:

@@ -738,6 +738,7 @@ func _update_card(a: PaperActor) -> void :
 		_write(hp_label, "%d / %d" % [maxi(0, int(ceil(a.hp))), int(a.max_hp)])
 		hp_meter.set_value(maxf(0, a.hp / a.max_hp))
 	hp_unit.visible = life != "downed" and a.max_hp >= 0
+	_write(hp_unit, _t("PV"))
 	var hp_color: Color = T.AMBER if life == "downed" else T.RED if a.killer else PaperStatusIcon.COLORS.get(life, T.GREEN)
 	if a.max_hp > 0 and a.hp / a.max_hp < 0.3 and life in ["alive", "second_life"]: hp_color = T.RED
 	hp_meter.set_color(hp_color)
