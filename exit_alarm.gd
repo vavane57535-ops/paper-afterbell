@@ -19,6 +19,7 @@ const AMBIENT_RED: Color = Color(0.95, 0.3, 0.3)
 const FOG_RED: Color = Color(0.32, 0.03, 0.05)
 const EXIT_GLOW: Color = Color(1.0, 0.86, 0.58)
 const BEACON_RED: Color = Color(1.0, 0.22, 0.08)
+const DOME_RED: Color = Color(1.0, 0.03, 0.02)
 
 const GRADE_SHADER: String = """
 shader_type canvas_item;
@@ -406,7 +407,7 @@ func _update_rig(delta: float) -> void :
 	if not is_instance_valid(_rig) or _rig.get_parent() != world.school: _build_rig()
 	if not _rig.visible: _rig.show()
 	var calm_mode: bool = calm()
-	_rig_light.light_energy = _level * (2.8 + (0.4 if calm_mode else 1.8) * _pulse)
+	_rig_light.light_energy = _level * (2.3 + (0.4 if calm_mode else 1.5) * _pulse)
 	var spin: float = TAU * (0.35 if calm_mode else 0.95)
 	for index: int in range(_beacons.size()):
 		var pivot: Node3D = _beacons[index]
@@ -468,6 +469,16 @@ func _build_rig() -> void :
 		pivot.position = post + Vector3.UP * 3.42
 		pivot.rotation.y = 0.0 if sign_value < 0.0 else PI
 		_rig.add_child(pivot)
+		var socket: MeshInstance3D = MeshInstance3D.new()
+		var socket_mesh: CylinderMesh = CylinderMesh.new()
+		socket_mesh.top_radius = 0.24
+		socket_mesh.bottom_radius = 0.28
+		socket_mesh.height = 0.14
+		socket_mesh.radial_segments = 16
+		socket.mesh = socket_mesh
+		socket.material_override = pole_material
+		socket.position = post + Vector3.UP * 3.3
+		_rig.add_child(socket)
 		var dome: MeshInstance3D = MeshInstance3D.new()
 		var sphere: SphereMesh = SphereMesh.new()
 		sphere.radius = 0.3
@@ -476,7 +487,8 @@ func _build_rig() -> void :
 		var dome_material: StandardMaterial3D = StandardMaterial3D.new()
 		dome_material.albedo_color = BEACON_RED
 		dome_material.emission_enabled = true
-		dome_material.emission = BEACON_RED
+		# rouge profond : multiplié par l'émission, le rouge clair virait au jaune (lampadaire)
+		dome_material.emission = DOME_RED
 		dome_material.emission_energy_multiplier = 2.0
 		dome.material_override = dome_material
 		pivot.add_child(dome)
