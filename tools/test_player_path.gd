@@ -451,6 +451,8 @@ func _step_gallery() -> void :
 	_check(world.phase == "gallery", "CINÉMATHÈQUE ouverte (%s)" % world.phase)
 	await _mouse_to(Vector2(8, 8))
 	await _shot("cinematheque")
+	var exit_sign: Node3D = world.map_interactables.exit_sign if is_instance_valid(world.map_interactables) else null
+	_check(exit_sign == null or not exit_sign.visible, "panneau 3D « SORTIE · À 01:20 » caché derrière la liste")
 	var titles: Array = world.gallery.filtered_entries().map(func(item: Dictionary) -> String: return str(item.title))
 	_check(not titles.is_empty() and str(titles[0]).begins_with("Prologue"), "le Prologue est en tête (%s)" % (titles[0] if not titles.is_empty() else "-"))
 	var intros: Array = world.gallery.entries.filter(func(item: Dictionary) -> bool: return str(item.kind) in ["intro_survivors", "intro_alice"])
@@ -513,8 +515,10 @@ func _step_gallery() -> void :
 	world.gallery.category = "all"
 	world.ui.show_gallery()
 	await _wait(0.6)
+	_check(exit_sign == null or not exit_sign.visible, "panneau toujours caché au retour à la liste (après les films)")
 	await _pad(JOY_BUTTON_B, 1.4)
 	_check(world.phase == "menu", "B quitte la cinémathèque (%s)" % world.phase)
+	_check(exit_sign == null or exit_sign.visible, "panneau rétabli en quittant la cinémathèque")
 
 func _start_round() -> bool:
 	world.ui.show_main()

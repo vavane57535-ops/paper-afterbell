@@ -2149,7 +2149,7 @@ func show_gallery() -> void :
 	var v: VBoxContainer = _form_panel(680)
 	_form_header(v, "LES HISTOIRES APRÈS LA CLOCHE", "Cinémathèque")
 	_paragraph("Revois le prologue et choisis qui affronte Alice. Les fins d’équipe s’adaptent aux survivants présents.", v, 16)
-	var back: Button = _button("←  RETOUR AU JEU", func() -> void : world.gallery.close(), 0, "GhostButton")
+	var back: Button = _button("←  RETOUR", func() -> void : world.gallery.close(), 0, "GhostButton")
 	back.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	v.add_child(back)
 	var categories: Array = ["all", "intro", "lms_win", "lms_loss", "team", "fins"]

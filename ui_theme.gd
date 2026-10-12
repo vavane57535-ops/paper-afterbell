@@ -498,6 +498,12 @@ static func _paper_theme(t: Theme, bump: int) -> void :
 		t.set_font("font", type_name, font("title"))
 		t.set_font_size("font_size", type_name, 17 + bump)
 	t.set_icon("arrow", "OptionButton", svg_icon("paper_arrow", _paper_arrow_svg(RED)))
+	# Liste ouverte (bouton pressé) : elle reste allumée, texte à l'encre. Le style de focus, opaque,
+	# se dessine par-dessus l'état pressé : au clavier / à la manette, le texte crème disparaissait.
+	t.set_stylebox("pressed", "OptionButton", lit)
+	t.set_stylebox("hover_pressed", "OptionButton", lit)
+	t.set_color("font_pressed_color", "OptionButton", INK_TEXT)
+	t.set_color("font_hover_pressed_color", "OptionButton", INK_TEXT)
 
 	t.set_type_variation("PrimaryButton", "Button")
 	var primary: PaperStyles.Strip = strip(RED, 24, 11, 12.0, 21)

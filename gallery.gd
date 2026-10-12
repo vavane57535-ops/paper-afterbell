@@ -52,6 +52,15 @@ func browse() -> void :
 	_backdrop_clock = 1.0
 	world.ui.hide_film()
 	world.ui.show_gallery()
+	# Le panneau 3D « SORTIE · À 01:20 » flottait en grand dans le décor figé derrière la liste
+	# (les films de victoire le réaffichent en s'arrêtant) : caché tant qu'on parcourt la liste.
+	_show_exit_sign(false)
+
+func _show_exit_sign(shown: bool) -> void :
+	var items: Variant = world.get("map_interactables")
+	if not is_instance_valid(items): return
+	var sign: Variant = items.get("exit_sign")
+	if is_instance_valid(sign): (sign as Node3D).visible = shown
 
 func play_entry(item: Dictionary) -> void :
 	if world.phase != "gallery" or item.is_empty(): return
@@ -122,6 +131,7 @@ func close() -> void :
 	playing = false;browsing = true
 	if _is_prologue(): world.prologue.stop()
 	world.audio.preview_end();world.film.stop()
+	_show_exit_sign(true)
 	world.ui.hide_gallery_transport();world.ui.hide_film()
 	if saved_map != world.selected_map: world._rebuild_map(saved_map)
 	world.stage.show();world.presentation.show()
