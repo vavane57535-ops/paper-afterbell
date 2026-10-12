@@ -102,6 +102,7 @@ var _dark: bool = false
 
 static func duration_for(film: String, names: Array = []) -> float:
 	match film:
+		"intro_yiero": return 196.0
 		"intro_alice": return 5.6
 		"intro_survivors": return 7.6
 		"ending_lms": return 11.4
@@ -110,8 +111,7 @@ static func duration_for(film: String, names: Array = []) -> float:
 
 static func catalogue() -> Array[Dictionary]:
 	var rows: Array[Dictionary] = []
-	rows.append(_entry("intro_survivors", "Première sonnerie", "intro", "intro_survivors", PaperData.NAMES.duplicate(), "Simon", "Les élèves arrivent, se saluent, plaisantent… puis la porte de l’école grince dans leur dos."))
-	rows.append(_entry("intro_alice", "La porte interdite", "intro", "intro_alice", [], "Alice", "La porte de la chambre noire s’ouvre. Alice en sort, révèle ses ombres et frappe."))
+	rows.append(_entry("intro_yiero", "Prologue — Yiero", "intro", "intro_yiero", ["Simon", "Ashura", "Usayuko", "Elly", "Bleuette", "Lysia"], "Simon", "Le film du premier lancement : Simon et Ashura affrontent Yiero dans une dimension ténébreuse… puis Simon atterrit à l’école en plein combat."))
 	var wins: Dictionary = {
 		"Ashura": "Ashura esquive en rollers, envoie son drone, charge et file vers la sortie.", 
 		"Usayuko": "Usayuko bloque, contre, puis envoie Alice valser d’un dropkick.", 

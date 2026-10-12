@@ -126,7 +126,7 @@ func _process(delta: float) -> void :
 			if speed > 6.0 and float(effects.get("phase6", 0.0)) > 0.0: target_speed = maxf(target_speed, 0.55)
 			if bool(effects.get("shadow_hide", false)): shadows = 0.6
 			target_edge = _state_edge(view)
-	elif str(world.phase) not in ["ending", "gallery", "lab"]:
+	elif str(world.phase) not in ["ending", "gallery", "lab", "prologue"]:
 
 		_pulse_left = 0.0
 		_splat = 0.0

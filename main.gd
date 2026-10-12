@@ -5,6 +5,7 @@ const CoreCameraRig = preload("res://core_camera_rig.gd")
 const CoreMenuStage = preload("res://core_menu_stage.gd")
 const CoreArchives = preload("res://core_archives.gd")
 const CorePerf = preload("res://core_perf.gd")
+const PrologueFilm = preload("res://film_intro_yiero.gd")
 const PORT: int = 27842
 
 const PITCH_MIN: float = -0.6
@@ -57,6 +58,9 @@ var loading_remote_count: int = 1
 var archive_locks: Dictionary = {}
 var film: PaperCinema
 var gallery: PaperGallery
+var prologue: PrologueFilm
+var intro_seen: bool = false
+var _prologue_map: String = ""
 var ending_people: Array = []
 var ending_focus: String = "Ashura"
 var ending_kind: String = "ending_survivors"
@@ -198,6 +202,7 @@ func _ready() -> void :
 	presentation = PaperEffects.new();add_child(presentation);presentation.setup(self)
 	reveals = PaperRevealController.new();add_child(reveals);reveals.setup(self)
 	film = PaperCinema.new();add_child(film);film.setup(self)
+	prologue = PrologueFilm.new();add_child(prologue);prologue.setup_prologue(self)
 	gallery = PaperGallery.new(self)
 	_build_objectives()
 	_build_stage()
@@ -227,6 +232,7 @@ func _ready() -> void :
 	ui.show_main()
 	service = PaperOnlineService.new();add_child(service);service.setup(self)
 	_parse_test_args()
+	if _prologue_wanted(): play_prologue()
 	print("AFTERBELL_READY actors=0 objectives=", school.objectives.size(), " doors=", school.doors.size())
 
 func _build_inputs() -> void :
@@ -245,6 +251,7 @@ func _load_preferences() -> void :
 		touch_sensitivity = clampf(float(c.get_value("settings", "touch_sensitivity", 0.0036)), 0.001, 0.009)
 		tickets = maxi(0, int(c.get_value("shop", "tickets", PaperDances.STARTING_TICKETS)))
 		owned_dances = Array(c.get_value("shop", "owned", [])).filter( func(id: Variant) -> bool: return not PaperDances.info(str(id)).is_empty())
+		intro_seen = bool(c.get_value("story", "intro_seen", false))
 	if not PaperData.NAMES.has(selected): selected = "Ashura"
 	if not MAP_NAMES.has(selected_map): selected_map = "school"
 	room_options["ruleset"] = ruleset
@@ -271,6 +278,7 @@ func save_preferences() -> void :
 	c.set_value("settings", "touch_sensitivity", touch_sensitivity)
 	c.set_value("settings", "mobile_profile", mobile_profile)
 	c.set_value("shop", "tickets", tickets);c.set_value("shop", "owned", owned_dances)
+	c.set_value("story", "intro_seen", intro_seen)
 	for key: String in options: c.set_value("options", key, options[key])
 	if audio: c.set_value("audio", "music", audio.music_volume);c.set_value("audio", "muted", audio.muted);c.set_value("audio", "effects", audio.effects_volume)
 	c.save("user://settings.cfg")
@@ -1226,6 +1234,11 @@ func _process_frame(delta: float) -> void :
 		gallery.tick(delta)
 		presentation.update_visuals(delta)
 		return
+	if phase == "prologue":
+		if prologue.tick_standalone(delta): end_prologue()
+		else: ui.update_film("", "", prologue.black)
+		presentation.update_visuals(delta)
+		return
 	if phase == "ending":
 		cinema += delta
 		if not ending_presented and cinema >= film.duration:
@@ -1666,6 +1679,38 @@ func request_cancel_aim() -> void :
 	if authoritative(): combat.cancel_aim(actor)
 	else: command.rpc_id(1, "cancel_aim", {})
 
+# Prologue « Yiero » : joué automatiquement au tout premier lancement (drapeau [story] intro_seen
+# dans user://settings.cfg), puis seulement depuis la cinémathèque.
+func _prologue_wanted() -> bool:
+	var args: PackedStringArray = OS.get_cmdline_user_args()
+	if dedicated or test_mode or networked or intro_seen or not capture_path.is_empty() or "--no-intro" in args: return false
+	if ("--tool" in args or "--menu-preview" in args) and not "--first-launch" in args: return false
+	return prologue != null
+
+func play_prologue() -> void :
+	if prologue == null or networked or phase != "menu": return
+	intro_seen = true;save_preferences()
+	_prologue_map = selected_map
+	if selected_map != "school": _rebuild_map("school")
+	phase = "prologue";preview_character = ""
+	stage.hide();presentation.clear_entities()
+	for node: Node3D in objective_nodes: node.hide()
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	audio.preview_begin("Ashura", "ambient");audio.preview_pause(true)
+	ui.show_film()
+	prologue.begin_prologue(false)
+
+func end_prologue() -> void :
+	if phase != "prologue": return
+	prologue.stop();ui.hide_film()
+	audio.preview_end()
+	if not _prologue_map.is_empty() and _prologue_map != selected_map: _rebuild_map(_prologue_map)
+	_prologue_map = ""
+	stage.show();presentation.show()
+	for node: Node3D in objective_nodes: node.show()
+	phase = "menu";ui.show_main()
+	_update_camera(1.0)
+
 func _begin_film(introduction: bool) -> void :
 	var people: Array = []
 	for actor: PaperActor in actors.values():
@@ -1879,6 +1924,7 @@ func mobile_back() -> void :
 	elif phase == "gallery":
 		if gallery.browsing: gallery.close()
 		else: gallery.browse()
+	elif phase == "prologue": return
 	elif phase == "loading": ui.toast("La carte se prépare…", 2)
 	elif phase == "ending": quit_to_menu()
 	else: ui.mobile_back()
