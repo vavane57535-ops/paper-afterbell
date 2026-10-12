@@ -27,6 +27,9 @@ const WORD_MAX_SCREEN: float = 0.2
 # Calque de rendu des acteurs et accessoires d'une exécution : l'éclairage film
 # ne touche qu'eux, pas le décor (le menu fait de même avec le bit 10).
 const KILL_LAYER: int = 1 << 11
+# Panneau de jeu « SORTIE · … » (Label3D en billboard de map_interactables) : retiré des plans de
+# l'exécution par le masque de la caméra (les films de fin le cachent eux-mêmes par visible).
+const SIGN_LAYER: int = 1 << 12
 
 # gap : distance entre les deux acteurs ; length : durée des clips (la victime
 # meurt à lead + length) ; lock : fin du verrou d'Alice ; blast : explosion.
@@ -56,6 +59,9 @@ var _next_scene: int = 1
 var _pending_bonus: int = 0
 var _pending_stamp: float = 0.0
 var bonus_total: float = 0.0
+# Hôte : la dernière élimination était une exécution (plan joué chez tous) ; main._finish choisit
+# alors l'épilogue d'Alice (PaperFilmExecutionEnd) au lieu du film où elle rattrape la victime.
+var last_executed: bool = false
 var camera_enabled: bool = true
 
 var _shows: Dictionary = {}
@@ -168,6 +174,7 @@ func clear() -> void :
 	_scenes.clear()
 	_pending_bonus = 0
 	bonus_total = 0.0
+	last_executed = false
 	for entry: Dictionary in _debris:
 		if is_instance_valid(entry.node): entry.node.queue_free()
 	_debris.clear()
@@ -393,6 +400,7 @@ func _lysia_blast(scene: Dictionary, alice, victim, forced: bool) -> void :
 
 func on_eliminated(actor) -> void :
 	if world == null or not world.authoritative() or world.training or actor == null or actor.killer: return
+	last_executed = str(actor.effects.get("death_kind", "")) == "execution"
 	var killer = null
 	for other in world.actors.values():
 		if other.killer: killer = other
@@ -1019,7 +1027,17 @@ func camera_override(delta: float) -> bool:
 	if _camera_blend > 0.0:
 		_camera_blend = maxf(0.0, _camera_blend - delta / 0.32)
 		var w: float = smoothstep(0.0, 1.0, 1.0 - _camera_blend)
-		camera.global_transform = _camera_from.interpolate_with(goal, w)
+		var blended: Transform3D = _camera_from.interpolate_with(goal, w)
+		# Raccord en arc autour de la scène (et non en ligne droite) : depuis la vue de jeu, derrière
+		# Alice, la ligne droite traversait ses cheveux et son dos pendant 2 ou 3 images.
+		var pivot: Vector3 = Vector3(show.o) + Vector3.UP * 1.1
+		var from_offset: Vector3 = _camera_from.origin - pivot
+		var to_offset: Vector3 = goal.origin - pivot
+		if from_offset.length() > 0.5 and to_offset.length() > 0.5:
+			var direction: Vector3 = from_offset.normalized().slerp(to_offset.normalized(), w)
+			blended.origin = pivot + direction * lerpf(from_offset.length(), to_offset.length(), w)
+			blended.origin.y = maxf(blended.origin.y, Vector3(show.o).y + 0.25)
+		camera.global_transform = blended
 		camera.fov = lerpf(_camera_fov, fov, w)
 	else:
 		camera.global_transform = goal
@@ -1144,9 +1162,23 @@ func _update_bars(delta: float) -> void :
 		bar.position = Vector2(0.0, 0.0 if i == 0 else size.y - height)
 		bar.size = Vector2(size.x, height)
 	_hud_alpha(1.0 - smoothstep(0.0, 1.0, _bars_amount))
+	_mask_game_sign(_camera_id >= 0)
 
 
 var _hud_dimmed: bool = false
+var _sign_masked: bool = false
+
+func _mask_game_sign(on: bool) -> void :
+	if on == _sign_masked: return
+	var camera: Camera3D = world.camera if world != null else null
+	if camera == null: return
+	_sign_masked = on
+	if on:
+		var items: Variant = world.get("map_interactables")
+		var sign: Variant = items.get("exit_sign") if is_instance_valid(items) else null
+		if sign is VisualInstance3D and is_instance_valid(sign): (sign as VisualInstance3D).layers = SIGN_LAYER
+		camera.cull_mask &= ~SIGN_LAYER
+	else: camera.cull_mask |= SIGN_LAYER
 
 # Estompe le HUD et les bulles d'info pendant le plan cinématique. N'écrit rien
 # hors exécution, pour ne pas contrarier un autre système qui réglerait le HUD.
@@ -1912,7 +1944,9 @@ func _script_bleuette(show: Dictionary) -> void :
 	# la larme et la main d'Alice qui la tient.
 	shots.append([0.35, {"eye": [{"who": "v", "s": "eyes", "o": Vector3(0.6, -0.1, 0.55)}, {"who": "v", "s": "eyes", "o": Vector3(0.5, -0.08, 0.48)}], "look": {"who": "v", "s": "eyes", "o": Vector3(0, -0.03, 0)}, "fov": [36.0, 32.0]}])
 	shots.append([1.25, {"eye": [{"who": "v", "s": "eyes", "o": Vector3(0.3, -0.5, 0.35)}, {"who": "v", "s": "eyes", "o": Vector3(0.38, -0.46, 0.42)}], "look": {"who": "v", "s": "eyes", "o": Vector3(0, -0.02, 0)}, "fov": [40.0, 37.0]}])
-	shots.append([1.95, {"eye": [Vector3(1.45, 0.55, -0.75), Vector3(1.35, 0.6, -0.85)], "look": Vector3(0, 1.35, 0.0), "fov": 52.0}])
+	# Plan large dès 1,58 s (et non 1,95) : ses mains, crispées sur le poignet d'Alice, montaient ensuite
+	# devant l'objectif du gros plan et couvraient son visage d'un grand aplat. Le large montre l'élan d'Alice.
+	shots.append([1.58, {"eye": [Vector3(1.45, 0.55, -0.75), Vector3(1.35, 0.6, -0.85)], "look": Vector3(0, 1.35, 0.0), "fov": 52.0}])
 	shots.append([2.6, {"eye": [Vector3(1.4, 2.5, -1.4), Vector3(1.2, 2.9, -1.8)], "look": {"who": "v", "s": "hips"}, "fov": 48.0}])
 
 

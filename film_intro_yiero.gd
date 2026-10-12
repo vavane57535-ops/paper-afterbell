@@ -383,6 +383,9 @@ func begin_prologue(from_gallery: bool) -> void :
 	anchor = DIM;right = Vector3.RIGHT;forward = Vector3.BACK;finish = DIM + forward * 20.0;_length = 20.0
 	people = ["Simon", "Ashura", "Usayuko", "Elly", "Bleuette", "Lysia"]
 	for person: String in CAST: _add_actor(person)
+	# Pas de geste d'attente aléatoire (dépend de l'instance : il changeait d'une machine à l'autre) :
+	# chaque geste du film est écrit.
+	for take: Take in takes: take.visual.fidgets = false
 	alice_index = AL
 	props = PaperCinemaProps.new();add_child(props);props.reduce_flashes = _flashes_reduced()
 	props.setup(DIM, Vector3.RIGHT, Vector3.BACK, kind, ["Simon", "Ashura"])

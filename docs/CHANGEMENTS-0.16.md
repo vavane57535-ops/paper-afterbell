@@ -14,7 +14,8 @@ Protocole réseau **16** : tous les joueurs doivent avoir la 0.16 pour jouer ens
 ## Cinémathèque
 - Les introductions des survivants et d'Alice sont retirées.
 - Catégories : Prologue, Victoires LMS, LMS · Alice gagne, Fuite en équipe, Fins (nouveau : le blocus).
-- Pendant un film, la barre de lecture s'efface après quelques secondes sans action (plein écran, sous-titres et titre du prologue visibles) ; souris, clavier ou manette la font revenir.
+- Les films « LMS · Alice gagne » s'accordent : « Alice · Lysia rattrapée », « la dernière tentative d’Elly ».
+- Pendant la lecture, la barre de lecture s'efface après 2,5 s sans geste : le bas de l'image (répliques, « Bienvenue dans votre nouvel enfer. », sous-titres du blocus) n'est plus masqué. La souris, une touche ou la manette la font revenir ; elle reste affichée en pause.
 
 ## Exécutions d'Alice (dernière vie)
 - Quand un survivant est dans sa **dernière vie** (déjà relevé, ou sans relevage comme Lysia), le coup fatal d'Alice déclenche son exécution propre :
@@ -26,8 +27,9 @@ Protocole réseau **16** : tous les joueurs doivent avoir la 0.16 pour jouer ens
   - **Bleuette** est soulevée, terrifiée un instant, puis achevée.
 - En **True Form** (la « phase 6 » d'Alice), toute exécution devient : Alice attrape la victime et la fracasse violemment au sol.
 - Mise en scène de cinéma pour la victime et pour Alice : plans dédiés, ralentis, onomatopées, secousses, expressions du visage et bruitages dédiés. Les autres joueurs voient la scène dans le monde.
-- Pendant le plan, la caméra reste au film : la souris, le stick, le tactile et la touche C ne la font plus tourner ni changer de mode, et la vue de jeu revient en fondu à la fin. Sur mobile, les commandes tactiles s'estompent avec le HUD.
+- Pendant le plan, la caméra reste au film : la souris, le stick, le tactile et la touche C ne la font plus tourner ni changer de mode, et la vue de jeu revient en fondu à la fin. La roue d'émotes se ferme. Sur mobile, les commandes tactiles s'estompent avec le HUD.
 - Conditions : Alice à 16 m maximum avec ligne de vue, et de la place autour. Sinon, c'est la mort normale.
+- Si l'exécution élimine le **dernier survivant**, la manche se termine sur un court épilogue sans nouvelle mise à mort : Alice rentre dans sa chambre (porte « DO NOT OPEN »), se retourne sur le seuil pour savourer, puis disparaît dans le noir et la porte claque. Le film « Alice · … rattrapé(e) », où la victime réapparaissait entière pour être tuée une seconde fois, ne se joue plus dans ce cas. Tous les joueurs, hôte et clients, voient le même épilogue.
 
 ## Chrono : +45 s par élimination
 - Chaque élimination définitive d'un survivant par Alice ajoute **45 secondes** au chrono, avec « +0:45 » au HUD. Les éliminations rapprochées se cumulent. Pour la victime et pour Alice, le « +0:45 » d'une exécution apparaît à côté du chrono quand le HUD revient, à la fin du plan.
@@ -44,7 +46,7 @@ Protocole réseau **16** : tous les joueurs doivent avoir la 0.16 pour jouer ens
   - secousse et battements de cœur.
 - La **musique de course** s'intensifie jusqu'à la fin du chrono. À 0:17, un « dernier appel » marque l'entrée dans le final.
 - Un LMS garde sa musique prioritaire. « Réduire les flashs » adoucit les pulsations et « Effets d'écran » coupe le filtre.
-- Pendant une exécution, le filtre rouge et les lumières d'urgence passent à mi-intensité, pour que le plan reste lisible. Si la manche se termine juste après l'ouverture, la sirène s'efface au début du film de fin.
+- Pendant une exécution, le filtre rouge et les lumières d'urgence passent à mi-intensité, pour que le plan reste lisible. Si la manche se termine pendant l'alerte, filtre, lampes et gyrophares se coupent net au premier plan du film de fin ; la sirène et la musique de course s'effacent en moins d'une demi-seconde.
 
 ## Volume des musiques
 - Toutes les musiques sont normalisées au même niveau. Les OST fournies de Bleuette et d'Usayuko étaient beaucoup trop fortes ; celle de Bleuette saturait. Les danses sont aussi normalisées.

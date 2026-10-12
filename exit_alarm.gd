@@ -254,7 +254,10 @@ func _process(delta: float) -> void :
 	var scenes: Variant = world.get("kill_scenes")
 	var shot: bool = scenes != null and is_instance_valid(scenes) and scenes.has_method("cinematic") and bool(scenes.cinematic())
 	var goal: float = (0.45 if shot else 1.0) if open and not cinematic else 0.0
-	_level = move_toward(_level, goal, delta * (2.6 if goal > _level else (0.9 if playing else 2.5)))
+	# Film de fin de manche (ou autre film plein écran) : coupe nette sur son premier plan. Sans ça, le
+	# filtre rouge, les lampes et les gyrophares s'effaçaient pendant 0,4 s par-dessus le film.
+	if cinematic: _level = 0.0
+	else: _level = move_toward(_level, goal, delta * (2.6 if goal > _level else (0.9 if playing else 2.5)))
 	_update_pulse(delta)
 	_update_screen()
 	_update_lamps()
@@ -281,6 +284,8 @@ func _rush_position() -> float:
 func _heart_floor() -> float:
 	var me: PaperActor = world.local_actor()
 	if bool(world.lms) or me == null or me.killer or not me.alive or bool(me.effects.get("escaped", false)): return 0.0
+	# Exécution du joueur (« dying ») : le cœur de l'alerte ne couvre pas les bruitages du film.
+	if bool(me.effects.get("dying", false)): return 0.0
 	if _since < RUSH_LEAD: return 0.6
 	return 0.38 + 0.37 * smoothstep(0.62, 0.8, _rush)
 

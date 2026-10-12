@@ -104,12 +104,19 @@ func _light() -> bool:
 
 
 var _dread: float = 0.0
+var _last_phase: String = ""
 
 func _process(delta: float) -> void :
 	if not is_instance_valid(world): return
 	if not bool(world.options.get("screen_fx", true)):
 		if visible: clear()
 		return
+	# Sortie de la partie (film de fin de manche…) : coupe nette des effets du jeu (pulsation de
+	# l'alerte de sortie, vignette, bord d'état, vitesse) ; le film déclenche ensuite les siens.
+	var phase_now: String = str(world.phase)
+	if phase_now != _last_phase:
+		if _last_phase == "playing": _cut_gameplay()
+		_last_phase = phase_now
 	_clock += delta
 	_heal_clock = maxf(0.0, _heal_clock - delta)
 	var target_speed: float = 0.0
@@ -166,6 +173,17 @@ func _process(delta: float) -> void :
 	_material.set_shader_parameter("splat", _splat)
 	_material.set_shader_parameter("clock", _clock)
 	_material.set_shader_parameter("aspect", size.x / maxf(1.0, size.y))
+
+
+func _cut_gameplay() -> void :
+	_pulse_left = 0.0
+	_flash_left = 0.0
+	_focus = 0.0
+	_splat = 0.0
+	_rush = 0.0
+	_speed = 0.0
+	_edge = CLEAR
+	_dread = 0.0
 
 
 func _state_edge(view: PaperActor) -> Color:

@@ -54,6 +54,8 @@ const ACTION_CLIPS: Dictionary = {
 
 
 var lightweight: bool = false
+# Gestes d'attente aléatoires (fidget@…) : coupés dans les films réglés au geste près (prologue).
+var fidgets: bool = true
 
 var blob_shadow: bool = true
 
@@ -809,7 +811,7 @@ func _idle_fidget(dt: float, speed: float, stunned: bool, mood: String) -> Strin
 	var calm: bool = _life_state == "alive" and not stunned and speed < 0.2 and _action_time <= 0.0 and _st_grounded and not _st_chased and not _st_lms and _combat_state.get("emote_id", "") == "" and not _st_grab and not _st_heal and not _st_view and _st_eating <= 0.0 and _st_charge <= 0.0
 	if _fidget_time < 0.0:
 		_fidget_weight = 0.0
-		if not calm or lightweight:
+		if not calm or lightweight or not fidgets:
 			_fidget_timer = maxf(_fidget_timer, 3.0)
 			return mood
 		_fidget_timer -= dt

@@ -90,6 +90,10 @@ var _shots: Array = []
 
 var _flights: Array = []
 var _door: Array = []
+# Fondu d'ouverture (noir → image) : 0,28 s par défaut ; l'épilogue d'exécution garde un noir avant.
+var _open_fade: Vector2 = Vector2(0.0, 0.28)
+# Neige / lucioles de la carte (elles suivent la caméra) cachées dans la chambre d'Alice, rendues à l'arrêt.
+var _hidden_particles: Array[Node3D] = []
 var _blackouts: Array = []
 var _trauma: float = 0.0
 var _shake_clock: float = 0.0
@@ -112,6 +116,7 @@ static func duration_for(film: String, names: Array = []) -> float:
 		"intro_survivors": return 7.6
 		"ending_lms": return VictoryFilm.duration_for(str(names[0]) if not names.is_empty() else "Ashura")
 		"ending_killer": return 10.6
+		PaperFilmExecutionEnd.KIND: return PaperFilmExecutionEnd.DURATION
 		PaperFilmBlocus.KIND: return PaperFilmBlocus.DURATION
 		_: return float(_team_schedule(names).duration)
 
@@ -120,8 +125,10 @@ static func catalogue() -> Array[Dictionary]:
 	rows.append(_entry("intro_yiero", "Prologue — Yiero", "intro", "intro_yiero", ["Simon", "Ashura", "Usayuko", "Elly", "Bleuette", "Lysia"], "Simon", "Le film du premier lancement : Simon et Ashura affrontent Yiero dans une dimension ténébreuse… puis Simon atterrit à l’école en plein combat."))
 	for person: String in PaperData.NAMES:
 		rows.append(_entry("lms_win_" + person, VictoryFilm.title_for(person), "lms_win", "ending_lms", [person], person, VictoryFilm.description_for(person)))
+		# accord au féminin pour les élèves (Lysia, Elly, Bleuette) et élision (d’Ashura) dans le titre et la description
 		var she: bool = person in ["Lysia", "Elly", "Bleuette"]
-		rows.append(_entry("lms_loss_" + person, "Alice · " + person + (" rattrapée" if she else " rattrapé"), "lms_loss", "ending_killer", [person], person, "La dernière tentative de " + person + " échoue. Alice " + ("la" if she else "le") + " rattrape, frappe et l’achève au sol."))
+		var of: String = "d’" if person.left(1) in ["A", "E", "I", "O", "U", "Y"] else "de "
+		rows.append(_entry("lms_loss_" + person, "Alice · " + person + (" rattrapée" if she else " rattrapé"), "lms_loss", "ending_killer", [person], person, "La dernière tentative " + of + person + " échoue. Alice " + ("la" if she else "le") + " rattrape, frappe et l’achève au sol."))
 	for mask: int in range(1, 64):
 		var team: Array = []
 		for i: int in range(PaperData.NAMES.size()):
@@ -185,13 +192,19 @@ func begin(next: String, participants: Array, focus: String = "Ashura") -> void 
 	for name_value: Variant in participants:
 		var person: String = str(name_value)
 		if person in PaperData.NAMES and person not in people: people.append(person)
-	if next == "intro_alice": people.clear()
+	if next in ["intro_alice", PaperFilmExecutionEnd.KIND]: people.clear()
 	elif next in ["ending_lms", "ending_killer"]: people = [focus if focus in PaperData.NAMES else "Ashura"]
 	elif people.is_empty(): people = [focus if focus in PaperData.NAMES else "Ashura"]
 	if next in ["ending_lms", "ending_killer"]: focus_name = people[0]
 	_length = anchor.distance_to(finish)
-	if next == "intro_alice":
+	if next in ["intro_alice", PaperFilmExecutionEnd.KIND]:
 		anchor += Vector3.UP * 30.0;finish = anchor + forward * 7.0
+		# Décor intérieur : la neige ou les lucioles qui suivent la caméra n'ont rien à y faire.
+		if world.school.has_method("ambient_particles"):
+			for node: Node3D in world.school.ambient_particles():
+				if is_instance_valid(node) and node.visible:
+					node.visible = false
+					_hidden_particles.append(node)
 	elif world.school.has_method("set_cinematic_exit_open"):
 		world.school.set_cinematic_exit_open(next not in ["ending_killer", PaperFilmBlocus.KIND])
 	for person: String in people: _add_actor(person)
@@ -201,11 +214,12 @@ func begin(next: String, participants: Array, focus: String = "Ashura") -> void 
 	fill.omni_range = 9;fill.light_energy = 0.7;fill.light_color = Color("eddfd3")
 	duration = duration_for(next, people)
 	_spots.resize(takes.size())
-	_dark = next in ["ending_killer", "intro_alice"]
+	_dark = next in ["ending_killer", "intro_alice", PaperFilmExecutionEnd.KIND]
 	match next:
 		"intro_survivors": _write_intro_survivors()
 		"intro_alice": _write_intro_alice()
 		"ending_killer": _write_kill()
+		PaperFilmExecutionEnd.KIND: PaperFilmExecutionEnd.write(self)
 		"ending_lms": victory.write(self, people[0])
 		PaperFilmBlocus.KIND:
 			blocus = PaperFilmBlocus.new();add_child(blocus);blocus.write(self)
@@ -236,6 +250,9 @@ func _add_actor(person: String) -> void :
 func stop() -> void :
 	var was_playing: bool = not kind.is_empty()
 	victory.stop()
+	for node: Node3D in _hidden_particles:
+		if is_instance_valid(node): node.visible = true
+	_hidden_particles.clear()
 	if world and is_instance_valid(world.school) and world.school.has_method("set_cinematic_exit_open"): world.school.set_cinematic_exit_open(false)
 
 	for n: Node in get_children():
@@ -247,7 +264,7 @@ func stop() -> void :
 			if visual is PaperVisual: (visual as PaperVisual).mood_override = ""
 	cast.clear();takes.clear();people.clear();props = null;alice_index = -1;blocus = null
 	_track.clear();_shots.clear();_flights.clear();_door.clear();_blackouts.clear();_spots.clear()
-	hide();kind = "";last_shot = -1;caption = "";chapter = "";_time = -1.0;_trauma = 0.0
+	hide();kind = "";last_shot = -1;caption = "";chapter = "";_time = -1.0;_trauma = 0.0;_open_fade = Vector2(0.0, 0.28)
 	var comic: Node = _comic() if world else null
 	if comic:
 		comic.set("frame_guard", false)
@@ -283,16 +300,26 @@ func update(t: float, delta: float) -> void :
 	if t < _time - 0.0005 or t - _time > 0.3: _jump(t)
 	elif t > _time: _step(t, false)
 	elapsed = t
-	if kind not in ["intro_alice", "ending_killer", PaperFilmBlocus.KIND] and world.school.has_method("sample_cinematic_exit_open"):
+	if kind not in ["intro_alice", "ending_killer", PaperFilmExecutionEnd.KIND, PaperFilmBlocus.KIND] and world.school.has_method("sample_cinematic_exit_open"):
 		world.school.sample_cinematic_exit_open(t + 2.0)
-	black = 1.0 - smoothstep(0, 0.28, t)
+	black = 1.0 - smoothstep(_open_fade.x, _open_fade.y, t)
 	if t > duration - 0.32: black = smoothstep(duration - 0.32, duration, t)
 	for cut: Array in _blackouts:
 		if t >= float(cut[0]) and t < float(cut[1]): black = 1.0
 	_place_props(t)
 	_camera(t, delta)
+	_hide_exit_ring()
 	if victory.active: victory.update(t, delta)
 	if is_instance_valid(blocus): blocus.update(t, delta)
+
+
+# Anneau doré de la sortie (map_interactables) : jamais dans un film (fuite en équipe, victoire
+# d'Alice…). update_exit le réaffiche à chaque image ; le panneau « SORTIE · … » est caché par
+# main._show_exit_sign.
+func _hide_exit_ring() -> void :
+	var items: Variant = world.get("map_interactables") if world else null
+	var ring: Variant = items.get("exit_glow") if is_instance_valid(items) else null
+	if ring is Node3D and is_instance_valid(ring): (ring as Node3D).visible = false
 
 
 func _jump(t: float) -> void :
@@ -344,6 +371,8 @@ func _step(t: float, silent: bool) -> void :
 				else: take.state[key] = float(ramp[4])
 		var spot: Vector3 = _world_spot(_where(take, t))
 		var velocity: Vector3 = (spot - _world_spot(_where(take, t - 0.03))) / 0.03
+		# Un raccord « jump » téléporte l'acteur : sans vitesse, sinon la démarche s'emballe et crache un nuage de pas géant.
+		if _jumped(take, t - 0.03, t): velocity = Vector3.ZERO
 		var visual: PaperVisual = take.visual
 		visual.position = spot
 		var target: float = _facing(index, take, t, velocity)
@@ -440,6 +469,13 @@ func _where(take: Take, t: float) -> Vector3:
 			var to: Array = path[k]
 			return (from[1] as Vector3).lerp(to[1], _ease((t - float(from[0])) / maxf(0.001, float(to[0]) - float(from[0])), str(to[2])))
 	return path[path.size() - 1][1]
+
+func _jumped(take: Take, t0: float, t1: float) -> bool:
+	for point: Array in take.path:
+		var at: float = float(point[0])
+		if at > t1: return false
+		if at > t0 and str(point[2]) == "jump": return true
+	return false
 
 func _world_spot(local: Vector3) -> Vector3:
 	return anchor + right * local.x + Vector3.UP * local.y + forward * local.z
@@ -567,7 +603,10 @@ func _run_cue(cue: Array) -> void :
 func _place_props(t: float) -> void :
 	if props == null: return
 	for entry: Array in _door:
-		props.set_door(smoothstep(float(entry[0]), float(entry[1]), t))
+		var opening: float = smoothstep(float(entry[0]), float(entry[1]), t)
+		# [début, fin, de, à] : porte qui se referme (épilogue d'exécution) ; [début, fin] : ouverture.
+		if entry.size() >= 4: opening = lerpf(float(entry[2]), float(entry[3]), opening)
+		props.set_door(opening)
 	var grenade_shown: bool = false
 	var drone_shown: bool = false
 	for flight: Array in _flights:
