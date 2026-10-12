@@ -187,6 +187,11 @@ func clear() -> void :
 
 
 
+# Vrai pendant un plan d'exécution sur ce poste (bandes noires, caméra de cinéma).
+func cinematic() -> bool:
+	return _camera_id >= 0
+
+
 # Rend la caméra sans fondu (fin de manche, nettoyage) : le film ou la vue de jeu reprennent la main.
 func _drop_camera() -> void:
 	var rig = world.get("camera_rig") if world != null else null
@@ -510,6 +515,9 @@ func _start_show(data: Dictionary) -> void :
 	(show.cues as Array).sort_custom( func(a: Array, b: Array) -> bool: return float(a[0]) < float(b[0]))
 	(show.shots as Array).sort_custom( func(a: Array, b: Array) -> bool: return float(a[0]) < float(b[0]))
 	_shows[id] = show
+	# Victime locale qui avait la roue d'émotes ouverte : elle ne reste pas par-dessus le plan.
+	var wheel: Variant = world.get("emote_wheel")
+	if _involved(show) and wheel != null and is_instance_valid(wheel) and (wheel as Control).visible: wheel.close()
 	_tag(victim.visual, true)
 	_tag(alice.visual, true)
 	victim.visual.react_to_hit(1.0, Vector3(show.stand))

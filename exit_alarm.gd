@@ -247,7 +247,10 @@ func _process(delta: float) -> void :
 		_final_done = true
 		_final_call()
 	var cinematic: bool = world.ui.film_layer.visible if is_instance_valid(world.ui) and world.ui.get("film_layer") else false
-	var goal: float = 1.0 if open and not cinematic else 0.0
+	# Plan d'exécution (caméra de cinéma) : l'alerte reste présente mais atténuée, l'éclairage du plan reste lisible.
+	var scenes: Variant = world.get("kill_scenes")
+	var shot: bool = scenes != null and is_instance_valid(scenes) and scenes.has_method("cinematic") and bool(scenes.cinematic())
+	var goal: float = (0.45 if shot else 1.0) if open and not cinematic else 0.0
 	_level = move_toward(_level, goal, delta * (2.6 if goal > _level else (0.9 if playing else 2.5)))
 	_update_pulse(delta)
 	_update_screen()

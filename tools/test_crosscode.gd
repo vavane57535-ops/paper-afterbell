@@ -16,6 +16,9 @@ extends Node
 #                 déborde pas sur le film de fin.
 #   debris_end  : la dernière survivante (Lysia) est exécutée sur le plateau du film de fin :
 #                 aucun débris de l'exécution ne doit apparaître dans le film.
+#   exec_victim : la victime locale avait la roue d'émotes ouverte : elle se referme au début du plan.
+#   exec_alarm  : exécution pendant l'alerte de sortie (images seulement, à regarder).
+# Par défaut : rush_bonus, exec_camera, siren_end, debris_end, exec_victim.
 
 var world
 var plans: Array[String] = []
@@ -32,7 +35,7 @@ func setup(w) -> void:
 		var next: String = args[i + 1] if i + 1 < args.size() else ""
 		if args[i] == "--cross": plans.assign(next.split(",", false))
 		if args[i] == "--out": out_dir = next
-	if plans.is_empty(): plans.assign(["rush_bonus", "exec_camera", "siren_end", "debris_end"])
+	if plans.is_empty(): plans.assign(["rush_bonus", "exec_camera", "siren_end", "debris_end", "exec_victim"])
 	DirAccess.make_dir_recursive_absolute(out_dir)
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	# Le banc ne doit rien écrire dans user://settings.cfg (partagé entre les copies de travail).
@@ -48,6 +51,8 @@ func _run() -> void:
 			"exec_camera": await _plan_exec_camera()
 			"siren_end": await _plan_siren_end()
 			"debris_end": await _plan_debris_end()
+			"exec_victim": await _plan_exec_victim()
+			"exec_alarm": await _plan_exec_alarm()
 			_: _fail(plan, "plan inconnu")
 	print("CROSS_TEST ", "OK" if failures.is_empty() else "FAIL", " ", JSON.stringify(failures))
 	get_tree().quit()
@@ -248,6 +253,9 @@ func _plan_exec_camera() -> void:
 	var yaw_moved: float = absf(angle_difference(yaw0, float(world.yaw)))
 	var pitch_moved: float = absf(pitch0 - float(world.pitch))
 	await _capture("exec_mid_after_keys")
+	var touch: Variant = world.get("mobile_controls")
+	if touch is Control and is_instance_valid(touch) and (touch as Control).visible and (touch as Control).modulate.a > 0.35:
+		_fail(plan, "commandes tactiles pleinement visibles pendant le plan (alpha %.2f)" % (touch as Control).modulate.a)
 	if badge: _fail(plan, "bandeau « CAMÉRA » affiché pendant l'exécution")
 	if str(rig.mode) != mode0: _fail(plan, "mode de caméra changé pendant l'exécution (%s -> %s)" % [mode0, str(rig.mode)])
 	if yaw_moved > 0.01 or pitch_moved > 0.01: _fail(plan, "la vue a tourné pendant l'exécution (yaw %.3f, pitch %.3f)" % [yaw_moved, pitch_moved])
@@ -264,6 +272,86 @@ func _plan_exec_camera() -> void:
 	rig.mouse_look(motion)
 	if absf(angle_difference(yaw1, float(world.yaw))) < 0.01: _fail(plan, "la souris ne tourne plus la vue après l'exécution")
 	_report(plan, before, "override=%s badge=%s mode=%s->%s yaw_moved=%.3f pitch_moved=%.3f released=%s" % [str(overriding), str(badge), mode0, str(rig.mode), yaw_moved, pitch_moved, str(not still and not held)])
+
+
+# --- exec_victim : la victime locale avait la roue d'émotes ouverte -------------------------
+
+func _plan_exec_victim() -> void:
+	var plan: String = "exec_victim"
+	var before: int = failures.size()
+	if not await _round("Usayuko", false):
+		_fail(plan, "manche non lancée")
+		return
+	var me: PaperActor = world.local_actor()
+	var alice: PaperActor = world.killer_actor()
+	var base: Vector3 = world.school.spawn_points[1] + Vector3(0, 0, -9)
+	me.global_position = base
+	me.reset_physics_interpolation()
+	alice.global_position = base + Vector3(0.6, 0, -2.4)
+	alice.aim = (base - alice.global_position).normalized()
+	alice.reset_physics_interpolation()
+	me.effects["revived"] = true
+	me.hp = 1.0
+	await _wait(0.3)
+	world.toggle_emotes()
+	await get_tree().process_frame
+	var opened: bool = world.emote_wheel.visible
+	if not opened: _fail(plan, "roue d'émotes non ouverte (préparation)")
+	var scene: Dictionary = _execute(me, alice)
+	if scene.is_empty():
+		_fail(plan, "pas d'exécution de la victime locale")
+		_report(plan, before, "")
+		return
+	await _wait(0.6)
+	await _capture("exec_victim_mid")
+	if world.emote_wheel.visible: _fail(plan, "roue d'émotes restée ouverte par-dessus l'exécution")
+	_report(plan, before, "wheel_opened=%s wheel_after=%s override=%s" % [str(opened), str(world.emote_wheel.visible), str(int(world.kill_scenes._camera_id) >= 0)])
+	world.quit_to_menu()
+	await _wait(0.3)
+
+
+# --- exec_alarm : exécution pendant l'alerte de sortie (rendu : images) ----------------------
+
+func _plan_exec_alarm() -> void:
+	var plan: String = "exec_alarm"
+	var before: int = failures.size()
+	if not await _round("Alice", true):
+		_fail(plan, "manche non lancée")
+		return
+	var alice: PaperActor = world.local_actor()
+	var victim: PaperActor = _actor("Elly")
+	world.time_left = 80.4
+	var waited: float = 0.0
+	while not world.exit_flow.opened and waited < 5.0:
+		await _wait(0.1)
+		waited += 0.1
+	await _wait(4.5)
+	var base: Vector3 = world.school.spawn_points[1] + Vector3(0, 0, -9)
+	victim.global_position = base
+	victim.reset_physics_interpolation()
+	alice.global_position = base + Vector3(0.6, 0, -2.4)
+	alice.aim = (base - alice.global_position).normalized()
+	alice.reset_physics_interpolation()
+	world.yaw = atan2(-alice.aim.x, -alice.aim.z)
+	victim.effects["revived"] = true
+	victim.hp = 1.0
+	await _wait(0.3)
+	await _capture("exec_alarm_before")
+	var scene: Dictionary = _execute(victim, alice)
+	if scene.is_empty():
+		_fail(plan, "pas d'exécution pendant l'alerte")
+		_report(plan, before, "")
+		return
+	var level_start: float = float(world.exit_alarm.level())
+	for at: float in [1.0, 2.2, 3.4]:
+		var show: Dictionary = {}
+		for sh: Dictionary in world.kill_scenes._shows.values(): show = sh
+		while not show.is_empty() and float(show.t) - float(show.lead) < at and world.kill_scenes._shows.has(int(show.id)): await get_tree().process_frame
+		await _capture("exec_alarm_%.1f" % at)
+		print("CROSS_NOTE exec_alarm t=%.1f alarm_level=%.2f bars=%.2f" % [at, float(world.exit_alarm.level()), float(world.kill_scenes._bars_amount)])
+	_report(plan, before, "alarm_level_at_start=%.2f" % level_start)
+	world.quit_to_menu()
+	await _wait(0.3)
 
 
 # --- siren_end ---------------------------------------------------------------------------
