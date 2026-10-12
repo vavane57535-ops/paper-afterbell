@@ -45,7 +45,9 @@ Protocole réseau **16** : tous les joueurs doivent avoir la 0.16 pour jouer ens
 ## Volume des musiques
 - Toutes les musiques sont normalisées au même niveau. Les OST fournies de Bleuette et d'Usayuko étaient beaucoup trop fortes ; celle de Bleuette saturait. Les danses sont aussi normalisées.
 - La musique est baissée d'environ 7 dB par rapport à la 0.15. Les danses suivent enfin le curseur Musique.
-- Nouveau curseur **Réglages → Audio → Volume général**.
+- Les films (prologue, victoires LMS, fins, blocus) gardent l'équilibre de leur montage : leur musique suit ce nouveau niveau et leurs bruitages baissent d'autant, pour que la musique ne soit pas couverte.
+- Une danse proche remplace la musique d'exploration, au lieu de s'y superposer. Pendant une poursuite, un LMS, la course vers la sortie ou la True Form, c'est la danse qui passe derrière. Dans la boutique, l'aperçu de danse remplace la musique du menu.
+- Nouveau curseur **Réglages → Audio → Volume général**. Le curseur Effets règle aussi les sons d'interface avec la même courbe que les bruitages.
 
 ## Victoires LMS façon Outcome Memories
 - Six nouveaux films, un par survivant, d'environ 13 à 14 s. Structure : vieille télé CRT sur damier, nuit pluvieuse et désaturée, gros plans aux yeux qui brillent, geste signature, puis silhouettes de papier noir sur papier blanc.

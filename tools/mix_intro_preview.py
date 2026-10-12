@@ -99,7 +99,10 @@ def main():
 	folder = args[0]
 	out = args[args.index("--out") + 1] if "--out" in args else os.path.join(folder, "prologue_mix.wav")
 	sheet = json.load(open(os.path.join(folder, "audio_sheet.json"), encoding="utf-8"))
-	music_gain = 10 ** (volume_db(0.7) / 20.0) * constant("audio.gd", "MUSIC_LEVEL", 0.82)
+	music_level = constant("audio.gd", "MUSIC_LEVEL", 0.82)
+	# bus PaperMusic (curseur 70 % × MUSIC_LEVEL) ; bruitages et blips du film × FILM_SFX_TRIM (MUSIC_LEVEL / 0,82)
+	music_gain = 10 ** (volume_db(0.7) / 20.0) * music_level
+	film_trim = music_level / 0.82
 	sfx_level = constant("film_intro_yiero.gd", "FILM_SFX_LEVEL", 1.0)
 	voice_gain = constant("intro_overlay.gd", "VOICE_GAIN", 0.6)
 	yiero_gain = constant("intro_overlay.gd", "YIERO_GAIN", 0.9)
@@ -112,6 +115,7 @@ def main():
 	for cue in sheet["sfx"]:
 		name, gain, pitch = cue["name"], cue["gain"], cue["pitch"]
 		path = os.path.join(ROOT, "audio/cinematic", name + ".wav")
+		gain *= film_trim
 		if os.path.exists(path):
 			gain *= sfx_level if name.startswith("sfx_") else 1.0
 		elif name in families:
@@ -135,7 +139,7 @@ def main():
 		if blip["t"] - last.get(who, -9.0) < lengths.get(who, 0.04) * 0.75:
 			continue
 		last[who] = blip["t"]
-		gain = (yiero_gain if who == "Yiero" else voice_gain) * (shout_gain if blip.get("shout") else 1.0)
+		gain = (yiero_gain if who == "Yiero" else voice_gain) * (shout_gain if blip.get("shout") else 1.0) * film_trim
 		place(stems["voix"], blip["t"], blips[who][rng.randrange(4)], gain)
 	mix = stems["musique"] + stems["bruitages"] + stems["voix"]
 	ceiling = 10 ** (-1.2 / 20.0)

@@ -2007,7 +2007,7 @@ func _settings_audio(content: VBoxContainer) -> void :
 	_setting_row(content, "Volume général", "Tous les sons du jeu.", _slider(0, 1, 0.05, float(world.audio.master_volume), percent, func(x: float) -> void :
 		world.audio.master_volume = x
 		world.save_preferences()))
-	_setting_row(content, "Musique", "Ambiance, poursuites, LMS et fins.", _slider(0, 1, 0.05, float(world.audio.music_volume), percent, func(x: float) -> void :
+	_setting_row(content, "Musique", "Ambiance, poursuites, LMS, films et danses.", _slider(0, 1, 0.05, float(world.audio.music_volume), percent, func(x: float) -> void :
 		world.audio.music_volume = x
 		world.save_preferences()))
 	_setting_row(content, "Effets sonores", "Pas, coups, capacités et interface.", _slider(0, 1, 0.05, float(world.audio.effects_volume), percent, func(x: float) -> void :
