@@ -120,6 +120,7 @@ const TEXT: Dictionary = {
 	"Doo-wop tout doux : claquements de doigts, bébé bercé, main sur le cœur et un petit twist.": "Gentle doo-wop: finger snaps, rocking a baby, hand on heart and a little twist.",
 	"Volume général": "Master volume",
 	"Tous les sons du jeu.": "All game sounds.",
+	"Ambiance, poursuites, LMS, films et danses.": "Ambience, chases, LMS, films and dances.",
 	"LA SORTIE EST OUVERTE": "THE EXIT IS OPEN",
 	"LA SORTIE SE ROUVRE": "THE EXIT REOPENS",
 	"DERNIÈRES SECONDES": "FINAL SECONDS",

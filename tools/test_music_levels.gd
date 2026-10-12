@@ -3,6 +3,8 @@ extends Node
 # Mesure du niveau réel de chaque musique en jeu (0.16) : chaque piste est jouée seule
 # (effets coupés, curseur Musique à sa valeur par défaut 70 %) et le bus Master est
 # enregistré en WAV dans --levels-out ; mesurer ensuite avec ffmpeg -af ebur128.
+# Les deux « danses » ci-dessous passent par un lecteur 2D : le niveau réel d'une danse en partie
+# (lecteur 3D d'emote_sync, distance, panoramique) se mesure avec tools/test_audio_mix.gd --mix dance.
 
 var world: Node
 var out_dir: String = "user://music_levels"

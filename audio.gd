@@ -71,6 +71,10 @@ var _rush_filter_on: bool = false
 var _rush_hold: bool = false
 var _heart_slot: int = -1
 
+var dance_presence: float = 0.0
+var _dance_duck: float = 0.0
+var _music_holders: Dictionary = {}
+
 var _bed_player: AudioStreamPlayer
 var _bed_map: String = ""
 var _bed_level: float = 0.0
@@ -92,6 +96,14 @@ const SUSPEND_FADE_SECONDS: float = 0.6
 # 0.16 : toutes les musiques sont normalisées à -18 LUFS dans les fichiers ;
 # ce niveau (-8,5 dB) s'applique au bus PaperMusic avec le curseur Musique.
 const MUSIC_LEVEL: float = 0.376
+# Les films (fins, victoires LMS, blocus, prologue, cinémathèque) ont été mixés avec la musique de la
+# 0.15 (MUSIC_LEVEL 0,82) : leurs bruitages baissent d'autant que la musique (-6,8 dB), sinon ils
+# couvrent la partition (stinger noyé sous la pluie, impacts du prologue 13 dB au-dessus de la musique).
+const FILM_SFX_TRIM: float = MUSIC_LEVEL / 0.82
+const FILM_PHASES: Array[String] = ["ending", "gallery", "prologue"]
+# Danse proche (emote_sync) : la musique d'exploration s'efface sous celle de la danse (-12 dB).
+const DANCE_DUCK_GAIN: float = 0.25
+const AMBIENT_KEYS: Array[String] = ["ambient", "ambient_forest", "ambient_snow"]
 
 # Course vers la sortie : 3 s de sirène, puis exit_rush.ogg (80 s, 128 BPM)
 # calée sur le chrono pour finir avec lui ; set_rush() pilote filtre et volume.
@@ -667,6 +679,8 @@ func _process(delta: float) -> void :
 
 	_apply_bus_volumes()
 	var level: float = _duck_gain
+	_dance_duck = move_toward(_dance_duck, clampf(dance_presence, 0.0, 1.0) if mode == "ambient" else 0.0, delta * 1.6)
+	var dance_gain: float = lerpf(1.0, DANCE_DUCK_GAIN, _dance_duck)
 	for key: String in tracks:
 		var p: AudioStreamPlayer = tracks[key]
 		var goal: float = 1.0 if key == active_track and not _music_hold else 0.0
@@ -674,7 +688,7 @@ func _process(delta: float) -> void :
 		var envelope: float = move_toward(float(_envelopes.get(key, 0.0)), goal, delta * speed)
 		_envelopes[key] = envelope
 
-		var gain: float = sin(envelope * PI * 0.5) * level * float(TRACK_GAINS.get(key, 1.0)) * (_rush_trim if key == "exit" else 1.0)
+		var gain: float = sin(envelope * PI * 0.5) * level * float(TRACK_GAINS.get(key, 1.0)) * (_rush_trim if key == "exit" else 1.0) * (dance_gain if key in AMBIENT_KEYS else 1.0)
 		p.volume_db = linear_to_db(gain) if gain > 0.0001 and not muted else -80.0
 		if key != active_track and p.playing and envelope <= 0.0001:
 			_resume[key] = p.get_playback_position();p.stop()
@@ -795,7 +809,12 @@ func _update_hurt(delta: float) -> void :
 # the ending music starts over once it is released. The running track (the LMS
 # theme) is gone within the film's black opening instead of the 1.35 s
 # crossfade, which ran over the television's music box.
-func hold_music(on: bool) -> void :
+# Plusieurs demandeurs (film de victoire, aperçu de danse de la boutique) : la musique reste tenue
+# tant que l'un d'eux la tient.
+func hold_music(on: bool, holder: String = "film") -> void :
+	if on: _music_holders[holder] = true
+	else: _music_holders.erase(holder)
+	on = not _music_holders.is_empty()
 	if _music_hold == on: return
 	_music_hold = on
 	for key: String in tracks:
@@ -943,6 +962,7 @@ func sfx(kind: String, source: Vector3, listener: Vector3, gain_scale: float = 1
 	p.pitch_scale = (randf_range(0.975, 1.035) if kind in ["step", "hit", "slash", "punch", "grenade_bounce"] else 1.0) * clampf(pitch_scale, 0.7, 1.3)
 	var falloff: float = pow(clampf(1.0 - distance / reach, 0.0, 1.0), 1.25)
 	var snow: float = 0.42 if kind == "step" and step_surface == "snow" else 1.0
+	if is_instance_valid(_world) and str(_world.get("phase")) in FILM_PHASES: falloff *= FILM_SFX_TRIM
 
 	if alice_step:
 		p.pitch_scale *= 0.84
