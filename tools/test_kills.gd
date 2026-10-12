@@ -20,6 +20,7 @@ var time_scale: float = 0.4
 var preset_time: float = -1.0
 var reset_mid: bool = false
 var last_kill: bool = false
+var training: bool = false
 var cams: Array[String] = ["cine"]
 var headless: bool = false
 var failures: Array[String] = []
@@ -46,6 +47,7 @@ func setup(w) -> void:
 			"--time": preset_time = float(next)
 			"--reset-mid": reset_mid = true
 			"--last": last_kill = true
+			"--training": training = true
 			"--cam": cams.assign(next.split(",", false))
 	if targets.is_empty(): targets.assign(NAMES)
 	if frames.is_empty() and not headless: frames.assign([0.15, 0.6, 1.2, 1.9, 2.6, 3.4])
@@ -57,7 +59,8 @@ func _run() -> void:
 	await get_tree().process_frame
 	for phase6: bool in phase6_modes:
 		for victim_name: String in targets:
-			await _scene(victim_name, phase6)
+			if training: await _training_scene(victim_name)
+			else: await _scene(victim_name, phase6)
 	# Bruitages dédiés : chaque famille utilisée doit être chargée dans la banque.
 	if targets.size() == NAMES.size() and phase6_modes.size() == 2 and world.audio and not bool(world.audio.get("_silent")):
 		for key: String in world.kill_scenes.KILL_SFX:
@@ -247,3 +250,44 @@ func _scene(victim_name: String, phase6: bool) -> void:
 	if float(alice.effects.get("kill_lock", 0.0)) > 0.0: failures.append(tag + ": Alice toujours verrouillée")
 	if victim_name == "Lysia" and not phase6 and stun_seen < 4.0: failures.append(tag + ": pas de stun de 5 s")
 	if gained < 40.0: failures.append(tag + ": bonus de temps absent (%.1f)" % gained)
+
+
+# Terrain d'essai (--training, mannequins Simon et Elly) : l'exécution se joue,
+# sans bonus de temps, puis le mannequin revient entier.
+func _training_scene(victim_name: String) -> void:
+	world.solo_killer = true
+	world.selected = "Alice"
+	world.start_training(true)
+	await get_tree().create_timer(0.6).timeout
+	var alice: PaperActor = world.local_actor()
+	var victim: PaperActor = null
+	for a: PaperActor in world.actors.values():
+		if a.character == victim_name and not a.killer: victim = a
+	if alice == null or not alice.killer or victim == null:
+		failures.append(victim_name + "_training: acteurs introuvables")
+		return
+	victim.global_position = alice.global_position + alice.aim.normalized() * 2.0
+	victim.reset_physics_interpolation()
+	victim.effects["revived"] = true
+	victim.hp = 1.0
+	await get_tree().create_timer(0.3).timeout
+	var before: float = float(world.time_left)
+	for attempt in range(8):
+		world.combat.damage(victim, 999.0, alice, false, "slash")
+		if bool(victim.effects.get("dying", false)): break
+	var scene: Dictionary = {}
+	for sc: Dictionary in world.kill_scenes._scenes.values(): scene = sc
+	if scene.is_empty():
+		failures.append(victim_name + "_training: pas d'exécution")
+		return
+	await get_tree().create_timer(float(scene.lead) + float(scene.length) + 0.4).timeout
+	var dead: bool = not victim.alive
+	await get_tree().create_timer(2.6).timeout
+	var line: String = "%s_training dead=%s back=%s dying=%s bonus=%.1f time_left=%.1f->%.1f lock=%.2f scenes=%d wrecked=%d" % [victim_name, str(dead), str(victim.alive), str(victim.effects.get("dying", false)), float(world.kill_scenes.bonus_total), before, float(world.time_left), float(alice.effects.get("kill_lock", 0.0)), world.kill_scenes._scenes.size(), world.kill_scenes._wrecked.size()]
+	results.append(line)
+	print("KILL_RESULT ", line)
+	if not dead: failures.append(victim_name + "_training: le mannequin n'a pas été éliminé")
+	if not victim.alive or bool(victim.effects.get("dying", false)): failures.append(victim_name + "_training: le mannequin n'est pas revenu")
+	if float(world.kill_scenes.bonus_total) > 0.0 or absf(float(world.time_left) - before) > 0.01: failures.append(victim_name + "_training: bonus de temps en entraînement")
+	if float(alice.effects.get("kill_lock", 0.0)) > 0.0: failures.append(victim_name + "_training: Alice reste verrouillée")
+	if is_instance_valid(victim.visual) and is_instance_valid(victim.visual._imported) and not victim.visual._imported.visible: failures.append(victim_name + "_training: modèle resté caché")

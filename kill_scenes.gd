@@ -283,7 +283,8 @@ func tick(delta: float) -> void :
 			continue
 		# Le chrono ne tombe pas à zéro au milieu d'une exécution : elle va à son terme
 		# (puis le bonus de l'élimination s'applique).
-		if victim != null and victim.alive and float(world.time_left) < 0.6: world.time_left = 0.6
+		# (Pas en entraînement : il n'y a pas de chrono, time_left reste à 0.)
+		if not world.training and victim != null and victim.alive and float(world.time_left) < 0.6: world.time_left = 0.6
 		if victim != null and victim.alive:
 			victim.global_position = spot
 			victim.velocity = Vector3.ZERO
