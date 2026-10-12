@@ -13,6 +13,8 @@ extends Node
 #   trio         : trois instances (rôles host, client, client2). L'hôte choisit « Client » comme Alice ; Alice
 #                  quitte en pleine manche → blocus chez l'hôte ET chez l'autre client (client2), qui reste connecté.
 #                  Puis client2 quitte pendant le film : l'hôte ne doit pas renvoyer la manche (film non relancé).
+#   --alice-exec (avec host_alice) : l'hôte-Alice exécute le client (dernière vie) puis ferme la partie
+#                  au milieu de l'exécution : chez le client, blocus sans bandes noires ni caméra bloquée.
 # Port dédié (pas le 27842 du jeu) pour ne pas gêner d'autres parties locales.
 
 var world: Node
@@ -29,6 +31,8 @@ var tickets_before: int = -1
 var done: bool = false
 var fake_left: bool = false
 var skipped_checked: bool = false
+var exec_mid: bool = false
+var exec_forced: bool = false
 
 
 func setup(owner: Node) -> void :
@@ -40,6 +44,7 @@ func setup(owner: Node) -> void :
 			"--alice-role": role = value
 			"--alice-scenario": scenario = value
 			"--alice-port": port = int(value)
+			"--alice-exec": exec_mid = true
 	_begin.call_deferred()
 
 
@@ -76,6 +81,21 @@ func _begin() -> void :
 		if error != OK: _check(false, "connexion client");_end();return
 		world.multiplayer.multiplayer_peer = world.net;world.networked = true;world.phase = "lobby";world.ui.show_lobby()
 		_go("wait_roster")
+
+
+# Hôte-Alice : exécution du client (Lysia, sans relevage) juste devant Alice.
+func _force_execution() -> void :
+	var alice: PaperActor = world.actors.get(1)
+	var victim: PaperActor = world.actors.get(other)
+	if alice == null or victim == null:
+		_check(false, "hôte : acteurs pour l'exécution introuvables");return
+	alice.global_position = victim.global_position + Vector3(0.6, 0, -2.4)
+	alice.reset_physics_interpolation()
+	victim.hp = 1.0
+	for attempt: int in range(8):
+		world.combat.damage(victim, 999.0, alice, false, "slash")
+		if bool(victim.effects.get("dying", false)): break
+	_check(not world.kill_scenes._scenes.is_empty(), "hôte : exécution du client lancée (%s)" % victim.character)
 
 
 func _badge_shown() -> bool:
@@ -140,6 +160,9 @@ func _host() -> void :
 			_go("playing")
 		"playing":
 			if scenario == "host_alice":
+				if exec_mid and step_clock >= 2.0 and not exec_forced:
+					exec_forced = true
+					_force_execution()
 				if step_clock < 4.0: return
 				_log("l'hôte (Alice) ferme la partie")
 				world.quit_to_menu()
@@ -258,6 +281,10 @@ func _client() -> void :
 		"watch_film":
 			if step_clock < 3.0: return
 			_check(world.film.elapsed > 1.0 and world.phase == "ending", "client : le film avance (%.1f s)" % world.film.elapsed)
+			if exec_mid:
+				_check(int(world.kill_scenes._camera_id) < 0 and not world.camera_rig.has_control(), "client : caméra de l'exécution rendue au film")
+				_check(world.kill_scenes._shows.is_empty() and float(world.kill_scenes._bars_amount) <= 0.0, "client : plus de mise en scène ni de bandes noires")
+				_check(not "Lysia" in world.ending_people, "client : la victime de l'exécution n'est pas au blocus (%s)" % str(world.ending_people))
 			_end()
 		"closing":
 			if step_clock > 1.5: _end()

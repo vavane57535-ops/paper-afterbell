@@ -56,6 +56,8 @@ func _run() -> void:
 			"prologue_hold": await _plan_prologue_hold()
 			"dedicated": await _plan_dedicated()
 			"exec_facing": await _plan_exec_facing()
+			"state_reset": await _plan_state_reset()
+			"ending_quit": await _plan_ending_quit()
 			_: _fail(plan, "plan inconnu")
 	print("CROSS_TEST ", "OK" if failures.is_empty() else "FAIL", " ", JSON.stringify(failures))
 	get_tree().quit()
@@ -275,6 +277,112 @@ func _plan_exec_camera() -> void:
 	rig.mouse_look(motion)
 	if absf(angle_difference(yaw1, float(world.yaw))) < 0.01: _fail(plan, "la souris ne tourne plus la vue après l'exécution")
 	_report(plan, before, "override=%s badge=%s mode=%s->%s yaw_moved=%.3f pitch_moved=%.3f released=%s" % [str(overriding), str(badge), mode0, str(rig.mode), yaw_moved, pitch_moved, str(not still and not held)])
+
+
+# --- ending_quit : fin de manche (Alice gagne), écran des résultats, puis on quitte le jeu -------
+# Sert à chercher les messages de fuite à la fermeture (« ObjectDB instances leaked », « resources
+# still in use ») vus de temps en temps après une fin de manche : --ending-wait S (défaut 30).
+
+func _plan_ending_quit() -> void:
+	var plan: String = "ending_quit"
+	var before: int = failures.size()
+	var wait: float = 30.0
+	var args: PackedStringArray = OS.get_cmdline_user_args()
+	var at: int = args.find("--ending-wait")
+	if at >= 0 and at + 1 < args.size(): wait = float(args[at + 1])
+	if not await _round("Simon", false):
+		_fail(plan, "manche non lancée")
+		return
+	var alice: PaperActor = world.killer_actor()
+	for a: PaperActor in world.actors.values():
+		if not a.killer and a.alive:
+			a.effects["death_source"] = alice.id
+			world.eliminate(a)
+	var waited: float = 0.0
+	while world.phase == "playing" and waited < 5.0:
+		await _wait(0.1)
+		waited += 0.1
+	await _wait(wait)
+	_report(plan, before, "phase=%s presented=%s cinema=%.1f" % [str(world.phase), str(world.ending_presented), float(world.cinema)])
+
+
+# --- state_reset : alerte + exécution + danse, puis retour au menu en plein milieu ------------
+
+func _state_snapshot() -> Dictionary:
+	var alarm: Node = world.exit_alarm
+	var rush: AudioStreamPlayer = world.audio.tracks.get("exit")
+	var grade: Variant = alarm.get("_grade") if alarm else null
+	var dance_players: int = 0
+	for entry: Dictionary in world.emote_sync.get("_music"):
+		if is_instance_valid(entry.player): dance_players += 1
+	var props: Variant = world.kill_scenes.get("_props_root")
+	return {
+		"phase": str(world.phase), "alarm_level": snappedf(float(alarm.level()) if alarm else 0.0, 0.01),
+		"grade": grade != null and (grade as Control).visible, "rush_playing": rush != null and rush.playing,
+		"audio_mode": str(world.audio.mode), "track": str(world.audio.active_track), "dance_players": dance_players,
+		"scenes": world.kill_scenes._scenes.size(), "shows": world.kill_scenes._shows.size(),
+		"debris": world.kill_scenes._debris.size(), "camera_held": world.camera_rig.has_control(),
+		"bars": snappedf(float(world.kill_scenes._bars_amount), 0.01), "hud_alpha": snappedf(float(world.ui.hud.modulate.a), 0.01),
+		"sign": is_instance_valid(world.map_interactables) and world.map_interactables.exit_sign.visible,
+		"ambient": world.environment.ambient_light_color.to_html(false), "siren": (alarm.get("_alarm") as AudioStreamPlayer).playing if alarm else false,
+	}
+
+
+func _plan_state_reset() -> void:
+	var plan: String = "state_reset"
+	var before: int = failures.size()
+	# Couleur d'ambiance de la carte hors alerte (référence).
+	if not await _round("Simon", false):
+		_fail(plan, "manche non lancée")
+		return
+	var ambient_base: String = world.environment.ambient_light_color.to_html(false)
+	var me: PaperActor = world.local_actor()
+	var alice: PaperActor = world.killer_actor()
+	var victim: PaperActor = _actor("Elly")
+	world.time_left = 80.5
+	await _wait(4.5)
+	world.request_emote("dance_floss")
+	var base: Vector3 = world.school.spawn_points[1] + Vector3(0, 0, -9)
+	victim.global_position = base
+	victim.reset_physics_interpolation()
+	alice.global_position = base + Vector3(0.6, 0, -2.4)
+	alice.aim = (base - alice.global_position).normalized()
+	alice.reset_physics_interpolation()
+	victim.effects["revived"] = true
+	victim.hp = 1.0
+	await _wait(0.3)
+	var scene: Dictionary = _execute(victim, alice)
+	await _wait(1.2)
+	var during: Dictionary = _state_snapshot()
+	print("CROSS_NOTE state_reset pendant ", JSON.stringify(during))
+	if scene.is_empty(): _fail(plan, "pas d'exécution pendant l'alerte")
+	if not bool(during.rush_playing): _fail(plan, "musique de course absente pendant l'alerte (préparation)")
+	if int(during.dance_players) < 1: print("CROSS_NOTE state_reset : danse non lancée (Simon pas actif ?)")
+	world.quit_to_menu()
+	# Les musiques se croisent en 1,35 s au retour au menu (comme pour les autres pistes).
+	await _wait(1.8)
+	var menu: Dictionary = _state_snapshot()
+	print("CROSS_NOTE state_reset menu ", JSON.stringify(menu))
+	for key: String in ["grade", "rush_playing", "camera_held", "siren"]:
+		if bool(menu[key]): _fail(plan, "%s encore actif au menu" % key)
+	for key: String in ["dance_players", "scenes", "shows", "debris"]:
+		if int(menu[key]) > 0: _fail(plan, "%s = %d au menu" % [key, int(menu[key])])
+	if float(menu.alarm_level) > 0.0: _fail(plan, "alerte encore à %.2f au menu" % float(menu.alarm_level))
+	if float(menu.hud_alpha) < 0.99 or float(menu.bars) > 0.0: _fail(plan, "HUD estompé ou bandes noires restés au menu")
+	if not bool(menu.sign): _fail(plan, "panneau de sortie resté caché au menu")
+	if str(menu.ambient) != ambient_base: _fail(plan, "ambiance de la carte non restaurée (%s au lieu de %s)" % [str(menu.ambient), ambient_base])
+	# Nouvelle manche : rien de la précédente ne doit revenir.
+	if not await _round("Simon", false):
+		_fail(plan, "seconde manche non lancée")
+		return
+	await _wait(1.0)
+	var fresh: Dictionary = _state_snapshot()
+	print("CROSS_NOTE state_reset nouvelle manche ", JSON.stringify(fresh))
+	if float(fresh.alarm_level) > 0.0 or bool(fresh.grade) or bool(fresh.rush_playing): _fail(plan, "alerte ou course reprise dans la nouvelle manche")
+	if str(fresh.audio_mode) == "exit": _fail(plan, "mode audio « exit » dans la nouvelle manche")
+	_report(plan, before, "")
+	world.quit_to_menu()
+	await _wait(0.3)
 
 
 # --- exec_facing : caméra « Libre 360° » (par défaut) et orientation pendant l'approche ---------

@@ -25,11 +25,13 @@ Protocole réseau **16** : tous les joueurs doivent avoir la 0.16 pour jouer ens
   - **Bleuette** est soulevée, terrifiée un instant, puis achevée.
 - En **True Form** (la « phase 6 » d'Alice), toute exécution devient : Alice attrape la victime et la fracasse violemment au sol.
 - Mise en scène de cinéma pour la victime et pour Alice : plans dédiés, ralentis, onomatopées, secousses, expressions du visage et bruitages dédiés. Les autres joueurs voient la scène dans le monde.
+- Pendant le plan, la caméra reste au film : la souris, le stick, le tactile et la touche C ne la font plus tourner ni changer de mode, et la vue de jeu revient en fondu à la fin. Sur mobile, les commandes tactiles s'estompent avec le HUD.
 - Conditions : Alice à 16 m maximum avec ligne de vue, et de la place autour. Sinon, c'est la mort normale.
 
 ## Chrono : +45 s par élimination
 - Chaque élimination définitive d'un survivant par Alice ajoute **45 secondes** au chrono, avec « +0:45 » au HUD. Les éliminations rapprochées se cumulent.
 - Une sortie déjà ouverte reste ouverte. Le bonus ne s'applique ni pendant un LMS, ni au terrain d'essai.
+- Sortie ouverte : la musique de course recule avec le chrono, calée sur la mesure, par un fondu bref. Si le chrono repasse au-dessus de 1:17, elle reprend en boucle son passage calme du début, sans se couper.
 
 ## Ouverture de la sortie
 - À l'ouverture, l'alerte de l'école se déclenche :
@@ -41,6 +43,7 @@ Protocole réseau **16** : tous les joueurs doivent avoir la 0.16 pour jouer ens
   - secousse et battements de cœur.
 - La **musique de course** s'intensifie jusqu'à la fin du chrono. À 0:17, un « dernier appel » marque l'entrée dans le final.
 - Un LMS garde sa musique prioritaire. « Réduire les flashs » adoucit les pulsations et « Effets d'écran » coupe le filtre.
+- Pendant une exécution, le filtre rouge et les lumières d'urgence passent à mi-intensité, pour que le plan reste lisible. Si la manche se termine juste après l'ouverture, la sirène s'efface au début du film de fin.
 
 ## Volume des musiques
 - Toutes les musiques sont normalisées au même niveau. Les OST fournies de Bleuette et d'Usayuko étaient beaucoup trop fortes ; celle de Bleuette saturait. Les danses sont aussi normalisées.
