@@ -172,7 +172,8 @@ static func _shimmy(side: float) -> Dictionary:
 
 
 # Dame un Grrr (Fantomel & Kate Linn, été 2025) : la griffe au visage, coup de hanche,
-# griffures de chat, ondulation, tour sur soi et rugissement.
+# griffures de chat, ondulation, tour sur soi et rugissement. Effets BD discrets (traînées de
+# mains, veine de colère) : pas de griffes ni d'éclats d'impact, qu'on confondrait avec un coup d'Alice.
 static func _grrr(c: Dictionary) -> void :
 	var bpm: float = 126.0
 	var keys: Array = []
@@ -186,11 +187,11 @@ static func _grrr(c: Dictionary) -> void :
 	keys.append([3.5, M([_base(), _claw_face(-1.0, 0.4), {"turn": 0.0}])])
 	for k: int in range(4):
 		var s: float = 1.0 if k % 2 == 0 else -1.0
-		keys.append([4.0 + float(k) * 0.5, M([_base(), _scratch(s, true), {"turn": 0.0, "fx": "claw_r" if s > 0.0 else "claw_l"}]), "s"])
+		keys.append([4.0 + float(k) * 0.5, M([_base(), _scratch(s, true), {"turn": 0.0, "fx": "trail_r" if s > 0.0 else "trail_l"}]), "s"])
 		keys.append([4.25 + float(k) * 0.5, M([_base(), _scratch(s, false), {"turn": 0.0}])])
 	keys.append([6.0, M([_base(), _body_roll(0.0), {"turn": 0.0}])])
 	keys.append([6.5, M([_base(), _body_roll(1.0), {"turn": 0.0}])])
-	keys.append([7.0, M([_base(), _roar(), {"turn": 0.0, "fx": "pop_front"}]), "s"])
+	keys.append([7.0, M([_base(), _roar(), {"turn": 0.0, "fx": "anger dust"}]), "s"])
 	for b: int in range(8, 12):
 		var side: float = 1.0 if b % 2 == 0 else -1.0
 		keys.append([float(b), M([_base(), _catwalk(side, 1.0), {"turn": 0.0}]), "s"])
@@ -291,9 +292,9 @@ static func _golden(c: Dictionary) -> void :
 		[2.5, M([_base(), _guard(0.7)])],
 		[3.0, M([_base(), _guard(1.0), {"turn": 0.0}]), "s"],
 		[3.5, M([_base(), _guard(0.85)])],
-		[4.0, M([_base(), _strike(1.0, 0.0), {"fx": "pop_r"}]), "s"],
+		[4.0, M([_base(), _strike(1.0, 0.0), {"fx": "trail_r"}]), "s"],
 		[4.5, M([_base(), _strike(0.4, 0.0)])],
-		[5.0, M([_base(), _strike(-1.0, 1.0), {"fx": "pop_l"}]), "s"],
+		[5.0, M([_base(), _strike(-1.0, 1.0), {"fx": "trail_l"}]), "s"],
 		[5.5, M([_base(), _strike(-0.4, 0.4)])],
 		[6.0, M([_base(), _golden_v(0.0)])],
 		[7.0, M([_base(), _golden_v(1.0), {"fx": "sparkle glint"}]), "s"],
