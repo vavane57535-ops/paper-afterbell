@@ -232,6 +232,24 @@ func _test_vertical_range() -> void :
 	metrics["pitch_down_deg"] = down
 	_check("vertical_range", up >= 60.0 and down <= -70.0, "regard de %.0f° (bas) à +%.0f° (haut) ; 0.15 : environ -26° à +10°" % [down, up])
 	_check("look_up_floor", clearance >= 0.3, "caméra à %.2f m au-dessus des pieds en regardant en l'air (ne passe pas sous le sol)" % clearance)
+	# En levant les yeux, la caméra descend et se rapproche : le perso reste visible en bas de l'image,
+	# sans aucun retard (la perche suit l'inclinaison image par image).
+	var viewport: Vector2 = world.get_viewport().get_visible_rect().size
+	var seen: Array[String] = []
+	var lowest: float = INF
+	for degrees: float in [20.0, 35.0, 50.0, 60.0]:
+		world.pitch = deg_to_rad(degrees)
+		rig.update(1.0 / 60.0)
+		var head: Vector3 = world.actor_render_position(actor) + Vector3.UP * 1.6
+		var on_screen: Vector2 = world.camera.unproject_position(head)
+		var visible: bool = not world.camera.is_position_behind(head) and on_screen.y < viewport.y - 4.0 and on_screen.y > 0.0
+		lowest = minf(lowest, world.camera.global_position.y - actor.global_position.y)
+		seen.append("%d° %s" % [int(degrees), "oui" if visible else "non"])
+		if not visible: lowest = -1.0
+	world.pitch = deg_to_rad(50.0)
+	await _frames(3)
+	await _capture("cam_look_up_50")
+	_check("look_up_character", lowest >= 0.3, "tête du perso à l'écran en levant les yeux : %s ; caméra jamais sous %.2f m" % [", ".join(seen), maxf(lowest, 0.0)])
 	world.pitch = Rig.DEFAULT_PITCH
 	await _frames(2)
 
@@ -328,7 +346,7 @@ func _move_case(actor: PaperActor, mode: String, yaw: float, actions: Array, loc
 		await get_tree().physics_frame
 		path.append(actor.global_position)
 	var screen_mid: Vector2 = world.camera.unproject_position(world.actor_render_position(actor) + Vector3.UP * 1.1)
-	var body: Vector3 = world.actor_render_position(actor)
+	var body: Vector3 = rig._anchor_target
 	var follow_lag: float = Vector2(world.camera_anchor.x - body.x, world.camera_anchor.z - body.z).length()
 	var side_change: float = maxf(absf(float(rig._side) - side_start), absf(float(rig._boom) - boom_start) / Rig.BOOM_LENGTH)
 	_release_all()

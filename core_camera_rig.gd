@@ -55,6 +55,7 @@ const DOWNED_BOOM_LENGTH: float = 3.3
 const HEAD_HEIGHT: float = 1.5
 const DOWNED_HEAD_HEIGHT: float = 0.68
 const FLOOR_CLEARANCE: float = 0.4
+const LOOKUP_BOOM: float = 2.4
 const FRAME_TIME: float = 0.45
 const ANCHOR_RATE: float = 30.0
 const ANCHOR_RATE_VERTICAL: float = 12.0
@@ -100,6 +101,7 @@ var test_stick: Variant = null
 var _probe: PhysicsShapeQueryParameters3D
 var _boom: float = BOOM_LENGTH
 var _boom_speed: float = 0.0
+var _boom_length: float = BOOM_LENGTH
 var _push_hold: float = 0.0
 var _occluded: float = 0.0
 var _side: float = 1.0
@@ -128,6 +130,7 @@ var _pad: Vector2 = Vector2.ZERO
 var _pad_hold: float = 0.0
 var _pad_frame: int = -10
 var _last_goal: Transform3D = Transform3D.IDENTITY
+var _anchor_target: Vector3 = Vector3.ZERO
 var _controllers: Array[Dictionary] = []
 var _facing_sent: int = -1
 var _facing_clock: float = 0.0
@@ -151,6 +154,7 @@ func reset() -> void :
 	_blend = 0.0
 	_boom = BOOM_LENGTH
 	_boom_speed = 0.0
+	_boom_length = BOOM_LENGTH
 	_push_hold = 0.0
 	_occluded = 0.0
 	_side = 1.0
@@ -482,6 +486,7 @@ func _follow(delta: float, actor: PaperActor) -> void :
 		world.camera_anchor_ready = false
 		_boom = BOOM_LENGTH
 		_boom_speed = 0.0
+		_boom_length = BOOM_LENGTH
 		_side = 1.0
 		_fov = camera.fov
 	elif not _following:
@@ -570,12 +575,6 @@ func gameplay_goal(delta: float, actor: PaperActor) -> Transform3D:
 	var pitch: float = clampf(float(world.pitch), PITCH_MIN, PITCH_MAX)
 	var look: Vector3 = view_direction(yaw, pitch)
 	var right: Vector3 = Vector3.RIGHT.rotated(Vector3.UP, yaw)
-	# Vers le haut, la perche cesse de descendre avant le sol : la caméra s'incline seulement.
-	var orbit_pitch: float = pitch
-	if pitch > 0.0:
-		var limit: float = asin(clampf((head + lift - FLOOR_CLEARANCE) / maxf(0.5, length), 0.02, 0.9))
-		orbit_pitch = limit * tanh(pitch / limit)
-	var back: Vector3 = - view_direction(yaw, orbit_pitch)
 	var side_goal: Vector3 = pivot + right * shoulder + Vector3.UP * lift
 	var side_free: float = cast_fraction(pivot, side_goal)
 	if side_free < _side:
@@ -583,10 +582,21 @@ func gameplay_goal(delta: float, actor: PaperActor) -> Transform3D:
 	else:
 		_side = lerpf(_side, side_free, 1.0 - exp( - delta * SIDE_OUT_RATE))
 	var origin: Vector3 = pivot.lerp(side_goal, _side)
-	_resolve_boom(delta, origin, back, length, right)
-	return Transform3D(Basis.looking_at(look, Vector3.UP), origin + back * _boom)
+	# Vers le haut, la caméra descend vers le sol en se rapprochant (perche raccourcie, sans retard),
+	# jusqu'à LOOKUP_BOOM ; au-delà elle s'incline seulement. Le perso reste en bas de l'image.
+	var orbit_pitch: float = pitch
+	var reach: float = length
+	if pitch > 0.0:
+		var height: float = maxf(0.05, origin.y - (target.y - head) - FLOOR_CLEARANCE)
+		var limit: float = asin(clampf(height / maxf(0.5, minf(length, LOOKUP_BOOM)), 0.02, 0.95))
+		orbit_pitch = limit * tanh(pitch / limit)
+		reach = clampf(height / maxf(0.01, sin(orbit_pitch)), minf(length, LOOKUP_BOOM), length)
+	var back: Vector3 = - view_direction(yaw, orbit_pitch)
+	var boom: float = _resolve_boom(delta, origin, back, length, reach, right)
+	return Transform3D(Basis.looking_at(look, Vector3.UP), origin + back * boom)
 
 func _update_anchor(delta: float, target: Vector3) -> void :
+	_anchor_target = target
 	if not world.camera_anchor_ready or world.camera_anchor.distance_to(target) > 12.0:
 		world.camera_anchor = target
 		world.camera_anchor_ready = true
@@ -602,16 +612,21 @@ func _update_anchor(delta: float, target: Vector3) -> void :
 	world.camera_anchor = Vector3(flat.x, height, flat.y)
 
 
-func _resolve_boom(delta: float, origin: Vector3, back: Vector3, length: float, right: Vector3) -> void :
-	var full: Vector3 = origin + back * length
+# _boom suit la longueur nominale (ou l'obstacle) ; « reach » est la longueur permise par l'inclinaison
+# (regard vers le haut), appliquée directement : seule la gêne d'un obstacle passe par le ressort.
+func _resolve_boom(delta: float, origin: Vector3, back: Vector3, length: float, reach: float, right: Vector3) -> float:
+	# Perche libre (aucun obstacle) : elle suit tout de suite les changements de cadrage, déjà lissés.
+	if _boom >= _boom_length - 0.002 and _push_hold <= 0.0: _boom = length
+	_boom_length = length
+	var full: Vector3 = origin + back * reach
 	var free: float = cast_fraction(origin, full)
 	var target: float = length
 	var hard: bool = false
 	if free < 1.0:
 		# Mur : la perche rentre tout de suite. Poteau / arbre fin derrière lequel la caméra se trouve
 		# déjà : toléré OCCLUSION_GRACE secondes (évite les sauts quand on longe des piliers).
-		var hit: float = length * free
-		if _boom > hit + PULL_IN_SLACK and _thin_occluder(origin, full, free, length, right):
+		var hit: float = reach * free
+		if minf(_boom, reach) > hit + PULL_IN_SLACK and _thin_occluder(origin, full, free, reach, right):
 			_occluded += delta
 			hard = _occluded >= OCCLUSION_GRACE
 		else:
@@ -624,10 +639,10 @@ func _resolve_boom(delta: float, origin: Vector3, back: Vector3, length: float, 
 		_boom = minf(lerpf(_boom, target, 1.0 - exp( - delta * PULL_IN_RATE)), target + PULL_IN_SLACK)
 		_boom_speed = 0.0
 		_push_hold = PUSH_OUT_DELAY
-		return
+		return minf(_boom, reach)
 	if _push_hold > 0.0:
 		_push_hold -= delta
-		return
+		return minf(_boom, reach)
 	# Ressort critique sous-échantillonné : même mouvement quel que soit le framerate.
 	var left: float = minf(delta, 0.25)
 	while left > 1e-06:
@@ -636,6 +651,7 @@ func _resolve_boom(delta: float, origin: Vector3, back: Vector3, length: float, 
 		_boom = minf(_boom + _boom_speed * step, target)
 		left -= step
 	if _boom >= target - 0.0005: _boom_speed = 0.0
+	return minf(_boom, reach)
 
 
 func _thin_occluder(origin: Vector3, full: Vector3, free: float, length: float, right: Vector3) -> bool:
