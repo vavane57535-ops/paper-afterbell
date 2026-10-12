@@ -224,7 +224,8 @@ func _process(delta: float) -> void :
 	var audio: PaperAudio = world.audio
 	var music: bool = open and not bool(world.lms)
 	if audio and audio.has_method("set_rush"):
-		audio.set_rush(_rush if music else 0.0, RUSH_SPAN - float(world.time_left) - RUSH_LEAD if music else -1.0)
+		var frozen: bool = bool(world.pause_open) and not bool(world.networked)
+		audio.set_rush(_rush if music else 0.0, RUSH_SPAN - float(world.time_left) - RUSH_LEAD if music else -1.0, frozen)
 		audio.heartbeat_floor = _heart_floor() if open else 0.0
 	if open and not _final_done and final_stretch():
 		_final_done = true
@@ -242,6 +243,8 @@ func _process(delta: float) -> void :
 	if phase in ["menu", "lobby", "loading"]:
 		_round_seen = -1
 		_final_done = false
+		# partie quittée pendant l'alerte : la sirène ne suit pas le joueur au menu
+		if _alarm.playing: _alarm.stop()
 
 func _heart_floor() -> float:
 	var me: PaperActor = world.local_actor()

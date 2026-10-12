@@ -68,6 +68,7 @@ var _rush_position: float = -1.0
 var _rush_trim: float = 1.0
 var _rush_filter: AudioEffectLowPassFilter
 var _rush_filter_on: bool = false
+var _rush_hold: bool = false
 var _heart_slot: int = -1
 
 var _bed_player: AudioStreamPlayer
@@ -413,9 +414,10 @@ func _enter_rush() -> void :
 	_sync_rush()
 
 
-func set_rush(level: float, position: float) -> void :
+func set_rush(level: float, position: float, hold: bool = false) -> void :
 	_rush_level = clampf(level, 0.0, 1.0) if is_finite(level) else 0.0
 	_rush_position = position if is_finite(position) else -1.0
+	_rush_hold = hold
 
 func rush_beat() -> float:
 	var player: AudioStreamPlayer = tracks.get("exit")
@@ -424,14 +426,23 @@ func rush_beat() -> float:
 
 func _sync_rush() -> void :
 	var player: AudioStreamPlayer = tracks.get("exit")
-	if player == null or _silent or active_track != "exit" or not _preview_snapshot.is_empty(): return
+	if player == null or _silent or not _preview_snapshot.is_empty(): return
+	if active_track != "exit":
+		# une course mise en pause puis quittée (retour au menu, LMS…) ne doit pas rester suspendue
+		if player.stream_paused: player.stop();player.stream_paused = false
+		return
 	if _rush_position < 0.0:
-		if player.playing: player.stop()
+		if player.playing or player.stream_paused: player.stop();player.stream_paused = false
 		_start_requests.erase("exit")
 		return
 	if player.stream == null:
 		if not _start_requests.has("exit"): _play_from("exit", _rush_position, true)
 		return
+	# partie solo en pause : le chrono est figé, la course attend avec lui (sinon elle bégaierait en se recalant)
+	if _rush_hold:
+		if player.playing: player.stream_paused = true
+		return
+	if player.stream_paused: player.stream_paused = false
 	if _rush_position >= player.stream.get_length() - 0.05: return
 	if not player.playing: player.play(_rush_position)
 	elif absf(player.get_playback_position() - _rush_position) > 0.35: player.seek(_rush_position)
@@ -760,7 +771,7 @@ func _update_heartbeat(delta: float) -> void :
 		_heart_clock = maxf(_heart_clock + 60.0 / float(band[1]), 0.12)
 	_heart_player.pitch_scale = float(band[2])
 	# Le battement « de fond » de la course vers la sortie reste discret (-10 dB) ; la proximité d'Alice le rend plein.
-	var heart_gain: float = lerpf(0.3, 1.0, clampf(_heart_target / maxf(heartbeat_floor, 0.01), 0.0, 1.0))
+	var heart_gain: float = 1.0 if heartbeat_floor <= 0.0 else lerpf(0.3, 1.0, clampf(_heart_target / heartbeat_floor, 0.0, 1.0))
 	_heart_player.volume_db = linear_to_db(lerpf(0.26, 0.95, _heart_level) * heart_gain) + volume_to_db(effects_volume)
 	_heart_player.play()
 
@@ -1082,6 +1093,7 @@ func clear_event_history() -> void :
 	heartbeat_floor = 0.0
 	_rush_level = 0.0
 	_rush_position = -1.0
+	_rush_hold = false
 	_resume["exit"] = 0.0
 	_exit_open_heard = false
 	_escapes_heard = 0

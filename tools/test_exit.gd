@@ -1,7 +1,7 @@
 extends Node
 
 # Vérification de l'ouverture de la sortie (0.16).
-# Lance : godot -- --simulate Simon --duration 70 --tool test_exit [--exit-out <dossier>] [--exit-audio] [--exit-plan quick|full|lms]
+# Lance : godot -- --simulate Simon --duration 70 --tool test_exit [--exit-out <dossier>] [--exit-audio] [--exit-plan quick|full|lms|tf|observe|pause]
 # Force time_left près de 80 s, capture des images (avant, annonce, pulsation rouge, +20 s, dernier appel)
 # et, avec --exit-audio, enregistre le mixage final (bus Master) en WAV pour mesurer les niveaux.
 
@@ -17,6 +17,7 @@ var _recorder: AudioEffectRecord
 var _record_from: float = -1.0
 var _record_until: float = -1.0
 var _jumps: Array = []
+var _pauses: Array = []
 var _log: Array = []
 var _done: bool = false
 var _lms_requested: bool = false
@@ -81,6 +82,7 @@ func _process(delta: float) -> void :
 		_schedule()
 	_run_shots()
 	_run_jumps()
+	_run_pauses()
 	_update_recording()
 	if _true_form_at > 0.0 and _clock >= _true_form_at:
 		_true_form_at = -1.0
@@ -131,6 +133,10 @@ func _schedule() -> void :
 	elif plan == "observe":
 		_shots += [[t + 1.2, "b_observed"]]
 		_finish_at(t + 6.0)
+	elif plan == "pause":
+		# partie solo en pause : chrono figé, la course doit se suspendre puis reprendre au même endroit
+		_pauses = [[t + 5.0, true], [t + 8.0, false]]
+		_finish_at(t + 10.0)
 	elif plan == "tf":
 		# True Form : la sortie se referme (chrono suspendu) puis se rouvre
 		_shots += [[t + 7.0, "b_true_form"], [t + 12.6, "c_reopen"]]
@@ -150,6 +156,14 @@ func _schedule() -> void :
 
 func _finish_at(t: float) -> void :
 	_shots.append([t, "z_end"])
+
+func _run_pauses() -> void :
+	for step: Array in _pauses.duplicate():
+		if _clock < float(step[0]): continue
+		_pauses.erase(step)
+		world.pause_open = bool(step[1])
+		var player: AudioStreamPlayer = world.audio.tracks.get("exit")
+		_note("pause_open=%s time_left=%.2f pos=%.2f playing=%s paused=%s" % [str(world.pause_open), world.time_left, player.get_playback_position(), str(player.playing), str(player.stream_paused)])
 
 func _run_jumps() -> void :
 	for jump: Array in _jumps.duplicate():
