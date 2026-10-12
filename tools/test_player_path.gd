@@ -541,6 +541,11 @@ func _step_gallery() -> void :
 			await _wait(0.5)
 			await _mouse_to(Vector2(8, 8))
 			await _shot("film_%s_%04.1fs" % [spec[1], float(at)])
+		if str(spec[0]) == "intro":
+			# Titre final en plein écran : sans action, la barre de lecture s'efface.
+			world.gallery.seek(186.0)
+			await _wait(3.4)
+			await _shot("film_intro_yiero_titre_sans_barre")
 		await _tap(KEY_ESCAPE, 0.8)
 		_check(world.gallery.browsing, "Échap revient à la liste")
 	world.gallery.category = "all"
