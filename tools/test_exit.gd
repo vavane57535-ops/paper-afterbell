@@ -20,6 +20,8 @@ var _jumps: Array = []
 var _log: Array = []
 var _done: bool = false
 var _lms_requested: bool = false
+var _true_form_at: float = -1.0
+var _last_open: bool = true
 
 func setup(game_world: Node) -> void :
 	world = game_world
@@ -47,6 +49,9 @@ func _process(delta: float) -> void :
 			_note("phase -> " + str(world.phase))
 			_end()
 		return
+	if not _armed and plan == "observe":
+		_armed = true
+		_note("observing (networked=%s, authority=%s)" % [str(world.networked), str(world.authoritative())])
 	if not _armed:
 		if float(world.clock) < 3.0: return
 		if plan == "lms" and not world.lms:
@@ -77,12 +82,22 @@ func _process(delta: float) -> void :
 	_run_shots()
 	_run_jumps()
 	_update_recording()
+	if _true_form_at > 0.0 and _clock >= _true_form_at:
+		_true_form_at = -1.0
+		var killer: PaperActor = world.killer_actor()
+		if killer:
+			killer.effects["phase6"] = 4.0
+			_note("forced True Form on Alice (4 s)")
+	if _open_at >= 0.0 and world.exit_flow.opened != _last_open:
+		_last_open = world.exit_flow.opened
+		_note("exit opened=%s time_left=%.2f mode=%s track=%s" % [str(_last_open), world.time_left, world.audio.mode, world.audio.active_track])
 	if _open_at >= 0.0 and _clock - _open_at > 1.0 and _clock - _open_at - delta <= 1.0:
 		var lamps: Array = world.exit_alarm.get("_lamps")
 		var nearest: Light3D = null
-		var me: PaperActor = world.local_actor()
+		var me: Node3D = world.local_actor()
+		if me == null: me = world.camera
 		for lamp: Variant in lamps:
-			if is_instance_valid(lamp) and (nearest == null or (lamp as Light3D).global_position.distance_to(me.position) < nearest.global_position.distance_to(me.position)): nearest = lamp
+			if is_instance_valid(lamp) and (nearest == null or (lamp as Light3D).global_position.distance_to(me.global_position) < nearest.global_position.distance_to(me.global_position)): nearest = lamp
 		if nearest: _note("tinted lamps %d, nearest %s color=%s energy=%.2f range=%s" % [lamps.size(), nearest.get_class(), str(nearest.light_color), nearest.light_energy, str(nearest.get("omni_range"))])
 	if _open_at >= 0.0 and int(_clock * 2.0) != int((_clock - delta) * 2.0):
 		var player: AudioStreamPlayer = world.audio.tracks.get("exit")
@@ -113,6 +128,14 @@ func _schedule() -> void :
 	elif plan == "lms":
 		_shots += [[t + 1.2, "b_lms_banner"], [t + 5.0, "c_lms_after"]]
 		_finish_at(t + 7.0)
+	elif plan == "observe":
+		_shots += [[t + 1.2, "b_observed"]]
+		_finish_at(t + 6.0)
+	elif plan == "tf":
+		# True Form : la sortie se referme (chrono suspendu) puis se rouvre
+		_shots += [[t + 7.0, "b_true_form"], [t + 12.6, "c_reopen"]]
+		_true_form_at = t + 6.0
+		_finish_at(t + 16.0)
 	else:
 		_shots += [[t + 0.3, "b_banner_slam"], [t + 1.4, "c_banner_red"], [t + 2.6, "d_pulse"], [t + 4.2, "e_music_start"],
 			[t + 9.5, "f_plus20"], [t + 15.2, "g_final_call"], [t + 16.5, "h_climax"], [t + 17.6, "h2_beat_a"], [t + 17.83, "h3_beat_b"], [t + 19.5, "i_last_seconds"]]

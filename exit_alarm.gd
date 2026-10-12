@@ -245,7 +245,7 @@ func _process(delta: float) -> void :
 
 func _heart_floor() -> float:
 	var me: PaperActor = world.local_actor()
-	if me == null or me.killer or not me.alive or bool(me.effects.get("escaped", false)): return 0.0
+	if bool(world.lms) or me == null or me.killer or not me.alive or bool(me.effects.get("escaped", false)): return 0.0
 	if _since < RUSH_LEAD: return 0.6
 	return 0.38 + 0.37 * smoothstep(0.62, 0.8, _rush)
 
@@ -255,7 +255,7 @@ func _on_open() -> void :
 	var first: bool = _round_seen != serial
 	_round_seen = serial
 	_final_done = final_stretch()
-	_play_alarm(0, -7.0 if bool(world.lms) else -4.0)
+	_play_alarm(0, -7.0 if bool(world.lms) or not first else -4.0)
 	if not calm():
 		world.add_camera_trauma(0.8)
 		if is_instance_valid(world.ui.screen_fx):
@@ -293,6 +293,11 @@ func _update_pulse(delta: float) -> void :
 	if calm():
 		_pulse = 0.5 + 0.5 * sin(_clock * TAU / 3.2)
 		_pulse *= 0.35
+		return
+	if bool(world.lms):
+		# la musique de LMS garde la priorité : pas de pulsation calée sur un autre tempo
+		_pulse = 0.25 + 0.4 * pow(0.5 + 0.5 * sin(_clock * TAU / 1.6), 2.0)
+		if _since < 0.8: _pulse = maxf(_pulse, 1.0 - _since / 0.8)
 		return
 	var step: int = 1 if final_stretch() else 2
 	var beat: float = world.audio.rush_beat() if world.audio and world.audio.has_method("rush_beat") else -1.0
