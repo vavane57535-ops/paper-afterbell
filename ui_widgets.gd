@@ -5,6 +5,8 @@ extends RefCounted
 const T = preload("res://ui_theme.gd")
 const Icons = preload("res://ui_icons.gd")
 const Sound = preload("res://ui_sound.gd")
+const Collage = preload("res://ui_collage.gd")
+const Geom = preload("res://ui_paper_geom.gd")
 
 
 class PaperStyle extends StyleBox:
@@ -149,8 +151,19 @@ class NavItem extends Button:
 	var primary: bool = false
 	var font_size_px: int = 30
 	var reduced_motion: bool = false
+	# Collage façon Persona : inclinaison de l'entrée (degrés), décalage en
+	# éventail (px) et couleur de la découpe derrière l'entrée sélectionnée.
+	var tilt_deg: float = 0.0
+	var arc_x: float = 0.0
+	var cut_color: Color = T.RED
+	var collage: bool = true
+	# Reste allumée même sans survol ni focus (menu pause : il y a toujours
+	# une commande choisie, comme dans Persona).
+	var held: bool = false
 	var _hover: float = 0.0
 	var _target: float = 0.0
+	var _velocity: float = 0.0
+	var _shake: float = 0.0
 	var _track: Hover = Hover.new()
 
 	func _init() -> void :
@@ -172,13 +185,14 @@ class NavItem extends Button:
 
 
 	func refresh_highlight() -> void :
-		var want: float = 1.0 if _track.lit(self) and not disabled else 0.0
+		var want: float = 1.0 if (_track.lit(self) or held) and not disabled else 0.0
 		if want == _target:
 			queue_redraw()
 			return
 		if want > _target:
 			Sound.play("hover")
 			hinted.emit(hint)
+			_shake = 1.0
 		else:
 
 			hinted.emit("")
@@ -192,6 +206,8 @@ class NavItem extends Button:
 		_track.inside = false
 		_target = 0.0
 		_hover = 0.0
+		_velocity = 0.0
+		_shake = 0.0
 		queue_redraw()
 
 	func _animate() -> void :
@@ -205,11 +221,35 @@ class NavItem extends Button:
 	func _process(delta: float) -> void :
 
 		if _track.inside and not _track.still_over(self): refresh_highlight()
-		_hover = _target if reduced_motion else move_toward(_hover, _target, delta * 6.5)
+		if reduced_motion:
+			_hover = _target
+			_shake = 0.0
+		else:
+			# Ressort : l'entrée sélectionnée grossit avec un léger dépassement.
+			var step: float = minf(delta, 1.0 / 30.0)
+			_velocity += ((_target - _hover) * 380.0 - _velocity * 21.0) * step
+			_hover += _velocity * step
+			_shake = maxf(0.0, _shake - delta / 0.18)
 		queue_redraw()
-		if is_equal_approx(_hover, _target) and not _track.inside: set_process(false)
+		var settled: bool = absf(_hover - _target) < 0.002 and absf(_velocity) < 0.01 and _shake <= 0.0
+		if settled:
+			_hover = _target
+			_velocity = 0.0
+		# Allumée : on continue de redessiner pour le trait qui frémit.
+		if settled and not _track.inside and (_target <= 0.0 or reduced_motion): set_process(false)
+
+	func set_held(on: bool) -> void :
+		if held == on: return
+		held = on
+		refresh_highlight()
+
+	func is_lit_now() -> bool:
+		return _track.lit(self)
 
 	func _draw() -> void :
+		if collage:
+			_draw_collage()
+			return
 		var font: Font = get_theme_font("font")
 		var font_size: int = get_theme_font_size("font_size")
 		var t: float = ease(_hover, 0.6)
@@ -241,6 +281,38 @@ class NavItem extends Button:
 				var dy: float = 8.0 if corner.y <= r.position.y else -8.0
 				draw_line(corner, corner + Vector2(dx, 0), T.GOLD, 2.0)
 				draw_line(corner, corner + Vector2(0, dy), T.GOLD, 2.0)
+
+	# Mot en lettres découpées, incliné ; sélectionné : il grossit (ressort),
+	# tremble, une découpe colorée se déplie derrière et le trait frémit.
+	func _draw_collage() -> void :
+		var shown: String = text.to_upper()
+		var lit: float = clampf(_hover, 0.0, 1.25)
+		var on: float = clampf(lit, 0.0, 1.0)
+		var px: float = float(font_size_px) * 1.08
+		var baseline: float = size.y * 0.5 + px * 0.36
+		var shake: Vector2 = Vector2.ZERO
+		if _shake > 0.0 and not reduced_motion:
+			shake = Vector2(Geom.noise(Geom.boil_frame, 1) - 0.5, Geom.noise(Geom.boil_frame, 2) - 0.5) * 7.0 * _shake
+		var grow: float = 1.0 + (0.18 if primary else 0.3) * lit
+		var angle: float = deg_to_rad(tilt_deg) * (1.0 - 0.35 * on) + deg_to_rad(-2.5) * on
+		var base: Transform2D = Transform2D(angle, Vector2(grow, grow), 0.0, Vector2(30.0 + arc_x + 16.0 * on, baseline) + shake)
+		var alpha: float = 0.3 if disabled else 1.0
+		var seed_value: int = absi(shown.hash()) % 9973
+		var boil: int = Geom.boil_frame if lit > 0.5 and not reduced_motion else 0
+		var ink: Color = T.CREAM if primary else T.PAPER_DIM.lerp(T.CREAM, 0.4)
+		if on > 0.05:
+			# Éclat de papier pointé sur l'entrée sélectionnée (curseur).
+			var reach: float = px * (0.62 + 0.08 * sin(float(boil) * 1.7))
+			var dart: PackedVector2Array = PackedVector2Array([Vector2(- reach - px * 0.5, - px * 0.62), Vector2(- px * 0.42, - px * 0.36), Vector2(- reach - px * 0.38, - px * 0.08)])
+			var shape: PackedVector2Array = Geom.transformed(dart, base)
+			Geom.polygon(get_canvas_item(), Geom.offset(shape, Vector2(4, 5)), Color(T.INK, 0.8 * on))
+			Geom.polygon(get_canvas_item(), shape, Color(T.CREAM if cut_color.get_luminance() < 0.55 else T.RED, on))
+		Collage.draw_word(self, shown, base, px, seed_value, lit, cut_color, alpha, boil, false, ink, accent.lerp(T.RED, 0.5))
+		if primary:
+			var width: float = Collage.width(shown, px, seed_value)
+			Collage.draw_arrow(self, base, Vector2(width + px * 0.4 + 10.0 * on, - px * 0.32), px, accent if lit < 0.5 else T.CREAM, alpha)
+		draw_set_transform(Vector2.ZERO)
+
 
 
 
@@ -635,6 +707,8 @@ class CharacterCard extends Button:
 	var art_accent: Color = T.TEAL
 	var _hover: float = 0.0
 	var _target: float = 0.0
+	var _velocity: float = 0.0
+	var _shake: float = 0.0
 	var _paper: PaperStyle
 	var _stamp: Stamp
 	var _track: Hover = Hover.new()
@@ -683,7 +757,9 @@ class CharacterCard extends Button:
 		if want == _target:
 			queue_redraw()
 			return
-		if want > _target: Sound.play("hover")
+		if want > _target:
+			Sound.play("hover")
+			_shake = 1.0
 		_target = want
 		if reduced_motion:
 			_hover = _target
@@ -698,30 +774,53 @@ class CharacterCard extends Button:
 			_hover = 0.0
 			queue_redraw()
 
+	func _enter_tree() -> void :
+		# Le conteneur remet rotation et échelle à zéro quand il se réorganise.
+		var parent: Container = get_parent() as Container
+		if parent and not parent.sort_children.is_connected(_on_resized): parent.sort_children.connect(_on_resized)
+
 	func _process(delta: float) -> void :
 		if _track.inside and not _track.still_over(self): refresh_highlight()
-		_hover = _target if reduced_motion else move_toward(_hover, _target, delta * 7.0)
+		if reduced_motion:
+			_hover = _target
+			_shake = 0.0
+		else:
+			var step: float = minf(delta, 1.0 / 30.0)
+			_velocity += ((_target - _hover) * 420.0 - _velocity * 22.0) * step
+			_hover += _velocity * step
+			_shake = maxf(0.0, _shake - delta / 0.16)
+		_apply_pose()
 		queue_redraw()
-		if is_equal_approx(_hover, _target) and not _track.inside: set_process(false)
+		if absf(_hover - _target) < 0.002 and absf(_velocity) < 0.01 and _shake <= 0.0:
+			_hover = _target
+			_velocity = 0.0
+			_apply_pose()
+			if not _track.inside: set_process(false)
+
+	func _apply_pose() -> void :
+		var lit: float = maxf(_hover, 0.0)
+		var pop: float = 1.0 + 0.06 * lit
+		scale = Vector2(pop, pop)
+		rotation = deg_to_rad(tilt * (1.0 - 0.6 * clampf(lit, 0.0, 1.0)) - 1.5 * clampf(lit, 0.0, 1.0)) + sin(float(Time.get_ticks_msec()) * 0.09) * 0.02 * _shake
 
 	func _on_resized() -> void :
 		pivot_offset = size * 0.5
-		rotation = deg_to_rad(tilt)
+		_apply_pose()
 		if _stamp:
 			_stamp.size = Vector2(size.x * 0.92, 36)
 			_stamp.position = Vector2(size.x * 0.04, size.y * 0.63 - 24.0)
 
 	func _draw() -> void :
-		var lift: float = -7.0 * maxf(ease(_hover, 0.5), 1.0 if selected else 0.0)
+		var lift: float = -7.0 * maxf(ease(clampf(_hover, 0.0, 1.0), 0.5), 1.0 if selected else 0.0)
 		var r: Rect2 = Rect2(Vector2(0, lift), size)
-		if selected or _track.key_focus(self):
-			var ring: StyleBoxFlat = StyleBoxFlat.new()
-			ring.draw_center = false
-			ring.border_color = T.GOLD
-			ring.set_border_width_all(3)
-			ring.set_corner_radius_all(3)
-			ring.set_expand_margin_all(5)
-			draw_style_box(ring, r)
+		var lit: float = maxf(clampf(_hover, 0.0, 1.0), 1.0 if selected else 0.0)
+		if _track.key_focus(self): lit = 1.0
+		if lit > 0.01:
+			# Découpe de couleur derrière la carte (couleur du personnage).
+			var back: Rect2 = r.grow_individual(10, 8, 12, 14)
+			var cut: PackedVector2Array = Geom.cut(back, person.length() * 11 + (Geom.boil_frame if _target > 0.5 and not reduced_motion else 0), 0.1)
+			Geom.polygon(get_canvas_item(), Geom.offset(cut, Vector2(7, 9) * lit), Color(T.INK, 0.8 * lit))
+			Geom.polygon(get_canvas_item(), cut, Color(art_accent if art else accent, lit))
 		if _paper: _paper.draw(get_canvas_item(), r)
 		var photo: Rect2 = Rect2(r.position + Vector2(8, 8), Vector2(r.size.x - 16, r.size.y * 0.63))
 		var faded: Color = Color(1, 1, 1, 0.45) if not taken_by.is_empty() else Color.WHITE
@@ -807,13 +906,21 @@ class MapCard extends Button:
 
 	func _draw() -> void :
 		var r: Rect2 = Rect2(Vector2.ZERO, size)
-		var frame: StyleBoxFlat = StyleBoxFlat.new()
-		frame.bg_color = Color("121621") if not _hover else Color("171c29")
-		frame.border_color = T.TEAL if selected else (T.TEAL_DIM if _hover else T.LINE)
-		frame.set_border_width_all(2 if selected else 1)
-		frame.set_corner_radius_all(6)
-		frame.anti_aliasing = true
-		draw_style_box(frame, r)
+		var item: RID = get_canvas_item()
+		var lit: bool = _hover or (has_focus() and not T.pointer_mode)
+		var seed_value: int = map_id.length() * 13 + 5
+		if selected or lit:
+			# Découpe colorée derrière la carte choisie / survolée.
+			var cut: PackedVector2Array = Geom.cut(r.grow_individual(8, 6, 10, 10), seed_value + (Geom.boil_frame if lit else 0), 0.08)
+			Geom.polygon(item, Geom.offset(cut, Vector2(6, 7)), Color(T.INK, 0.8))
+			Geom.polygon(item, cut, T.TEAL if selected else Color(T.CREAM, 0.85))
+		var shape: PackedVector2Array = Geom.strip(r, 6.0, 1.6, 1.4, seed_value)
+		Geom.polygon(item, Geom.offset(shape, Vector2(3, 5)), Color(0, 0, 0, 0.45))
+		Geom.polygon(item, shape, Color("171c29") if lit else Color("121621"))
+		var edge: PackedVector2Array = shape.duplicate()
+		if edge.size() > 2:
+			edge.append(shape[0])
+			draw_polyline(edge, Color(1, 1, 1, 0.08), 1.0, true)
 		var image: Rect2 = Rect2(Vector2(6, 6), Vector2(size.x - 12, size.y * (0.5 if size.x <= 240 else 0.55)))
 		if thumb: draw_texture_rect(thumb, image, false, Color.WHITE if selected or _hover else Color(0.75, 0.78, 0.85))
 		draw_rect(image, Color(0, 0, 0, 0.35), false, 1.0)
@@ -832,7 +939,7 @@ class MapCard extends Button:
 			var badge: Vector2 = Vector2(size.x - 20, 20)
 			draw_circle(badge, 12, T.TEAL)
 			draw_polyline(PackedVector2Array([badge + Vector2(-5, 0), badge + Vector2(-1, 4), badge + Vector2(6, -4)]), Color("0f1419"), 2.5, true)
-		if has_focus() and not T.pointer_mode: draw_style_box(T.focus_style(8), r)
+			T.draw_tape(item, Vector2(r.get_center().x, 2), 64.0, -0.06, Color(0.95, 0.92, 0.82, 0.6), seed_value)
 
 
 
@@ -869,14 +976,20 @@ class RoleTab extends Button:
 	func _draw() -> void :
 		var r: Rect2 = Rect2(Vector2.ZERO, size)
 		var on: bool = button_pressed
-		var style: StyleBoxFlat = StyleBoxFlat.new()
-		style.bg_color = Color(accent, 0.16) if on else (Color(1, 1, 1, 0.045) if _hover else Color(1, 1, 1, 0.02))
-		style.border_color = Color(accent, 0.9) if on else T.LINE
-		style.set_border_width_all(1)
-		style.border_width_bottom = 4 if on else 1
-		style.set_corner_radius_all(5)
-		style.anti_aliasing = true
-		draw_style_box(style, r)
+		var item: RID = get_canvas_item()
+		var lit: bool = _hover or (has_focus() and not T.pointer_mode)
+		var seed_value: int = text.length() * 17 + 3
+		if on:
+			# Onglet choisi : papier de la couleur du rôle, découpe crème derrière.
+			var cut: PackedVector2Array = Geom.cut(r.grow_individual(6, 5, 8, 7), seed_value + (Geom.boil_frame if lit else 0), 0.1)
+			Geom.polygon(item, Geom.offset(cut, Vector2(5, 6)), Color(T.INK, 0.85))
+			Geom.polygon(item, cut, T.CREAM if lit else Color(T.CREAM, 0.9))
+		var shape: PackedVector2Array = Geom.strip(r, 10.0, 1.6, 1.2, seed_value)
+		if not on: Geom.polygon(item, Geom.offset(shape, Vector2(3, 4)), Color(0, 0, 0, 0.4))
+		Geom.polygon(item, shape, accent.darkened(0.45) if on else (Color("1d2232") if lit else Color("151925")))
+		if lit and not on:
+			var marker: PackedVector2Array = Geom.strip(Rect2(Vector2(10, size.y - 9), Vector2(size.x - 24, 5)), 4.0, 1.0, 0.6, seed_value + 3)
+			Geom.polygon(item, marker, Color(accent, 0.8))
 		var x: float = 18.0
 		if icon_tex:
 			draw_texture_rect(icon_tex, Rect2(Vector2(16, (size.y - 34) * 0.5), Vector2(34, 34)), false, accent if on else Color(T.PAPER, 0.45))
@@ -886,7 +999,6 @@ class RoleTab extends Button:
 		var shown: String = text
 		draw_string(title_font, Vector2(x, size.y * 0.5 + (4.0 if subtitle.is_empty() else -1.0)), shown, HORIZONTAL_ALIGNMENT_LEFT, size.x - x - 10, 22, T.PAPER if on else T.PAPER_DIM)
 		if not subtitle.is_empty(): draw_string(caps, Vector2(x, size.y * 0.5 + 19.0), T.tr_text(subtitle), HORIZONTAL_ALIGNMENT_LEFT, size.x - x - 10, 11, Color(accent, 0.9) if on else Color(T.PAPER, 0.4))
-		if has_focus() and not T.pointer_mode: draw_style_box(T.focus_style(7), r)
 
 
 
@@ -925,10 +1037,16 @@ class Spinner extends Control:
 		queue_redraw()
 
 	func _draw() -> void :
+		# Trois bouts de papier découpé qui tournent l'un derrière l'autre.
 		var center: Vector2 = size * 0.5
-		var radius: float = minf(size.x, size.y) * 0.4
-		draw_arc(center, radius, 0, TAU, 40, Color(color, 0.18), 3.0, true)
-		draw_arc(center, radius, _angle, _angle + 1.9, 24, color, 3.0, true)
+		var radius: float = minf(size.x, size.y) * 0.34
+		var item: RID = get_canvas_item()
+		for i: int in range(3):
+			var angle: float = _angle * (1.0 + 0.25 * float(i)) + float(i) * TAU / 3.0
+			var at: Vector2 = center + Vector2(cos(angle), sin(angle)) * radius
+			var chip: PackedVector2Array = Geom.transformed(Geom.cut(Rect2(Vector2(-6, -5), Vector2(12, 10)), i * 13 + 5, 0.15), Transform2D(angle * 1.5, at))
+			Geom.polygon(item, Geom.offset(chip, Vector2(2, 3)), Color(0, 0, 0, 0.5))
+			Geom.polygon(item, chip, [T.CREAM, T.RED, color][i])
 
 
 
@@ -944,3 +1062,105 @@ class Rule extends Control:
 		var y: float = size.y * 0.5
 		draw_line(Vector2(0, y), Vector2(size.x, y), Color(T.PAPER, 0.1), 1.0)
 		draw_line(Vector2(0, y), Vector2(26, y), Color(accent, 0.8), 2.0)
+
+
+
+# Titre en lettres découpées (titres de page, verdict des résultats). Le texte
+# source est en français ; la traduction est appliquée au dessin.
+class CollageTitle extends Control:
+	var text: String = ""
+	var px: float = 44.0
+	var accent: Color = T.RED
+	var max_width: float = 560.0
+	var tilt: float = -0.03
+	var _shown: String = ""
+	var _lines: PackedStringArray = PackedStringArray()
+
+	func _init() -> void :
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+	func setup(value: String, size_px: float, color: Color = T.RED, width: float = 560.0) -> void :
+		text = value
+		px = size_px
+		accent = color
+		max_width = width
+		_relayout()
+
+	func _relayout() -> void :
+		_shown = T.tr_text(text).to_upper()
+		_lines = PackedStringArray()
+		var line: String = ""
+		for word: String in _shown.split(" ", false):
+			var attempt: String = word if line.is_empty() else line + " " + word
+			if not line.is_empty() and Collage.width(attempt, px, absi(attempt.hash()) % 997) > max_width:
+				_lines.append(line)
+				line = word
+			else: line = attempt
+		if not line.is_empty(): _lines.append(line)
+		update_minimum_size()
+		queue_redraw()
+
+	func _get_minimum_size() -> Vector2:
+		var widest: float = 0.0
+		for line: String in _lines: widest = maxf(widest, Collage.width(line, px, absi(line.hash()) % 997))
+		return Vector2(minf(widest + px * 0.3, max_width + px * 0.3), float(maxi(1, _lines.size())) * px * 1.12 + px * 0.28)
+
+	func _draw() -> void :
+		if T.tr_text(text).to_upper() != _shown:
+			_relayout.call_deferred()
+			return
+		for i: int in range(_lines.size()):
+			var line: String = _lines[i]
+			var base: Transform2D = Transform2D(tilt, Vector2.ONE, 0.0, Vector2(px * 0.12 + float(i) * px * 0.35, px * 0.98 + float(i) * px * 1.1))
+			Collage.draw_word(self, line, base, px, absi(line.hash()) % 997, 0.0, accent, 1.0, 0, false, T.CREAM, accent)
+
+
+
+# Ligne de menu (réglage, danse, option du salon…) : quand son contrôle est
+# sélectionné (souris, clavier, manette), une bande de papier rouge découpée
+# se déplie derrière elle (ui_menu_fx.gd appelle set_row_lit).
+class MenuRow extends PanelContainer:
+	var accent: Color = T.RED_DEEP
+	var reduced_motion: bool = false
+	var separator: bool = true
+	var _lit: float = 0.0
+	var _goal: float = 0.0
+	var _seed: int = 0
+
+	func _init() -> void :
+		mouse_filter = Control.MOUSE_FILTER_PASS
+		add_theme_stylebox_override("panel", T.empty_style(16, 3))
+		_seed = randi() % 997
+		set_process(false)
+
+	func set_row_lit(on: bool, reduced: bool) -> void :
+		_goal = 1.0 if on else 0.0
+		reduced_motion = reduced
+		if reduced:
+			_lit = _goal
+			queue_redraw()
+			return
+		set_process(true)
+
+	func _notification(what: int) -> void :
+		if what == NOTIFICATION_VISIBILITY_CHANGED and not is_visible_in_tree():
+			_lit = 0.0
+			_goal = 0.0
+
+	func _process(delta: float) -> void :
+		_lit = move_toward(_lit, _goal, delta / (0.13 if _goal > 0.0 else 0.09))
+		queue_redraw()
+		if is_equal_approx(_lit, _goal): set_process(false)
+
+	func _draw() -> void :
+		if separator: draw_line(Vector2(8, size.y - 1), Vector2(size.x - 8, size.y - 1), Color(1, 1, 1, 0.05), 1.0)
+		if _lit <= 0.01: return
+		var p: float = _lit
+		var back: float = 1.0 + 2.2 * pow(p - 1.0, 3.0) + 1.2 * pow(p - 1.0, 2.0)
+		var band: Rect2 = Rect2(Vector2(-10, 3), Vector2((size.x + 4.0) * back, size.y - 6))
+		var item: RID = get_canvas_item()
+		var shape: PackedVector2Array = Geom.strip(band, 12.0, 2.5, 1.6, _seed + Geom.boil_frame * (0 if reduced_motion else 1))
+		Geom.polygon(item, Geom.offset(shape, Vector2(5, 5)), Color(T.INK, 0.6 * p))
+		Geom.polygon(item, shape, Color(accent, 0.92 * minf(1.0, p * 1.5)))
+		Geom.polygon(item, Geom.strip(Rect2(band.position + Vector2(14, band.size.y - 5), Vector2(band.size.x * 0.7, 3)), 4.0, 1.0, 0.5, _seed + 3), Color(T.CREAM, 0.75 * p))
+		Geom.polygon(item, PackedVector2Array([band.position + Vector2(10, 4), band.position + Vector2(18, 4), Vector2(band.position.x + 12, band.end.y - 4), Vector2(band.position.x + 4, band.end.y - 4)]), Color(T.CREAM, p))

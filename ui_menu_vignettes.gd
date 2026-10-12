@@ -164,7 +164,7 @@ func _set_lineup(hidden: bool) -> void :
 		backdrop.set("_lineup_alpha_goal", 0.08)
 		_lineup_hidden = true
 	elif _lineup_hidden:
-		backdrop.set("_lineup_alpha_goal", 1.0)
+		backdrop.set("_lineup_alpha_goal", float(backdrop.call("lineup_goal_for_mode")) if backdrop.has_method("lineup_goal_for_mode") else 1.0)
 		_lineup_hidden = false
 
 func _switch(id: String) -> void :

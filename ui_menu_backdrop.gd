@@ -87,6 +87,7 @@ var _hovered: String = ""
 var _look_sent: Vector4 = Vector4(-1, -1, -1, -1)
 var _aura: TextureRect
 var _hop_wait: float = 4.0
+var decor_holder: Control
 
 
 
@@ -134,6 +135,12 @@ func setup(owner_ui: Node, is_mobile: bool) -> void :
 	add_child(_bg)
 	_bg.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 
+	# Décors des pages (bandes, mots géants, ruban) : derrière les personnages.
+	decor_holder = Control.new()
+	decor_holder.name = "PageDecor"
+	decor_holder.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(decor_holder)
+	decor_holder.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_band = HeroBand.new()
 	add_child(_band)
 	for i: int in range(2):
@@ -260,7 +267,7 @@ func set_mode(next: String, person: String = "", delay: float = 0.0) -> void :
 			_alice_goal = 0.0
 			_accent_goal = T.TEAL
 		"settings":
-			_set_lineup(0.16, Vector2(size.x * 0.02, 0.0), 0.95)
+			_set_lineup(0.0, Vector2(size.x * 0.02, 0.0), 0.95)
 			_dim_goal = 0.25
 			_alice_goal = 0.0
 		"setup", "alice":
@@ -278,6 +285,14 @@ func set_mode(next: String, person: String = "", delay: float = 0.0) -> void :
 	if not motion or previous == "hidden":
 		_snap()
 
+
+# Opacité de la rangée de personnages voulue par le mode courant (les scènes
+# animées du menu la masquent puis la rendent).
+func lineup_goal_for_mode() -> float:
+	match mode:
+		"main": return 1.0
+		"panel": return 0.5
+		_: return 0.0
 
 func set_spotlight(people: Array) -> void :
 	for cut: Cutout in _cutouts:

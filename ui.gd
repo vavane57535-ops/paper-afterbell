@@ -14,6 +14,9 @@ const MenuBackdrop = preload("res://ui_menu_backdrop.gd")
 const MenuLogo = preload("res://ui_menu_logo.gd")
 const MenuWipe = preload("res://ui_menu_wipe.gd")
 const MenuVignettes = preload("res://ui_menu_vignettes.gd")
+const MenuFx = preload("res://ui_menu_fx.gd")
+const PauseMenu = preload("res://ui_pause_menu.gd")
+const PAGE_TITLES: Dictionary = {"main": "MENU", "characters": "ÉLÈVES", "alice": "ALICE", "maps": "CARTES", "network": "EN LIGNE", "connecting": "CONNEXION", "advanced": "RÉSEAU", "lobby": "SALON", "settings": "RÉGLAGES", "credits": "CRÉDITS", "shop": "BOUTIQUE", "gallery": "CINÉMA"}
 
 const MENU_PAGES: Array[String] = ["main", "characters", "alice", "maps", "network", "connecting", "advanced", "lobby", "settings", "credits", "shop"]
 
@@ -136,6 +139,19 @@ var _default_hint: String = ""
 
 var _last_focus: WeakRef
 
+# Menus 0.16 (esprit Persona) : animation commune, listes à faire entrer en
+# cascade à la fin de la page, menu pause, transition en cours.
+var fx: MenuFx
+var _cascade_lists: Array = []
+var _pause_menu: Control
+var _wipe_hold: bool = false
+var _wipe_action: Callable = Callable()
+var _tab_direction: float = 1.0
+var _page_rerender: bool = false
+var _page_focus: WeakRef = weakref(null)
+var _setup_dealt: String = ""
+const SETTINGS_TABS: Array = ["game", "display", "audio", "controls", "access"]
+
 
 class TimingBar extends Control:
 
@@ -166,6 +182,9 @@ func setup(game_world: Node) -> void :
 	sound = Sound.new()
 	add_child(sound)
 	sound.setup(world)
+	fx = MenuFx.new()
+	add_child(fx)
+	fx.setup(self)
 	page = Control.new()
 	page.name = "Page"
 	root.add_child(page)
@@ -312,6 +331,16 @@ func _badge(texture: Texture2D, size_px: float, bg: Color, tint: Color) -> Panel
 	panel.add_child(rect)
 	return panel
 
+# Contour de focus « découpé » pour les zones cliquables transparentes.
+func _paper_focus() -> StyleBox:
+	var outline: StyleBox = T.strip(Color(0, 0, 0, 0), 0, 0, 5.0, 77)
+	outline.set("line", T.RED)
+	outline.set("line_width", 3.0)
+	outline.set("shadow", Color(0, 0, 0, 0))
+	outline.set("grow_rect", Vector2(6, 6))
+	outline.set("boil", true)
+	return outline
+
 func _paper_style(seed_value: int, margin: float = 22.0, tape: bool = false) -> W.PaperStyle:
 	var style: W.PaperStyle = W.PaperStyle.new(margin)
 	style.seed_value = seed_value
@@ -403,13 +432,22 @@ func _begin_page(id: String, preview: String = "", focus_x: float = 0.66) -> voi
 	menu_paper = false
 	_page_serial += 1
 	var animate: bool = previous != id and not reduced_motion and world.phase in ["menu", "lobby"] and previous in MENU_PAGES and id in MENU_PAGES and page.visible and page.get_child_count() > 0
+	var came_from_game: bool = not page.visible
+	_cascade_lists.clear()
+	# Même page reconstruite (aperçu de danse, choix de carte…) : pas de
+	# nouvelle entrée en cascade ni de glissement du panneau.
+	_page_rerender = previous == id and not _quiet_page and page.visible and page.get_child_count() > 0
+	_retire_decors(animate)
 	if animate: _retire_page(id)
 	else:
-		if is_instance_valid(_wipe): _wipe.stop()
+		if is_instance_valid(_wipe) and not _wipe_hold: _wipe.stop()
 		_clear(_leaving)
 		_clear(page)
 		page.modulate.a = 1.0
+		if reduced_motion and previous != id and not _quiet_page: _soft_fade(page)
 	_clear(overlay)
+	if not animate and not reduced_motion and not _wipe_hold and previous != id and id in MENU_PAGES and (previous in ["loading", "ending", "gallery"] or came_from_game) and world.phase in ["menu", "lobby"]:
+		_wipe.reveal(1.0, str(PAGE_TITLES.get(id, "")))
 	_set_backdrop_mode(id, preview, 0.22 if animate else 0.0)
 	hud.hide()
 	page.show()
@@ -424,31 +462,60 @@ func _begin_page(id: String, preview: String = "", focus_x: float = 0.66) -> voi
 			world.mobile_controls.cancel_all()
 	world.preview_character = preview
 	_set_focus_x(focus_x)
-	if animate: Sound.play("tear")
+	if animate: Sound.play("swoosh")
 	elif previous != id and not _quiet_page and world.phase in ["menu", "lobby", "gallery"]: Sound.play("page")
 
 
 func _end_page(focus_target: Control = null) -> void :
+	_page_focus = weakref(focus_target)
 	if PaperLanguage.language == "en": PaperLanguage.apply_tree(page)
 	if focus_target and ( not _pointer or not Input.get_connected_joypads().is_empty()): focus_target.call_deferred("grab_focus")
+	_run_cascade()
 
+# Les listes enregistrées (formulaires, réglages, menu principal…) entrent en
+# cascade, après la transition si elle couvre encore l'écran.
+func _run_cascade(extra_delay: float = 0.0) -> void :
+	if not is_instance_valid(fx): return
+	if _page_rerender:
+		_cascade_lists.clear()
+		return
+	var delay: float = extra_delay + (_wipe.time_to_cover() + 0.06 if is_instance_valid(_wipe) and _wipe.busy() else 0.0)
+	for entry: Variant in _cascade_lists:
+		if entry is Dictionary:
+			delay = fx.cascade_children(entry.node, delay, float(entry.get("step", 0.03)), entry.get("from", Vector2(-64, 0)), float(entry.get("tilt", -0.07)), float(entry.get("duration", 0.26)))
+		else: delay = fx.cascade_children(entry, delay)
+	_cascade_lists.clear()
+
+func _cascade(node: Node, from: Vector2 = Vector2(-64, 0), tilt: float = -0.07, step: float = 0.03, duration: float = 0.26) -> void :
+	if is_instance_valid(node): _cascade_lists.append({"node": node, "from": from, "tilt": tilt, "step": step, "duration": duration})
+
+func _soft_fade(node: CanvasItem) -> void :
+	if not is_instance_valid(node): return
+	node.modulate.a = 0.0
+	node.create_tween().tween_property(node, "modulate:a", 1.0, 0.16)
+
+# Entrée d'un panneau : il glisse, pivote et se pose avec un léger dépassement.
 func _intro(node: CanvasItem, dx: float = -22.0) -> void :
-	if reduced_motion or not is_instance_valid(node): return
+	if reduced_motion or not is_instance_valid(node) or _page_rerender or (_quiet_page and node.get_parent() == page): return
 	var control: Control = node as Control
 	node.modulate.a = 0.0
+	var delay: float = _wipe.time_to_cover() if is_instance_valid(_wipe) and _wipe.busy() else 0.0
 	var tween: Tween = node.create_tween().set_parallel()
-	tween.tween_property(node, "modulate:a", 1.0, 0.26).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	tween.tween_property(node, "modulate:a", 1.0, 0.16).set_delay(delay)
 	if control and control.get_parent() == page:
 		var goal: float = control.position.x
-		control.position.x = goal + dx
-		tween.tween_property(control, "position:x", goal, 0.3).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+		var turn: float = control.rotation
+		control.position.x = goal + (dx * 4.0 if dx != 0.0 else -60.0)
+		control.rotation = turn - 0.05 * (1.0 if dx <= 0.0 else -1.0)
+		tween.tween_property(control, "position:x", goal, 0.34).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT).set_delay(delay)
+		tween.tween_property(control, "rotation", turn, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT).set_delay(delay)
 
 
 
 func _form_panel(width: float = 620) -> VBoxContainer:
 	var panel: PanelContainer = PanelContainer.new()
-	var style: StyleBoxFlat = T.panel_style(0.94, T.LINE, 8)
-	style.content_margin_left = 34
+	var style: StyleBox = T.sheet_style(34, 30, T.RED_DEEP, _page_serial % 7 + 11)
+	style.content_margin_left = 40
 	style.content_margin_right = 30
 	style.content_margin_top = 30
 	style.content_margin_bottom = 26
@@ -471,14 +538,100 @@ func _form_panel(width: float = 620) -> VBoxContainer:
 	var v: VBoxContainer = _vbox(scroll, 12)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_intro(panel)
+	_cascade(v)
 	return v
 
 func _form_header(parent: Node, kicker: String, title: String, kicker_color: Color = T.TEAL) -> void :
 	parent.add_child(_kicker(kicker, kicker_color))
-	parent.add_child(_label(title, "title", 38, T.PAPER))
+	parent.add_child(_display_title(title, 50))
 	var rule: W.Rule = W.Rule.new()
 	rule.accent = kicker_color
 	parent.add_child(rule)
+	_page_decor(title, T.RED if kicker_color == T.RED else T.RED_DEEP.lerp(kicker_color, 0.25))
+
+# Titre de page en lettres découpées (collage), traduit au dessin.
+func _display_title(title: String, size: int = 50, accent: Color = T.RED, width: float = 560.0) -> Control:
+	var label: W.CollageTitle = W.CollageTitle.new()
+	label.setup(title, float(size) * 0.92, accent, width)
+	return label
+
+func _local_person() -> String:
+	var actor: Node = world.local_actor() if world.phase == "playing" and world.has_method("local_actor") else null
+	if actor: return str(actor.get("character"))
+	return "Alice" if world.solo_killer and not world.networked else str(world.selected)
+
+# Découpe papier d'un personnage qui glisse depuis le bord droit (silhouette
+# d'encre révélée au pinceau), derrière le panneau de la page.
+func _page_art(person: String, center_x: float, instant: bool = false) -> TextureRect:
+	var texture: Texture2D = MenuBackdrop.art(person)
+	if texture == null: return null
+	var view: Vector2 = get_viewport().get_visible_rect().size
+	var art: TextureRect = TextureRect.new()
+	art.texture = texture
+	art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT
+	art.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
+	art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var height: float = view.y * (1.0 if person == "Alice" else 0.94)
+	var width: float = height * float(texture.get_width()) / float(texture.get_height())
+	page.add_child(art)
+	art.position = Vector2(center_x - width * 0.5, view.y - height + 12.0)
+	art.size = Vector2(width, height)
+	art.pivot_offset = Vector2(width * 0.5, height)
+	var material: ShaderMaterial = ShaderMaterial.new()
+	material.shader = preload("res://ui_menu_cutout.gdshader")
+	material.set_shader_parameter("mask", MenuBackdrop.art("ink_noise"))
+	material.set_shader_parameter("edge_color", MenuBackdrop.accent_for(person))
+	material.set_shader_parameter("reveal", 1.0 if reduced_motion or instant else 0.0)
+	art.material = material
+	if reduced_motion or instant: return art
+	var delay: float = _wipe.time_to_cover() if is_instance_valid(_wipe) and _wipe.busy() else 0.0
+	var goal: float = art.position.x
+	art.position.x = goal + 260.0
+	art.rotation = 0.06
+	var tween: Tween = art.create_tween().set_parallel()
+	tween.tween_property(art, "position:x", goal, 0.42).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT).set_delay(delay)
+	tween.tween_property(art, "rotation", 0.0, 0.42).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT).set_delay(delay)
+	tween.tween_method(func(value: float) -> void : material.set_shader_parameter("reveal", value), 0.0, 1.0, 0.5).set_delay(delay + 0.05)
+	return art
+
+# Décor animé derrière le panneau : bande diagonale, mot géant, ruban.
+func _page_decor(title: String, accent: Color = T.RED_DEEP, side: float = 1.0) -> Control:
+	var decor: MenuFx.Decor = MenuFx.Decor.new()
+	decor.title = title
+	decor.accent = accent
+	decor.side = side
+	decor.reduced = reduced_motion
+	_place_decor(decor)
+	return decor
+
+# Les décors vont derrière les personnages du fond de menu (et sous les scènes
+# 3D animées) ; en partie (réglages par-dessus le jeu), dans la page.
+func _place_decor(decor: Control) -> void :
+	if is_instance_valid(_wipe) and _wipe.busy() and decor is MenuFx.Decor: (decor as MenuFx.Decor).start_delay = _wipe.time_to_cover()
+	if _decor_in_backdrop():
+		menu_backdrop.decor_holder.add_child(decor)
+		return
+	if world.phase == "gallery" and decor is MenuFx.Decor:
+		# Devant le film de la cinémathèque : seulement le ruban qui défile.
+		(decor as MenuFx.Decor).band_alpha = 0.0
+		(decor as MenuFx.Decor).giant_alpha = 0.0
+	page.add_child(decor)
+	if is_instance_valid(active_menu_panel) and active_menu_panel.get_parent() == page: page.move_child(decor, active_menu_panel.get_index())
+
+func _decor_in_backdrop() -> bool:
+	return is_instance_valid(menu_backdrop) and is_instance_valid(menu_backdrop.get("decor_holder")) and world.phase in ["menu", "lobby"] and menu_backdrop.mode != "hidden"
+
+# Décors de la page précédente : gardés jusqu'à ce que la transition couvre
+# l'écran, sinon retirés tout de suite.
+func _retire_decors(keep: bool) -> void :
+	if not is_instance_valid(menu_backdrop) or not is_instance_valid(menu_backdrop.get("decor_holder")): return
+	var holder: Control = menu_backdrop.decor_holder
+	for child: Node in holder.get_children():
+		if child.has_meta("decor_leaving") or not keep:
+			holder.remove_child(child)
+			child.queue_free()
+		else: child.set_meta("decor_leaving", true)
 
 func _section(parent: Node, text: String, color: Color = T.TEAL) -> void :
 	_spacer(parent, 4)
@@ -541,18 +694,46 @@ func _retire_page(next_id: String) -> void :
 	var direction: float = 1.0 if next_id in ["main", "lobby"] else -1.0
 	_leaving.position = Vector2.ZERO
 	_leaving.modulate = Color.WHITE
+	_leaving.pivot_offset = Vector2(0, _leaving.size.y)
 	var tween: Tween = create_tween().set_parallel()
-	tween.tween_property(_leaving, "position:x", 90.0 * direction, 0.26).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
-	tween.tween_property(_leaving, "modulate:a", 0.25, 0.26)
+	tween.tween_property(_leaving, "position:x", 140.0 * direction, 0.2).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+	tween.tween_property(_leaving, "rotation", 0.03 * direction, 0.2).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+	tween.tween_property(_leaving, "modulate:a", 0.2, 0.2)
 
 	page.modulate.a = 0.0
-	_wipe.play(direction, next_id == "alice")
+	_wipe.play(direction, next_id == "alice", str(PAGE_TITLES.get(next_id, "")))
 
 func _on_wipe_covered() -> void :
 	_clear(_leaving)
+	_retire_decors_leaving()
 	_leaving.position = Vector2.ZERO
+	_leaving.rotation = 0.0
 	_leaving.modulate = Color.WHITE
 	page.modulate.a = 1.0
+	if _wipe_action.is_valid():
+		var action: Callable = _wipe_action
+		_wipe_action = Callable()
+		_wipe_hold = true
+		action.call()
+		_wipe_hold = false
+
+func _retire_decors_leaving() -> void :
+	if not is_instance_valid(menu_backdrop) or not is_instance_valid(menu_backdrop.get("decor_holder")): return
+	for child: Node in menu_backdrop.decor_holder.get_children():
+		if child.has_meta("decor_leaving"):
+			child.get_parent().remove_child(child)
+			child.queue_free()
+
+# Transition « feuilles » vers un écran qui ne passe pas par le fond de menu
+# (pause → réglages, réglages → pause…) : l'action construit l'écran suivant
+# quand l'écran est couvert.
+func transition(action: Callable, title: String = "", direction: float = -1.0) -> void :
+	if reduced_motion or not is_instance_valid(_wipe):
+		action.call()
+		return
+	_wipe_action = action
+	_wipe.play(direction, false, title)
+	Sound.play("swoosh")
 
 
 
@@ -600,11 +781,13 @@ func _on_lineup_hovered(person: String) -> void :
 
 
 func show_main() -> void :
+	_setup_dealt = ""
 	if world.mobile_mode:
 		_show_mobile_main()
 		return
 	_begin_page("main", "", 0.66)
 	_backdrop(0.5, 0.78)
+	_main_decor()
 	var column: VBoxContainer = VBoxContainer.new()
 	column.add_theme_constant_override("separation", 0)
 	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -616,10 +799,26 @@ func show_main() -> void :
 	column.offset_top = 62
 	column.offset_bottom = -96
 	var first: Control = _main_column(column, false)
+	if first: _cascade(first.get_parent(), Vector2(-240, 30), -0.5, 0.038, 0.26)
 	_add_version(76.0)
 	_add_loadout_note(false)
 	_intro(column)
 	_end_page(first)
+
+# Fond du menu principal : grande bande d'encre déchirée derrière la liste
+# (contraste façon Persona), liseré rouge et ruban qui défile.
+func _main_decor() -> void :
+	var decor: MenuFx.Decor = MenuFx.Decor.new()
+	decor.reduced = reduced_motion
+	decor.title = ""
+	decor.band_a = Vector2(0.05, 1.12)
+	decor.band_b = Vector2(0.3, -0.12)
+	decor.band_width = 640.0
+	decor.band_alpha = 0.85
+	decor.band_fill = Color(0.012, 0.013, 0.022, 0.84)
+	decor.accent = T.RED
+	decor.ribbon_text = "DOSSIER 013  ·  LA SONNERIE NE VOUS SAUVERA PAS"
+	_place_decor(decor)
 
 
 func _main_column(column: VBoxContainer, mobile: bool) -> Control:
@@ -653,6 +852,7 @@ func _main_column(column: VBoxContainer, mobile: bool) -> Control:
 		var primary: bool = entry[1] == "play"
 		var accent: Color = T.RED if primary else T.MUTED if entry[1] == "quit" else T.TEAL
 		item.configure((38 if mobile else 46) if primary else (24 if mobile else 27), accent, primary)
+		_fan_item(item, nav.get_child_count(), str(entry[1]))
 		item.pressed.connect(_main_action.bind(str(entry[1])))
 		item.pressed.connect(_sfx.bind("confirm" if primary else "click"))
 		item.hinted.connect(_on_nav_hint)
@@ -661,12 +861,31 @@ func _main_column(column: VBoxContainer, mobile: bool) -> Control:
 		if first == null: first = item
 	if not mobile:
 		_spacer(column, 10)
-		_nav_hint = _paragraph("", column, 16, T.PAPER_DIM)
-		_nav_hint.custom_minimum_size = Vector2(470, 44)
+		_nav_hint = _paragraph("", column, 16, T.INK_TEXT, "semibold")
+		_nav_hint.custom_minimum_size = Vector2(470, 30)
 		_nav_hint.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+		var hint_strip: StyleBox = T.strip(T.CREAM, 16, 6, 9.0, 33)
+		hint_strip.set("shadow", Color(T.RED, 0.9))
+		hint_strip.set("shadow_offset", Vector2(5, 5))
+		_nav_hint.add_theme_stylebox_override("normal", hint_strip)
 		_default_hint = str(entries[0][2])
 		_on_nav_hint(_default_hint)
 	return first
+
+# Liste de commandes en éventail : chaque entrée penche un peu différemment
+# et se décale, la découpe derrière l'entrée sélectionnée prend la couleur de
+# sa scène animée.
+func _fan_item(item: W.NavItem, index: int, action: String) -> void :
+	var tilts: Array = [-7.0, -3.0, -5.5, -2.0, -4.5, -1.0, -3.5, -0.5]
+	var shifts: Array = [0.0, 22.0, 10.0, 30.0, 16.0, 36.0, 24.0, 42.0]
+	item.tilt_deg = float(tilts[index % tilts.size()])
+	item.arc_x = float(shifts[index % shifts.size()])
+	item.cut_color = MenuVignettes.ACCENTS.get(action, T.RED) if action != "play" else T.RED
+	# Lettres découpées plus grandes, lignes plus serrées (elles se chevauchent
+	# un peu quand l'entrée sélectionnée grossit, comme dans Persona).
+	var big: bool = action == "play"
+	item.font_size_px = (50 if world.mobile_mode else 60) if big else (29 if world.mobile_mode else 34)
+	item.custom_minimum_size.y = roundf(float(item.font_size_px) * (1.3 if big else 1.28))
 
 func _on_nav_vignette(text: String, action: String) -> void :
 	if is_instance_valid(menu_vignettes): menu_vignettes.hover(action if not text.is_empty() else "")
@@ -684,7 +903,7 @@ func show_shop() -> void :
 	if shop_selected.is_empty(): shop_selected = str(PaperDances.LIST[0].id)
 	for entry: Dictionary in PaperDances.LIST:
 		var id: String = str(entry.id)
-		var row: HBoxContainer = _hbox(v, 10)
+		var row: HBoxContainer = _list_row(v, 10)
 		var text: VBoxContainer = _vbox(row, 1)
 		text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		text.add_child(_label(str(entry.name).to_upper() + "   ·   " + str(entry.tag), "title", 19, T.PAPER if id != shop_selected else T.TEAL))
@@ -722,9 +941,9 @@ func _on_nav_hint(text: String) -> void :
 func _main_action(action: String) -> void :
 	match action:
 		"play": _show_setup()
-		"training": world.start_training()
+		"training": transition(func() -> void : world.start_training(), "TERRAIN D’ESSAI")
 		"friends": show_network()
-		"gallery": world.gallery.open()
+		"gallery": transition(func() -> void : world.gallery.open(), "CINÉMA")
 		"settings": show_settings()
 		"credits": show_credits()
 		"shop": show_shop()
@@ -784,7 +1003,7 @@ func _add_loadout_note(mobile: bool) -> void :
 	var hit: Button = Button.new()
 	hit.flat = true
 	for state: String in ["normal", "hover", "pressed", "hover_pressed", "disabled"]: hit.add_theme_stylebox_override(state, T.empty_style())
-	hit.add_theme_stylebox_override("focus", T.focus_style(4))
+	hit.add_theme_stylebox_override("focus", _paper_focus())
 	hit.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	note.add_child(hit)
 	hit.pressed.connect(_show_setup.bind("", -1))
@@ -795,6 +1014,7 @@ func _add_loadout_note(mobile: bool) -> void :
 func _show_mobile_main() -> void :
 	_begin_page("main", "", 0.66)
 	_backdrop(0.58, 0.8)
+	_main_decor()
 	var safe: Vector2 = mobile_safe_edges()
 	var column: VBoxContainer = VBoxContainer.new()
 	column.add_theme_constant_override("separation", 0)
@@ -807,6 +1027,7 @@ func _show_mobile_main() -> void :
 	column.offset_top = 26
 	column.offset_bottom = -20
 	var first: Control = _main_column(column, true)
+	if first: _cascade(first.get_parent(), Vector2(-200, 24), -0.45, 0.035, 0.24)
 	_add_version(safe.x + 44)
 	_add_loadout_note(true)
 	_intro(column)
@@ -889,7 +1110,7 @@ func _show_setup(role: String = "", index: int = -1) -> void :
 	column.add_child(back)
 	_spacer(column, 6)
 	column.add_child(_kicker("SALON  ·  TON PERSONNAGE" if world.networked else "PRÉPARER LA MANCHE", T.RED if role == "alice" else T.TEAL))
-	column.add_child(_label("Choisis ton personnage" if world.networked else "Incarne Alice" if role == "alice" else "Choisis ton élève", "title", 30 if compact else 38, T.PAPER))
+	column.add_child(_display_title("Choisis ton personnage" if world.networked else "Incarne Alice" if role == "alice" else "Choisis ton élève", 36 if compact else 46))
 	_spacer(column, 6 if compact else 10)
 	if not world.networked:
 		var tabs: HBoxContainer = _hbox(column, 12)
@@ -992,6 +1213,13 @@ func _show_setup(role: String = "", index: int = -1) -> void :
 	_update_setup_texts()
 	_intro(column)
 	_intro(sheet, 18.0)
+	var deal_key: String = current_page + ":" + role
+	if deal_key != _setup_dealt:
+		_setup_dealt = deal_key
+		for child: Node in column.get_children():
+			if child is GridContainer: _cascade(child, Vector2(-40, 90), 0.2, 0.045, 0.3)
+			elif child is HBoxContainer: _cascade(child, Vector2(-60, 0), -0.1, 0.05, 0.24)
+		_cascade(cta_box, Vector2(0, 80), -0.06, 0.05, 0.26)
 	_end_page(first if first else setup_cta)
 
 
@@ -1060,7 +1288,7 @@ func _setup_confirm() -> void :
 		show_lobby()
 		return
 	Sound.play("confirm")
-	world.start_solo(world.solo_killer)
+	transition(func() -> void : world.start_solo(world.solo_killer), "LA CLOCHE SONNE")
 
 func _update_setup_texts() -> void :
 	if not is_instance_valid(setup_cta): return
@@ -1137,7 +1365,7 @@ func _alice_dossier(column: VBoxContainer, compact: bool = false) -> Control:
 	var focus: Button = Button.new()
 	focus.flat = true
 	for state: String in ["normal", "hover", "pressed", "hover_pressed", "disabled"]: focus.add_theme_stylebox_override(state, T.empty_style())
-	focus.add_theme_stylebox_override("focus", T.focus_style(4))
+	focus.add_theme_stylebox_override("focus", _paper_focus())
 	card.add_child(focus)
 	focus.pressed.connect(_sfx.bind("click"))
 	return focus
@@ -1367,7 +1595,7 @@ func show_lobby() -> void :
 	_end_page(launch if launch else choose)
 
 func _option_row(parent: Node, title: String, labels: Array, values: Array, key: String) -> void :
-	var row: HBoxContainer = _hbox(parent, 12)
+	var row: HBoxContainer = _list_row(parent, 12)
 	var label: Label = _label(title, "medium", 16, T.PAPER_DIM)
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -1438,7 +1666,7 @@ func refresh_lobby() -> void :
 	for peer: Variant in world.roster:
 		var p: Dictionary = world.roster[peer]
 		var row: PanelContainer = PanelContainer.new()
-		row.add_theme_stylebox_override("panel", T.box(Color(1, 1, 1, 0.035), Color(1, 1, 1, 0.06), 1, 5, 10, 6))
+		row.add_theme_stylebox_override("panel", T.strip(Color(1, 1, 1, 0.045), 14, 6, 7.0, int(peer) % 13 + 3))
 		lobby_list.add_child(row)
 		var h: HBoxContainer = _hbox(row, 12)
 		var person: String = str(p.character)
@@ -1478,24 +1706,27 @@ func show_settings() -> void :
 	var playing: bool = world.phase == "playing"
 	_begin_page("settings", "", 0.66)
 	if playing: _dim(page, 0.82)
-	else: _backdrop(0.9, 0.97)
+	else: _backdrop(0.62, 0.86)
 	var panel: PanelContainer = PanelContainer.new()
-	var style: StyleBoxFlat = T.panel_style(0.97, T.LINE, 10)
-	style.content_margin_left = 36
+	var style: StyleBox = T.sheet_style(36, 28, T.RED_DEEP, 23)
+	style.content_margin_left = 42
 	style.content_margin_right = 36
 	style.content_margin_top = 28
 	style.content_margin_bottom = 24
 	panel.add_theme_stylebox_override("panel", style)
+	var decor: Control = _page_decor("RÉGLAGES", T.TEAL_DEEP.lerp(T.RED_DEEP, 0.4))
+	var view: Vector2 = get_viewport().get_visible_rect().size
+	var wide: bool = view.x >= 1200.0 and not world.mobile_mode
+	if wide: _page_art(_local_person(), view.x * 0.84, _quiet_page)
 	page.add_child(panel)
-	panel.anchor_left = 0.5
-	panel.anchor_right = 0.5
+	panel.anchor_left = 0.0 if wide else 0.5
+	panel.anchor_right = 0.0 if wide else 0.5
 	panel.anchor_top = 0.5
 	panel.anchor_bottom = 0.5
-	var view: Vector2 = get_viewport().get_visible_rect().size
-	var width: float = minf(1060.0, view.x - 80.0)
+	var width: float = minf(1000.0, view.x * 0.66) if wide else minf(1060.0, view.x - 80.0)
 	var height: float = minf(780.0, view.y - 60.0)
-	panel.offset_left = - width * 0.5
-	panel.offset_right = width * 0.5
+	panel.offset_left = 60.0 if wide else - width * 0.5
+	panel.offset_right = 60.0 + width if wide else width * 0.5
 	panel.offset_top = - height * 0.5
 	panel.offset_bottom = height * 0.5
 	active_menu_panel = null
@@ -1504,7 +1735,7 @@ func show_settings() -> void :
 	var titles: VBoxContainer = _vbox(header, 0)
 	titles.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	titles.add_child(_kicker("PRÊT POUR LA RENTRÉE"))
-	titles.add_child(_label("Réglages", "title", 40, T.PAPER))
+	titles.add_child(_display_title("Réglages", 48))
 	var saved: Label = _label("Enregistrement automatique", "caps", 11, T.FAINT)
 	saved.size_flags_vertical = Control.SIZE_SHRINK_END
 	header.add_child(saved)
@@ -1548,12 +1779,22 @@ func show_settings() -> void :
 	note.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	note.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	footer.add_child(note)
-	_intro(panel, 0.0)
+	if not world.mobile_mode: note.text = _t("Échap · retour") + "     ◀ LB · RB ▶  " + _t("onglets")
+	if _quiet_page:
+		# Changement d'onglet : seul le contenu repart en cascade, côté de l'onglet.
+		if is_instance_valid(decor): (decor as MenuFx.Decor).set("_enter", 1.0)
+		_cascade(content, Vector2(90.0 * _tab_direction, 0), 0.04 * _tab_direction, 0.022, 0.22)
+	else:
+		_intro(panel, 0.0)
+		_cascade(tabs, Vector2(0, -40), -0.12, 0.03, 0.22)
+		_cascade(content, Vector2(-70, 0), -0.06, 0.028, 0.26)
 	_end_page(current)
 
 func _settings_switch(tab: String) -> void :
 	if tab == settings_tab: return
 	Sound.play("click")
+	var order: Array = SETTINGS_TABS
+	_tab_direction = 1.0 if order.find(tab) >= order.find(settings_tab) else -1.0
 	settings_tab = tab
 	_quiet_page = true
 	show_settings()
@@ -1561,7 +1802,7 @@ func _settings_switch(tab: String) -> void :
 
 
 func _setting_row(parent: Node, title: String, description: String, control: Control, control_width: float = 320) -> Label:
-	var row: HBoxContainer = _hbox(parent, 24)
+	var row: HBoxContainer = _hbox(_menu_row(parent), 24)
 	row.custom_minimum_size.y = 62 if world.mobile_mode else 56
 	var text: VBoxContainer = _vbox(row, 1)
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1575,11 +1816,18 @@ func _setting_row(parent: Node, title: String, description: String, control: Con
 	control.custom_minimum_size.x = control_width
 	control.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(control)
-	var line: ColorRect = ColorRect.new()
-	line.color = Color(1, 1, 1, 0.045)
-	line.custom_minimum_size.y = 1
-	parent.add_child(line)
 	return note
+
+# Ligne de menu commune (réglages, options du salon, danses…) : elle s'allume
+# d'une bande de papier rouge quand son contrôle est sélectionné.
+func _menu_row(parent: Node) -> W.MenuRow:
+	var holder: W.MenuRow = W.MenuRow.new()
+	holder.reduced_motion = reduced_motion
+	parent.add_child(holder)
+	return holder
+
+func _list_row(parent: Node, gap: int = 12) -> HBoxContainer:
+	return _hbox(_menu_row(parent), gap)
 
 func _check(value: bool, callback: Callable) -> CheckButton:
 	var check: CheckButton = CheckButton.new()
@@ -1741,10 +1989,12 @@ func _settings_access(content: VBoxContainer) -> void :
 
 func _settings_back() -> void :
 	if world.phase == "playing":
-		_clear(page)
-		page.hide()
-		hud.show()
-		show_pause(true)
+		transition(func() -> void :
+			if world.phase != "playing": return
+			_clear(page)
+			page.hide()
+			hud.show()
+			show_pause(true), "PAUSE", 1.0)
 	else: show_main()
 
 
@@ -1899,7 +2149,7 @@ func show_gallery_transport(item: Dictionary) -> void :
 	panel.offset_right = -32
 	panel.offset_top = -124
 	panel.offset_bottom = -18
-	panel.add_theme_stylebox_override("panel", T.panel_style(0.9, T.LINE, 8))
+	panel.add_theme_stylebox_override("panel", T.sheet_style(26, 16, T.RED_DEEP, 41))
 	var v: VBoxContainer = _vbox(panel, 8)
 	gallery_timeline = HSlider.new()
 	gallery_timeline.min_value = 0
@@ -2021,7 +2271,7 @@ func _update_toasts(delta: float) -> void :
 			entry.panel.visible = false
 		return
 	toast_time = maxf(0, toast_time - delta)
-	var hidden: bool = world.mobile_mode and world.pause_open
+	var hidden: bool = (world.mobile_mode and world.pause_open) or (is_instance_valid(_pause_menu) and _pause_menu.is_inside_tree())
 	_toast_box.visible = not hidden
 	for entry: Dictionary in _toasts:
 		if entry.time <= 0: continue
@@ -2093,9 +2343,24 @@ func update_performance(ping: float) -> void :
 
 func show_pause(open: bool) -> void :
 	menu_paper = false
-	_clear(overlay)
 	_pause_confirm = false
+	if not open and is_instance_valid(_pause_menu) and _pause_menu.is_inside_tree() and overlay.is_ancestor_of(_pause_menu):
+		# Fermeture rapide en sens inverse (la partie reprend pendant ce temps).
+		for child: Node in overlay.get_children():
+			if child != _pause_menu:
+				overlay.remove_child(child)
+				child.queue_free()
+		_pause_menu.call("close_animated")
+		_pause_menu = null
+		return
+	_clear(overlay)
 	if not open: return
+	if not bool(world.get("dedicated")):
+		_pause_menu = PauseMenu.new()
+		overlay.add_child(_pause_menu)
+		_pause_menu.call("setup", self)
+		if PaperLanguage.language == "en": PaperLanguage.apply_tree(overlay)
+		return
 	_dim(overlay, 0.74)
 	var card: PanelContainer = PanelContainer.new()
 	var style: StyleBoxFlat = T.panel_style(0.97, T.LINE, 10)
@@ -2140,6 +2405,22 @@ func show_pause(open: bool) -> void :
 		tween.tween_property(card, "modulate:a", 1.0, 0.15)
 	if PaperLanguage.language == "en": PaperLanguage.apply_tree(overlay)
 
+# Actions du menu pause (mêmes effets qu'avant la refonte).
+func _pause_resume() -> void :
+	world.pause_open = false
+	world.capture_gameplay_mouse()
+	show_pause(false)
+
+func _pause_settings() -> void :
+	transition(func() -> void :
+		_clear(overlay)
+		show_settings(), "RÉGLAGES")
+
+func _pause_controls() -> void :
+	transition(func() -> void :
+		_clear(overlay)
+		world.controls_menu.open(), "COMMANDES")
+
 func _fill_pause_actions(actions: VBoxContainer) -> void :
 	_clear(actions)
 	if _pause_confirm:
@@ -2172,6 +2453,7 @@ func _fill_pause_actions(actions: VBoxContainer) -> void :
 
 func show_ending(winner: String, was_lms: bool) -> void :
 	menu_paper = false
+	_page_rerender = false
 	toast_time = 0
 	toast_label.hide()
 	blind_flash = 0
@@ -2208,6 +2490,17 @@ func show_ending(winner: String, was_lms: bool) -> void :
 	spot.anchor_right = 0.42
 	spot.anchor_top = 0.24
 	spot.anchor_bottom = 1
+	var decor: MenuFx.Decor = MenuFx.Decor.new()
+	decor.reduced = reduced_motion
+	decor.title = "ALICE" if killer_won else "ÉVASION"
+	decor.accent = accent
+	decor.band_alpha = 0.6
+	decor.band_a = Vector2(-0.05, 0.95)
+	decor.band_b = Vector2(0.62, -0.1)
+	decor.band_width = 300.0
+	decor.giant_alpha = 0.07
+	decor.ribbon_text = "LE BULLETIN DE LA NUIT"
+	overlay.add_child(decor)
 	var header: VBoxContainer = VBoxContainer.new()
 	header.add_theme_constant_override("separation", 0)
 	overlay.add_child(header)
@@ -2218,10 +2511,9 @@ func show_ending(winner: String, was_lms: bool) -> void :
 	header.offset_top = 34
 	header.add_child(_kicker("LE BULLETIN DE LA NUIT"))
 	var forfeit: bool = not killer_won and str(world.ending_kind) == PaperAliceForfeit.KIND
-	var verdict: Label = _label("VICTOIRE D’ALICE" if killer_won else "VICTOIRE PAR FORFAIT" if forfeit else "LES ÉLÈVES S’ÉCHAPPENT", "display", 58, accent)
-	verdict.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	verdict.add_theme_constant_override("line_spacing", -14)
+	var verdict: Control = _display_title("VICTOIRE D’ALICE" if killer_won else "VICTOIRE PAR FORFAIT" if forfeit else "LES ÉLÈVES S’ÉCHAPPENT", 70, accent.darkened(0.15), 500.0)
 	header.add_child(verdict)
+	header.rotation_degrees = -3.0
 	if was_lms:
 		var lms_line: Label = _label("LAST MAN STANDING", "caps_wide", 15, T.GOLD)
 		header.add_child(lms_line)
@@ -2309,10 +2601,25 @@ func show_ending(winner: String, was_lms: bool) -> void :
 	if not world.match_results.is_empty(): _present_result(world.match_results[0])
 	_intro(header)
 	if not reduced_motion:
+		# Le verdict se plaque, la feuille de notes pivote depuis la droite,
+		# les lignes du classement arrivent en cascade.
+		header.pivot_offset = Vector2(0, 60)
+		header.scale = Vector2(1.5, 1.5)
+		header.modulate.a = 0.0
+		var slam: Tween = header.create_tween().set_parallel()
+		slam.tween_property(header, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		slam.tween_property(header, "modulate:a", 1.0, 0.1)
 		sheet.modulate.a = 0.0
-		var tween: Tween = sheet.create_tween()
-		tween.tween_interval(0.12)
-		tween.tween_property(sheet, "modulate:a", 1.0, 0.3)
+		var tween: Tween = sheet.create_tween().set_parallel()
+		var goal: float = sheet.rotation
+		sheet.rotation = goal + 0.09
+		tween.tween_property(sheet, "modulate:a", 1.0, 0.16).set_delay(0.1)
+		tween.tween_property(sheet, "rotation", goal, 0.38).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT).set_delay(0.1)
+		Sound.play("swoosh")
+		fx.cascade_children(rows, 0.24, 0.05, Vector2(110, 0), 0.06, 0.28)
+		fx.cascade_children(actions, 0.5, 0.06, Vector2(0, 70), -0.08, 0.24)
+	elif reduced_motion:
+		_soft_fade(overlay)
 	if PaperLanguage.language == "en": PaperLanguage.apply_tree(overlay)
 	again.call_deferred("grab_focus")
 
@@ -2322,9 +2629,11 @@ func _result_row(row: Dictionary, rank: int) -> Button:
 	line.custom_minimum_size.y = 58
 	line.focus_mode = Control.FOCUS_ALL
 	for state: String in ["normal", "pressed", "disabled"]: line.add_theme_stylebox_override(state, T.empty_style())
-	line.add_theme_stylebox_override("hover", T.box(Color(0.95, 0.78, 0.3, 0.16), Color(0, 0, 0, 0), 0, 3, 0, 0))
-	line.add_theme_stylebox_override("hover_pressed", T.box(Color(0.95, 0.78, 0.3, 0.2), Color(0, 0, 0, 0), 0, 3, 0, 0))
-	line.add_theme_stylebox_override("focus", T.focus_style(3))
+	var lit_mark: StyleBox = T.marker(Color(0.95, 0.78, 0.3, 0.42), 0, 0)
+	lit_mark.set("boil", true)
+	line.add_theme_stylebox_override("hover", lit_mark)
+	line.add_theme_stylebox_override("hover_pressed", T.marker(Color(0.95, 0.78, 0.3, 0.55), 0, 0))
+	line.add_theme_stylebox_override("focus", lit_mark)
 	line.pressed.connect(_present_result.bind(row))
 	line.pressed.connect(_sfx.bind("click"))
 	line.mouse_entered.connect(_sfx.bind("hover"))
@@ -2398,7 +2707,7 @@ func _present_result(row: Dictionary) -> void :
 	if is_instance_valid(result_view): result_view.present(row)
 	for entry: Dictionary in _result_rows:
 		var selected: bool = int(entry.row.get("id", -1)) == int(row.get("id", -2))
-		var style: StyleBox = T.box(Color(0.95, 0.78, 0.3, 0.24), Color(0, 0, 0, 0), 0, 3, 0, 0) if selected else T.empty_style()
+		var style: StyleBox = T.marker(Color(0.95, 0.78, 0.3, 0.3), 0, 0) if selected else T.empty_style()
 		entry.button.add_theme_stylebox_override("normal", style)
 	var breakdown: Dictionary = row.get("breakdown", {})
 	var parts: Array[String] = []
@@ -2477,8 +2786,8 @@ func show_training_panel(open: bool = true) -> void :
 	if not open: return
 	_dim(overlay, 0.74)
 	var panel: PanelContainer = PanelContainer.new()
-	var style: StyleBoxFlat = T.panel_style(0.97, T.TEAL_DIM, 10)
-	style.content_margin_left = 30
+	var style: StyleBox = T.sheet_style(30, 22, T.TEAL_DEEP, 47)
+	style.content_margin_left = 34
 	style.content_margin_right = 26
 	panel.add_theme_stylebox_override("panel", style)
 	overlay.add_child(panel)
@@ -2496,7 +2805,7 @@ func show_training_panel(open: bool = true) -> void :
 	var v: VBoxContainer = _vbox(scroll, 10)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	v.add_child(_kicker("TERRAIN D’ESSAI"))
-	v.add_child(_label("Le terrain d’essai", "title", 34, T.PAPER))
+	v.add_child(_display_title("Le terrain d’essai", 40, T.TEAL_DIM))
 	_paragraph("Teste les vrais coups et les vrais effets. Les cibles reviennent après deux secondes. F2 ferme ce panneau.", v, 16)
 	var actor: PaperActor = world.local_actor()
 	if not actor: return
@@ -2598,6 +2907,7 @@ func show_training_panel(open: bool = true) -> void :
 	exit_row.add_child(leave)
 	if PaperLanguage.language == "en": PaperLanguage.apply_tree(overlay)
 	resume_button.call_deferred("grab_focus")
+	if is_instance_valid(fx) and not reduced_motion: fx.cascade_children(v, 0.0, 0.02, Vector2(-60, 0), -0.05, 0.22)
 
 func _resume_training() -> void :
 	world.pause_open = false
@@ -2609,6 +2919,7 @@ func _resume_training() -> void :
 
 func show_loading(map_id: String, characters: Array = []) -> void :
 	menu_paper = false
+	_page_rerender = false
 	_clear(page)
 	_clear(overlay)
 	page.show()
@@ -2750,6 +3061,12 @@ func show_loading(map_id: String, characters: Array = []) -> void :
 	loading_bar.offset_top = -28
 	loading_bar.offset_bottom = -24
 	loading_bar.value = 0
+	var ribbon: MenuFx.Decor = MenuFx.Decor.new()
+	ribbon.reduced = reduced_motion
+	ribbon.band_alpha = 0.0
+	ribbon.giant_alpha = 0.0
+	ribbon.ribbon_text = "MANCHE OM  ·  PRÉPARATION"
+	page.add_child(ribbon)
 	_update_tip(0.0)
 	_intro(column)
 	if PaperLanguage.language == "en": PaperLanguage.apply_tree(page)
@@ -3029,6 +3346,9 @@ func _focus_candidate() -> Control:
 	if scope == null: return null
 	var last: Control = _last_focus.get_ref() as Control if _last_focus else null
 	if is_instance_valid(last) and last.is_inside_tree() and last.is_visible_in_tree() and last.focus_mode != Control.FOCUS_NONE and scope.is_ancestor_of(last) and not (last is BaseButton and (last as BaseButton).disabled): return last
+	# Sinon la cible principale de la page (carte choisie, premier onglet…).
+	var preferred: Control = _page_focus.get_ref() as Control if _page_focus else null
+	if is_instance_valid(preferred) and preferred.is_visible_in_tree() and preferred.focus_mode != Control.FOCUS_NONE and scope.is_ancestor_of(preferred): return preferred
 	return _first_focusable(scope)
 
 func _first_focusable(node: Node) -> Control:
@@ -3042,7 +3362,7 @@ func _first_focusable(node: Node) -> Control:
 
 func _unhandled_input(event: InputEvent) -> void :
 
-
+	if _settings_tab_input(event): return
 	if not event.is_action_pressed("ui_cancel"): return
 	if world.phase not in ["menu", "lobby"] or not page.visible: return
 	if (world.online_menu and world.online_menu.visible) or (world.controls_menu and world.controls_menu.visible): return
@@ -3064,6 +3384,24 @@ func _unhandled_input(event: InputEvent) -> void :
 		_: show_main()
 	Sound.play("back")
 	get_viewport().set_input_as_handled()
+
+# Réglages : gâchettes hautes LB / RB (ou Page préc. / Page suiv.) pour
+# changer d'onglet, comme les L / R des menus de Persona.
+func _settings_tab_input(event: InputEvent) -> bool:
+	if current_page != "settings" or not page.visible: return false
+	if (world.online_menu and world.online_menu.visible) or (world.controls_menu and world.controls_menu.visible): return false
+	var step: int = 0
+	if event is InputEventJoypadButton and event.pressed:
+		if event.button_index == JOY_BUTTON_LEFT_SHOULDER: step = -1
+		elif event.button_index == JOY_BUTTON_RIGHT_SHOULDER: step = 1
+	elif event is InputEventKey and event.pressed and not event.echo:
+		if event.keycode == KEY_PAGEUP: step = -1
+		elif event.keycode == KEY_PAGEDOWN: step = 1
+	if step == 0: return false
+	var tabs: Array = SETTINGS_TABS
+	_settings_switch(str(tabs[posmod(tabs.find(settings_tab) + step, tabs.size())]))
+	get_viewport().set_input_as_handled()
+	return true
 
 func _on_focus_changed(control: Control) -> void :
 	if control != null: _last_focus = weakref(control)

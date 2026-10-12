@@ -5,6 +5,7 @@ extends Control
 const T = preload("res://ui_theme.gd")
 const W = preload("res://ui_widgets.gd")
 const Sound = preload("res://ui_sound.gd")
+const MenuFx = preload("res://ui_menu_fx.gd")
 
 var world: Node
 var list: VBoxContainer
@@ -20,11 +21,15 @@ func setup(owner: Node) -> void :
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	hide()
 
+var _entering: bool = false
+
 func open() -> void :
 	world.ui.page.hide()
 	show()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	_entering = true
 	_build()
+	_entering = false
 
 func close() -> void :
 	capture_action = ""
@@ -39,8 +44,15 @@ func _build() -> void :
 	back.color = Color(0.03, 0.035, 0.055, 0.94)
 	add_child(back)
 	back.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	var decor: MenuFx.Decor = MenuFx.Decor.new()
+	decor.title = "COMMANDES"
+	decor.accent = T.GOLD_DIM.lerp(T.RED_DEEP, 0.5)
+	decor.reduced = bool(world.ui.reduced_motion)
+	decor.ribbon_text = "MON CARNET DE COMMANDES"
+	add_child(decor)
+	if not _entering: decor.set("_enter", 1.0)
 	var panel: PanelContainer = PanelContainer.new()
-	var style: StyleBoxFlat = T.panel_style(0.98, T.LINE, 10)
+	var style: StyleBox = T.sheet_style(36, 28, T.RED_DEEP, 29)
 	style.content_margin_left = 36
 	style.content_margin_right = 30
 	style.content_margin_top = 28
@@ -65,7 +77,9 @@ func _build() -> void :
 	list.add_theme_constant_override("separation", 8)
 	var kicker: Label = _text("RÉGLAGES · COMMANDES", 13, T.TEAL, "caps_wide")
 	kicker.autowrap_mode = TextServer.AUTOWRAP_OFF
-	_text("Mon carnet de commandes", 36, T.PAPER, "title")
+	var title: W.CollageTitle = W.CollageTitle.new()
+	title.setup("Mon carnet de commandes", 40.0, T.RED, 900.0)
+	list.add_child(title)
 	_text("Clavier / souris et manettes · les réglages sont conservés sur cet appareil.", 16, T.MUTED)
 	var selector: OptionButton = OptionButton.new()
 	selector.add_item("Clavier & souris")
@@ -81,9 +95,11 @@ func _build() -> void :
 	_text("Manettes détectées : " + (", ".join(names) if not names.is_empty() else "aucune pour le moment"), 15, T.MUTED)
 	prompt = _text("Choisis une commande à modifier. Échap annule la capture.", 17, T.GOLD)
 	for action: String in PaperBindings.LABELS:
+		var holder: W.MenuRow = W.MenuRow.new()
+		list.add_child(holder)
 		var row: HBoxContainer = HBoxContainer.new()
 		row.add_theme_constant_override("separation", 16)
-		list.add_child(row)
+		holder.add_child(row)
 		var label: Label = Label.new()
 		label.text = PaperLanguage.t(str(PaperBindings.LABELS[action]))
 		label.add_theme_color_override("font_color", T.PAPER_DIM)
@@ -132,6 +148,7 @@ func _build() -> void :
 	_button(actions, "ENREGISTRER & RETOUR", close, "PrimaryButton")
 	if PaperLanguage.language == "en": PaperLanguage.apply_tree(self)
 	selector.grab_focus()
+	if _entering and is_instance_valid(world.ui.fx): world.ui.fx.cascade_children(list, 0.04, 0.018, Vector2(-60, 0), -0.05, 0.24)
 
 func _sfx(kind: String) -> void :
 	Sound.play(kind)
@@ -162,9 +179,11 @@ func _button(parent: Node, text: String, callback: Callable, variation: String =
 	button.pressed.connect(_sfx.bind("confirm" if variation == "PrimaryButton" else "click"))
 
 func _slider(title: String, low: float, high: float, value: float, callback: Callable) -> void :
+	var holder: W.MenuRow = W.MenuRow.new()
+	list.add_child(holder)
 	var row: HBoxContainer = HBoxContainer.new()
 	row.add_theme_constant_override("separation", 16)
-	list.add_child(row)
+	holder.add_child(row)
 	var label: Label = Label.new()
 	label.text = title
 	label.add_theme_color_override("font_color", T.PAPER_DIM)
