@@ -13,8 +13,9 @@ extends Node
 #   main      menu principal au clavier, puis survol souris de chaque entrée (scènes de survol).
 #   setup     JOUER (Entrée), grille des élèves au clavier, onglet ALICE à la manette, retour B.
 #   settings  Réglages par la souris : onglets Jeu, Audio, Commandes (RB), carnet de commandes.
-#   friends   Entre amis, connexion directe, salon (sans serveur) avec « Qui joue Alice ? » et badge.
-#   shop      Boutique : nouveautés TikTok, classiques, aperçu d'une danse.
+#   friends   Entre amis, connexion directe, salon (sans serveur) avec « Qui joue Alice ? » (liste ouverte
+#             avec A, joueur choisi à la croix + A) et badge.
+#   shop      Boutique : nouveautés TikTok, classiques, aperçu d'une danse (A à la manette, puis clic).
 #   gallery   Cinémathèque : liste, catégories, lecture d'un film de chaque catégorie.
 #   pause     Partie solo lancée depuis la préparation, menu pause et ses sous-menus.
 #   results   Fins réelles : victoire, défaite, forfait (blocus) puis écran de résultats.
@@ -138,8 +139,20 @@ func _click(control: Control, settle: float = 0.3) -> void :
 		holder.ensure_control_visible(control)
 		await get_tree().process_frame
 		await get_tree().process_frame
+	# Les menus glissent en cascade (pas de temps plafonné à 1/30 s) : sur une machine lente,
+	# on attend que le contrôle ne bouge plus avant de viser.
+	var settled: Rect2 = control.get_global_rect()
+	var still: int = 0
+	for frame: int in range(240):
+		await get_tree().process_frame
+		var now: Rect2 = control.get_global_rect()
+		still = still + 1 if now.is_equal_approx(settled) else 0
+		settled = now
+		if still >= 2: break
 	var point: Vector2 = _window_point(control)
 	await _mouse_to(point)
+	# Le survol n'est mis à jour qu'au traitement suivant des entrées.
+	await get_tree().process_frame
 	var hovered: Control = get_viewport().gui_get_hovered_control()
 	if hovered == null or (hovered != control and not control.is_ancestor_of(hovered)):
 		_note("clic « %s » : la souris survole %s" % [str(control.get("text")), (hovered.get_class() + ":" + str(hovered.get("text")) + " @" + str(hovered.get_path())) if hovered else "<rien>"])
@@ -417,10 +430,16 @@ func _step_friends() -> void :
 		var popup: PopupMenu = choice.get_popup()
 		var target: int = -1
 		for index: int in range(choice.item_count):
-			if choice.get_item_text(index).begins_with("Margaux"): target = index
+			if choice.get_item_text(index).begins_with(_tr("Margaux")): target = index
 		_note("menu Alice : " + ", ".join(PackedStringArray(range(choice.item_count).map(func(i: int) -> String: return choice.get_item_text(i)))))
+		_check(popup.visible, "A ouvre la liste « Qui joue Alice ? »")
+		# Manette : la croix descend jusqu'à Margaux dans la liste ouverte, A valide.
+		if popup.visible and target >= 0:
+			for step: int in range(target - maxi(0, choice.selected)): await _pad(JOY_BUTTON_DPAD_DOWN, 0.12)
+			await _pad(JOY_BUTTON_A, 0.6)
+		_check(not popup.visible and world.chosen_alice_peer() == 51234, "croix ↓ puis A : Margaux choisie à la manette (%d)" % world.chosen_alice_peer())
 		if popup.visible: popup.hide()
-		if target >= 0:
+		if target >= 0 and world.chosen_alice_peer() != 51234:
 			choice.select(target)
 			choice.item_selected.emit(target)
 		await _wait(0.8)
@@ -455,6 +474,15 @@ func _step_shop() -> void :
 	var previews: Array = world.ui.page.find_children("*", "Button", true, false).filter(func(node: Node) -> bool: return (node as Button).is_visible_in_tree() and str((node as Button).text).strip_edges() == _tr("APERÇU"))
 	_note("boutons APERÇU : %d" % previews.size())
 	if previews.size() >= 3:
+		# Manette : A sur l'APERÇU d'une autre danse lance son aperçu (la liste se reconstruit).
+		var before: String = str(world.ui.shop_selected)
+		(previews[1] as Control).grab_focus()
+		await _wait(0.3)
+		await _pad(JOY_BUTTON_A, 1.2)
+		var vignettes: Node = world.ui.get("menu_vignettes")
+		var playing: String = str(vignettes.get("_preview_dance")) if is_instance_valid(vignettes) else ""
+		_check(str(world.ui.shop_selected) != before and playing == str(world.ui.shop_selected), "A sur APERÇU : aperçu à la manette (%s → %s, joué : %s)" % [before, world.ui.shop_selected, playing])
+		previews = world.ui.page.find_children("*", "Button", true, false).filter(func(node: Node) -> bool: return (node as Button).is_visible_in_tree() and str((node as Button).text).strip_edges() == _tr("APERÇU"))
 		var scroll_p: ScrollContainer = _scroll_parent(previews[2])
 		if scroll_p: scroll_p.ensure_control_visible(previews[2])
 		await _wait(0.3)

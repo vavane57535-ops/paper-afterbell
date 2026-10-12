@@ -260,6 +260,7 @@ const TEXT: Dictionary = {
 	"A · pause     ← → · 1 s     B · retour": "A · pause     ← → · 1 s     B · back",
 	"Sensibilité de la manette": "Controller sensitivity",
 	"Caméra au stick droit. Accélération et zone morte : Commandes.": "Right-stick camera. Acceleration and deadzone: Controls.",
+	"https://adresse-du-service": "https://service-address",
 }
 
 # Modèles avec valeurs (%d, %s, %.1f) : [français, anglais].
