@@ -783,6 +783,8 @@ func _update_hurt(delta: float) -> void :
 	if _world_bus < 0 or _lowpass == null: return
 	var goal: float = 0.0 if not _preview_snapshot.is_empty() else _hurt_target
 	_hurt_level = move_toward(_hurt_level, goal, delta * 1.5)
+	# Hors de la partie (film de fin, résultats, menu) : l'effet « blessé » se coupe net.
+	if is_instance_valid(_world) and str(_world.get("phase")) != "playing": _hurt_level = 0.0
 	var on: bool = _hurt_level > 0.01
 	if on != _lowpass_on:
 		_lowpass_on = on

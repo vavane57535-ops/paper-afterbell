@@ -26,6 +26,7 @@ Protocole réseau **16** : tous les joueurs doivent avoir la 0.16 pour jouer ens
 - En **True Form** (la « phase 6 » d'Alice), toute exécution devient : Alice attrape la victime et la fracasse violemment au sol.
 - Mise en scène de cinéma pour la victime et pour Alice : plans dédiés, ralentis, onomatopées, secousses, expressions du visage et bruitages dédiés. Les autres joueurs voient la scène dans le monde.
 - Conditions : Alice à 16 m maximum avec ligne de vue, et de la place autour. Sinon, c'est la mort normale.
+- Pendant la scène, la caméra est celle du film : la visée et la touche C sont ignorées, et la roue d'émotes se ferme.
 
 ## Chrono : +45 s par élimination
 - Chaque élimination définitive d'un survivant par Alice ajoute **45 secondes** au chrono, avec « +0:45 » au HUD. Les éliminations rapprochées se cumulent.
@@ -41,10 +42,11 @@ Protocole réseau **16** : tous les joueurs doivent avoir la 0.16 pour jouer ens
   - secousse et battements de cœur.
 - La **musique de course** s'intensifie jusqu'à la fin du chrono. À 0:17, un « dernier appel » marque l'entrée dans le final.
 - Un LMS garde sa musique prioritaire. « Réduire les flashs » adoucit les pulsations et « Effets d'écran » coupe le filtre.
+- Si la manche se termine pendant l'alerte, tout se coupe net au premier plan du film de fin : filtre, lampes, gyrophares, sirène et musique de course.
 
 ## Volume des musiques
 - Toutes les musiques sont normalisées au même niveau. Les OST fournies de Bleuette et d'Usayuko étaient beaucoup trop fortes ; celle de Bleuette saturait. Les danses sont aussi normalisées.
-- La musique est baissée d'environ 7 dB par rapport à la 0.15. Les danses suivent enfin le curseur Musique.
+- La musique est baissée d'environ 7 dB par rapport à la 0.15, films compris (prologue, victoires LMS, blocus). Les danses suivent enfin le curseur Musique.
 - Nouveau curseur **Réglages → Audio → Volume général**.
 
 ## Victoires LMS façon Outcome Memories

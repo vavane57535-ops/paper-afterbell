@@ -1410,7 +1410,8 @@ func _update_audio_feedback() -> void :
 	if not _audio_heartbeat and not _audio_hurt: return
 	var beat: float = 0.0
 	var hurt: float = 0.0
-	if phase == "playing":
+	# Exécution filmée pour ce poste (victime) : son du film ni étouffé (« blessé ») ni couvert par le cœur.
+	if phase == "playing" and not (kill_scenes and kill_scenes.has_camera()):
 		var me: PaperActor = local_actor()
 		if me and me.alive and not me.killer and not bool(me.effects.get("escaped", false)):
 			var k: PaperActor = killer_actor()

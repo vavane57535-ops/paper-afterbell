@@ -172,6 +172,7 @@ func _run() -> void :
 	var siren_until: float = -1.0
 	var rush_until: float = -1.0
 	var red_until: float = -1.0
+	var marks_until: float = -1.0
 	while str(world.phase) == "ending" and not bool(world.ending_presented) and index < times.size():
 		var t: float = float(world.cinema)
 		var siren_player: AudioStreamPlayer = world.exit_alarm.get("_alarm")
@@ -179,6 +180,8 @@ func _run() -> void :
 		var rush_player: AudioStreamPlayer = world.audio.tracks.get("exit")
 		if rush_player and rush_player.playing and rush_player.volume_db > -60.0: rush_until = t
 		if float(world.exit_alarm.get("_level")) > 0.001: red_until = t
+		var items: Variant = world.get("map_interactables")
+		if t > 0.05 and is_instance_valid(items) and ((items.exit_sign as Node3D).visible or (items.exit_glow as Node3D).visible): marks_until = t
 		if t + 0.0001 >= times[index]:
 			while index < times.size() and times[index] <= t + 0.0001: index += 1
 			await _shot("film_%05.2f" % t)
@@ -188,6 +191,7 @@ func _run() -> void :
 	_check(red_until < 0.05, "alerte visuelle coupée dès le premier plan (jusqu'à %.2f s)" % red_until)
 	_check(siren_until < 0.2, "sirène coupée au début du film (jusqu'à %.2f s)" % siren_until)
 	_check(rush_until < 0.45, "musique de course coupée au début du film (jusqu'à %.2f s)" % rush_until)
+	_check(marks_until < 0.0, "panneau « SORTIE · … » et anneau de la sortie absents du film (vus jusqu'à %.2f s)" % marks_until)
 	var alarm: Node = world.exit_alarm
 	_check(float(alarm.get("_level")) <= 0.001, "filtre rouge coupé pendant le film (niveau %.3f)" % float(alarm.get("_level")))
 	_check(not alarm._grade.visible and not alarm._glow.visible, "filtre et halo masqués pendant le film")
@@ -261,6 +265,7 @@ func _run_kill() -> void :
 	for t: float in [0.6, 1.6, 2.6, 3.6]:
 		await _wait(t - (0.6 if t > 0.6 else 0.0) if t == 0.6 else 1.0)
 		await _shot("kill_%.1f" % t)
+		if is_equal_approx(t, 1.6): _check(float(world.audio.get("_hurt_level")) < 0.05, "son de l'exécution non étouffé par l'effet « blessé » (%.2f)" % float(world.audio.get("_hurt_level")))
 	var wait_end: int = 0
 	while bool(world.kill_scenes.has_camera()) and wait_end < 600:
 		await get_tree().process_frame
