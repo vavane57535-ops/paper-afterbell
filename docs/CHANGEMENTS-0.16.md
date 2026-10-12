@@ -15,6 +15,7 @@ Protocole réseau **16** : tous les joueurs doivent avoir la 0.16 pour jouer ens
 - Les introductions des survivants et d'Alice sont retirées.
 - Catégories : Prologue, Victoires LMS, LMS · Alice gagne, Fuite en équipe, Fins (nouveau : le blocus).
 - Les films « LMS · Alice gagne » s'accordent : « Alice · Lysia rattrapée », « la dernière tentative d’Elly ».
+- Pendant la lecture, la barre de lecture s'efface après 2,5 s sans geste : le bas de l'image (répliques, « Bienvenue dans votre nouvel enfer. », sous-titres du blocus) n'est plus masqué. La souris, une touche ou la manette la font revenir ; elle reste affichée en pause.
 
 ## Exécutions d'Alice (dernière vie)
 - Quand un survivant est dans sa **dernière vie** (déjà relevé, ou sans relevage comme Lysia), le coup fatal d'Alice déclenche son exécution propre :

@@ -13,6 +13,9 @@ var search: String = ""
 var team: Array = []
 
 var _backdrop_clock: float = 0.0
+# Temps de lecture sans geste : au-delà de TRANSPORT_IDLE, la barre de lecture s'efface.
+var _idle: float = 0.0
+const TRANSPORT_IDLE: float = 2.5
 
 func _init(game_world: Node) -> void :
 	world = game_world
@@ -55,6 +58,7 @@ func browse() -> void :
 	world.ui.show_gallery()
 
 func play_entry(item: Dictionary) -> void :
+	_idle = 0.0
 	if world.phase != "gallery" or item.is_empty(): return
 	if _is_prologue(): world.prologue.stop()
 	entry = item.duplicate(true);time = 0.0;browsing = false;playing = true
@@ -89,6 +93,21 @@ func tick(delta: float) -> void :
 	else: current.update(time, 0.0)
 	world.ui.update_film("", "", current.black)
 	world.ui.update_gallery_transport(time, current.duration, playing)
+	_fade_transport(delta)
+
+# Lecture sans geste depuis 2,5 s : la barre de lecture (haut et bas) s'efface et le film occupe tout
+# l'écran ; sinon elle couvrait le bas de l'image (« Bienvenue dans votre nouvel enfer. », sous-titres
+# du blocus…). Souris, touche, manette ou toucher la font revenir ; elle reste en pause et à la fin.
+func _fade_transport(delta: float) -> void :
+	var controls: Variant = world.ui.get("gallery_controls")
+	if not controls is Control or not is_instance_valid(controls): return
+	_idle = _idle + delta if playing else 0.0
+	(controls as Control).modulate.a = 1.0 - smoothstep(TRANSPORT_IDLE, TRANSPORT_IDLE + 0.4, _idle)
+
+func _wakes(event: InputEvent) -> bool:
+	if event is InputEventMouseMotion or event is InputEventMouseButton or event is InputEventScreenTouch or event is InputEventScreenDrag: return true
+	if event is InputEventKey or event is InputEventJoypadButton: return event.is_pressed()
+	return event is InputEventJoypadMotion and absf((event as InputEventJoypadMotion).axis_value) > 0.35
 
 func toggle_pause() -> void :
 	if browsing: return
@@ -134,6 +153,11 @@ func close() -> void :
 	world._update_camera(1.0)
 
 func handle_input(event: InputEvent) -> bool:
+	if not browsing and _wakes(event):
+		var hidden: bool = _idle >= TRANSPORT_IDLE
+		_idle = 0.0
+		# Barre effacée : le premier clic (ou toucher) la fait revenir, sans presser un bouton invisible.
+		if hidden and (event is InputEventMouseButton or event is InputEventScreenTouch) and event.is_pressed(): return true
 	if not (event is InputEventKey and event.pressed and not event.echo): return false
 	match event.keycode:
 		KEY_ESCAPE:

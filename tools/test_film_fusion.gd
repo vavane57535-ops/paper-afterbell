@@ -25,6 +25,9 @@ extends Node
 #            Réseau (headless) : -- --host-test --tool test_film_fusion --ff-net host
 #                                -- --join-test --tool test_film_fusion --ff-net client
 #            (l'hôte exécute le dernier survivant ; chaque pair affiche FF_NET_END).
+#   gallery : cinémathèque, prologue vers la fin : sans geste, la barre de lecture s'efface (la réplique
+#            « Bienvenue dans votre nouvel enfer. » n'est plus couverte) ; souris : elle revient ; premier clic
+#            sur la barre effacée sans effet ; en pause elle reste. Images avec --ff-out.
 #   i18n   : titres et descriptions des films « Alice · … rattrapé(e) » de la cinémathèque, en français
 #            et en anglais (accord au féminin pour Lysia, Elly et Bleuette)
 #   watch  : passif, avec --simulate (partie de bots) : affiche FF_WATCH_END (type de fin, film, mode de
@@ -139,6 +142,11 @@ func _run() -> void :
 	for i: int in range(6): await get_tree().process_frame
 	if mode == "films":
 		await _run_films()
+		print("FF_RESULT ", "OK" if failures.is_empty() else "FAIL " + ", ".join(failures))
+		get_tree().quit()
+		return
+	if mode == "gallery":
+		await _run_gallery()
 		print("FF_RESULT ", "OK" if failures.is_empty() else "FAIL " + ", ".join(failures))
 		get_tree().quit()
 		return
@@ -596,3 +604,43 @@ func _run_i18n() -> void :
 		_check(text_en == "%s's last attempt fails. Alice catches %s, strikes and finishes %s on the floor." % [person, "her" if she else "him", "her" if she else "him"], "description anglaise (%s)" % text_en)
 		_check(str(entry.description).begins_with("La dernière tentative " + ("d’" if person.left(1) in ["A", "E", "U"] else "de ")), "élision (%s)" % str(entry.description))
 	PaperLanguage.language = previous
+
+
+func _run_gallery() -> void :
+	world.gallery.open()
+	for k: int in range(3): await get_tree().process_frame
+	var entry: Dictionary = world.gallery.entries[0]
+	_check(str(entry.id) == "intro_yiero", "prologue en tête de la cinémathèque")
+	world.gallery.play_entry(entry)
+	for k: int in range(10): await get_tree().process_frame
+	world.gallery.seek(187.0)
+	var controls: Control = world.ui.gallery_controls
+	for k: int in range(5): await get_tree().process_frame
+	_check(controls.visible and controls.modulate.a > 0.95, "barre visible au début de la lecture (%.2f)" % controls.modulate.a)
+	var until: float = Time.get_ticks_msec() * 0.001 + 3.4
+	while Time.get_ticks_msec() * 0.001 < until and world.gallery.playing: await get_tree().process_frame
+	await _shot("gallery_idle")
+	print("FF_GALLERY time=%.2f alpha=%.2f idle=%.2f" % [float(world.gallery.time), controls.modulate.a, float(world.gallery.get("_idle"))])
+	_check(controls.modulate.a < 0.05, "barre effacée après 2,5 s sans geste (%.2f)" % controls.modulate.a)
+	var pause_before: bool = world.gallery.playing
+	var click: InputEventMouseButton = InputEventMouseButton.new()
+	click.button_index = MOUSE_BUTTON_LEFT
+	click.pressed = true
+	click.position = Vector2(get_viewport().get_visible_rect().size.x * 0.1, get_viewport().get_visible_rect().size.y - 60.0)
+	_check(bool(world.gallery.handle_input(click)), "premier clic sur la barre effacée : consommé")
+	_check(world.gallery.playing == pause_before, "premier clic : pas de bouton pressé en aveugle")
+	for k: int in range(3): await get_tree().process_frame
+	_check(controls.modulate.a > 0.95, "la barre revient au clic (%.2f)" % controls.modulate.a)
+	until = Time.get_ticks_msec() * 0.001 + 3.2
+	while Time.get_ticks_msec() * 0.001 < until and world.gallery.playing: await get_tree().process_frame
+	var motion: InputEventMouseMotion = InputEventMouseMotion.new()
+	motion.relative = Vector2(12, 4)
+	Input.parse_input_event(motion)
+	for k: int in range(3): await get_tree().process_frame
+	_check(controls.modulate.a > 0.95, "la barre revient quand la souris bouge (%.2f)" % controls.modulate.a)
+	world.gallery.toggle_pause()
+	until = Time.get_ticks_msec() * 0.001 + 3.2
+	while Time.get_ticks_msec() * 0.001 < until: await get_tree().process_frame
+	_check(controls.modulate.a > 0.95, "en pause, la barre reste (%.2f)" % controls.modulate.a)
+	await _shot("gallery_paused")
+	world.gallery.close()
