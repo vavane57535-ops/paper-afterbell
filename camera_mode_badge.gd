@@ -16,6 +16,7 @@ var _title: Label
 var _detail: Label
 var _key: Label
 var _time: float = 0.0
+var _dodge: float = 0.0
 
 
 class Glyph extends Control:
@@ -117,7 +118,22 @@ func show_mode(next: String) -> void :
 	_panel.offset_top = 0
 	_panel.offset_bottom = 0
 	show()
+	_dodge = _dodge_goal()
 	_apply()
+
+# Les bulles d'info et le bandeau d'alerte de la sortie occupent le même haut d'écran : le bandeau de
+# caméra se place juste en dessous d'eux (sinon il s'imprimait en plein sur « LA SORTIE EST OUVERTE »).
+func _dodge_goal() -> float:
+	var bottom: float = 0.0
+	var ui: Variant = world.get("ui") if world != null else null
+	var toasts: Variant = ui.get("_toast_box") if ui != null and is_instance_valid(ui) else null
+	if toasts is Control and is_instance_valid(toasts) and (toasts as Control).is_visible_in_tree():
+		for panel: Node in (toasts as Control).get_children():
+			if panel is Control and (panel as Control).visible and (panel as Control).modulate.a > 0.05: bottom = maxf(bottom, (panel as Control).get_global_rect().end.y)
+	var alarm: Variant = world.get("exit_alarm") if world != null else null
+	if alarm != null and is_instance_valid(alarm) and alarm.has_method("banner_bottom"): bottom = maxf(bottom, float(alarm.banner_bottom()))
+	if bottom <= 0.0: return 0.0
+	return maxf(0.0, bottom + 12.0 - (global_position.y + size.y * _panel.anchor_top))
 
 # Touche affichée : le bouton manette lié à l'action s'il est en train d'être pressé (bascule faite à la
 # manette, R3 par défaut, réassignable), sinon la touche clavier.
@@ -133,13 +149,16 @@ func _key_text() -> String:
 func _process(delta: float) -> void :
 	if not visible: return
 	# Fin de manche, retour au menu ou pause pendant l'affichage : le bandeau ne reste pas par-dessus.
-	var rig: Variant = world.get("camera_rig") if world != null else null
-	var filmed: bool = rig != null and is_instance_valid(rig) and bool(rig.look_locked())
-	if world != null and (str(world.get("phase")) != "playing" or bool(world.get("pause_open")) or filmed):
+	if world != null and (str(world.get("phase")) != "playing" or bool(world.get("pause_open"))):
 		_time = 0.0
 		hide()
 		return
+	# Plan cinématique en jeu (exécution…) : la caméra appartient au film. Un bandeau affiché juste avant
+	# (C pressé au moment du coup fatal) s'efface au lieu de rester par-dessus le plan, hors du HUD estompé.
+	var rig: Variant = world.get("camera_rig") if world != null else null
+	if rig != null and rig.has_method("look_locked") and rig.look_locked(): _time = minf(_time, FADE_OUT * 0.5)
 	_time = maxf(0.0, _time - delta)
+	_dodge = lerpf(_dodge, _dodge_goal(), 1.0 - exp( - delta * 14.0))
 	_apply()
 	if _time <= 0.0: hide()
 
@@ -150,5 +169,5 @@ func _apply() -> void :
 	modulate.a = alpha
 	var reduced: bool = world != null and world.get("ui") != null and bool(world.ui.get("reduced_motion"))
 	var rise: float = 0.0 if reduced else (1.0 - smoothstep(0.0, FADE_IN * 2.0, age)) * 10.0
-	_panel.offset_top = rise
-	_panel.offset_bottom = rise
+	_panel.offset_top = rise + _dodge
+	_panel.offset_bottom = rise + _dodge
