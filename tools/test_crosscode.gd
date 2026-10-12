@@ -53,6 +53,9 @@ func _run() -> void:
 			"debris_end": await _plan_debris_end()
 			"exec_victim": await _plan_exec_victim()
 			"exec_alarm": await _plan_exec_alarm()
+			"prologue_hold": await _plan_prologue_hold()
+			"dedicated": await _plan_dedicated()
+			"exec_facing": await _plan_exec_facing()
 			_: _fail(plan, "plan inconnu")
 	print("CROSS_TEST ", "OK" if failures.is_empty() else "FAIL", " ", JSON.stringify(failures))
 	get_tree().quit()
@@ -274,6 +277,78 @@ func _plan_exec_camera() -> void:
 	_report(plan, before, "override=%s badge=%s mode=%s->%s yaw_moved=%.3f pitch_moved=%.3f released=%s" % [str(overriding), str(badge), mode0, str(rig.mode), yaw_moved, pitch_moved, str(not still and not held)])
 
 
+# --- exec_facing : caméra « Libre 360° » (par défaut) et orientation pendant l'approche ---------
+
+func _visual_forward(actor: PaperActor) -> Vector3:
+	var yaw: float = actor.rotation.y + actor.visual.rotation.y
+	return Vector3(-sin(yaw), 0.0, -cos(yaw))
+
+
+func _plan_exec_facing() -> void:
+	var plan: String = "exec_facing"
+	var before: int = failures.size()
+	for local_name: String in ["Alice", "Elly"]:
+		if not await _round(local_name, local_name == "Alice"):
+			_fail(plan, "manche non lancée")
+			return
+		world.camera_rig.set_mode("free", false)
+		var alice: PaperActor = world.killer_actor()
+		var victim: PaperActor = world.local_actor() if local_name != "Alice" else _actor("Elly")
+		var base: Vector3 = world.school.spawn_points[1] + Vector3(0, 0, -9)
+		victim.global_position = base
+		victim.reset_physics_interpolation()
+		alice.global_position = base + Vector3(1.2, 0, -5.6)
+		alice.reset_physics_interpolation()
+		# Les deux regardent ailleurs (dos à l'autre) : la caméra du joueur local aussi.
+		var away_alice: Vector3 = (alice.global_position - base).normalized()
+		var away_victim: Vector3 = (base - alice.global_position).normalized()
+		alice.aim = away_alice
+		victim.aim = away_victim
+		var local: PaperActor = world.local_actor()
+		var look: Vector3 = local.aim
+		world.yaw = atan2(-look.x, -look.z)
+		for k in range(10): await get_tree().physics_frame
+		alice.visual.rotation.y = atan2(-away_alice.x, -away_alice.z) - alice.rotation.y
+		victim.visual.rotation.y = atan2(-away_victim.x, -away_victim.z) - victim.rotation.y
+		await get_tree().physics_frame
+		victim.effects["revived"] = true
+		victim.hp = 1.0
+		var scene: Dictionary = _execute(victim, alice)
+		if scene.is_empty():
+			_fail(plan, "pas d'exécution (%s local, distance %.1f m, vue %s, dying %s)" % [local_name, alice.global_position.distance_to(victim.global_position), str(world.combat._los(alice.global_position, victim.global_position)), str(victim.effects.get("dying", false))])
+			continue
+		var worst: Dictionary = {"a": 0.0, "v": 0.0}
+		var last: Dictionary = {"a": _visual_forward(alice), "v": _visual_forward(victim)}
+		var at_start: Dictionary = {}
+		var frames: int = 0
+		while frames < 90:
+			await get_tree().process_frame
+			frames += 1
+			var show: Dictionary = {}
+			for sh: Dictionary in world.kill_scenes._shows.values(): show = sh
+			for key: String in ["a", "v"]:
+				var who: PaperActor = alice if key == "a" else victim
+				var now: Vector3 = _visual_forward(who)
+				worst[key] = maxf(float(worst[key]), absf((last[key] as Vector3).signed_angle_to(now, Vector3.UP)))
+				last[key] = now
+			if not show.is_empty() and bool(show.started) and at_start.is_empty():
+				at_start = {"a": rad_to_deg(_visual_forward(alice).angle_to(_flat_dir(alice, victim))), "v": rad_to_deg(_visual_forward(victim).angle_to(_flat_dir(victim, alice)))}
+			if not show.is_empty() and float(show.t) - float(show.lead) > 0.5: break
+		var line: String = "%s local: snap Alice %.0f°, victime %.0f° ; au début du clip Alice %s°, victime %s°" % [local_name, rad_to_deg(float(worst.a)), rad_to_deg(float(worst.v)), str(snappedf(float(at_start.get("a", -1.0)), 1.0)), str(snappedf(float(at_start.get("v", -1.0)), 1.0))]
+		print("CROSS_NOTE exec_facing ", line)
+		if rad_to_deg(float(worst.a)) > 60.0: _fail(plan, "Alice pivote d'un coup (%.0f° en une image, %s local)" % [rad_to_deg(float(worst.a)), local_name])
+		if rad_to_deg(float(worst.v)) > 60.0: _fail(plan, "la victime pivote d'un coup (%.0f° en une image, %s local)" % [rad_to_deg(float(worst.v)), local_name])
+		world.quit_to_menu()
+		await _wait(0.4)
+	_report(plan, before, "")
+
+
+func _flat_dir(from: PaperActor, to: PaperActor) -> Vector3:
+	var d: Vector3 = to.global_position - from.global_position
+	d.y = 0.0
+	return d.normalized()
+
+
 # --- exec_victim : la victime locale avait la roue d'émotes ouverte -------------------------
 
 func _plan_exec_victim() -> void:
@@ -352,6 +427,64 @@ func _plan_exec_alarm() -> void:
 	_report(plan, before, "alarm_level_at_start=%.2f" % level_start)
 	world.quit_to_menu()
 	await _wait(0.3)
+
+
+# --- dedicated : serveur dédié (lancer avec --dedicated et une configuration de salon) ----------
+
+func _plan_dedicated() -> void:
+	var plan: String = "dedicated"
+	var before: int = failures.size()
+	await _wait(2.0)
+	if not bool(world.dedicated): _fail(plan, "lancer avec --dedicated")
+	if world.get("prologue") != null: _fail(plan, "nœud du prologue créé sur le serveur dédié")
+	if world.get("exit_alarm") != null: _fail(plan, "alerte de sortie créée sur le serveur dédié")
+	var scenes: Node = world.kill_scenes
+	if scenes == null: _fail(plan, "simulation des exécutions absente")
+	elif scenes.is_processing() or scenes.is_physics_processing(): _fail(plan, "mise en scène des exécutions active sur le serveur dédié")
+	_report(plan, before, "phase=%s networked=%s prologue=%s alarm=%s kill_process=%s" % [str(world.phase), str(world.networked), str(world.get("prologue") != null), str(world.get("exit_alarm") != null), str(scenes.is_processing() if scenes else false)])
+
+
+# --- prologue_hold : Entrée (ou Espace) gardée enfoncée pour passer le prologue -------------
+
+func _key(code: Key, pressed: bool, echo: bool = false) -> void:
+	var key: InputEventKey = InputEventKey.new()
+	key.keycode = code
+	key.physical_keycode = code
+	key.pressed = pressed
+	key.echo = echo
+	Input.parse_input_event(key)
+
+
+func _plan_prologue_hold() -> void:
+	var plan: String = "prologue_hold"
+	var before: int = failures.size()
+	for code: Key in [KEY_ENTER, KEY_SPACE]:
+		if world.phase != "menu":
+			world.quit_to_menu()
+			await _wait(0.5)
+		var page_before: String = str(world.ui.current_page)
+		world.play_prologue()
+		await _wait(0.4)
+		if world.phase != "prologue":
+			_fail(plan, "prologue non lancé")
+			break
+		# Touche maintenue : appui, puis répétitions du clavier jusqu'après le retour au menu.
+		_key(code, true)
+		var waited: float = 0.0
+		while world.phase == "prologue" and waited < 6.0:
+			await _wait(0.05)
+			waited += 0.05
+			_key(code, true, true)
+		for k in range(16):
+			await _wait(0.05)
+			_key(code, true, true)
+		_key(code, false)
+		await _wait(0.6)
+		var line: String = "%s: phase=%s page=%s->%s" % [OS.get_keycode_string(code), str(world.phase), page_before, str(world.ui.current_page)]
+		print("CROSS_NOTE prologue_hold ", line)
+		if world.phase != "menu": _fail(plan, "après le prologue passé avec %s : phase %s" % [OS.get_keycode_string(code), str(world.phase)])
+		elif str(world.ui.current_page) != page_before: _fail(plan, "la touche %s gardée a ouvert « %s » au retour au menu" % [OS.get_keycode_string(code), str(world.ui.current_page)])
+	_report(plan, before, "")
 
 
 # --- siren_end ---------------------------------------------------------------------------
