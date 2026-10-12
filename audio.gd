@@ -78,6 +78,7 @@ var _bed_pending: String = ""
 var _last_phase: String = ""
 var _presence_clock: float = 20.0
 var _owl_clock: float = 30.0
+var _music_hold: bool = false
 
 const MIX_BUS: StringName = &"PaperMix"
 const MUSIC_BUS: StringName = &"PaperMusic"
@@ -668,7 +669,7 @@ func _process(delta: float) -> void :
 	var level: float = _duck_gain
 	for key: String in tracks:
 		var p: AudioStreamPlayer = tracks[key]
-		var goal: float = 1.0 if key == active_track else 0.0
+		var goal: float = 1.0 if key == active_track and not _music_hold else 0.0
 		var speed: float = float(_fade_speed.get(key, 1.0 / CROSSFADE_SECONDS))
 		var envelope: float = move_toward(float(_envelopes.get(key, 0.0)), goal, delta * speed)
 		_envelopes[key] = envelope
@@ -788,6 +789,14 @@ func _update_hurt(delta: float) -> void :
 
 	_lowpass.cutoff_hz = 20000.0 * pow(1200.0 / 20000.0, _hurt_level)
 	AudioServer.set_bus_volume_db(_world_bus, -3.5 * _hurt_level)
+
+
+# 0.16: a film that plays its own score (LMS victories) hushes the music tracks;
+# the ending music starts over once it is released.
+func hold_music(on: bool) -> void :
+	if _music_hold == on: return
+	_music_hold = on
+	if not on and mode == "ending" and _preview_snapshot.is_empty() and tracks.has(active_track): _play_from(active_track, 0.0)
 
 
 func duck_for(seconds: float) -> void :

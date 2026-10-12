@@ -1750,7 +1750,7 @@ func show_gallery() -> void :
 	var choice: OptionButton = OptionButton.new()
 	choice.custom_minimum_size = Vector2(300, 46)
 	filters.add_child(choice)
-	for title: String in ["Toutes les scènes", "Prologue", "LMS · Le survivant s’échappe", "LMS · Alice gagne", "Fuite en équipe · Choisir les survivants"]: choice.add_item(title)
+	for title: String in ["Toutes les scènes", "Prologue", "Victoires LMS", "LMS · Alice gagne", "Fuite en équipe · Choisir les survivants"]: choice.add_item(title)
 	choice.select(maxi(0, categories.find(world.gallery.category)))
 	choice.item_selected.connect( func(index: int) -> void :
 		world.gallery.category = categories[index]
