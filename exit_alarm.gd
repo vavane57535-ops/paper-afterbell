@@ -13,7 +13,7 @@ const ALARM_PATHS: Array[String] = ["res://audio/sfx/exit_alarm_00.wav", "res://
 const RUSH_SPAN: float = 80.0
 const RUSH_LEAD: float = 3.0
 const FINAL_CALL: float = 59.97
-const BANNER_SECONDS: float = 4.8
+const BANNER_SECONDS: float = 3.9
 const LAMP_RED: Color = Color(1.0, 0.13, 0.1)
 const AMBIENT_RED: Color = Color(0.95, 0.3, 0.3)
 const FOG_RED: Color = Color(0.32, 0.03, 0.05)
@@ -31,7 +31,9 @@ void fragment() {
 	float lum = dot(c, vec3(0.299, 0.587, 0.114));
 	float edge = smoothstep(0.3, 1.45, length((UV - 0.5) * 2.0));
 	vec3 red = vec3(lum * 1.5 + 0.015, lum * 0.3, lum * 0.28);
-	float k = level * clamp(0.34 + 0.3 * edge + pulse * (0.1 + 0.24 * edge), 0.0, 0.9);
+	float k = level * clamp(0.36 + 0.3 * edge + pulse * (0.1 + 0.24 * edge), 0.0, 0.9);
+	// les hautes lumières (la sortie éclairée, la colonne dorée) gardent leur couleur
+	k *= 1.0 - 0.75 * smoothstep(0.5, 0.92, max(c.r, max(c.g, c.b)));
 	COLOR = vec4(mix(c, red, k), 1.0);
 }
 """
@@ -82,6 +84,7 @@ var _banner_clock: float = 0.0
 var _compass_alpha: float = 0.0
 var _lamps: Array = []
 var _lamp_colors: Array[Color] = []
+var _lamp_energies: Array[float] = []
 var _lamps_touched: bool = false
 var _environment_touched: bool = false
 var _environment_base: Array = []
@@ -118,6 +121,7 @@ func setup(game_world: Node) -> void :
 	_banner.visible = false
 	_banner.draw.connect(_draw_banner)
 	world.ui.hud.add_child(_banner)
+	world.ui.hud.move_child(_banner, 0)
 	_banner.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_compass = Control.new()
 	_compass.name = "ExitCompass"
@@ -251,7 +255,7 @@ func _on_open() -> void :
 	var first: bool = _round_seen != serial
 	_round_seen = serial
 	_final_done = final_stretch()
-	_play_alarm(0, -6.0 if bool(world.lms) else -2.5)
+	_play_alarm(0, -7.0 if bool(world.lms) else -4.0)
 	if not calm():
 		world.add_camera_trauma(0.8)
 		if is_instance_valid(world.ui.screen_fx):
@@ -261,16 +265,16 @@ func _on_open() -> void :
 		world.add_camera_trauma(0.4)
 		if is_instance_valid(world.ui.screen_fx): world.ui.screen_fx.pulse(Color(0.9, 0.08, 0.1, 0.4), 2.0)
 	if world.bindings and world.local_actor() != null: world.bindings.rumble(0.7)
-	show_banner("LA SORTIE EST OUVERTE" if first else "LA SORTIE SE ROUVRE", BANNER_SECONDS if first else 3.2)
+	show_banner("LA SORTIE EST OUVERTE" if first else "LA SORTIE SE ROUVRE", BANNER_SECONDS if first else 2.8)
 
 func _on_close() -> void :
 	_banner_time = minf(_banner_time, 0.3)
 
 func _final_call() -> void :
-	_play_alarm(1, -8.0 if bool(world.lms) else -3.0)
+	_play_alarm(1, -9.0 if bool(world.lms) else -4.5)
 	world.add_camera_trauma(0.35 if calm() else 0.6)
 	if is_instance_valid(world.ui.screen_fx) and not calm(): world.ui.screen_fx.pulse(Color(1.0, 0.1, 0.1, 0.5), 1.0)
-	show_banner("DERNIÈRES SECONDES", 2.6)
+	show_banner("DERNIÈRES SECONDES", 2.4)
 
 func _play_alarm(index: int, gain_db: float) -> void :
 	var audio: PaperAudio = world.audio
@@ -321,41 +325,48 @@ func _update_screen() -> void :
 
 
 func _update_lamps() -> void :
-	var lamps: Array = world.warning_lamps
-	var energies: Array = world.warning_energies
 	if _level <= 0.001:
 		if _lamps_touched: _restore_lamps()
 		return
-	if not _lamps_touched or _lamps.size() != lamps.size() or (not _lamps.is_empty() and not is_instance_valid(_lamps[0])):
-		if _lamps_touched: _restore_lamps()
-		_lamps.clear()
-		_lamp_colors.clear()
-		for lamp: Variant in lamps:
-			_lamps.append(lamp)
-			_lamp_colors.append((lamp as Light3D).light_color if is_instance_valid(lamp) else Color.WHITE)
-		_lamps_touched = true
+	if not _lamps_touched or (not _lamps.is_empty() and not is_instance_valid(_lamps[0])): _collect_lamps()
 	var flicker_owned: bool = float(world.teleport_warning) > 0.0
 	for index: int in range(_lamps.size()):
 		if not is_instance_valid(_lamps[index]): continue
 		var lamp: Light3D = _lamps[index]
 		lamp.light_color = _lamp_colors[index].lerp(LAMP_RED, 0.9 * _level)
-		if flicker_owned or index >= energies.size(): continue
+		if flicker_owned and lamp is OmniLight3D: continue
 		var factor: float
 		if calm(): factor = 0.85 + 0.15 * _pulse
 		else:
 			var lit: bool = (_beat_index + index) % 2 == 0 or final_stretch()
 			factor = 0.42 + (1.1 * _pulse if lit else 0.12 * _pulse)
-		lamp.light_energy = float(energies[index]) * lerpf(1.0, factor * 1.25, _level)
+		lamp.light_energy = _lamp_energies[index] * lerpf(1.0, factor * 1.25, _level)
+
+func _collect_lamps() -> void :
+	if _lamps_touched: _restore_lamps()
+	_lamps.clear()
+	_lamp_colors.clear()
+	_lamp_energies.clear()
+	if not is_instance_valid(world.school): return
+	for node: Node in world.school.find_children("*", "Light3D", true, false):
+		if not (node is OmniLight3D or node is SpotLight3D): continue
+		if is_instance_valid(_rig) and _rig.is_ancestor_of(node): continue
+		var lamp: Light3D = node
+		_lamps.append(lamp)
+		_lamp_colors.append(lamp.light_color)
+		var at: int = world.warning_lamps.find(lamp)
+		_lamp_energies.append(float(world.warning_energies[at]) if at >= 0 and at < world.warning_energies.size() else lamp.light_energy)
+	_lamps_touched = true
 
 func _restore_lamps() -> void :
-	var energies: Array = world.warning_energies
 	for index: int in range(_lamps.size()):
 		if not is_instance_valid(_lamps[index]): continue
 		var lamp: Light3D = _lamps[index]
 		lamp.light_color = _lamp_colors[index]
-		if index < energies.size() and float(world.teleport_warning) <= 0.0: lamp.light_energy = float(energies[index])
+		if not (float(world.teleport_warning) > 0.0 and lamp is OmniLight3D): lamp.light_energy = _lamp_energies[index]
 	_lamps.clear()
 	_lamp_colors.clear()
+	_lamp_energies.clear()
 	_lamps_touched = false
 
 func _update_environment() -> void :
@@ -385,7 +396,7 @@ func _update_rig(delta: float) -> void :
 	if not is_instance_valid(_rig) or _rig.get_parent() != world.school: _build_rig()
 	if not _rig.visible: _rig.show()
 	var calm_mode: bool = calm()
-	_rig_light.light_energy = _level * (3.2 + (0.5 if calm_mode else 2.2) * _pulse)
+	_rig_light.light_energy = _level * (2.8 + (0.4 if calm_mode else 1.8) * _pulse)
 	var spin: float = TAU * (0.35 if calm_mode else 0.95)
 	for index: int in range(_beacons.size()):
 		var pivot: Node3D = _beacons[index]
@@ -393,8 +404,8 @@ func _update_rig(delta: float) -> void :
 		var light: SpotLight3D = _beacon_lights[index]
 		light.visible = not light_profile()
 		light.light_energy = _level * (4.0 if calm_mode else 7.5)
-		_beacon_domes[index].emission_energy_multiplier = 1.5 + 4.0 * _level * (0.6 if calm_mode else 0.5 + 0.5 * _pulse)
-	_beam_material.albedo_color = Color(BEACON_RED, 0.16 * _level * (0.6 if calm_mode else 1.0))
+		_beacon_domes[index].emission_energy_multiplier = 1.2 + 2.6 * _level * (0.6 if calm_mode else 0.4 + 0.6 * _pulse)
+	_beam_material.albedo_color = Color(BEACON_RED, 0.24 * _level * (0.6 if calm_mode else 1.0))
 
 func _build_rig() -> void :
 	if is_instance_valid(_rig): _rig.queue_free()
@@ -449,8 +460,8 @@ func _build_rig() -> void :
 		_rig.add_child(pivot)
 		var dome: MeshInstance3D = MeshInstance3D.new()
 		var sphere: SphereMesh = SphereMesh.new()
-		sphere.radius = 0.2
-		sphere.height = 0.3
+		sphere.radius = 0.3
+		sphere.height = 0.42
 		dome.mesh = sphere
 		var dome_material: StandardMaterial3D = StandardMaterial3D.new()
 		dome_material.albedo_color = BEACON_RED
@@ -529,10 +540,12 @@ func _update_hud(delta: float) -> void :
 
 
 func draw_arrow(item: CanvasItem, center: Vector2, angle: float, length: float, color: Color) -> void :
-	var tip: Vector2 = Vector2(0.0, -length * 0.5).rotated(angle)
-	var back: Vector2 = Vector2(0.0, length * 0.42).rotated(angle)
-	var wing: Vector2 = Vector2(length * 0.42, length * 0.18)
-	var points: PackedVector2Array = PackedVector2Array([center + tip, center + Vector2(wing.x, wing.y).rotated(angle), center + back * 0.35, center + Vector2( - wing.x, wing.y).rotated(angle)])
+	var shape: Array[Vector2] = [Vector2(0.0, -0.5), Vector2(0.4, -0.04), Vector2(0.14, -0.04), Vector2(0.14, 0.5), Vector2(-0.14, 0.5), Vector2(-0.14, -0.04), Vector2(-0.4, -0.04)]
+	var points: PackedVector2Array = PackedVector2Array()
+	for point: Vector2 in shape: points.append(center + (point * length).rotated(angle))
+	var outline: PackedVector2Array = points.duplicate()
+	outline.append(points[0])
+	item.draw_polyline(outline, Color(0.08, 0.0, 0.02, color.a), 3.0, true)
 	item.draw_colored_polygon(points, color)
 
 
@@ -546,7 +559,7 @@ func _draw_banner() -> void :
 	var leave: float = clampf(_banner_time / 0.35, 0.0, 1.0)
 	var shown: float = minf(enter, leave)
 	var ease_in: float = 1.0 - pow(1.0 - enter, 3.0)
-	var center: Vector2 = Vector2(viewport.x * 0.5, viewport.y * 0.34)
+	var center: Vector2 = Vector2(viewport.x * 0.5, viewport.y * 0.3)
 	var shake: Vector2 = Vector2.ZERO
 	if not quiet and _banner_clock < 0.6:
 		var k: float = (1.0 - _banner_clock / 0.6) * 9.0
@@ -616,5 +629,5 @@ func _draw_compass() -> void :
 	var red: Color = Color(0.55, 0.03, 0.08).lerp(Color(0.9, 0.08, 0.14), glow if closing else glow * 0.4)
 	canvas.draw_rect(rect, Color(red, 0.88 * _compass_alpha))
 	canvas.draw_rect(rect, Color(0.98, 0.84, 0.3, 0.85 * _compass_alpha), false, 2.0)
-	draw_arrow(canvas, origin + Vector2(22.0, 17.0), bearing.x, 22.0, Color(0.98, 0.84, 0.3, _compass_alpha))
+	draw_arrow(canvas, origin + Vector2(22.0, 17.0), bearing.x, 24.0, Color(0.98, 0.84, 0.3, _compass_alpha))
 	canvas.draw_string(font, origin + Vector2(42.0, 24.0), text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, Color(1.0, 0.95, 0.88, _compass_alpha))

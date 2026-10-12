@@ -96,7 +96,7 @@ const MUSIC_LEVEL: float = 0.376
 const RUSH_BUS: StringName = &"PaperRush"
 const RUSH_BEAT: float = 60.0 / 128.0
 const RUSH_BEAT_OFFSET: float = -0.02
-const RUSH_TRIM_DB: Vector2 = Vector2(-3.5, 0.0)
+const RUSH_TRIM_DB: Vector2 = Vector2(-1.5, 1.5)
 const RUSH_CUTOFF: Vector2 = Vector2(1100.0, 20000.0)
 const HEARTBEAT_PATH: String = "res://audio/fx_heartbeat.wav"
 const LMS_THEMES: Dictionary = {
@@ -756,7 +756,9 @@ func _update_heartbeat(delta: float) -> void :
 		if _heart_clock > 0.0: return
 		_heart_clock = maxf(_heart_clock + 60.0 / float(band[1]), 0.12)
 	_heart_player.pitch_scale = float(band[2])
-	_heart_player.volume_db = linear_to_db(lerpf(0.26, 0.95, _heart_level)) + volume_to_db(effects_volume)
+	# Le battement « de fond » de la course vers la sortie reste discret (-8 dB) ; la proximité d'Alice le rend plein.
+	var heart_gain: float = lerpf(0.4, 1.0, clampf(_heart_target / maxf(heartbeat_floor, 0.01), 0.0, 1.0))
+	_heart_player.volume_db = linear_to_db(lerpf(0.26, 0.95, _heart_level) * heart_gain) + volume_to_db(effects_volume)
 	_heart_player.play()
 
 func _update_hurt(delta: float) -> void :
