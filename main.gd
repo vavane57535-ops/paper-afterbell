@@ -94,7 +94,7 @@ var net: ENetMultiplayerPeer
 var networked: bool = false
 var internet: PaperInternetRoom
 var online_room: bool = false
-var room_options: Dictionary = {"mode": "match", "killer_mode": "malice", "survivors": 6, "round_seconds": 320, "ruleset": "om"}
+var room_options: Dictionary = {"mode": "match", "killer_mode": "malice", "alice_peer": 0, "survivors": 6, "round_seconds": 320, "ruleset": "om"}
 var roster: Dictionary = {}
 var nickname: String = "Élève"
 var selected: String = "Ashura"
@@ -286,6 +286,7 @@ func lobby_command(kind: String, data: Dictionary) -> void :
 	if kind == "start": start_multiplayer_round()
 	elif kind == "map": select_map(str(data.get("map", "")))
 	elif kind == "option" and str(data.get("key", "")) in ["mode", "killer_mode", "survivors", "round_seconds"]: set_room_option(str(data.key), data.get("value"))
+	elif kind == "alice": set_alice_choice(str(data.get("mode", "")), _peer_value(data.get("peer", 0)))
 
 func _build_map_interactables() -> void :
 	if is_instance_valid(map_interactables): map_interactables.queue_free()
@@ -417,8 +418,34 @@ func set_room_option(key: String, value: Variant) -> void :
 
 func _clean_room_options(options: Dictionary) -> Dictionary:
 	var mode: String = str(options.get("killer_mode", "malice"))
-	if not mode in ["malice", "bot", "host", "random"]: mode = "malice"
-	return {"mode": "training" if options.get("mode", "match") == "training" else "match", "ruleset": "om", "killer_mode": mode, "survivors": clampi(int(options.get("survivors", 6)), 2, 6), "round_seconds": clampi(int(options.get("round_seconds", 320)), 260, 560)}
+	if not mode in ["malice", "bot", "host", "random", "player"]: mode = "malice"
+	var pick: int = _peer_value(options.get("alice_peer", 0)) if mode == "player" else 0
+	if mode == "player" and pick <= 0: mode = "random"
+	return {"mode": "training" if options.get("mode", "match") == "training" else "match", "ruleset": "om", "killer_mode": mode, "alice_peer": pick, "survivors": clampi(int(options.get("survivors", 6)), 2, 6), "round_seconds": clampi(int(options.get("round_seconds", 320)), 260, 560)}
+
+func _peer_value(value: Variant) -> int:
+	return int(value) if value is int or value is float else 0
+
+# Choix précis d'Alice par l'hôte : "random", "malice", "bot", ou "player" + identifiant du joueur.
+func set_alice_choice(mode: String, peer: int = 0) -> void :
+	if networked and not authoritative():
+		if can_manage_lobby(): lobby_command.rpc_id(1, "alice", {"mode": mode, "peer": peer})
+		return
+	if not authoritative() or phase != "lobby" or not mode in ["malice", "bot", "host", "random", "player"]: return
+	if mode == "player" and not roster.has(peer): return
+	var updated: Dictionary = room_options.duplicate();updated["killer_mode"] = mode;updated["alice_peer"] = peer if mode == "player" else 0
+	room_options = _clean_room_options(updated)
+	_broadcast_roster()
+
+# Joueur désigné comme Alice dans le salon : son identifiant, -1 pour l'IA, 0 si ce sera tiré au lancement.
+func chosen_alice_peer() -> int:
+	match str(room_options.get("killer_mode", "")):
+		"player":
+			var pick: int = int(room_options.get("alice_peer", 0))
+			return pick if roster.has(pick) else 0
+		"host": return lobby_leader if roster.has(lobby_leader) else 0
+		"bot": return -1
+	return 0
 
 func host_lan_room() -> void :
 	leave_network()
@@ -454,12 +481,14 @@ func leave_network() -> void :
 	_ping_pending.clear();ping_ms = -1;_ping_last_reply = 0;_ping_timer = 0
 
 func _connected() -> void :
+	PaperAliceForfeit.own_peer = multiplayer.get_unique_id()
 	register_player.rpc_id(1, nickname, selected, PaperRules.PROTOCOL, service.join_ticket if service else "")
 
 func _connection_failed() -> void :
 	leave_network();phase = "menu";ui.show_network();ui.toast("Connexion interrompue. Vérifie le code du salon, ta connexion et l'autorisation du jeu dans le pare-feu.", 8)
 
 func _server_disconnected() -> void :
+	if PaperAliceForfeit.host_left(self): return
 	leave_network();_clear_round();phase = "menu";stage.visible = true;ui.show_network();ui.toast("L'hôte a fermé la partie.", 6)
 
 func _peer_connected(_peer: int) -> void :
@@ -473,6 +502,13 @@ func _peer_disconnected(peer: int) -> void :
 	roster.erase(peer)
 	if dedicated and peer == lobby_leader:
 		lobby_leader = int(roster.keys()[0]) if not roster.is_empty() else -1
+	if str(room_options.get("killer_mode", "")) == "player" and int(room_options.get("alice_peer", 0)) == peer:
+		room_options["killer_mode"] = "random";room_options["alice_peer"] = 0
+		if phase == "lobby":
+			var notice: String = "La personne choisie pour jouer Alice a quitté le salon : Alice sera tirée au sort."
+			ui.toast(notice, 6)
+			if networked: selection_notice.rpc(notice)
+	if actors.has(peer) and PaperAliceForfeit.peer_left(self, peer): return
 	if training and actors.has(peer):
 		practice.remove_actor(actors[peer]);practice.ensure_dummies();_sync_round_for_clients();_broadcast_roster();return
 	if actors.has(peer):
@@ -595,6 +631,7 @@ func start_multiplayer_round() -> void :
 		"bot": chosen = -1
 		"host": chosen = lobby_leader
 		"random": chosen = int(roster.keys().pick_random())
+		"player": chosen = chosen_alice_peer() if chosen_alice_peer() > 0 else int(roster.keys().pick_random())
 	if chosen < 0 and roster.size() > 6:
 		ui.toast("Alice IA laisse 6 places aux survivants. Choisis une Alice humaine pour jouer à 7.", 6);return
 	_clear_round();round_preparing = true
@@ -724,7 +761,7 @@ func receive_round(data: Array, new_phase: String, t: float, remaining: float, s
 	ending_people = context.get("ending_people", []).duplicate();ending_focus = str(context.get("ending_focus", "Ashura"));ending_kind = str(context.get("ending_kind", "ending_survivors"));last_victim_name = str(context.get("last_victim", ""))
 	if new_phase == "loading":
 		audio.set_mode("ambient");ui.show_loading(selected_map, _loading_characters());_warm_up_effects();round_loaded.rpc_id(1, round_serial)
-	elif new_phase == "ending": audio.set_mode("ending");_begin_film(false)
+	elif new_phase == "ending": audio.set_mode("blocus" if ending_kind == PaperAliceForfeit.KIND else "ending");_begin_film(false)
 	var local: PaperActor = local_actor()
 	if local: yaw = atan2( - local.aim.x, - local.aim.z) if training else PI if local.killer else 0.0
 
@@ -975,33 +1012,37 @@ func eliminate(a: PaperActor) -> void :
 	a.collider.set_deferred("disabled", true)
 	event("eliminated", {"actor": a.id, "character": a.character, "position": a.position})
 
-func _finish(winner: String) -> void :
+func _finish(winner: String, forfeit: bool = false) -> void :
 	if phase != "playing" or training: return
 	match_results = rewards.results()
 	emote_wheel.hide()
-
-	var me: PaperActor = local_actor()
-	if me and not dedicated:
-		var points: float = 0.0
-		for row: Dictionary in match_results:
-			if int(row.get("id", -1)) == me.id: points = float(row.get("points", 0.0))
-		var gain: int = PaperDances.reward(points, (winner == "killer") == me.killer)
-		tickets += gain;save_preferences()
-		ui.toast("+%d tickets · Boutique de danses" % gain, 5)
+	_award_tickets(winner)
 	phase = "ending";outcome = winner;cinema = 0;Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	for key: Variant in roster:
 		var a: PaperActor = actors.get(int(key))
 		if a: roster[key].malice = 0 if a.killer else int(roster[key].malice) + 1
 	ending_people.clear()
 	ending_people.append_array(exit_flow.escaped_names)
-	if service and dedicated: service.submit_results(match_results, exit_flow.escaped)
+	if service and dedicated: service.submit_results(match_results, exit_flow.escaped, PaperAliceForfeit.winners(self) if forfeit else [])
 	ending_focus = last_victim_name if winner == "killer" and PaperData.NAMES.has(last_victim_name) else str(ending_people[0]) if not ending_people.is_empty() else "Ashura"
 	for actor: PaperActor in actors.values():
 		if actor.lms: ending_focus = actor.character
 	ending_kind = "ending_killer" if winner == "killer" else "ending_lms" if lms else "ending_survivors"
+	if forfeit: PaperAliceForfeit.stage(self)
 	event("ending", {"winner": winner, "lms": lms, "participants": ending_people.duplicate(), "focus": ending_focus, "kind": ending_kind, "results": match_results})
 	if networked: _broadcast_roster()
 	print("ROUND_FINISHED winner=", winner, " lms=", lms, " elapsed=", clock)
+
+# Tickets de fin de manche pour la personne qui joue sur ce poste (hôte ou client).
+func _award_tickets(winner: String, me: PaperActor = null) -> void :
+	if me == null: me = local_actor()
+	if not me or dedicated: return
+	var points: float = 0.0
+	for row: Dictionary in match_results:
+		if int(row.get("id", -1)) == me.id: points = float(row.get("points", 0.0))
+	var gain: int = PaperDances.reward(points, (winner == "killer") == me.killer)
+	tickets += gain;save_preferences()
+	ui.toast("+%d tickets · Boutique de danses" % gain, 5)
 
 func return_to_lobby() -> void :
 	if networked and not authoritative():
@@ -1188,7 +1229,8 @@ func _event_local(kind: String, data: Dictionary) -> void :
 		match_results = data.get("results", []).duplicate(true);emote_wheel.hide()
 		outcome = str(data.winner);phase = "ending";cinema = 0;Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 		lms = bool(data.get("lms", lms));ending_people = data.get("participants", []).duplicate();ending_focus = str(data.get("focus", "Ashura"));ending_kind = str(data.get("kind", "ending_killer" if outcome == "killer" else "ending_lms" if lms else "ending_survivors"))
-		audio.set_mode("ending");_begin_film(false)
+		if not authoritative(): _award_tickets(outcome)
+		audio.set_mode("blocus" if ending_kind == PaperAliceForfeit.KIND else "ending");_begin_film(false)
 	elif kind == "qte":
 		if bool(data.get("ready", false)) and int(data.get("helper", -100)) == local_id(): ui.show_qte(actor_id, float(data.get("started", clock)))
 

@@ -78,6 +78,7 @@ var connection_label: Label
 var lobby_map: Label
 var lobby_options: Label
 var lobby_names: Label
+var lobby_alice: OptionButton
 var performance_label: Label
 var active_menu_panel: PanelContainer
 var last_keyboard_height: float = -1
@@ -1352,7 +1353,7 @@ func show_lobby() -> void :
 	var launch: Button = null
 	if world.can_manage_lobby():
 		if world.room_options.mode == "match":
-			_option_row(v, "Qui joue Alice ?", ["Malice", "Alice contrôlée par l'IA", "L'hôte", "Un joueur au hasard"], ["malice", "bot", "host", "random"], "killer_mode")
+			_alice_row(v)
 			_option_row(v, "Survivants (bots compris)", ["2", "3", "4", "5", "6"], [2, 3, 4, 5, 6], "survivors")
 			_option_row(v, "Durée de la manche", ["5 min 20", "6 min 20", "7 min 20", "9 min 20"], [320, 380, 440, 560], "round_seconds")
 			_paragraph("Le LMS dure exactement le temps de la musique du dernier survivant.", v, 14, T.MUTED)
@@ -1378,10 +1379,46 @@ func _option_row(parent: Node, title: String, labels: Array, values: Array, key:
 	choice.select(maxi(0, values.find(world.room_options[key])))
 	choice.item_selected.connect( func(index: int) -> void : world.set_room_option(key, values[index]))
 
+# Sélecteur « Qui joue Alice ? » de l'hôte : aléatoire, malice, chaque joueur du salon, ou l'IA.
+func _alice_row(parent: Node) -> void :
+	var row: HBoxContainer = _hbox(parent, 12)
+	var label: Label = _label("Qui joue Alice ?", "medium", 16, T.PAPER_DIM)
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	row.add_child(label)
+	lobby_alice = OptionButton.new()
+	lobby_alice.custom_minimum_size = Vector2(300, 54 if world.mobile_mode else 42)
+	row.add_child(lobby_alice)
+	lobby_alice.item_selected.connect( func(index: int) -> void :
+		var choice: Variant = lobby_alice.get_item_metadata(index)
+		if choice is Array: world.set_alice_choice(str(choice[0]), int(choice[1])))
+	_fill_alice_choice()
+
+func _fill_alice_choice() -> void :
+	if not is_instance_valid(lobby_alice): return
+	var mode: String = str(world.room_options.get("killer_mode", "malice"))
+	var picked: int = world.chosen_alice_peer()
+	var entries: Array = [[_t("Aléatoire"), "random", 0], [_t("Plus haute malice"), "malice", 0]]
+	for peer: Variant in world.roster:
+		var shown: String = str(world.roster[peer].get("name", "Élève"))
+		if int(peer) == world.lobby_leader: shown += " · " + _t("hôte")
+		entries.append([shown, "player", int(peer)])
+	entries.append([_t("Bot · Alice IA"), "bot", 0])
+	lobby_alice.clear()
+	var selected: int = 0
+	for index: int in range(entries.size()):
+		var entry: Array = entries[index]
+		lobby_alice.add_item(str(entry[0]))
+		lobby_alice.set_item_metadata(index, [entry[1], entry[2]])
+		if str(entry[1]) == "player" and mode in ["player", "host"] and int(entry[2]) == picked: selected = index
+		elif str(entry[1]) != "player" and str(entry[1]) == mode: selected = index
+	lobby_alice.select(selected)
+
 func refresh_lobby() -> void :
 	if is_instance_valid(lobby_map): lobby_map.text = _t(str(world.MAP_NAMES[world.selected_map]))
+	_fill_alice_choice()
 	if is_instance_valid(lobby_options):
-		var modes: Dictionary = {"malice": "Joueur avec la plus haute malice", "bot": "Alice IA", "host": "Hôte = Alice", "random": "Alice tirée au sort"}
+		var modes: Dictionary = {"malice": "Joueur avec la plus haute malice", "bot": "Alice IA", "host": "Hôte = Alice", "random": "Alice tirée au sort", "player": "Alice choisie par l’hôte"}
 		var o: Dictionary = world.room_options
 		var text: String = "%s · %s survivants\nManche %d:%02d · LMS selon la musique" % [modes[o.killer_mode], o.survivors, int(o.round_seconds) / 60, int(o.round_seconds) % 60]
 		if o.mode == "training": text = "TERRAIN D’ESSAI · Pas de chrono · Mannequins réinitialisables"
@@ -1417,6 +1454,13 @@ func refresh_lobby() -> void :
 			var host: Label = _label(_t("HÔTE"), "caps", 11, T.GOLD)
 			host.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			h.add_child(host)
+		if int(peer) == world.chosen_alice_peer():
+			var badge: PanelContainer = PanelContainer.new()
+			badge.add_theme_stylebox_override("panel", T.box(Color(T.RED, 0.22), T.RED, 1, 4, 8, 2))
+			badge.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+			badge.add_child(_label(_t("ALICE"), "caps", 12, Color("ff8a9b")))
+			badge.tooltip_text = _t("Cette personne jouera Alice à la prochaine manche.")
+			h.add_child(badge)
 	if is_instance_valid(lobby_names):
 		lobby_names.visible = world.roster.is_empty()
 		lobby_names.text = _t("Connexion…")
@@ -2164,13 +2208,16 @@ func show_ending(winner: String, was_lms: bool) -> void :
 	header.offset_right = -12
 	header.offset_top = 34
 	header.add_child(_kicker("LE BULLETIN DE LA NUIT"))
-	var verdict: Label = _label("VICTOIRE D’ALICE" if killer_won else "LES ÉLÈVES S’ÉCHAPPENT", "display", 58, accent)
+	var forfeit: bool = not killer_won and str(world.ending_kind) == PaperAliceForfeit.KIND
+	var verdict: Label = _label("VICTOIRE D’ALICE" if killer_won else "VICTOIRE PAR FORFAIT" if forfeit else "LES ÉLÈVES S’ÉCHAPPENT", "display", 58, accent)
 	verdict.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	verdict.add_theme_constant_override("line_spacing", -14)
 	header.add_child(verdict)
 	if was_lms:
 		var lms_line: Label = _label("LAST MAN STANDING", "caps_wide", 15, T.GOLD)
 		header.add_child(lms_line)
+	if forfeit:
+		header.add_child(_label("ALICE A QUITTÉ LA PARTIE · LE BLOCUS A PAYÉ", "caps_wide", 15, T.GOLD))
 
 	result_view = PaperResultsView.new()
 	overlay.add_child(result_view)
