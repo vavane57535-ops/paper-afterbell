@@ -3,6 +3,8 @@ extends Node
 # Banc d'essai de la caméra 0.16 (core_camera_rig.gd + déplacements).
 #   Logique seule  : godot --headless -- --tool test_camera --out DOSSIER
 #   Avec captures  : xvfb-run -a -s "-screen 0 1280x800x24" godot --rendering-driver opengl3 -- --tool test_camera --out DOSSIER
+#   Sous-ensemble  : … --only vertical,modes,menus   (groupes : bindings rotation vertical mouse pad move modes
+#                    collisions control spectator drone alice menus)
 # Vérifie numériquement : rotation immédiate (aucune inertie), plage verticale, sensibilité souris
 # et stick indépendantes du framerate, accélération du stick, déplacements droits par rapport à la
 # caméra (avancer / strafe / diagonale, sans dérive à l'écran), modes Derrière / Libre 360° et leurs
@@ -18,6 +20,8 @@ var render: bool = false
 var results: Array[Dictionary] = []
 var metrics: Dictionary = {}
 var captures: Array[String] = []
+var only: PackedStringArray = PackedStringArray()
+var _original_shake: Variant = true
 var _query: PhysicsShapeQueryParameters3D
 var _props: Array[Node] = []
 
@@ -28,6 +32,7 @@ func setup(owner: Node) -> void :
 	var args: PackedStringArray = OS.get_cmdline_user_args()
 	for i: int in range(args.size()):
 		if args[i] == "--out" and i + 1 < args.size(): out_dir = args[i + 1]
+		if args[i] == "--only" and i + 1 < args.size(): only = args[i + 1].split(",", false)
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(out_dir))
 	var sphere: SphereShape3D = SphereShape3D.new()
 	sphere.radius = 0.95
@@ -136,6 +141,7 @@ func _open_spot(direction: Vector3, length: float = 6.5, camera_yaw: float = INF
 func _run() -> void :
 	rig.persist = false
 	var original_mode: String = rig.mode
+	_original_shake = world.options.get("camera_shake", true)
 	world.options["camera_shake"] = false
 	if not render: Engine.max_fps = 60
 	world.selected = "Simon"
@@ -146,25 +152,54 @@ func _run() -> void :
 		_finish(original_mode)
 		return
 	_check("start", true, "terrain d'essai lancé avec %s" % _actor().character)
-	_test_bindings()
-	await _test_rotation()
-	await _test_vertical_range()
-	_test_mouse()
-	_test_pad()
-	await _test_movement("Simon")
-	await _test_modes("Simon")
-	await _test_collisions()
-	await _test_control_api()
-	await _test_spectator()
-	await _test_drone()
-	if world.practice.change_character(world.local_id(), "Alice", false):
-		await _wait(0.6)
-		_check("alice", _actor() != null and _actor().character == "Alice", "passage à Alice dans le terrain d'essai")
-		await _test_movement("Alice")
-		await _test_modes("Alice")
-	else:
-		_check("alice", false, "impossible de passer à Alice")
+	if _wants("bindings"): _test_bindings()
+	if _wants("rotation"): await _test_rotation()
+	if _wants("vertical"): await _test_vertical_range()
+	if _wants("mouse"): _test_mouse()
+	if _wants("pad"): _test_pad()
+	if _wants("move"): await _test_movement("Simon")
+	if _wants("modes"): await _test_modes("Simon")
+	if _wants("collisions"): await _test_collisions()
+	if _wants("control"): await _test_control_api()
+	if _wants("spectator"): await _test_spectator()
+	if _wants("drone"): await _test_drone()
+	if _wants("alice"):
+		if world.practice.change_character(world.local_id(), "Alice", false):
+			await _wait(0.6)
+			_check("alice", _actor() != null and _actor().character == "Alice", "passage à Alice dans le terrain d'essai")
+			await _test_movement("Alice")
+			await _test_modes("Alice")
+		else:
+			_check("alice", false, "impossible de passer à Alice")
+	if _wants("menus"): await _capture_menus()
 	_finish(original_mode)
+
+# --only rotation,modes,… limite le banc à certains groupes (utile en rendu, qui est lent).
+func _wants(group: String) -> bool:
+	return only.is_empty() or only.has(group)
+
+# Captures des réglages (Jeu, Commandes) et du menu Commandes, en rendu seulement.
+func _capture_menus() -> void :
+	if not render: return
+	world.pause_open = true
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	world.ui.settings_tab = "game"
+	world.ui.show_settings()
+	await _wait(0.6)
+	await _capture("ui_settings_game")
+	world.ui.settings_tab = "controls"
+	world.ui.show_settings()
+	await _wait(0.6)
+	await _capture("ui_settings_controls")
+	world.controls_menu.open()
+	await _wait(0.4)
+	for scroll: Node in world.controls_menu.find_children("*", "ScrollContainer", true, false): (scroll as ScrollContainer).scroll_vertical = 100000
+	await _wait(0.4)
+	await _capture("ui_controls_menu")
+	world.controls_menu.hide()
+	world.ui.settings_tab = "game"
+	world.ui.page.hide()
+	world.pause_open = false
 
 
 
@@ -638,6 +673,11 @@ func _test_control_api() -> void :
 	motion.screen_relative = Vector2(300, 0)
 	rig.mouse_look(motion)
 	var locked: bool = world.yaw == yaw_before
+	var focus: Vector3 = world.actor_render_position(actor) + Vector3.UP * 1.2
+	var eye: Vector3 = focus + Vector3(1.8, 0.6, -1.4)
+	rig.drive_look_at(holder, eye, focus, 40.0)
+	await _frames(2)
+	placed = placed and world.camera.global_position.distance_to(eye) < 0.001 and _cam_forward().angle_to((focus - eye).normalized()) < 0.001
 	rig.release_control(holder, 0.45)
 	await _wait(0.12)
 	var mid: Vector3 = world.camera.global_position
@@ -653,7 +693,7 @@ func _test_control_api() -> void :
 	await _frames(3)
 	var auto_released: bool = not rig.has_control()
 	holder.queue_free()
-	_check("cinematic_api", placed and locked and blending and back_home and held and auto_released, "take_control/drive : plan appliqué %s, regard bloqué %s ; release_control : fondu %s puis retour exact %s ; propriétaire libéré → rendu auto %s" % [str(placed), str(locked), str(blending), str(back_home), str(auto_released)])
+	_check("cinematic_api", placed and locked and blending and back_home and held and auto_released, "take_control/drive/drive_look_at : plan appliqué %s, regard bloqué %s ; release_control : fondu %s puis retour exact %s ; propriétaire libéré → rendu auto %s" % [str(placed), str(locked), str(blending), str(back_home), str(auto_released)])
 	await _wait(0.3)
 
 func _test_spectator() -> void :
@@ -718,6 +758,7 @@ func _test_drone() -> void :
 func _finish(original_mode: String) -> void :
 	_release_all()
 	rig.mode = original_mode
+	world.options["camera_shake"] = _original_shake
 	var failed: int = 0
 	for row: Dictionary in results:
 		if not bool(row.ok): failed += 1

@@ -13,6 +13,7 @@ extends RefCounted
 # Plans cinématiques en jeu (exécutions…) : un système prend la caméra puis la rend.
 #   world.camera_rig.take_control(self, 0.25)             # le rig n'écrit plus la caméra
 #   world.camera_rig.drive(self, transform, fov)          # facultatif : place la caméra (fondu d'entrée inclus)
+#   world.camera_rig.drive_look_at(self, eye, focus, fov) # idem, à partir d'un œil et d'un point visé
 #                                                         # sans drive(), le propriétaire écrit world.camera lui-même
 #   world.camera_rig.release_control(self, 0.45)          # rend la main : fondu vers la vue de jeu
 #   world.camera_rig.gameplay_transform()                 # où serait la caméra de jeu (pour partir de là)
@@ -346,6 +347,11 @@ func drive(owner: Object, shot: Transform3D, fov: float = -1.0) -> void :
 			if fov > 0.0: entry.fov = fov
 			entry.driven = true
 			return
+
+# Variante pratique : place l'œil en « eye » et regarde « focus ».
+func drive_look_at(owner: Object, eye: Vector3, focus: Vector3, fov: float = -1.0) -> void :
+	if eye.distance_squared_to(focus) < 1e-06: return
+	drive(owner, Transform3D(Basis.looking_at(focus - eye, Vector3.UP), eye), fov)
 
 func release_control(owner: Object, blend_out: float = 0.45) -> void :
 	if _drop_controller(owner) and _controllers.is_empty(): _hand_back(blend_out)
