@@ -20,8 +20,8 @@ const BOT_JOIN_CHANCE: float = 0.7
 const BOT_SAFE_DISTANCE: float = 24.0
 const MUSIC_TOLERANCE: float = 0.15
 # Gain des lecteurs 3D de danse : le curseur Musique et le niveau général de la musique
-# sont déjà appliqués par le bus PaperMusic ; +2 dB compense l'atténuation à distance.
-const MUSIC_DB: float = 2.0
+# sont déjà appliqués par le bus PaperMusic ; -2 dB comme la danse mesurée en 0.16 (≈ -32,6 LUFS en jeu).
+const MUSIC_DB: float = -2.0
 
 var world: Node
 var rng: RandomNumberGenerator = RandomNumberGenerator.new()
