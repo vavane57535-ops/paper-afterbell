@@ -252,7 +252,7 @@ func _smear(t0: float, t1: float, amount: Vector2) -> void : _smears.append([t0,
 func _later(t: float, kind: String, data: Dictionary = {}) -> void : _fx.append([t, kind, data])
 func _glint(t0: float, t1: float, who: int, size: float = 1.0) -> void : _glints.append([t0, t1, who, size])
 func _spin(t0: float, t1: float, who: int, turns: float, ease: String = "out") -> void : _spins.append([t0, t1, who, turns, ease])
-func _tilt(t0: float, t1: float, who: int, from: Vector3, to: Vector3) -> void : _tilts.append([t0, t1, who, from, to, 0.0])
+func _tilt(t0: float, t1: float, who: int, from: Vector3, to: Vector3, ease: String = "smooth") -> void : _tilts.append([t0, t1, who, from, to, 0.0, ease])
 func _rain_burst(t: float, at: Vector3, seconds: float = 0.6) -> void : _rain_bursts.append([t, at, seconds])
 func _bolt(t: float, seconds: float = 0.25, energy: float = 1.0) -> void :
 	_lightning.append([t, seconds, energy])
@@ -601,15 +601,16 @@ func _write_usayuko() -> void :
 	var land: float = maxf(5.0, minf(12.5, room - 1.2))
 	c._move(a, fly, fly + 0.35, _r(0.0, lerpf(2.5, land, 0.45), 1.6), "out")
 	c._move(a, fly + 0.35, fly + 0.82, _r(0.0, land, 0.0), "in")
-	# thrown back and tumbling: a fast lean, then a full turn in the air
+	# thrown back head first, she rolls over in the air and lands face down: the
+	# downed pose blends in during the somersault (it starts from the standing
+	# pose, so it must not begin on the ground) and the roll ends level with it
 	_tilt(fly, fly + 0.25, a, Vector3(0, 0, 0), Vector3(-1.35, 0, 0.35))
-	_tilt(fly + 0.25, fly + 0.83, a, Vector3(-1.35, 0, 0.35), Vector3(-1.55, 0, 0.6))
+	_tilt(fly + 0.25, fly + 0.82, a, Vector3(-1.35, 0, 0.35), Vector3(-TAU, 0, 0.0), "linear")
 	_spin(fly + 0.05, fly + 0.8, a, 1.0, "out")
+	c._do(a, fly + 0.3, "life", "downed")
 	_burst(fly + 0.18, _r(0.0, lerpf(2.5, land, 0.3), 1.5), Vector3(0, 0.4, -1.0), 12, 1.8, {"spread": 0.9, "lift": 0.6, "gravity": 2.5, "drag": 1.0, "life": 1.4, "size": 0.1})
 	var crash: float = fly + 0.82
 	c._do(a, crash, "unset", ["forced_time", "force_name", "grounded"])
-	# she stays down where she crashed
-	c._do(a, crash, "life", "downed")
 	c._cue(crash, "crack", {"a": a}, 1.8)
 	c._cue(crash, "dust_ring", {"a": a}, 1.6)
 	c._cue(crash, "sound", "ground_impact", {"a": a}, 1.0, 0.8)
@@ -644,8 +645,9 @@ func _write_usayuko() -> void :
 	c._do(a, ink, "life", "alive")
 	c._do(a, ink, "stun", false)
 	c._do(a, ink, "state", {"forced_time": 3.0, "force_name": "knock", "grounded": false})
-	c._move(a, ink + 0.01, ink + 2.5, _ink(2.4, 1.15, -0.3), "out")
-	_tilt(ink, ink + 2.6, a, Vector3(0, 0, 0.55), Vector3(0, 0, 0.95))
+	c._move(a, ink + 0.01, ink + 2.5, _ink(2.05, 1.2, -0.3), "out")
+	# flung away from the fist (a negative roll leans her toward screen right)
+	_tilt(ink, ink + 2.6, a, Vector3(0, 0, -0.5), Vector3(0, 0, -0.95))
 	_burst(ink, _ink(0.4, 1.2, 0.0), Vector3(1, 0.25, 0), 36, 3.6, {"spread": 0.6, "lift": 0.6, "gravity": 0.9, "drag": 0.9, "life": 2.6, "size": 0.13})
 	_burst(ink + 0.02, _ink(0.2, 1.3, 0.0), Vector3(1, 0.6, 0.1), 12, 2.4, {"spread": 0.5, "lift": 0.8, "gravity": 0.6, "drag": 0.7, "life": 2.6, "size": 0.26})
 	c._shot(ink, {"eye": [_ink(0.35, 1.1, 6.3), _ink(0.4, 1.1, 5.9)], "look": [_ink(0.35, 1.05, 0.0), _ink(0.45, 1.05, 0.0)], "fov": 42, "hand": 0.1, "safe": false})
@@ -859,8 +861,8 @@ func _write_lysia() -> void :
 	_hold_pose(s, ink + 0.32, ink + 2.6)
 	c._do(a, ink, "stun", false)
 	c._do(a, ink, "state", {"forced_time": 3.0, "force_name": "knock", "grounded": false})
-	c._move(a, ink + 0.01, ink + 2.5, _ink(2.3, 0.6, 0.0), "out")
-	_tilt(ink, ink + 2.6, a, Vector3(0, 0, 0.35), Vector3(0, 0, 0.6))
+	c._move(a, ink + 0.01, ink + 2.5, _ink(2.0, 0.7, 0.0), "out")
+	_tilt(ink, ink + 2.6, a, Vector3(0, 0, -0.35), Vector3(0, 0, -0.65))
 	for k: int in range(9): _later(ink + 0.05 + 0.25 * float(k), "bolts", {"at": _ink(0.0, 1.15, 0.0), "color": Color("d9fbff"), "count": 3, "radius": 1.0, "size": 1.3})
 	_burst(ink, _ink(0.6, 1.0, 0.0), Vector3(1, 0.2, 0), 26, 2.6, {"spread": 0.7, "lift": 0.6, "gravity": 0.5, "drag": 0.8, "life": 2.6, "size": 0.1})
 	c._shot(ink, {"eye": [_ink(0.2, 1.05, 6.2), _ink(0.25, 1.05, 5.8)], "look": [_ink(0.2, 1.0, 0.0), _ink(0.3, 1.0, 0.0)], "fov": 42, "hand": 0.1, "safe": false})
@@ -946,8 +948,8 @@ func _write_elly() -> void :
 	_hold_pose(s, ink + 0.01, ink + 2.6)
 	c._do(a, ink, "stun", false)
 	c._do(a, ink, "state", {"forced_time": 3.0, "force_name": "knock", "grounded": false})
-	c._move(a, ink + 0.01, ink + 2.5, _ink(2.5, 0.45, 0.0), "out")
-	_tilt(ink, ink + 2.6, a, Vector3(0, 0, 0.4), Vector3(0, 0, 0.7))
+	c._move(a, ink + 0.01, ink + 2.5, _ink(2.1, 0.55, 0.0), "out")
+	_tilt(ink, ink + 2.6, a, Vector3(0, 0, -0.4), Vector3(0, 0, -0.75))
 	_burst(ink, _ink(-0.2, 1.3, 0.0), Vector3(1, 0.05, 0), 30, 4.5, {"spread": 0.35, "lift": 0.2, "gravity": 0.3, "drag": 1.6, "life": 2.6, "size": 0.07})
 	_burst(ink + 0.02, _ink(-0.9, 1.35, 0.0), Vector3(-0.3, 1, 0.2), 2, 2.2, {"spread": 0.2, "lift": 1.2, "gravity": 3.0, "drag": 0.3, "life": 2.6, "size": 0.08})
 	c._shot(ink, {"eye": [_ink(0.0, 1.15, 6.4), _ink(0.05, 1.15, 6.0)], "look": [_ink(0.0, 1.05, 0.0), _ink(0.1, 1.05, 0.0)], "fov": 42, "hand": 0.1, "safe": false})
@@ -1334,7 +1336,7 @@ func _apply_tilts(t: float) -> void :
 		var t0: float = float(tilt[0])
 		var t1: float = float(tilt[1])
 		if t < t0 or t > t1: continue
-		var u: float = smoothstep(0.0, 1.0, (t - t0) / maxf(0.01, t1 - t0))
+		var u: float = cinema._ease((t - t0) / maxf(0.01, t1 - t0), str(tilt[6]))
 		var euler: Vector3 = (tilt[3] as Vector3).lerp(tilt[4], u)
 		var visual: Node3D = cinema.takes[int(tilt[2])].visual
 		# pitch about the film's right axis, roll about its forward axis, pivoting on the hips
@@ -1424,10 +1426,12 @@ func _place_debris(t: float) -> void :
 
 func _eye_points(visual: Node3D) -> Array[Vector3]:
 	var points: Array[Vector3] = []
-	var lids: Array[Node] = visual.find_children("Lid", "MeshInstance3D", true, false)
-	for lid: Node in lids:
-		var mesh: MeshInstance3D = lid as MeshInstance3D
-		if mesh and mesh.mesh: points.append(mesh.global_transform * mesh.mesh.get_aabb().get_center())
+	# one eyelid mesh per eye under the head's "Eyelids" attachment; only the
+	# first one keeps the name "Lid" (its sibling gets a generated name)
+	for holder: Node in visual.find_children("Eyelids", "BoneAttachment3D", true, false):
+		for child: Node in holder.get_children():
+			var mesh: MeshInstance3D = child as MeshInstance3D
+			if mesh and mesh.mesh: points.append(mesh.global_transform * mesh.mesh.get_aabb().get_center())
 	if points.size() >= 2: return points
 	points.clear()
 	var eyes: Vector3 = visual.socket_position("eyes")

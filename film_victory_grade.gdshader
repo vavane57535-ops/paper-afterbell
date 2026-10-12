@@ -54,11 +54,13 @@ float luma(vec3 c) {
 	return dot(c, vec3(0.299, 0.587, 0.114));
 }
 
-// 1 on the magenta key of the silhouette stage, 0 on everything else.
+// 1 on the magenta key of the silhouette stage, 0 on everything else. The key
+// is a bright unshaded magenta (about 0.63 on screen): dark purples such as
+// Usayuko's hair share its hue but not its brightness and must stay ink.
 float keyness(vec3 s) {
 	float top = max(s.r, s.b);
 	float k = (min(s.r, s.b) - s.g) / max(top, 0.04);
-	k *= smoothstep(0.06, 0.16, top);
+	k *= smoothstep(0.34, 0.5, top);
 	k *= 1.0 - smoothstep(0.18, 0.42, abs(s.r - s.b) / max(top, 0.04));
 	return smoothstep(0.38, 0.78, k);
 }
