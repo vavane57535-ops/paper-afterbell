@@ -377,10 +377,11 @@ func _write_cast() -> void :
 		if index >= 0:
 			var start: float = g_start + BEAT * turn_beats * float(index)
 			var finish: float = start + BEAT * turn_beats
-			if start > cursor + 0.05: _loop(i, cursor, start, "dance_blocus_stomp")
-			_loop(i, start, finish, "point" if index % 2 == 0 else "dance_blocus_chant")
+			if start > cursor + 0.05: _loop(i, cursor, start, "dance_blocus_sign" if holds_over else "dance_blocus_stomp")
+			# Les pancartes tenues à deux mains restent au-dessus de la tête (sinon elles cachent le visage).
+			_loop(i, start, finish, "dance_blocus_sign" if holds_over else "dance_blocus_chant" if k < SIGNS.size() else "point")
 			cursor = finish
-		if g_end > cursor + 0.05: _loop(i, cursor, g_end, "dance_blocus_stomp")
+		if g_end > cursor + 0.05: _loop(i, cursor, g_end, "dance_blocus_sign" if holds_over else "dance_blocus_stomp")
 		_loop(i, b(55.2), b(57.0), "fear")
 		_loop(i, b(57.0) + 0.05 * float(k), DURATION, "cheer" if k % 2 == 0 else "thumbsup")
 		film._do(i, b(57.0), "mood", "grin")
@@ -454,10 +455,12 @@ func _write_shots() -> void :
 	# C. Contre-plongée sur le mégaphone.
 	film._shot(b(16.0) - 0.4, {"rel": {"a": lead}, "eye": [Vector3(1.05, 0.5, 2.5), Vector3(0.95, 0.5, 2.35)], "look": {"a": lead, "h": 1.45}, "fov": 42.0, "hand": 0.2, "roll": -9.0, "safe": false})
 	# D. Tableau frontal parfaitement symétrique (et trop large).
-	film._shot(b(23.0), {"rel": base, "eye": Vector3(0.0, 1.55, 10.2), "look": L(0, 1.45, 2.2), "fov": 47.0, "hand": 0.0, "roll": 0.0, "safe": false})
+	film._shot(b(23.0), {"rel": base, "eye": Vector3(0.0, 1.5, 8.6), "look": L(0, 1.55, 2.3), "fov": 44.0, "hand": 0.0, "roll": 0.0, "safe": false})
 	# E. Zoom brutal sur la banderole… qui se décroche.
 	film._shot(b(31.0), {"rel": base, "eye": Vector3(-1.3, 1.7, 7.6), "look": L(0.0, 2.6, 0.2), "fov": [58.0, 19.0], "ease": "dash", "hand": 0.1, "roll": 2.0, "safe": false})
 	film._shot(b(31.0) + 0.42, {"rel": base, "eye": Vector3(-1.3, 1.7, 7.6), "look": L(0.0, 2.6, 0.2), "fov": 19.0, "hand": 0.15, "roll": 2.0, "safe": false})
+	# … et le caméraman dézoome en catastrophe pour voir la banderole pendouiller.
+	film._shot(_banner_fall + 0.4, {"rel": base, "eye": Vector3(-1.3, 1.7, 7.6), "look": [L(0.0, 2.6, 0.2), L(-0.6, 1.9, 0.6)], "fov": [19.0, 52.0], "ease": "dash", "hand": 0.45, "roll": [2.0, -6.0], "safe": false})
 	# F. Caméra au ras du sol derrière un plot de chantier.
 	film._shot(b(35.0), {"rel": base, "eye": Vector3(-2.5, 0.3, 6.75), "look": L(-0.2, 1.25, 2.6), "fov": 56.0, "hand": 0.4, "roll": 11.0, "safe": false})
 	# G. Faux raccords : même cadrage serré pour chaque slogan.

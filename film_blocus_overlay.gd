@@ -157,9 +157,8 @@ func _build() -> void :
 	_finger = TextureRect.new()
 	_finger.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var gradient: Gradient = Gradient.new()
-	gradient.set_color(0, Color(0.86, 0.6, 0.55, 0.97))
-	gradient.add_point(0.55, Color(0.8, 0.52, 0.48, 0.9))
-	gradient.set_color(1, Color(0.75, 0.45, 0.42, 0.0))
+	gradient.offsets = PackedFloat32Array([0.0, 0.6, 1.0])
+	gradient.colors = PackedColorArray([Color(0.86, 0.62, 0.56, 0.97), Color(0.8, 0.52, 0.48, 0.9), Color(0.75, 0.45, 0.42, 0.0)])
 	var radial: GradientTexture2D = GradientTexture2D.new()
 	radial.gradient = gradient;radial.fill = GradientTexture2D.FILL_RADIAL
 	radial.fill_from = Vector2(0.5, 0.5);radial.fill_to = Vector2(0.5, 0.0)
@@ -182,7 +181,8 @@ func _build() -> void :
 	_end_bg = TextureRect.new()
 	_end_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var sky: Gradient = Gradient.new()
-	sky.set_color(0, Color("3a1c71"));sky.add_point(0.5, Color("d76d77"));sky.set_color(1, Color("ffaf7b"))
+	sky.offsets = PackedFloat32Array([0.0, 0.5, 1.0])
+	sky.colors = PackedColorArray([Color("3a1c71"), Color("d76d77"), Color("ffaf7b")])
 	var linear: GradientTexture2D = GradientTexture2D.new()
 	linear.gradient = sky;linear.fill_from = Vector2(0, 0);linear.fill_to = Vector2(1, 1)
 	_end_bg.texture = linear
