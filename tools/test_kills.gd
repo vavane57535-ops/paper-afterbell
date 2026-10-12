@@ -209,6 +209,8 @@ func _scene(victim_name: String, phase6: bool) -> void:
 					world.camera.global_position = spec[0]
 					world.camera.look_at(spec[1])
 					world.camera.fov = float(spec[2])
+					# Caméra libre : l'éclairage film suit ce cadrage, comme en jeu.
+					if cam.begins_with("x:"): world.kill_scenes._place_lights(spec[0], spec[1])
 				await get_tree().process_frame
 				await RenderingServer.frame_post_draw
 				var image: Image = world.get_viewport().get_texture().get_image()

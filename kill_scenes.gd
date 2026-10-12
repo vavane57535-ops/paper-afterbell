@@ -24,6 +24,9 @@ const BLEND_BACK: float = 0.75
 # maximale d'une lettre à l'écran (fraction de l'image) dans les plans serrés.
 const WORD_CUT: float = 0.12
 const WORD_MAX_SCREEN: float = 0.2
+# Calque de rendu des acteurs et accessoires d'une exécution : l'éclairage film
+# ne touche qu'eux, pas le décor (le menu fait de même avec le bit 10).
+const KILL_LAYER: int = 1 << 11
 
 # gap : distance entre les deux acteurs ; length : durée des clips (la victime
 # meurt à lead + length) ; lock : fin du verrou d'Alice ; blast : explosion.
@@ -138,11 +141,20 @@ func _film_light(light_name: String, color: Color, reach: float) -> OmniLight3D:
 	light.omni_range = reach
 	light.light_energy = 0.0
 	light.shadow_enabled = false
+	light.light_cull_mask = KILL_LAYER
 	light.visible = false
 	# Placée à chaque image avec la caméra : pas d'interpolation physique.
 	light.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 	_props_root.add_child(light)
 	return light
+
+
+func _tag(node: Node, on: bool) -> void :
+	if not is_instance_valid(node): return
+	if node is GeometryInstance3D:
+		var geometry: GeometryInstance3D = node
+		geometry.layers = (geometry.layers | KILL_LAYER) if on else (geometry.layers & ~KILL_LAYER)
+	for child: Node in node.get_children(): _tag(child, on)
 
 
 func clear() -> void :
@@ -486,6 +498,8 @@ func _start_show(data: Dictionary) -> void :
 	(show.cues as Array).sort_custom( func(a: Array, b: Array) -> bool: return float(a[0]) < float(b[0]))
 	(show.shots as Array).sort_custom( func(a: Array, b: Array) -> bool: return float(a[0]) < float(b[0]))
 	_shows[id] = show
+	_tag(victim.visual, true)
+	_tag(alice.visual, true)
 	victim.visual.react_to_hit(1.0, Vector3(show.stand))
 	if Vector3(show.from).distance_to(Vector3(show.stand)) > 2.4:
 		_comic_cue(alice, "afterimage")
@@ -501,6 +515,12 @@ func _end_show(id: int, immediate: bool = false) -> void :
 	var victim: PaperActor = world.actors.get(int(show.victim))
 	if victim != null and is_instance_valid(victim.visual):
 		victim.visual.position = Vector3.ZERO
+		_tag(victim.visual, false)
+	var alice: PaperActor = world.actors.get(int(show.killer))
+	var shared: bool = false
+	for other: Dictionary in _shows.values():
+		if other != show and int(other.killer) == int(show.killer): shared = true
+	if alice != null and is_instance_valid(alice.visual) and not shared: _tag(alice.visual, false)
 	for key: Variant in (show.props as Dictionary).keys():
 		var node: Variant = show.props[key]
 		if is_instance_valid(node): (node as Node).queue_free()
@@ -1159,6 +1179,7 @@ func _prop(show: Dictionary, key: String) -> Node3D:
 		"drone": node = _make_drone()
 	if node == null: return null
 	_props_root.add_child(node)
+	_tag(node, true)
 	node.visible = false
 	show.props[key] = node
 	return node
@@ -1292,6 +1313,7 @@ func _spawn_debris(mesh: Mesh, material: Material, at: Transform3D, velocity: Ve
 	node.mesh = mesh
 	if material != null: node.material_override = material
 	_props_root.add_child(node)
+	node.layers |= KILL_LAYER
 	node.global_transform = at
 	node.reset_physics_interpolation()
 	_debris.append({"node": node, "vel": velocity, "spin": spin, "ground": ground, "life": life, "age": 0.0, "rest": false, "paper": paper, "scale": at.basis.get_scale()})
@@ -1547,6 +1569,7 @@ func _drop_photo(show: Dictionary) -> void :
 	node.visible = false
 	var copy: Node3D = _make_photo()
 	_props_root.add_child(copy)
+	_tag(copy, true)
 	copy.global_transform = transform
 	copy.reset_physics_interpolation()
 	_debris.append({"node": copy, "vel": -Vector3(show.f) * 0.35 + Vector3(show.r) * 0.25 + Vector3.UP * 0.4, "spin": Vector3(1.5, 2.5, 0.8), "ground": Vector3(show.spot).y, "life": 40.0, "age": 0.0, "rest": false, "paper": true, "scale": transform.basis.get_scale()})
