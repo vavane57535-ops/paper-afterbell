@@ -48,7 +48,7 @@ static func winners(world: Node) -> Array:
 static func stage(world: Node) -> void :
 	var people: Array = []
 	var focus: String = ""
-	var best: float = -1.0
+	var best: float = 0.0
 	for actor: PaperActor in survivors(world):
 		people.append(actor.character)
 		for row: Dictionary in world.match_results:
