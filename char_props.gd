@@ -13,7 +13,7 @@ static var _injury_mesh: ArrayMesh
 static var _cable_segment: ArrayMesh
 static var _cable_plug: ArrayMesh
 
-const PROP_NAMES: Array[String] = ["chocolate", "flash", "camera", "heal", "shotgun"]
+const PROP_NAMES: Array[String] = ["chocolate", "flash", "camera", "heal", "shotgun", "phone"]
 
 
 static func prop(prop_name: String) -> Dictionary:
@@ -131,3 +131,14 @@ static func _build_props() -> void :
 	G.strand(gun, [Vector3(0, 0.01, -0.21), Vector3(0, 0.01, -0.27), Vector3(0, 0.01, -0.34), Vector3(0, 0.01, -0.39)], 0.041, metal, 0.8, 0.039, 12)
 	G.line(gun, [Vector3(-0.025, 0, -0.08), Vector3(-0.025, -0.058, -0.09), Vector3(0.025, -0.058, -0.09), Vector3(0.025, 0, -0.08)], 0.007, metal)
 	_store("shotgun", gun, Vector3(0, -0.01, -0.02), "right")
+
+	# Téléphone de l'émote selfie : coque pastel, écran lumineux tourné vers le visage.
+	var phone: Node3D = Node3D.new()
+	var shell: BoxMesh = BoxMesh.new()
+	shell.size = Vector3(0.08, 0.16, 0.014)
+	G.instance(phone, shell, CharMaterials.flat(Color("f2a7c3")))
+	var screen: BoxMesh = BoxMesh.new()
+	screen.size = Vector3(0.068, 0.14, 0.002)
+	G.instance(phone, screen, CharMaterials.flat(Color("bfe6ff"), 1.4, false), Vector3(0, 0, -0.0085))
+	G.oval(phone, Vector3(0.024, 0.062, 0.008), Vector3(0.009, 0.009, 0.004), ink)
+	_store("phone", phone, Vector3(0, -0.075, -0.05), "right")
