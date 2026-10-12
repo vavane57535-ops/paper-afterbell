@@ -55,6 +55,8 @@ var _tumble: Array = []
 var _smoke: Array = []
 var _smoke_at: float = 33.6
 var _mats: Dictionary = {}
+var _exit_sign: Node3D
+var _exit_sign_shown: bool = false
 
 
 static func b(n: float) -> float:
@@ -106,10 +108,16 @@ func write(cinema: PaperCinema) -> void :
 	_write_cast()
 	_write_shots()
 	_build_overlay()
+	# Le panneau « SORTIE · À 01:20 » du jeu flotte devant la porte : on le cache pendant le film.
+	var marks: Variant = world.get("map_interactables")
+	var sign: Variant = marks.get("exit_sign") if is_instance_valid(marks) else null
+	if sign is Node3D:
+		_exit_sign = sign;_exit_sign_shown = _exit_sign.visible;_exit_sign.visible = false
 
 
 func _exit_tree() -> void :
 	if is_instance_valid(overlay): overlay.queue_free()
+	if is_instance_valid(_exit_sign): _exit_sign.visible = _exit_sign_shown
 
 
 func L(x: float, y: float, z: float) -> Vector3:
@@ -260,7 +268,7 @@ func _build_set() -> void :
 	# La pile de chaises qui va s'écrouler à la fin.
 	for k: int in range(4):
 		var stacked: Node3D = _chair(_set, L(2.5, 0.97 + float(k) * 0.13, 0.62), Vector3(0, 0.12 * float(k) - 0.3, 0.0), Color("e07a2f") if k % 2 == 0 else Color("2f8fd0"))
-		_tumble.append({"node": stacked, "from": stacked.transform, "t0": b(56.0) + 0.06 * float(k), "dir": Vector3(0.6 + 0.3 * float(k), 0, 1.0).normalized(), "spin": 1.6 + 0.7 * float(k)})
+		_tumble.append({"node": stacked, "from": stacked.transform, "t0": b(56.0) + 0.06 * float(k), "dir": Vector3(0.6 + 0.3 * float(k), 0, 1.0).normalized(), "spin": PI * 0.5 + (0.12 if k % 2 == 0 else -0.1)})
 
 	# Le promontoire du mégaphone.
 	_chair(_set, L(0.0, 0.0, 3.55), Vector3(0, PI, 0), Color("2f8fd0"))
@@ -292,8 +300,8 @@ func _build_set() -> void :
 		if not over: _tube(holder, Vector3(0, - board.y * 0.5 - 0.42, -0.02), 0.016, 0.016, 0.95, Color("8a5a2b"))
 		_signs.append({"node": holder, "take": others[k], "over": over, "board": board})
 	_megaphone = _node(self, Vector3.ZERO)
-	_tube(_megaphone, Vector3(0, 0, 0), 0.115, 0.04, 0.3, Color("f2f0ea"), Vector3.ZERO, 16)
-	_tube(_megaphone, Vector3(0, 0.1, 0), 0.105, 0.098, 0.04, PAINT_RED, Vector3.ZERO, 16)
+	_tube(_megaphone, Vector3(0, 0, 0), 0.1, 0.035, 0.3, Color("f2f0ea"), Vector3.ZERO, 16)
+	_tube(_megaphone, Vector3(0, 0.1, 0), 0.092, 0.086, 0.04, PAINT_RED, Vector3.ZERO, 16)
 	_tube(_megaphone, Vector3(0, -0.17, 0), 0.04, 0.04, 0.05, Color("2a2c31"), Vector3.ZERO, 12)
 	_box(_megaphone, Vector3(0, -0.06, 0.08), Vector3(0.035, 0.08, 0.13), Color("2a2c31"))
 	PaperToon.apply_tree(_megaphone, false)
@@ -355,7 +363,8 @@ func _write_cast() -> void :
 	# Le chef monte sur sa chaise et prend le mégaphone jusqu'au fumigène.
 	var up: Vector3 = spots[lead] + Vector3(0, 0.47, 0.15)
 	film._move(lead, b(16.0) - 0.3, b(16.0), up, "out")
-	_loop(lead, b(16.0), b(55.0), "dance_blocus_megaphone")
+	# Le mégaphone monte à la bouche dès le « Un, deux… » (sinon il flotte à côté du visage).
+	_loop(lead, _mega_mouth.x - 0.12, b(55.0), "dance_blocus_megaphone")
 	film._move(lead, b(55.6), b(56.2), spots[lead] + Vector3(0.45, 0, 0.75), "out")
 	_loop(lead, b(56.3), b(57.0), "fear")
 	_loop(lead, b(57.0), DURATION, "cheer")
@@ -520,6 +529,10 @@ func _build_overlay() -> void :
 # ---------------------------------------------------------------- animation des accessoires
 
 func update(t: float, _delta: float) -> void :
+	# L'anneau doré de la sortie est remis à jour par le jeu à chaque image : on le recache.
+	var marks: Variant = world.get("map_interactables") if world else null
+	var glow: Variant = marks.get("exit_glow") if is_instance_valid(marks) else null
+	if glow is Node3D: (glow as Node3D).visible = false
 	_update_banner(t)
 	_update_hand_props(t)
 	_update_tumble(t)
@@ -570,8 +583,9 @@ func _update_hand_props(t: float) -> void :
 			var basis: Basis = _facing_basis(lead)
 			var front: Vector3 = basis.z
 			if t >= _mega_mouth.x and t < _mega_mouth.y:
+				# Un peu sous la bouche et pointé vers le bas : de face, les yeux restent visibles.
 				var mouth: Vector3 = _hand(lead, "mouth")
-				_megaphone.global_transform = Transform3D(basis * Basis(Vector3.RIGHT, PI * 0.5), mouth + front * 0.2)
+				_megaphone.global_transform = Transform3D(basis * Basis(Vector3.RIGHT, PI * 0.5 + 0.22), mouth + front * 0.17 + Vector3.DOWN * 0.07)
 			else:
 				var grip: Vector3 = _hand(lead, "hand_r")
 				_megaphone.global_transform = Transform3D(basis * Basis(Vector3.RIGHT, PI * 0.15), grip + front * 0.08 + Vector3.DOWN * 0.04)
@@ -586,11 +600,14 @@ func _update_tumble(t: float) -> void :
 			node.transform = from
 			continue
 		var fall: float = minf(u, 0.55)
+		var k: float = fall / 0.55
 		var direction: Vector3 = item.dir
 		var drop: float = from.origin.y
 		var travel: Vector3 = direction * (1.8 * fall)
-		var height: float = maxf(0.0, drop + 1.2 * fall - 9.0 * fall * fall)
-		var spin: float = float(item.spin) * minf(u, 0.55) * 2.2
+		# Chute raide, puis la chaise reste couchée sur le dos (posée sur le sol, pas enfoncée dedans).
+		var spin: float = float(item.spin) * k
+		var rest: float = 0.21 * absf(sin(spin))
+		var height: float = maxf(rest, drop + 1.2 * fall - 9.0 * fall * fall)
 		node.transform = Transform3D(from.basis.rotated(Vector3(direction.z, 0, - direction.x).normalized(), spin), Vector3(from.origin.x, height, from.origin.z) + travel)
 
 

@@ -19,6 +19,7 @@ class WordArt extends Control:
 	var widths: Array[float] = []
 	var width: float = 0.0
 	var height: float = 0.0
+	var ascent: float = 0.0
 	var base_color: Color = Color.WHITE
 
 	func build(text: String, font: Font, font_size: int, outline: int, color: Color, shadow: Color) -> void :
@@ -47,6 +48,7 @@ class WordArt extends Control:
 			x += w
 		width = x
 		height = font.get_height(font_size)
+		ascent = font.get_ascent(font_size)
 		custom_minimum_size = Vector2(width, height)
 		size = Vector2(width, height)
 		pivot_offset = size * 0.5
@@ -70,6 +72,9 @@ class WordArt extends Control:
 var world: Node
 var film_duration: float = 38.0
 var in_game: bool = false
+# Option « réduire les flashs » (ou animations réduites) : parasites fixes, REC sans clignoter.
+var calm: bool = false
+var _now: float = 0.0
 
 var _captions: Array = []
 var _cuts: Array[float] = []
@@ -102,6 +107,9 @@ func setup(owner: Node, duration: float) -> void :
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	in_game = str(world.get("phase")) == "ending"
+	var options: Variant = world.get("options")
+	var ui: Variant = world.get("ui")
+	calm = (options is Dictionary and bool(options.get("reduce_flashes", false))) or (is_instance_valid(ui) and bool(ui.get("reduced_motion")))
 	_build()
 
 
@@ -254,10 +262,15 @@ func correction(card_id: String, t0: float, from: int, to: int, fix: String) -> 
 	strike.default_color = Color("e01b2f")
 	strike.visible = false
 	add_child(strike)
+	# Contour papier : la correction reste lisible même sur l'enseigne rouge de l'école.
 	var hand: Label = _plain(fix, "hand", 78, Color("e01b2f"), 0)
+	hand.add_theme_color_override("font_outline_color", Color("fbf4e4"))
+	hand.add_theme_constant_override("outline_size", 14)
 	hand.visible = false
 	add_child(hand)
 	var caret: Label = _plain("^", "hand", 70, Color("e01b2f"), 0)
+	caret.add_theme_color_override("font_outline_color", Color("fbf4e4"))
+	caret.add_theme_constant_override("outline_size", 12)
 	caret.visible = false
 	add_child(caret)
 	_marks[card_id + str(from)] = {"card": card_id, "t0": t0, "from": from, "to": to, "strike": strike, "hand": hand, "caret": caret}
@@ -272,6 +285,7 @@ func end_background(t0: float) -> void :
 # ---------------------------------------------------------------- rendu
 
 func update(t: float) -> void :
+	_now = t
 	var view: Vector2 = get_viewport_rect().size
 	_vhs(t, view)
 	_subtitles(t, view)
@@ -283,13 +297,14 @@ func update(t: float) -> void :
 	_star_frame(t, view)
 	if _skip:
 		_skip.visible = t < film_duration - 0.6
-		_skip.size = Vector2(250, 40)
-		_skip.position = Vector2(view.x - 290, view.y - 72)
+		var mobile: bool = bool(world.get("mobile_mode")) if is_instance_valid(world) else false
+		_skip.size = Vector2(300, 56) if mobile else Vector2(250, 40)
+		_skip.position = Vector2(view.x - _skip.size.x - 40, view.y - _skip.size.y - 32)
 
 
 func _vhs(t: float, view: Vector2) -> void :
 	var ended: bool = _ending_from() <= t
-	_rec.visible = not ended and fmod(t, 1.0) < 0.62
+	_rec.visible = not ended and (calm or fmod(t, 1.0) < 0.62)
 	_rec.position = Vector2(48, 112)
 	_camera_tag.visible = not ended
 	_camera_tag.position = Vector2(view.x - _camera_tag.get_minimum_size().x - 48, 118)
@@ -324,7 +339,11 @@ func _noise_bars(t: float, view: Vector2) -> void :
 	var on: bool = false
 	for window: Array in _noise:
 		if t >= float(window[0]) and t < float(window[1]): on = true
+	# En mode calme, les parasites ne scintillent pas : mêmes bandes pendant toute la coupe.
 	var frame: int = int(t * 24.0)
+	if calm:
+		for window: Array in _noise:
+			if t >= float(window[0]) and t < float(window[1]): frame = int(float(window[0]) * 24.0)
 	for i: int in range(_bars.size()):
 		var bar: ColorRect = _bars[i]
 		bar.visible = on
@@ -332,7 +351,7 @@ func _noise_bars(t: float, view: Vector2) -> void :
 		var h: float = 3.0 + 16.0 * _hash(frame * 31 + i * 7)
 		bar.size = Vector2(view.x, h)
 		bar.position = Vector2(0, 98.0 + (view.y - 196.0) * _hash(frame * 17 + i * 13))
-		bar.color = Color(1, 1, 1, 0.18 + 0.4 * _hash(frame * 5 + i))
+		bar.color = Color(1, 1, 1, (0.08 + 0.12 * _hash(frame * 5 + i)) if calm else (0.18 + 0.4 * _hash(frame * 5 + i)))
 
 
 func _finger_blob(t: float, view: Vector2) -> void :
@@ -394,7 +413,7 @@ func _star_frame(t: float, view: Vector2) -> void :
 		_star.position = view * 0.5
 		_star.rotation = u * 5.0
 		_star.scale = Vector2.ONE * (8.0 + grow * view.length() * 1.15)
-		_star.color = Color.from_hsv(fposmod(u * 1.5, 1.0), 0.7, 1.0)
+		_star.color = Color("ff4fb8") if calm else Color.from_hsv(fposmod(u * 1.5, 1.0), 0.7, 1.0)
 
 
 func _wordart(t: float, view: Vector2) -> void :
@@ -447,7 +466,8 @@ func _wordart(t: float, view: Vector2) -> void :
 		caret.modulate.a = hand.modulate.a
 		hand.position = Vector2(origin.x + rect.position.x + rect.size.x * 0.5 - hand.get_minimum_size().x * 0.5, origin.y - 70.0)
 		hand.rotation = -0.08
-		caret.position = Vector2(origin.x + rect.position.x + rect.size.x * 0.5 - 12.0, origin.y + rect.size.y - 34.0)
+		# Le « ^ » d'insertion juste sous la ligne de base des lettres raturées.
+		caret.position = Vector2(origin.x + rect.position.x + rect.size.x * 0.5 - caret.get_minimum_size().x * 0.5, origin.y + art.ascent - caret.get_minimum_size().y * 0.28)
 
 
 func skip() -> void :
@@ -459,6 +479,9 @@ func skip() -> void :
 
 func _unhandled_input(event: InputEvent) -> void :
 	if not in_game or not is_visible_in_tree(): return
+	# Les premières secondes, on ignore les touches : un saut ou une capacité pressés au moment
+	# où Alice quitte ne doivent pas faire sauter tout le film.
+	if _now < 1.5: return
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode in [KEY_ESCAPE, KEY_SPACE, KEY_ENTER, KEY_KP_ENTER]:
 		skip()
 		get_viewport().set_input_as_handled()

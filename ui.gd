@@ -1404,12 +1404,18 @@ func _fill_alice_choice() -> void :
 		if int(peer) == world.lobby_leader: shown += " · " + _t("hôte")
 		entries.append([shown, "player", int(peer)])
 	entries.append([_t("Bot · Alice IA"), "bot", 0])
-	lobby_alice.clear()
+	# Liste reconstruite seulement si elle change (sinon un menu ouvert se refermerait à chaque mise à jour du salon).
+	var same: bool = lobby_alice.item_count == entries.size()
+	for index: int in range(entries.size()):
+		if not same: break
+		same = lobby_alice.get_item_text(index) == str(entries[index][0]) and lobby_alice.get_item_metadata(index) == [entries[index][1], entries[index][2]]
+	if not same: lobby_alice.clear()
 	var selected: int = 0
 	for index: int in range(entries.size()):
 		var entry: Array = entries[index]
-		lobby_alice.add_item(str(entry[0]))
-		lobby_alice.set_item_metadata(index, [entry[1], entry[2]])
+		if not same:
+			lobby_alice.add_item(str(entry[0]))
+			lobby_alice.set_item_metadata(index, [entry[1], entry[2]])
 		if str(entry[1]) == "player" and mode in ["player", "host"] and int(entry[2]) == picked: selected = index
 		elif str(entry[1]) != "player" and str(entry[1]) == mode: selected = index
 	lobby_alice.select(selected)

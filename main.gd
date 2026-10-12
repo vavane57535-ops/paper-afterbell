@@ -521,7 +521,8 @@ func _peer_disconnected(peer: int) -> void :
 		for other: PaperActor in actors.values():
 			for field: String in ["grabbed_by", "grab_target", "heal_target", "shadow_target", "overheat_target", "revive_target", "revive_helper", "death_source"]:
 				if int(other.effects.get(field, -1)) == peer: other.effects[field] = actor.id
-		_sync_round_for_clients()
+		# Pendant le film de fin, renvoyer toute la manche relancerait le film (ou ferait quitter l'écran de résultats) chez les autres.
+		if phase != "ending": _sync_round_for_clients()
 	_broadcast_roster()
 
 @rpc("any_peer", "call_remote", "reliable")

@@ -10,6 +10,9 @@ extends Node
 #   bot_alice    : Alice IA ; le client (survivant) quitte en pleine manche → pas de blocus, la manche continue.
 #   leader       : l'hôte se comporte en serveur dédié (dedicated) dont le client est chef de groupe : le chef
 #                  choisit Alice et lance la manche par lobby_command ; il quitte ensuite → blocus côté serveur.
+#   trio         : trois instances (rôles host, client, client2). L'hôte choisit « Client » comme Alice ; Alice
+#                  quitte en pleine manche → blocus chez l'hôte ET chez l'autre client (client2), qui reste connecté.
+#                  Puis client2 quitte pendant le film : l'hôte ne doit pas renvoyer la manche (film non relancé).
 # Port dédié (pas le 27842 du jeu) pour ne pas gêner d'autres parties locales.
 
 var world: Node
@@ -24,6 +27,8 @@ var failures: Array[String] = []
 var checks: int = 0
 var tickets_before: int = -1
 var done: bool = false
+var fake_left: bool = false
+var skipped_checked: bool = false
 
 
 func setup(owner: Node) -> void :
@@ -66,7 +71,7 @@ func _begin() -> void :
 		world.phase = "lobby";world.stage.visible = true;world.ui.show_lobby()
 		_go("wait_client")
 	else:
-		world.nickname = "Client";world.selected = "Lysia"
+		world.nickname = "Client2" if role == "client2" else "Client";world.selected = "Elly" if role == "client2" else "Lysia"
 		var error: int = world.net.create_client("127.0.0.1", port)
 		if error != OK: _check(false, "connexion client");_end();return
 		world.multiplayer.multiplayer_peer = world.net;world.networked = true;world.phase = "lobby";world.ui.show_lobby()
@@ -94,9 +99,9 @@ func _process(delta: float) -> void :
 func _host() -> void :
 	match step:
 		"wait_client":
-			if world.roster.size() < 2: return
+			if world.roster.size() < (3 if scenario == "trio" else 2): return
 			for key: Variant in world.roster:
-				if int(key) != 1: other = int(key)
+				if int(key) != 1 and (scenario != "trio" or str(world.roster[key].get("name", "")) == "Client"): other = int(key)
 			if scenario == "leader":
 				world.dedicated = true;world.lobby_leader = other;world._broadcast_roster()
 				_go("leader_wait")
@@ -160,7 +165,23 @@ func _host() -> void :
 				_check(scenario == "leader" or world.tickets > tickets_before, "hôte : tickets gagnés (%d -> %d)" % [tickets_before, world.tickets])
 				_check(not world.match_results.is_empty(), "hôte : résultats de manche (%d lignes)" % world.match_results.size())
 				_check(str(world.room_options.killer_mode) == "random", "hôte : le choix d'Alice repasse en aléatoire (%s)" % str(world.room_options.killer_mode))
-				_go("watch_film")
+				_go("trio_wait" if scenario == "trio" else "watch_film")
+		"trio_wait":
+			# Un survivant bot « se déconnecte » pendant le film : l'hôte ne doit pas renvoyer toute la manche
+			# (sinon client2, passé aux résultats, serait ramené dans le film).
+			if step_clock >= 6.0 and not fake_left:
+				fake_left = true
+				for actor: PaperActor in world.actors.values():
+					if actor.bot and not actor.killer and actor.id >= 100:
+						_log("départ simulé du survivant %d pendant le film" % actor.id)
+						world._peer_disconnected(actor.id)
+						break
+			# client2 regarde le blocus puis quitte pendant le film.
+			if world.roster.size() > 1:
+				if step_clock > 30.0: _check(false, "hôte : client2 n'est jamais parti");_end()
+				return
+			_check(world.phase == "ending" and world.film.kind == PaperAliceForfeit.KIND and world.film.elapsed > 3.0, "hôte : le blocus continue après le départ de client2 (%.1f s)" % world.film.elapsed)
+			_end()
 		"watch_film":
 			if step_clock < 3.0: return
 			_check(scenario == "leader" or (world.film.elapsed > 1.0 and world.phase == "ending"), "hôte : le film avance (%.1f s)" % world.film.elapsed)
@@ -170,6 +191,9 @@ func _host() -> void :
 
 
 func _client() -> void :
+	if role == "client2":
+		_client2()
+		return
 	match step:
 		"wait_roster":
 			if not world.roster.has(world.local_id()): return
@@ -212,11 +236,11 @@ func _client() -> void :
 			if tickets_before < 0:
 				var me: PaperActor = world.local_actor()
 				var alice: PaperActor = world.killer_actor()
-				var expected_alice: bool = scenario in ["client_alice", "leader"]
+				var expected_alice: bool = scenario in ["client_alice", "leader", "trio"]
 				_check(me != null and me.killer == expected_alice, "client : rôle reçu (Alice = %s)" % str(me.killer if me else "?"))
 				if scenario == "host_alice": _check(alice != null and alice.id == 1, "client : l'hôte est Alice")
 				tickets_before = world.tickets
-			if scenario in ["client_alice", "bot_alice", "leader"]:
+			if scenario in ["client_alice", "bot_alice", "leader", "trio"]:
 				if step_clock < 4.0: return
 				_log("le client quitte la manche")
 				world.quit_to_menu()
@@ -235,6 +259,60 @@ func _client() -> void :
 			if step_clock < 3.0: return
 			_check(world.film.elapsed > 1.0 and world.phase == "ending", "client : le film avance (%.1f s)" % world.film.elapsed)
 			_end()
+		"closing":
+			if step_clock > 1.5: _end()
+
+
+# Troisième instance (scénario trio) : survivante qui reste connectée quand Alice part.
+
+func _client2() -> void :
+	match step:
+		"wait_roster":
+			if not world.roster.has(world.local_id()): return
+			var pick: int = world.chosen_alice_peer()
+			if pick <= 1 or pick == world.local_id():
+				if step_clock > 25.0: _check(false, "client2 : choix d'Alice jamais reçu (%d)" % pick);_end()
+				return
+			_check(_badge_shown(), "client2 : badge ALICE à côté de l'autre client")
+			_go("lobby")
+		"lobby":
+			if world.phase == "playing": _go("playing")
+			elif step_clock > 40.0: _check(false, "client2 : la manche ne démarre pas");_end()
+		"playing":
+			if tickets_before < 0:
+				var me: PaperActor = world.local_actor()
+				_check(me != null and not me.killer, "client2 : survivant")
+				tickets_before = world.tickets
+			if world.phase != "ending":
+				if step_clock > 30.0: _check(false, "client2 : aucune fin après le départ d'Alice");_end()
+				return
+			_check(world.networked, "client2 : reste connecté à l'hôte")
+			_check(world.outcome == "survivors" and world.ending_kind == PaperAliceForfeit.KIND, "client2 : blocus (outcome %s, fin %s)" % [world.outcome, world.ending_kind])
+			_check(world.film.kind == PaperAliceForfeit.KIND and is_instance_valid(world.film.blocus), "client2 : film du blocus lancé")
+			_check(not world.ending_people.is_empty() and not "Alice" in world.ending_people, "client2 : distribution %s" % str(world.ending_people))
+			_check(world.tickets > tickets_before, "client2 : tickets gagnés (%d -> %d)" % [tickets_before, world.tickets])
+			_check(not world.match_results.is_empty(), "client2 : résultats (%d lignes)" % world.match_results.size())
+			_check(str(world.audio.active_track) == "blocus" or world.audio.get("_silent") == true, "client2 : musique du blocus (%s)" % str(world.audio.active_track))
+			_go("watch_film")
+		"watch_film":
+			if step_clock < 3.0: return
+			_check(world.film.elapsed > 1.0 and world.phase == "ending" and world.ending_kind == PaperAliceForfeit.KIND, "client2 : le film avance (%.1f s)" % world.film.elapsed)
+			# Le bouton PASSER mène aux résultats, sans que l'hôte ne nous ramène dans le film.
+			var overlay: Variant = world.film.blocus.overlay if is_instance_valid(world.film.blocus) else null
+			_check(overlay != null and is_instance_valid(overlay._skip), "client2 : bouton PASSER présent")
+			if overlay: overlay.skip()
+			_go("skipped")
+		"skipped":
+			if step_clock < 1.0: return
+			if not skipped_checked:
+				skipped_checked = true
+				_check(world.ending_presented and world.ui.current_page == "ending", "client2 : écran de résultats après PASSER (%s)" % str(world.ui.current_page))
+			# L'hôte simule un départ pendant son film (vers +6 s) : on doit rester sur les résultats.
+			if step_clock < 5.5: return
+			_check(world.ending_presented and world.ui.current_page == "ending" and world.phase == "ending", "client2 : toujours sur les résultats après un départ pendant le film (%s)" % str(world.ui.current_page))
+			_log("client2 quitte pendant le film")
+			world.quit_to_menu()
+			_go("closing")
 		"closing":
 			if step_clock > 1.5: _end()
 
