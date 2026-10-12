@@ -111,7 +111,7 @@ func setup(owner_ui: Node) -> void :
 	pool.position.y = 0.01
 	_stage.add_child(pool)
 	_music = AudioStreamPlayer.new()
-	_music.bus = &"PaperMix"
+	_music.bus = &"PaperMusic"
 	add_child(_music)
 	modulate.a = 0.0
 	hide()
