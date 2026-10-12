@@ -7,7 +7,7 @@
   - deux LMS (Bleuette, Usayuko), la victoire d'Alice et la fin du temps ;
   - une manche complète de 340 secondes jouée jusqu'à sa fin.
   - Dans la victoire d'Alice, le chrono finit à 589,9 s, soit 320 s + 6 × 45 s : le bonus de +45 s par élimination s'applique bien.
-  - **Résultat : 0 erreur de script.**
+  - **Résultat : 0 erreur de script.** Les douze parties ont aussi été rejouées avec le `PaperAfterbell.pck` exporté (scripts compilés) : 0 erreur.
 - **Exécutions d'Alice** :
   - les six exécutions et leurs six variantes True Form, chacune jusqu'à la mort de la victime ;
   - verrouillage pendant la scène puis libération d'Alice, +45 s au chrono ;
