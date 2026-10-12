@@ -305,7 +305,7 @@ def amapiano():
     s = Song("amapiano", 113, 16, swing=0.035)
     s.bus("kick", KICK - 1.5)
     s.bus("rim", PERC + 1, rev=0.15)
-    s.bus("shaker", HATS + 1, hp=4000)
+    s.bus("shaker", HATS - 2, hp=4000, lp=12000)  # relecture : shaker moins sifflant (aigus > présence de 6 dB)
     s.bus("log", BASS + 0.5, sat=0.1)
     s.bus("keys", KEYS + 1, rev=0.3, hp=150)
     s.bus("pad", PAD, rev=0.6, lp=2500)
@@ -391,9 +391,10 @@ def retro():
 def baby():
     s = Song("baby", 120, 16, swing=1.0 / 6.0, swing_unit=0.5)
     s.bus("kick", KICK - 4)
-    s.bus("brush", SNARE - 3, rev=0.2, hp=400)
+    # relecture : balais plus doux (souffle filtré) et contrebasse ronde, sans grésillement aigu
+    s.bus("brush", SNARE - 8, rev=0.2, hp=400, lp=5000)
     s.bus("snap", PERC + 3, rev=0.25)
-    s.bus("bass", BASS - 1)
+    s.bus("bass", BASS - 1, lp=1100)
     s.bus("piano", KEYS, rev=0.3, hp=120)
     s.bus("celesta", LEAD, rev=0.35, dly=0.1, dly_beats=1.0)
     s.bus("choir", PAD + 2, rev=0.55, hp=200)
