@@ -19,7 +19,9 @@ const BOT_JOIN_RANGE: float = 9.0
 const BOT_JOIN_CHANCE: float = 0.7
 const BOT_SAFE_DISTANCE: float = 24.0
 const MUSIC_TOLERANCE: float = 0.15
-const MUSIC_DB: float = 6.0
+# Gain des lecteurs 3D de danse : le curseur Musique et le niveau général de la musique
+# sont déjà appliqués par le bus PaperMusic ; +2 dB compense l'atténuation à distance.
+const MUSIC_DB: float = 2.0
 
 var world: Node
 var rng: RandomNumberGenerator = RandomNumberGenerator.new()
@@ -187,8 +189,7 @@ func update_music() -> void :
 
 # Musique de danse : suit le réglage « Musique » (pistes à -18 LUFS ; +2 dB au réglage par défaut).
 func _music_db() -> float:
-	if world.audio == null: return MUSIC_DB
-	return MUSIC_DB + world.audio.volume_to_db(world.audio.music_volume)
+	return MUSIC_DB
 
 # Époque du groupe : connue de l'hôte ; chez un client, déduite du dernier instantané.
 func _epoch_of(actor: PaperActor) -> float:
