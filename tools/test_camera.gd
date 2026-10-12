@@ -553,6 +553,24 @@ func _test_modes(character: String) -> void :
 	await _frames(2)
 	var by_key: bool = rig.mode == Rig.MODE_BEHIND
 	_check("toggle_key_%s" % tag, by_key, "appui sur C en jeu → mode %s" % rig.mode)
+
+	# Clic du stick droit (R3) d'une manette : même bascule, et le bandeau montre le bouton manette.
+	var device_before: int = int(world.bindings.active_device)
+	var mode_before_pad: String = rig.mode
+	var pad_press: InputEventJoypadButton = InputEventJoypadButton.new()
+	pad_press.device = 0
+	pad_press.button_index = JOY_BUTTON_RIGHT_STICK
+	pad_press.pressed = true
+	Input.parse_input_event(pad_press)
+	await _frames(2)
+	var pad_key: String = str(rig._badge._key.text) if is_instance_valid(rig._badge) else ""
+	var pad_release: InputEventJoypadButton = pad_press.duplicate()
+	pad_release.pressed = false
+	Input.parse_input_event(pad_release)
+	await _frames(2)
+	world.bindings.active_device = device_before
+	var pad_label: String = "[" + str(world.bindings.label("camera_mode", true)) + "]"
+	_check("toggle_pad_%s" % tag, rig.mode != mode_before_pad and pad_key == pad_label, "clic du stick droit (manette) → mode %s, bandeau « %s » (attendu %s)" % [rig.mode, pad_key, pad_label])
 	await _settle_mode(Rig.MODE_FREE)
 
 
