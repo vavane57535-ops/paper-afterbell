@@ -884,7 +884,7 @@ func _main_column(column: VBoxContainer, mobile: bool) -> Control:
 		["ENTRE AMIS", "friends", "Salon Internet par code, connexion directe, comptes et groupes."], 
 		["TERRAIN D’ESSAI", "training", "École ouverte sans chrono : teste chaque capacité, le LMS et la True Form."], 
 		["CINÉMATHÈQUE", "gallery", "Prologue, fins d’équipe et LMS."], 
-		["BOUTIQUE", "shop", "Des danses à acheter avec tes tickets, à faire en partie (roue des émotes, Tab)."], 
+		["BOUTIQUE", "shop", "Des danses à acheter avec tes tickets, à faire en partie : roue des émotes (G), puis Tab."], 
 		["RÉGLAGES", "settings", "Jeu, graphismes, audio, commandes et accessibilité."], 
 		["CRÉDITS", "credits", "Musiques, bruitages, polices et icônes."], 
 	]

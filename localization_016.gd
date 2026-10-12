@@ -253,7 +253,7 @@ const TEXT: Dictionary = {
 	"✓ À TOI": "✓ YOURS",
 	"Boutique de danses": "Dance shop",
 	"Boutique du menu": "Main menu shop",
-	"Des danses à acheter avec tes tickets, à faire en partie (roue des émotes, Tab).": "Dances to buy with your tickets and perform in a match (emote wheel, Tab).",
+	"Des danses à acheter avec tes tickets, à faire en partie : roue des émotes (G), puis Tab.": "Dances to buy with your tickets and perform in a match: emote wheel (G), then Tab.",
 	"Pas assez de tickets : joue une manche pour en gagner.": "Not enough tickets: play a round to earn some.",
 	"Pas de chrono": "No timer",
 	"Mannequins réinitialisables": "Resettable dummies",

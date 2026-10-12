@@ -22,7 +22,7 @@ const KEEP_CASE: String = "ÉÈÊËÀÂÇÔÛÙÎÏIJLT’'·-–—!?.:,0123456
 # d'avant (elle est dessinée par-dessus), et une lettre seule, crème, ne touche pas une
 # découpe crème voisine (sinon elles se fondent : « SETTINGS » se lisait « SETINGS »).
 const GAP_INK: float = 0.03
-const GAP_LIGHT: float = 0.08
+const GAP_LIGHT: float = 0.06
 const GAP_PLAIN: float = 0.015
 
 static var _layouts: Dictionary = {}

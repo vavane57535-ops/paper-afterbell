@@ -106,7 +106,13 @@ func _build() -> void :
 	selector.add_item("Manette · Xbox / PlayStation / Switch / Steam Deck")
 	selector.select(1 if choosing_pad else 0)
 	selector.custom_minimum_size.y = 46
-	list.add_child(selector)
+	# Marge autour de la liste : sélectionnée au clavier ou à la manette, sa découpe rouge déborde
+	# d'une quinzaine de pixels et recouvrait les lignes de texte voisines.
+	var selector_box: MarginContainer = MarginContainer.new()
+	selector_box.add_theme_constant_override("margin_top", 10)
+	selector_box.add_theme_constant_override("margin_bottom", 14)
+	list.add_child(selector_box)
+	selector_box.add_child(selector)
 	selector.item_selected.connect( func(index: int) -> void :
 		choosing_pad = index == 1
 		_build())
