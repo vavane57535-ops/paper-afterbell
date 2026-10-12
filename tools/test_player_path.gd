@@ -562,7 +562,8 @@ func _start_round() -> bool:
 	await _click(_find("JOUER", world.ui.page), 1.3)
 	if world.ui.current_page == "alice": world.ui._set_role("survivor")
 	await _wait(0.4)
-	var launch: Control = _find("LANCER LA PARTIE", world.ui.page, true)
+	var launch: Control = world.ui.get("setup_cta") as Control
+	if not is_instance_valid(launch) or not launch.is_visible_in_tree(): launch = _find("LANCER LA PARTIE", world.ui.page, true)
 	_check(launch != null, "bouton LANCER LA PARTIE")
 	await _click(launch, 0.5)
 	var ok: bool = await _wait_phase("playing", 90.0)
