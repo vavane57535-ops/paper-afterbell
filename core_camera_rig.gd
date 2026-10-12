@@ -198,6 +198,8 @@ static func view_direction(yaw: float, pitch: float) -> Vector3:
 	return Vector3(0.0, sin(pitch), - cos(pitch)).rotated(Vector3.UP, yaw)
 
 func toggle_mode() -> void :
+	# Pendant un plan cinématique (exécution…), la touche est ignorée : ni bandeau ni recentrage en fond.
+	if look_locked(): return
 	set_mode(MODE_FREE if mode == MODE_BEHIND else MODE_BEHIND)
 
 func set_mode(next: String, announce: bool = true) -> void :
@@ -243,6 +245,8 @@ func _begin_recenter() -> void :
 	_stop_recenter()
 	var actor: PaperActor = world.local_actor() if world.has_method("local_actor") else null
 	if not is_instance_valid(actor) or not actor.alive or not is_instance_valid(actor.visual): return
+	# Vue drone : la souris pilote le drone, pas de recentrage (il s'appliquerait, périmé, à l'atterrissage).
+	if bool(actor.effects.get("drone_piloting", false)): return
 	_recenter = angle_difference(float(world.yaw), _actor_yaw(actor))
 	if absf(_recenter) < 0.002:
 		_recenter = 0.0
@@ -350,8 +354,11 @@ func drive(owner: Object, shot: Transform3D, fov: float = -1.0) -> void :
 
 # Variante pratique : place l'œil en « eye » et regarde « focus ».
 func drive_look_at(owner: Object, eye: Vector3, focus: Vector3, fov: float = -1.0) -> void :
-	if eye.distance_squared_to(focus) < 1e-06: return
-	drive(owner, Transform3D(Basis.looking_at(focus - eye, Vector3.UP), eye), fov)
+	var direction: Vector3 = focus - eye
+	if direction.length_squared() < 1e-06: return
+	# Plan zénithal / contre-plongée pure : avec UP, Basis.looking_at avertit (« colinear ») et le roulis est arbitraire.
+	var up: Vector3 = Vector3.UP if absf(direction.normalized().y) < 0.999 else Vector3.FORWARD
+	drive(owner, Transform3D(Basis.looking_at(direction, up), eye), fov)
 
 func release_control(owner: Object, blend_out: float = 0.45) -> void :
 	if _drop_controller(owner) and _controllers.is_empty(): _hand_back(blend_out)
@@ -438,6 +445,7 @@ func update(delta: float) -> void :
 	var phase: String = str(world.phase)
 	var pilot: PaperActor = world.local_actor()
 	if _controllers.is_empty() and phase == "playing" and pilot and bool(pilot.effects.get("drone_piloting", false)) and _drone_view(pilot):
+		_stop_recenter()
 		return
 	if phase in ["menu", "lobby"]:
 		_following = false

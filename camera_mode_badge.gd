@@ -107,7 +107,7 @@ func show_mode(next: String) -> void :
 	var behind: bool = mode == "behind"
 	_title.text = PaperLanguage.t("CAMÉRA : DERRIÈRE" if behind else "CAMÉRA : LIBRE 360°")
 	_detail.text = PaperLanguage.t("Le personnage tourne avec la caméra" if behind else "Tourne librement autour du personnage")
-	var key: String = PaperUI.key_label("camera_mode", "C")
+	var key: String = _key_text()
 	_key.text = "[" + key + "]" if not key.is_empty() and not bool(world.get("mobile_mode")) else ""
 	_glyph.behind = behind
 	_glyph.queue_redraw()
@@ -119,8 +119,24 @@ func show_mode(next: String) -> void :
 	show()
 	_apply()
 
+# Touche affichée : le bouton manette lié à l'action s'il est en train d'être pressé (bascule faite à la
+# manette, R3 par défaut, réassignable), sinon la touche clavier.
+func _key_text() -> String:
+	var bindings: Variant = world.get("bindings") if world != null else null
+	if bindings != null:
+		var device: int = int(bindings.active_device)
+		for event: InputEvent in InputMap.action_get_events("camera_mode"):
+			if device >= 0 and event is InputEventJoypadButton and Input.is_joy_button_pressed(device, (event as InputEventJoypadButton).button_index):
+				return str(bindings.label("camera_mode", true))
+	return PaperUI.key_label("camera_mode", "C")
+
 func _process(delta: float) -> void :
 	if not visible: return
+	# Fin de manche, retour au menu ou pause pendant l'affichage : le bandeau ne reste pas par-dessus.
+	if world != null and (str(world.get("phase")) != "playing" or bool(world.get("pause_open"))):
+		_time = 0.0
+		hide()
+		return
 	_time = maxf(0.0, _time - delta)
 	_apply()
 	if _time <= 0.0: hide()

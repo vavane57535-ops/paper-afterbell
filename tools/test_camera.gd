@@ -10,6 +10,8 @@ extends Node
 # caméra (avancer / strafe / diagonale, sans dérive à l'écran), modes Derrière / Libre 360° et leurs
 # transitions, collisions de la perche, prise de contrôle cinématique, spectateur. Écrit
 # camera_report.json (+ captures .png en rendu) et quitte avec le code 1 si un test échoue.
+# En headless, « collisions » fait aussi des tours de caméra contre de vrais murs de l'école.
+# Réseau (commande client → hôte + effet synchronisé) : voir tools/test_camera_net.gd.
 
 const Rig = preload("res://core_camera_rig.gd")
 
@@ -521,8 +523,14 @@ func _test_modes(character: String) -> void :
 
 	rig.toggle_mode()
 	var free_badge: bool = rig._badge.visible and str(rig._badge._title.text) == PaperLanguage.t("CAMÉRA : LIBRE 360°")
+	# Pause ouverte pendant l'affichage : le bandeau disparaît au lieu de rester sur le menu.
+	await _frames(2)
+	world.pause_open = true
+	await _frames(2)
+	var badge_paused: bool = not rig._badge.visible
+	world.pause_open = false
 	await _wait(0.6)
-	_check("toggle_free_%s" % tag, rig.mode == Rig.MODE_FREE and free_badge and int(actor.effects.get("cam_facing", 0)) == Rig.FACING_FREE, "retour en Libre 360° par la même touche, bandeau « %s » : %s" % [PaperLanguage.t("CAMÉRA : LIBRE 360°"), str(free_badge)])
+	_check("toggle_free_%s" % tag, rig.mode == Rig.MODE_FREE and free_badge and badge_paused and int(actor.effects.get("cam_facing", 0)) == Rig.FACING_FREE, "retour en Libre 360° par la même touche, bandeau « %s » : %s, masqué si la pause s'ouvre : %s" % [PaperLanguage.t("CAMÉRA : LIBRE 360°"), str(free_badge), str(badge_paused)])
 
 	var config: ConfigFile = ConfigFile.new()
 	rig.mode = Rig.MODE_BEHIND
@@ -545,6 +553,24 @@ func _test_modes(character: String) -> void :
 	await _frames(2)
 	var by_key: bool = rig.mode == Rig.MODE_BEHIND
 	_check("toggle_key_%s" % tag, by_key, "appui sur C en jeu → mode %s" % rig.mode)
+
+	# Clic du stick droit (R3) d'une manette : même bascule, et le bandeau montre le bouton manette.
+	var device_before: int = int(world.bindings.active_device)
+	var mode_before_pad: String = rig.mode
+	var pad_press: InputEventJoypadButton = InputEventJoypadButton.new()
+	pad_press.device = 0
+	pad_press.button_index = JOY_BUTTON_RIGHT_STICK
+	pad_press.pressed = true
+	Input.parse_input_event(pad_press)
+	await _frames(2)
+	var pad_key: String = str(rig._badge._key.text) if is_instance_valid(rig._badge) else ""
+	var pad_release: InputEventJoypadButton = pad_press.duplicate()
+	pad_release.pressed = false
+	Input.parse_input_event(pad_release)
+	await _frames(2)
+	world.bindings.active_device = device_before
+	var pad_label: String = "[" + str(world.bindings.label("camera_mode", true)) + "]"
+	_check("toggle_pad_%s" % tag, rig.mode != mode_before_pad and pad_key == pad_label, "clic du stick droit (manette) → mode %s, bandeau « %s » (attendu %s)" % [rig.mode, pad_key, pad_label])
 	await _settle_mode(Rig.MODE_FREE)
 
 
@@ -656,6 +682,56 @@ func _test_collisions() -> void :
 	_drop_props()
 	_check("collision_sweep", render or pops == 0, "tour complet de caméra le long d'un mur (%d images) : %d saut(s) de perche > 0,6 m, plus grand pas %.2f m" % [steps, pops, worst_jump])
 	await _wait(0.5)
+	if not render: await _test_real_walls()
+
+# Vrais murs de l'école (pas des accessoires du test) : perso à moins de 1,3 m d'un mur, tour de caméra
+# complet en 4 s ; on compte les images où un mur coupe la ligne de vue caméra → tête du perso.
+func _test_real_walls() -> void :
+	var actor: PaperActor = _actor()
+	var space: PhysicsDirectSpaceState3D = world.get_world_3d().direct_space_state
+	var spots: Array = []
+	for x: int in range(-52, 53, 3):
+		for z: int in range(-42, 48, 3):
+			var p: Vector3 = Vector3(x, 0.05, z)
+			if not world.school.can_walk(p): continue
+			for dir: Vector3 in [Vector3.RIGHT, Vector3.LEFT, Vector3.FORWARD, Vector3.BACK]:
+				var hit: Dictionary = space.intersect_ray(PhysicsRayQueryParameters3D.create(p + Vector3.UP * 1.6, p + Vector3.UP * 1.6 + dir * 1.3, 1))
+				if not hit.is_empty():
+					spots.append([p, dir])
+					break
+	var picked: Array = []
+	for i: int in range(0, spots.size(), maxi(1, spots.size() / 8)): picked.append(spots[i])
+	picked = picked.slice(0, 8)
+	var frames: int = 0
+	var blocked: int = 0
+	var longest: float = 0.0
+	for pick: Array in picked:
+		var dir: Vector3 = pick[1]
+		var along: float = atan2( - dir.z, dir.x)
+		_place(actor, pick[0], along)
+		world.yaw = along
+		world.pitch = Rig.DEFAULT_PITCH
+		await _wait(0.6)
+		var run: float = 0.0
+		var elapsed: float = 0.0
+		while elapsed < 4.0:
+			rig.turn(Vector2(TAU / 4.0 * maxf(get_process_delta_time(), 1.0 / 240.0), 0.0))
+			await get_tree().process_frame
+			elapsed += get_process_delta_time()
+			var head: Vector3 = world.actor_render_position(actor) + Vector3.UP * 1.35
+			frames += 1
+			if not space.intersect_ray(PhysicsRayQueryParameters3D.create(world.camera.global_position, head, 1)).is_empty():
+				blocked += 1
+				run += get_process_delta_time()
+				longest = maxf(longest, run)
+			else:
+				run = 0.0
+	var rate: float = float(blocked) / maxf(1.0, float(frames))
+	metrics["real_walls_blocked_rate"] = rate
+	metrics["real_walls_longest_blocked_s"] = longest
+	_check("collision_real_walls", picked.size() >= 4 and rate < 0.02 and longest < 0.2, "%d endroits contre de vrais murs de l'école, tour complet de caméra : mur entre la caméra et le perso sur %.1f %% des images (%d / %d), au plus %.2f s d'affilée" % [picked.size(), rate * 100.0, blocked, frames, longest])
+	world.yaw = 0.3
+	await _wait(0.4)
 
 
 
@@ -678,6 +754,16 @@ func _test_control_api() -> void :
 	rig.drive_look_at(holder, eye, focus, 40.0)
 	await _frames(2)
 	placed = placed and world.camera.global_position.distance_to(eye) < 0.001 and _cam_forward().angle_to((focus - eye).normalized()) < 0.001
+	# Plan zénithal (visée parallèle à UP) : accepté, la caméra regarde bien vers le bas.
+	rig.drive_look_at(holder, focus + Vector3.UP * 6.0, focus, 50.0)
+	await _frames(2)
+	var top_shot: bool = _cam_forward().angle_to(Vector3.DOWN) < 0.01 and world.camera.global_basis.is_finite()
+	# La touche de mode est ignorée pendant le plan : pas de bascule, pas de bandeau par-dessus le film.
+	var mode_before: String = rig.mode
+	var badge_time: float = float(rig._badge._time) if is_instance_valid(rig._badge) else 0.0
+	rig.toggle_mode()
+	await _frames(2)
+	var ignored: bool = rig.mode == mode_before and not rig.recentering() and (not is_instance_valid(rig._badge) or float(rig._badge._time) <= badge_time + 0.001)
 	rig.release_control(holder, 0.45)
 	await _wait(0.12)
 	var mid: Vector3 = world.camera.global_position
@@ -694,6 +780,7 @@ func _test_control_api() -> void :
 	var auto_released: bool = not rig.has_control()
 	holder.queue_free()
 	_check("cinematic_api", placed and locked and blending and back_home and held and auto_released, "take_control/drive/drive_look_at : plan appliqué %s, regard bloqué %s ; release_control : fondu %s puis retour exact %s ; propriétaire libéré → rendu auto %s" % [str(placed), str(locked), str(blending), str(back_home), str(auto_released)])
+	_check("cinematic_guard", top_shot and ignored, "plan zénithal via drive_look_at : %s ; touche de mode ignorée pendant le plan (mode %s inchangé, pas de bandeau) : %s" % [str(top_shot), mode_before, str(ignored)])
 	await _wait(0.3)
 
 func _test_spectator() -> void :
@@ -742,6 +829,11 @@ func _test_drone() -> void :
 	await _wait(0.5)
 	var drone: Dictionary = world.combat.piloted_drone(actor)
 	var piloting: bool = not drone.is_empty() and bool(actor.effects.get("drone_piloting", false))
+	# Passage en « Derrière » pendant le vol : la souris pilote le drone, aucun recentrage ne doit
+	# démarrer (ni s'appliquer, périmé, à l'atterrissage).
+	world.yaw = 0.4 + PI * 0.5
+	rig.toggle_mode()
+	var no_swing: bool = rig.mode == Rig.MODE_BEHIND and not rig.recentering()
 	world.pitch = Rig.PITCH_MIN
 	await _frames(3)
 	var aligned: float = rad_to_deg(_cam_forward().angle_to(Rig.view_direction(world.yaw, world.pitch))) if piloting else 180.0
@@ -751,8 +843,11 @@ func _test_drone() -> void :
 	world.request_cancel_aim()
 	await _wait(1.2)
 	var back: bool = not bool(actor.effects.get("drone_piloting", false)) and _cam_forward().angle_to(Rig.view_direction(world.yaw, world.pitch)) < 0.002 and actor.visual.visible
+	no_swing = no_swing and absf(angle_difference(world.yaw, 0.4 + PI * 0.5)) < 0.001 and not rig.recentering()
 	world.pitch = Rig.DEFAULT_PITCH
 	_check("drone", piloting and aligned < 0.05 and at_drone < 0.3 and back, "vue drone d'Ashura : caméra sur le drone (%.2f m), regard %.0f° vers le bas aligné (%.3f°) ; retour fluide derrière Ashura à l'atterrissage : %s" % [at_drone, down, aligned, str(back)])
+	_check("drone_mode_toggle", no_swing, "touche de mode pendant le vol du drone : mode Derrière pris, aucun recentrage parasite à l'atterrissage : %s" % str(no_swing))
+	await _settle_mode(Rig.MODE_FREE)
 	await _wait(0.3)
 
 func _finish(original_mode: String) -> void :
