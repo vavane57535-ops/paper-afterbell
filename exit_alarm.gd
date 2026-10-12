@@ -107,6 +107,7 @@ var _timer_touched: bool = false
 var _signs: Array[Label3D] = []
 var _sign_looks: Array = []
 var _signs_touched: bool = false
+var _toast_base: float = NAN
 
 
 func setup(game_world: Node) -> void :
@@ -623,6 +624,31 @@ func _update_hud(delta: float) -> void :
 	var shown: bool = _compass_alpha > 0.01
 	if _compass.visible != shown: _compass.visible = shown
 	if shown: _compass.queue_redraw()
+	_dodge_toasts(delta)
+
+# Bas du bandeau (bande rayée + ligne « FUYEZ ! · SORTIE … m »), dans le repère du HUD ; 0 s'il est caché.
+# Le bandeau de caméra et les bulles d'info s'en servent pour passer en dessous.
+func banner_bottom() -> float:
+	if not is_instance_valid(_banner) or not _banner.visible: return 0.0
+	var height: float = _banner.size.y
+	var band_height: float = clampf(height * 0.17, 96.0, 150.0)
+	var small_size: int = int(clampf(height * 0.03, 17.0, 30.0))
+	return _banner.global_position.y + height * 0.3 + band_height * 0.5 + 18.0 + small_size + 14.0
+
+# Les bulles d'info (en haut au centre) mordaient sur le bandeau : elles descendent sous lui le temps qu'il passe.
+func _dodge_toasts(delta: float) -> void :
+	var box: Variant = world.ui.get("_toast_box") if is_instance_valid(world.ui) else null
+	if not box is Control or not is_instance_valid(box): return
+	var toasts: Control = box
+	var bottom: float = banner_bottom()
+	if bottom > 0.0 and is_nan(_toast_base): _toast_base = toasts.offset_top
+	if is_nan(_toast_base): return
+	var parent: Control = toasts.get_parent_control()
+	var goal: float = maxf(_toast_base, bottom + 10.0 - (parent.global_position.y if parent else 0.0)) if bottom > 0.0 else _toast_base
+	toasts.offset_top = lerpf(toasts.offset_top, goal, 1.0 - exp( - delta * 16.0))
+	if bottom <= 0.0 and absf(toasts.offset_top - _toast_base) < 0.5:
+		toasts.offset_top = _toast_base
+		_toast_base = NAN
 
 
 

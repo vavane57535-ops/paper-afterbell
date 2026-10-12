@@ -168,6 +168,7 @@ func clear() -> void :
 	_debris.clear()
 	_restore_wrecks(true)
 	for word: Dictionary in _words: (word.node as Label3D).visible = false
+	if _camera_id >= 0: _hold_rig(false)
 	_camera_id = -1
 	_camera_blend = 0.0
 	_bars_amount = 0.0
@@ -557,6 +558,7 @@ func _process(delta: float) -> void :
 			_camera_id = -1
 			_bars_amount = 0.0
 			_comic_guard(false)
+			_hold_rig(false)
 	for id: Variant in _shows.keys():
 		var show: Dictionary = _shows[id]
 		var hold: float = float(show.get("hold", 0.0))
@@ -940,6 +942,7 @@ func camera_override(delta: float) -> bool:
 		if _camera_id >= 0:
 			_camera_id = -1
 			_comic_guard(false)
+			_hold_rig(false)
 			var rig = world.get("camera_rig")
 			if rig != null:
 				rig._blend = 1.0
@@ -948,6 +951,7 @@ func camera_override(delta: float) -> bool:
 			world.camera_anchor_ready = false
 		return false
 	if _camera_id != int(show.id):
+		if _camera_id < 0 and not (show.shots as Array).is_empty(): _hold_rig(true)
 		_camera_id = int(show.id)
 		_camera_from = camera.global_transform
 		_camera_fov = camera.fov
@@ -1009,6 +1013,16 @@ func camera_override(delta: float) -> bool:
 		camera.rotate_object_local(Vector3.UP, 0.026 * amount * (sin(c * 37.0 + 0.5) * 0.7 + sin(c * 83.0 + 2.9) * 0.3))
 		camera.rotate_object_local(Vector3.BACK, 0.05 * amount * (sin(c * 29.0 + 1.1) * 0.7 + sin(c * 71.0 + 0.3) * 0.3))
 	return true
+
+
+# Pendant le plan, la caméra de jeu est réservée auprès du rig (sans qu'il la place : on l'écrit
+# nous-mêmes) : souris, stick, tactile et touche de mode de caméra sont alors ignorés, comme pour
+# tout plan cinématique (sinon C affichait son bandeau sur le film et la visée tournait en fond).
+func _hold_rig(on: bool) -> void :
+	var rig = world.get("camera_rig") if world != null else null
+	if rig == null or not rig.has_method("take_control"): return
+	if on: rig.take_control(self, 0.0)
+	else: rig.release_control(self, 0.0)
 
 
 func _shot_point(show: Dictionary, value: Variant, u: float, holder: PaperVisual, body: PaperVisual) -> Vector3:
