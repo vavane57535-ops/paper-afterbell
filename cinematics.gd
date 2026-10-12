@@ -365,6 +365,8 @@ func _step(t: float, silent: bool) -> void :
 				else: take.state[key] = float(ramp[4])
 		var spot: Vector3 = _world_spot(_where(take, t))
 		var velocity: Vector3 = (spot - _world_spot(_where(take, t - 0.03))) / 0.03
+		# Un raccord « jump » téléporte l'acteur : sans vitesse, sinon la démarche s'emballe et crache un nuage de pas géant.
+		if _jumped(take, t - 0.03, t): velocity = Vector3.ZERO
 		var visual: PaperVisual = take.visual
 		visual.position = spot
 		var target: float = _facing(index, take, t, velocity)
@@ -461,6 +463,13 @@ func _where(take: Take, t: float) -> Vector3:
 			var to: Array = path[k]
 			return (from[1] as Vector3).lerp(to[1], _ease((t - float(from[0])) / maxf(0.001, float(to[0]) - float(from[0])), str(to[2])))
 	return path[path.size() - 1][1]
+
+func _jumped(take: Take, t0: float, t1: float) -> bool:
+	for point: Array in take.path:
+		var at: float = float(point[0])
+		if at > t1: return false
+		if at > t0 and str(point[2]) == "jump": return true
+	return false
 
 func _world_spot(local: Vector3) -> Vector3:
 	return anchor + right * local.x + Vector3.UP * local.y + forward * local.z
