@@ -354,8 +354,14 @@ func _test_lms_ceiling() -> void :
 	world.combat._heal(lysia, 7.0, lysia)
 	var after_hit: float = lysia.hp
 	var ready_above: bool = bool(world.combat.outlet_preview(lysia).get("ready", false))
+	if _is_local(lysia):
+		await _wait(0.6)
+		await _shot("lysia_lms_170")
 	lysia.hp = 120.0
 	world.combat._heal(lysia, 50.0, lysia)
+	if _is_local(lysia):
+		await _wait(0.6)
+		await _shot("lysia_lms_150_capped")
 	rows["lysia_above"] = {"entered": entered, "healed_at_170": after_hit, "outlet_ready_at_170": ready_above, "healed_from_120": lysia.hp}
 	_check(float(entered[0]) == 200.0 and after_hit == 170.0 and not ready_above and absf(float(lysia.hp) - 150.0) < 0.01, "LMS Lysia entrée à 200 : garde 200, jamais de soin au-delà de 150, mesuré " + JSON.stringify(rows["lysia_above"]))
 	# Usayuko entrée pleine (165) : la zone de soin d'Elly ne la remonte pas au-delà de 150.

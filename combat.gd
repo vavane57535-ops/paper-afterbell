@@ -668,7 +668,7 @@ func _unlock_lms(actor):
 	if actor.character == "Usayuko": instruction = "AURA ÉVEILLÉE · 4 : Dropkick unique (5 s de stun)"
 	elif actor.character == "Elly": instruction = "AURA ÉVEILLÉE · 4 : Shotgun unique (3 s de stun)"
 	elif actor.character == "Bleuette": instruction = "AURA ÉVEILLÉE · 4 : Je peux le faire !"
-	elif actor.character == "Lysia": instruction = "AURA ÉVEILLÉE · un allié éliminé peut renforcer ton armure."
+	elif actor.character == "Lysia": instruction = "AURA ÉVEILLÉE · un allié éliminé peut réparer ton armure (150 PV max)."
 	_message(actor, instruction)
 	world.event("aura_unlock", {"actor": actor.id, "position": actor.position, "character": actor.character})
 
