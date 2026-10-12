@@ -128,7 +128,9 @@ func setup(game_world: Node) -> void :
 	_banner.visible = false
 	_banner.draw.connect(_draw_banner)
 	world.ui.hud.add_child(_banner)
-	world.ui.hud.move_child(_banner, 0)
+	# au-dessus de la liste des élèves (sinon les cartes mordent sur le bandeau), sous la carte du perso et les capacités
+	var roster: Control = world.ui.hud.get("roster")
+	world.ui.hud.move_child(_banner, roster.get_index() + 1 if roster and roster.get_parent() == world.ui.hud else 0)
 	_banner.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_compass = Control.new()
 	_compass.name = "ExitCompass"
