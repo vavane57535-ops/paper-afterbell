@@ -17,7 +17,13 @@ extends Node
 #   debris_end  : la dernière survivante (Lysia) est exécutée sur le plateau du film de fin :
 #                 aucun débris de l'exécution ne doit apparaître dans le film.
 #   exec_victim : la victime locale avait la roue d'émotes ouverte : elle se referme au début du plan.
-#   exec_alarm  : exécution pendant l'alerte de sortie (images seulement, à regarder).
+#   exec_facing : caméra Libre 360° : Alice et la victime se tournent l'une vers l'autre sans à-coup.
+#   exec_spectator : un joueur éliminé qui suit la victime a le plan ; Tab le rend tout de suite.
+#   state_reset : alerte + exécution + danse puis retour au menu : rien ne reste, ni à la manche suivante.
+#   prologue_hold : Entrée / Espace maintenues pour passer le prologue n'activent rien au menu.
+#   exec_alarm, bonus_hud : images à regarder (alerte pendant une exécution, « +0:45 » près du chrono).
+#   dedicated : à lancer avec --dedicated (pas de prologue, pas de mise en scène sur le serveur).
+#   ending_quit [--ending-wait S] : fermeture du jeu sur l'écran des résultats (messages de fuite).
 # Par défaut : rush_bonus, exec_camera, siren_end, debris_end, exec_victim.
 
 var world
@@ -58,6 +64,8 @@ func _run() -> void:
 			"exec_facing": await _plan_exec_facing()
 			"state_reset": await _plan_state_reset()
 			"ending_quit": await _plan_ending_quit()
+			"exec_spectator": await _plan_exec_spectator()
+			"bonus_hud": await _plan_bonus_hud()
 			_: _fail(plan, "plan inconnu")
 	print("CROSS_TEST ", "OK" if failures.is_empty() else "FAIL", " ", JSON.stringify(failures))
 	get_tree().quit()
@@ -277,6 +285,73 @@ func _plan_exec_camera() -> void:
 	rig.mouse_look(motion)
 	if absf(angle_difference(yaw1, float(world.yaw))) < 0.01: _fail(plan, "la souris ne tourne plus la vue après l'exécution")
 	_report(plan, before, "override=%s badge=%s mode=%s->%s yaw_moved=%.3f pitch_moved=%.3f released=%s" % [str(overriding), str(badge), mode0, str(rig.mode), yaw_moved, pitch_moved, str(not still and not held)])
+
+
+# --- bonus_hud : « +0:45 » à côté du chrono rouge et de la boussole de sortie (images) -----------
+
+func _plan_bonus_hud() -> void:
+	var plan: String = "bonus_hud"
+	var before: int = failures.size()
+	if not await _round("Simon", false):
+		_fail(plan, "manche non lancée")
+		return
+	var alice: PaperActor = world.killer_actor()
+	world.time_left = 80.4
+	await _wait(6.0)
+	await _capture("bonus_hud_before")
+	var victim: PaperActor = _actor("Bleuette")
+	victim.effects["death_source"] = alice.id
+	world.eliminate(victim)
+	await _wait(0.35)
+	await _capture("bonus_hud_pop")
+	await _wait(0.9)
+	await _capture("bonus_hud_after")
+	_report(plan, before, "time_left=%.1f exit=%s" % [float(world.time_left), str(world.exit_flow.opened)])
+	world.quit_to_menu()
+	await _wait(0.3)
+
+
+# --- exec_spectator : un joueur éliminé suit la victime ; Tab pendant le plan ------------------
+
+func _plan_exec_spectator() -> void:
+	var plan: String = "exec_spectator"
+	var before: int = failures.size()
+	if not await _round("Simon", false):
+		_fail(plan, "manche non lancée")
+		return
+	var me: PaperActor = world.local_actor()
+	var alice: PaperActor = world.killer_actor()
+	var victim: PaperActor = _actor("Elly")
+	world.eliminate(me)
+	await _wait(0.5)
+	world.spectate_id = victim.id
+	var base: Vector3 = world.school.spawn_points[1] + Vector3(0, 0, -9)
+	victim.global_position = base
+	victim.reset_physics_interpolation()
+	alice.global_position = base + Vector3(0.6, 0, -2.4)
+	alice.aim = (base - alice.global_position).normalized()
+	alice.reset_physics_interpolation()
+	victim.effects["revived"] = true
+	victim.hp = 1.0
+	await _wait(0.6)
+	var scene: Dictionary = _execute(victim, alice)
+	if scene.is_empty():
+		_fail(plan, "pas d'exécution")
+		_report(plan, before, "")
+		return
+	await _wait(0.9)
+	var shot: bool = int(world.kill_scenes._camera_id) >= 0
+	var held: bool = world.camera_rig.has_control()
+	await _capture("exec_spectator_mid")
+	if not shot: _fail(plan, "le spectateur qui suit la victime n'a pas le plan")
+	if not held: _fail(plan, "caméra du spectateur non verrouillée pendant le plan")
+	world.mobile_spectate()
+	await _wait(0.25)
+	var after_tab: bool = int(world.kill_scenes._camera_id) >= 0 or world.camera_rig.has_control()
+	if after_tab: _fail(plan, "le plan garde la caméra après changement d'allié suivi")
+	_report(plan, before, "shot=%s held=%s view=%s after_tab=%s" % [str(shot), str(held), str(world._view_actor().character), str(after_tab)])
+	world.quit_to_menu()
+	await _wait(0.3)
 
 
 # --- ending_quit : fin de manche (Alice gagne), écran des résultats, puis on quitte le jeu -------
