@@ -28,6 +28,11 @@ var _music: AudioStreamPlayer
 var _preview_person: String = "Bleuette"
 var _preview_dance: String = ""
 var _lineup_hidden: bool = false
+var _menu_held: bool = false
+
+# Aperçu de danse : même niveau que sa propre danse en partie (≈ -32 LUFS, bus PaperMusic) ; il
+# remplace la musique du menu le temps de l'aperçu au lieu de s'y superposer.
+const PREVIEW_DB: float = -1.5
 
 const CAMERAS: Dictionary = {
 	"play": [Vector3(0.6, 1.45, -4.6), Vector3(0.1, 0.95, 0.0)], 
@@ -112,6 +117,7 @@ func setup(owner_ui: Node) -> void :
 	_stage.add_child(pool)
 	_music = AudioStreamPlayer.new()
 	_music.bus = &"PaperMusic"
+	_music.volume_db = PREVIEW_DB
 	add_child(_music)
 	modulate.a = 0.0
 	hide()
@@ -153,9 +159,20 @@ func _process(delta: float) -> void :
 	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS if visible else SubViewport.UPDATE_DISABLED
 	_set_lineup(show)
 	if not show and _music.playing and _alpha <= 0.01: _music.stop()
+	_hold_menu_music(_music.playing)
 	if not visible or _current == "": return
 	_time += delta
 	_tick(_current, _time, delta)
+
+func _hold_menu_music(on: bool) -> void :
+	if on == _menu_held or not is_instance_valid(ui) or not is_instance_valid(ui.world): return
+	var audio: Variant = ui.world.get("audio")
+	if not is_instance_valid(audio): return
+	_menu_held = on
+	audio.hold_music(on, "shop")
+
+func _exit_tree() -> void :
+	_hold_menu_music(false)
 
 func _set_lineup(hidden: bool) -> void :
 	var backdrop: Node = ui.menu_backdrop if ui else null
@@ -400,7 +417,6 @@ func _tick(id: String, t: float, dt: float) -> void :
 			var dance_t: float = t
 			if id == "dance" and _music.playing and _music.stream:
 				dance_t = _music.get_playback_position()
-				if ui and ui.world.audio: ui.world.audio.duck_for(0.4)
 			_emote(dancer, dance, dance_t)
 	for key: Variant in a:
 		var visual: PaperVisual = a[key]

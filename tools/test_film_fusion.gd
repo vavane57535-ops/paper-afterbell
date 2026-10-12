@@ -208,7 +208,8 @@ func _run() -> void :
 		await get_tree().process_frame
 	print("FF_TAIL red_until=%.2f siren_until=%.2f rush_until=%.2f" % [red_until, siren_until, rush_until])
 	_check(red_until < 0.05, "alerte visuelle coupée dès le premier plan (jusqu'à %.2f s)" % red_until)
-	_check(siren_until < 0.2, "sirène coupée au début du film (jusqu'à %.2f s)" % siren_until)
+	# fondu de la sirène d'exit_alarm (jusqu'à -60 dB, environ 0,35 s)
+	_check(siren_until < 0.45, "sirène effacée au début du film (jusqu'à %.2f s)" % siren_until)
 	_check(rush_until < 0.45, "musique de course coupée au début du film (jusqu'à %.2f s)" % rush_until)
 	_check(marks_until < 0.0, "panneau « SORTIE · … » et anneau de la sortie absents du film (vus jusqu'à %.2f s)" % marks_until)
 	var alarm: Node = world.exit_alarm
@@ -249,10 +250,10 @@ func _run_kill() -> void :
 		world.combat.damage(me, 999.0, alice, false, "slash")
 		if bool(me.effects.get("dying", false)): break
 	var guard: int = 0
-	while not bool(world.kill_scenes.has_camera()) and guard < 120:
+	while not bool(world.kill_scenes.cinematic()) and guard < 120:
 		await get_tree().process_frame
 		guard += 1
-	_check(bool(world.kill_scenes.has_camera()), "l'exécution prend la caméra")
+	_check(bool(world.kill_scenes.cinematic()), "l'exécution prend la caméra")
 	await get_tree().process_frame
 	_check(not world.emote_wheel.visible, "roue d'émotes fermée au début de l'exécution")
 	var mode_before: String = str(world.camera_rig.mode)
@@ -277,7 +278,8 @@ func _run_kill() -> void :
 	_check(absf(angle_difference(yaw_before, float(world.yaw))) < 0.001, "visée bloquée pendant l'exécution")
 	await _wait(0.5)
 	var alarm: Node = world.exit_alarm
-	_check(not alarm._grade.visible and not alarm._glow.visible, "filtre rouge d'écran effacé pendant l'exécution (lampes du décor gardées : %s)" % str(alarm.get("_lamps_touched")))
+	# Pendant le plan, l'alerte passe à mi-intensité (exit_alarm : 0,45) pour que l'éclairage film reste lisible.
+	_check(float(alarm.get("_level")) <= 0.5, "alerte atténuée pendant l'exécution (niveau %.2f)" % float(alarm.get("_level")))
 	var masked: bool = (world.camera.cull_mask & world.kill_scenes.SIGN_LAYER) == 0
 	_check(masked, "panneau SORTIE du jeu retiré des plans de l'exécution")
 	var fx: Node = null
@@ -291,14 +293,14 @@ func _run_kill() -> void :
 			_check(float(world.audio.get("_hurt_level")) < 0.05, "son de l'exécution non étouffé par l'effet « blessé » (%.2f)" % float(world.audio.get("_hurt_level")))
 			_check(float(world.audio.heartbeat_floor) <= 0.0, "pas de cœur de l'alerte sur l'exécution (%.2f)" % float(world.audio.heartbeat_floor))
 	var wait_end: int = 0
-	while bool(world.kill_scenes.has_camera()) and wait_end < 600:
+	while bool(world.kill_scenes.cinematic()) and wait_end < 600:
 		await get_tree().process_frame
 		wait_end += 1
 	for k: int in range(5): await get_tree().process_frame
-	_check(not bool(world.kill_scenes.has_camera()), "fin de l'exécution")
+	_check(not bool(world.kill_scenes.cinematic()), "fin de l'exécution")
 	_check((world.camera.cull_mask & world.kill_scenes.SIGN_LAYER) != 0, "panneau SORTIE rendu à la caméra de jeu après l'exécution")
 	for k: int in range(20): await get_tree().process_frame
-	_check(world.exit_alarm._grade.visible, "filtre rouge revenu après l'exécution")
+	_check(world.exit_alarm._grade.visible and float(world.exit_alarm.get("_level")) > 0.6, "filtre rouge revenu après l'exécution (niveau %.2f)" % float(world.exit_alarm.get("_level")))
 	await _wait(1.5)
 	var rush: AudioStreamPlayer = world.audio.tracks.get("exit")
 	var track: String = str(world.audio.active_track)

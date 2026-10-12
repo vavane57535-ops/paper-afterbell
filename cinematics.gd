@@ -99,8 +99,6 @@ var _dark: bool = false
 
 var victory: RefCounted = VictoryFilm.new()
 var blocus: PaperFilmBlocus
-var _marks_hidden: bool = false
-var _sign_shown: bool = true
 
 
 
@@ -237,7 +235,6 @@ func _add_actor(person: String) -> void :
 func stop() -> void :
 	var was_playing: bool = not kind.is_empty()
 	victory.stop()
-	_hide_game_marks(false)
 	if world and is_instance_valid(world.school) and world.school.has_method("set_cinematic_exit_open"): world.school.set_cinematic_exit_open(false)
 
 	for n: Node in get_children():
@@ -293,27 +290,18 @@ func update(t: float, delta: float) -> void :
 		if t >= float(cut[0]) and t < float(cut[1]): black = 1.0
 	_place_props(t)
 	_camera(t, delta)
-	_hide_game_marks(true)
+	_hide_exit_ring()
 	if victory.active: victory.update(t, delta)
 	if is_instance_valid(blocus): blocus.update(t, delta)
 
 
-# Panneau de jeu « SORTIE · … » et anneau doré de la sortie (map_interactables) : jamais dans un film
-# (fuite en équipe, victoire d'Alice… ; update_exit réaffiche l'anneau à chaque image).
-func _hide_game_marks(on: bool) -> void :
+# Anneau doré de la sortie (map_interactables) : jamais dans un film (fuite en équipe, victoire
+# d'Alice…). update_exit le réaffiche à chaque image ; le panneau « SORTIE · … » est caché par
+# main._show_exit_sign.
+func _hide_exit_ring() -> void :
 	var items: Variant = world.get("map_interactables") if world else null
-	if not is_instance_valid(items): return
-	var sign: Variant = items.get("exit_sign")
-	var ring: Variant = items.get("exit_glow")
-	var sign_ok: bool = sign is Node3D and is_instance_valid(sign)
-	if on:
-		if not _marks_hidden and sign_ok: _sign_shown = (sign as Node3D).visible
-		_marks_hidden = true
-		if sign_ok: (sign as Node3D).visible = false
-		if ring is Node3D and is_instance_valid(ring): (ring as Node3D).visible = false
-	elif _marks_hidden:
-		_marks_hidden = false
-		if sign_ok: (sign as Node3D).visible = _sign_shown
+	var ring: Variant = items.get("exit_glow") if is_instance_valid(items) else null
+	if ring is Node3D and is_instance_valid(ring): (ring as Node3D).visible = false
 
 
 func _jump(t: float) -> void :

@@ -20,8 +20,16 @@ const BOT_JOIN_CHANCE: float = 0.7
 const BOT_SAFE_DISTANCE: float = 24.0
 const MUSIC_TOLERANCE: float = 0.15
 # Gain des lecteurs 3D de danse : le curseur Musique et le niveau général de la musique
-# sont déjà appliqués par le bus PaperMusic ; -2 dB comme la danse mesurée en 0.16 (≈ -32,6 LUFS en jeu).
+# sont déjà appliqués par le bus PaperMusic ; -2 dB : sa propre danse (caméra à 4,6 m) sort à
+# ≈ -32 LUFS, au niveau des autres musiques (mesuré sur le bus Master).
 const MUSIC_DB: float = -2.0
+# Une danse proche remplace la musique d'exploration (PaperAudio l'efface de 6 à 16 m) ; sous la
+# musique d'une poursuite, d'un LMS, de la course vers la sortie ou de la True Form, c'est la danse
+# qui passe derrière (-6 dB) au lieu de couvrir la musique du moment.
+const DUCK_NEAR: float = 6.0
+const DUCK_FAR: float = 16.0
+const PRIORITY_DB: float = -6.0
+const PRIORITY_MODES: Array[String] = ["chase", "lms", "exit", "true_form"]
 
 var world: Node
 var rng: RandomNumberGenerator = RandomNumberGenerator.new()
@@ -32,6 +40,7 @@ var _voices: Array[AudioStreamPlayer3D] = []
 var _next_voice: int = 0
 var _streams: Dictionary = {}
 var _client_groups: Dictionary = {}
+var _priority_trim: float = 0.0
 
 func setup(owner_world: Node) -> void :
 	world = owner_world
@@ -163,6 +172,9 @@ func update_music() -> void :
 	# Pause en solo : l'horloge de la partie est figée, la musique s'arrête avec elle (sinon elle
 	# se recalerait sans cesse sur le même instant et bégaierait).
 	var frozen: bool = world.pause_open and not world.networked
+	var under: bool = world.audio != null and world.audio.mode in PRIORITY_MODES
+	_priority_trim = move_toward(_priority_trim, PRIORITY_DB if under else 0.0, get_process_delta_time() * 8.0)
+	var presence: float = 0.0
 	for cluster: Dictionary in clusters:
 		var stream: AudioStream = PaperDances.music(str(cluster.id))
 		if stream == null: continue
@@ -185,6 +197,7 @@ func update_music() -> void :
 		entry.used = true
 		player.volume_db = _music_db()
 		player.global_position = Vector3(cluster.at) + Vector3.UP * 1.2
+		if not frozen: presence = maxf(presence, 1.0 - smoothstep(DUCK_NEAR, DUCK_FAR, player.global_position.distance_to(listener)))
 		if player.stream_paused != frozen: player.stream_paused = frozen
 		if frozen: continue
 		if not player.playing: player.play(want)
@@ -195,10 +208,11 @@ func update_music() -> void :
 		if not bool(_music[i].used):
 			(_music[i].player as Node).queue_free()
 			_music.remove_at(i)
+	if world.audio != null: world.audio.dance_presence = presence
 
 # Musique de danse : le réglage « Musique » passe par le bus PaperMusic (pistes à -18 LUFS).
 func _music_db() -> float:
-	return MUSIC_DB
+	return MUSIC_DB + _priority_trim
 
 # Époque du groupe : connue de l'hôte ; chez un client, déduite du dernier instantané.
 func _epoch_of(actor: PaperActor) -> float:

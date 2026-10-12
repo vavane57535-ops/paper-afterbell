@@ -44,7 +44,8 @@ func _play(kind: String) -> void :
 	var now: int = Time.get_ticks_msec()
 	if kind == "hover" and now - int(_last_played.get(kind, -1000)) < 55: return
 	_last_played[kind] = now
-	player.volume_db = float(GAINS.get(kind, -12.0)) + linear_to_db(volume)
+	# Curseur « Effets » : même courbe que les bruitages du jeu (PaperAudio.volume_to_db).
+	player.volume_db = float(GAINS.get(kind, -12.0)) + (float(audio.call("volume_to_db", volume)) if audio and audio.has_method("volume_to_db") else linear_to_db(volume))
 	# Curseur : hauteur qui varie un peu, agréable même répété vite.
 	if kind == "hover": player.pitch_scale = randf_range(0.95, 1.06)
 	player.play()
