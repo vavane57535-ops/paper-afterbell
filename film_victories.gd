@@ -597,7 +597,8 @@ func _write_usayuko() -> void :
 	# E · Alice flies across the yard and crashes
 	var fly: float = hit + 0.12
 	c._do(a, fly, "state", {"forced_time": 1.0, "force_name": "knock", "grounded": false})
-	var land: float = _far(12.5)
+	# stop short of the first obstacle: the hit reaction still slides her back a little
+	var land: float = maxf(5.0, minf(12.5, room - 1.2))
 	c._move(a, fly, fly + 0.35, _r(0.0, lerpf(2.5, land, 0.45), 1.6), "out")
 	c._move(a, fly + 0.35, fly + 0.82, _r(0.0, land, 0.0), "in")
 	# thrown back and tumbling: a fast lean, then a full turn in the air
@@ -607,7 +608,8 @@ func _write_usayuko() -> void :
 	_burst(fly + 0.18, _r(0.0, lerpf(2.5, land, 0.3), 1.5), Vector3(0, 0.4, -1.0), 12, 1.8, {"spread": 0.9, "lift": 0.6, "gravity": 2.5, "drag": 1.0, "life": 1.4, "size": 0.1})
 	var crash: float = fly + 0.82
 	c._do(a, crash, "unset", ["forced_time", "force_name", "grounded"])
-	c._do(a, crash, "stun", true)
+	# she stays down where she crashed
+	c._do(a, crash, "life", "downed")
 	c._cue(crash, "crack", {"a": a}, 1.8)
 	c._cue(crash, "dust_ring", {"a": a}, 1.6)
 	c._cue(crash, "sound", "ground_impact", {"a": a}, 1.0, 0.8)
@@ -629,7 +631,6 @@ func _write_usayuko() -> void :
 	c._do(s, hero, "emote", "thumbsup")
 	c._shot(hero, {"rel": {"a": s}, "eye": [Vector3(-1.0, 0.35, 2.7), Vector3(-0.85, 0.4, 2.35)], "look": {"a": s, "h": 1.45}, "fov": [44, 40], "hand": 0.4})
 	_bolt(hero + 0.35, 0.3, 1.3)
-	c._do(a, hero, "stun", true)
 	_flash(t_ink - 0.06, 0.12)
 	# INK · the punch, frozen: Alice flying away in pieces of paper
 	var ink: float = t_ink
@@ -640,6 +641,7 @@ func _write_usayuko() -> void :
 	c._face(a, ink, "dir", Vector3(-1, 0, 0))
 	c._do(s, ink - 0.05, "trigger", "punch")
 	_hold_pose(s, ink + 0.2, ink + 2.6)
+	c._do(a, ink, "life", "alive")
 	c._do(a, ink, "stun", false)
 	c._do(a, ink, "state", {"forced_time": 3.0, "force_name": "knock", "grounded": false})
 	c._move(a, ink + 0.01, ink + 2.5, _ink(2.4, 1.15, -0.3), "out")
@@ -818,7 +820,8 @@ func _write_lysia() -> void :
 	c._do(a, push, "stun", false)
 	c._do(a, push, "state", {"forced_time": 0.9, "force_name": "knock"})
 	c._do(a, push + 0.9, "unset", ["forced_time", "force_name"])
-	c._move(a, push, push + 0.85, _r(0.6, _far(13.5)), "out")
+	var thrown: float = maxf(5.0, minf(11.5, room - 1.5))
+	c._move(a, push, push + 0.85, _r(0.6, thrown), "out")
 	c._stun(a, push + 0.9, 3.0)
 	_flash(push, 0.1, Color(0.8, 1.0, 0.98))
 	_rain_burst(push, _r(0.2, 3.6, 1.2), 0.8)
@@ -835,7 +838,7 @@ func _write_lysia() -> void :
 	c._cue(land, "sound", "ground_impact", {"a": a}, 0.9, 0.85)
 	c._cue(land, "shake", 0.4)
 	c._cue(land + 0.08, "stars", {"a": a, "s": "over"}, 4)
-	_burst(land, _r(0.6, _far(13.5), 0.2), Vector3(0, 1, -0.3), 18, 3.6, {"spread": 1.0, "lift": 1.8, "gravity": 8.0, "life": 1.2, "size": 0.09})
+	_burst(land, _r(0.6, thrown, 0.2), Vector3(0, 1, -0.3), 18, 3.6, {"spread": 1.0, "lift": 1.8, "gravity": 8.0, "life": 1.2, "size": 0.09})
 	for k: int in range(3): _later(land + 0.05 + 0.12 * float(k), "bolts", {"at": {"a": a, "h": 0.6}, "color": Color("d9fbff"), "count": 2, "radius": 0.6, "size": 0.7})
 	# F · venting, sparks, a calm look back
 	var vent: float = 7.65

@@ -43,6 +43,7 @@ func _process(delta: float) -> void :
 		_reported = true
 		var victory: Variant = world.film.get("victory")
 		print("NET_VICTORY ", role, " kind=", world.ending_kind, " focus=", world.ending_focus, " film=", world.film.kind, " victory_active=", victory.active if victory else false, " person=", victory.person if victory else "", " duration=", world.film.duration)
-		get_tree().create_timer(3.0).timeout.connect( func() -> void :
+		# the host lingers so the client film is not cut by the disconnection
+		get_tree().create_timer(3.0 if role != "host" else 7.0).timeout.connect( func() -> void :
 			print("NET_VICTORY ", role, " film_time=", world.cinema, " phase=", world.phase)
 			get_tree().quit())
