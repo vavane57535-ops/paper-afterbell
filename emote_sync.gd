@@ -187,7 +187,7 @@ func update_music() -> void :
 			(_music[i].player as Node).queue_free()
 			_music.remove_at(i)
 
-# Musique de danse : suit le réglage « Musique » (pistes à -18 LUFS ; +2 dB au réglage par défaut).
+# Musique de danse : le réglage « Musique » passe par le bus PaperMusic (pistes à -18 LUFS).
 func _music_db() -> float:
 	return MUSIC_DB
 
