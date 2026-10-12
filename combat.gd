@@ -2021,7 +2021,7 @@ func _support_target(actor, slot: int, target_id: int = -1):
 
 func support_target_preview(actor, slot: int) -> Dictionary:
 	var target = _support_target(actor, slot)
-	return {"target": -1 if target == null else target.id, "ready": target != null, "reason": ("Vise un allié compatible à moins de 6 m" if slot == 0 else "Allié à moins de 6 m, près d’Alice, avec une recharge en cours") if target == null else ("Encourager " if slot == 0 else "Recharger ") + str(target.character)}
+	return {"target": -1 if target == null else target.id, "ready": target != null, "reason": ("Vise un allié à moins de 6 m" if slot == 0 else "Allié à moins de 6 m, près d’Alice, avec une recharge en cours") if target == null else ("Encourager " if slot == 0 else "Recharger ") + str(target.character)}
 
 func _support_failure(actor, slot: int, _target_id: int):
 	var line: String = "ENCOURAGER · vise un allié à moins de 6 m : Ashura, Usayuko, Simon, Lysia ou Elly. Un bonus déjà prêt ne se cumule pas."

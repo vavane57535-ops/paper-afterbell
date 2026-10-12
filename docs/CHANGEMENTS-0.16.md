@@ -29,9 +29,9 @@ Protocole réseau **16** : tous les joueurs doivent avoir la 0.16 pour jouer ens
 - Conditions : Alice à 16 m maximum avec ligne de vue, et de la place autour. Sinon, c'est la mort normale.
 
 ## Chrono : +45 s par élimination
-- Chaque élimination définitive d'un survivant par Alice ajoute **45 secondes** au chrono, avec « +0:45 » au HUD. Les éliminations rapprochées se cumulent.
+- Chaque élimination définitive d'un survivant par Alice ajoute **45 secondes** au chrono, avec « +0:45 » au HUD. Les éliminations rapprochées se cumulent. Pour la victime et pour Alice, le « +0:45 » d'une exécution apparaît à côté du chrono quand le HUD revient, à la fin du plan.
 - Une sortie déjà ouverte reste ouverte. Le bonus ne s'applique ni pendant un LMS, ni au terrain d'essai.
-- Sortie ouverte : la musique de course recule avec le chrono, calée sur la mesure, par un fondu bref. Si le chrono repasse au-dessus de 1:17, elle reprend en boucle son passage calme du début, sans se couper.
+- Sortie ouverte : la musique de course recule avec le chrono, calée sur la mesure, par un fondu bref. Si le chrono repasse au-dessus de 1:17, elle reprend en boucle son passage calme du début, sans se couper. Si le bonus fait ressortir des dernières secondes, l'alerte « DERNIÈRES SECONDES » se rejoue quand le chrono y revient.
 
 ## Ouverture de la sortie
 - À l'ouverture, l'alerte de l'école se déclenche :
@@ -72,7 +72,7 @@ Protocole réseau **16** : tous les joueurs doivent avoir la 0.16 pour jouer ens
 - **C** (ou clic du stick droit) bascule entre :
   - **Derrière** : la caméra se recolle dans le dos et le personnage tourne avec elle ;
   - **Libre 360°** : on tourne tout autour du personnage, on voit son visage, et il avance dans la direction de la caméra.
-- Un bandeau indique le mode à chaque bascule. Le choix est mémorisé, réassignable dans Commandes, et repris dans Réglages → Jeu → Mode de caméra.
+- Un bandeau indique le mode à chaque bascule. Le choix est mémorisé, réassignable dans Commandes, et repris dans Réglages → Jeu → Mode de caméra. Pendant une exécution, la caméra appartient au film : la bascule et la visée sont ignorées, et un bandeau de caméra encore affiché s'efface.
 - Déplacements **parfaitement droits** par rapport à la caméra. En 0.15, l'axe dérivait de 6 à 7° à cause du décalage d'épaule.
 
 ## Menus façon Persona, en papier
