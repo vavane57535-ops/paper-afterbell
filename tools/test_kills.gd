@@ -19,6 +19,9 @@ var out_dir: String = "user://kill_frames"
 var time_scale: float = 0.4
 var preset_time: float = -1.0
 var reset_mid: bool = false
+var last_kill: bool = false
+var training: bool = false
+var pause_mid: bool = false
 var cams: Array[String] = ["cine"]
 var headless: bool = false
 var failures: Array[String] = []
@@ -44,6 +47,9 @@ func setup(w) -> void:
 			"--scale": time_scale = float(next)
 			"--time": preset_time = float(next)
 			"--reset-mid": reset_mid = true
+			"--last": last_kill = true
+			"--training": training = true
+			"--pause-mid": pause_mid = true
 			"--cam": cams.assign(next.split(",", false))
 	if targets.is_empty(): targets.assign(NAMES)
 	if frames.is_empty() and not headless: frames.assign([0.15, 0.6, 1.2, 1.9, 2.6, 3.4])
@@ -55,7 +61,8 @@ func _run() -> void:
 	await get_tree().process_frame
 	for phase6: bool in phase6_modes:
 		for victim_name: String in targets:
-			await _scene(victim_name, phase6)
+			if training: await _training_scene(victim_name)
+			else: await _scene(victim_name, phase6)
 	# Bruitages dédiés : chaque famille utilisée doit être chargée dans la banque.
 	if targets.size() == NAMES.size() and phase6_modes.size() == 2 and world.audio and not bool(world.audio.get("_silent")):
 		for key: String in world.kill_scenes.KILL_SFX:
@@ -145,6 +152,12 @@ func _scene(victim_name: String, phase6: bool) -> void:
 		world.event("phase6", {"actor": alice.id, "active": true, "true_form": true, "duration": 30.0, "position": alice.position})
 		await get_tree().create_timer(2.2).timeout
 	if preset_time >= 0.0: world.time_left = preset_time
+	if last_kill:
+		# Dernière survivante : les autres sont éliminés, la LMS se déclenche et
+		# l'exécution termine la manche.
+		for a: PaperActor in world.actors.values():
+			if a != victim and not a.killer and a.alive: world.eliminate(a)
+		await get_tree().create_timer(0.5).timeout
 	await get_tree().create_timer(0.6).timeout
 	var exit_before: bool = world.exit_flow.opened
 	var before: float = float(world.time_left)
@@ -170,6 +183,22 @@ func _scene(victim_name: String, phase6: bool) -> void:
 		if not world.kill_scenes._scenes.is_empty(): failures.append(tag + ": exécution bloquée après réinitialisation")
 		if float(alice.effects.get("kill_lock", 0.0)) > 0.0: failures.append(tag + ": Alice reste verrouillée après réinitialisation")
 		return
+	if pause_mid:
+		# Pause en solo au milieu : la mise en scène reste figée, puis reprend.
+		await get_tree().create_timer(1.0).timeout
+		var show_p: Dictionary = {}
+		for sh: Dictionary in world.kill_scenes._shows.values(): show_p = sh
+		var t_before: float = float(show_p.get("t", -1.0))
+		world.pause_open = true
+		await get_tree().create_timer(2.5).timeout
+		var t_paused: float = float(show_p.get("t", -1.0))
+		var still: bool = world.kill_scenes._shows.has(int(show_p.get("id", -1)))
+		world.pause_open = false
+		var line_pause: String = "%s pause_mid t=%.2f->%.2f show_kept=%s" % [tag, t_before, t_paused, str(still)]
+		results.append(line_pause)
+		print("KILL_RESULT ", line_pause)
+		if show_p.is_empty() or not still: failures.append(tag + ": la mise en scène s'est terminée pendant la pause")
+		elif absf(t_paused - t_before) > 0.05: failures.append(tag + ": la mise en scène a avancé pendant la pause")
 	var stun_seen: float = 0.0
 	var lock_seen: bool = false
 	var lag_max: float = 0.0
@@ -178,6 +207,8 @@ func _scene(victim_name: String, phase6: bool) -> void:
 	var index: int = 0
 	var shots: Array[float] = frames.duplicate()
 	while float(world.clock) - clock0 < total + 1.2:
+		# Fin de manche (--last) : l'horloge de partie s'arrête avec la phase « playing ».
+		if str(world.phase) != "playing": break
 		var t: float = float(world.clock) - clock0
 		if float(alice.effects.get("kill_lock", 0.0)) > 0.0: lock_seen = true
 		stun_seen = maxf(stun_seen, float(alice.effects.get("stun", 0.0)))
@@ -199,13 +230,16 @@ func _scene(victim_name: String, phase6: bool) -> void:
 					world.camera.global_position = spec[0]
 					world.camera.look_at(spec[1])
 					world.camera.fov = float(spec[2])
+					# Caméra libre : l'éclairage film suit ce cadrage, comme en jeu.
+					if cam.begins_with("x:"): world.kill_scenes._place_lights(spec[0], spec[1])
 				await get_tree().process_frame
 				await RenderingServer.frame_post_draw
 				var image: Image = world.get_viewport().get_texture().get_image()
 				var cam_tag: String = ("x%d" % cams.find(cam)) if cam.begins_with("x:") else cam
 				var path: String = "%s/%s_%s_%s_%02d_%.2f.png" % [out_dir, tag, view, cam_tag, index, float(world.clock) - clock0]
 				image.save_png(path)
-				print("KILL_FRAME ", path)
+				var local_t: float = (float(show.t) - float(show.lead)) if not show.is_empty() else -1.0
+				print("KILL_FRAME ", path, " local=%.2f lag=%.2f" % [local_t, float(show.get("lag", 0.0))])
 				world.camera_rig = rig
 			world.kill_scenes.camera_enabled = true
 			Engine.time_scale = time_scale
@@ -221,9 +255,57 @@ func _scene(victim_name: String, phase6: bool) -> void:
 		if exit_before and not world.exit_flow.opened and not phase6: failures.append(tag + ": la sortie s'est refermée après le bonus")
 	results.append(line)
 	print("KILL_RESULT ", line)
+	if last_kill:
+		var line_last: String = "%s last phase=%s lms=%s camera_id=%d bars=%.2f hud_a=%.2f" % [tag, str(world.phase), str(world.lms), int(world.kill_scenes._camera_id), float(world.kill_scenes._bars_amount), float(world.ui.hud.modulate.a)]
+		results.append(line_last)
+		print("KILL_RESULT ", line_last)
+		if str(world.phase) == "playing": failures.append(tag + ": la manche aurait dû se terminer")
+		if int(world.kill_scenes._camera_id) >= 0 or float(world.kill_scenes._bars_amount) > 0.0: failures.append(tag + ": bandes noires restées sur la fin")
+		return
 	if str(world.phase) != "playing": failures.append(tag + ": la manche s'est terminée pendant l'exécution (%s)" % str(world.phase))
 	if victim.alive: failures.append(tag + ": la victime est encore vivante")
 	if not lock_seen: failures.append(tag + ": Alice jamais verrouillée")
 	if float(alice.effects.get("kill_lock", 0.0)) > 0.0: failures.append(tag + ": Alice toujours verrouillée")
 	if victim_name == "Lysia" and not phase6 and stun_seen < 4.0: failures.append(tag + ": pas de stun de 5 s")
 	if gained < 40.0: failures.append(tag + ": bonus de temps absent (%.1f)" % gained)
+
+
+# Terrain d'essai (--training, mannequins Simon et Elly) : l'exécution se joue,
+# sans bonus de temps, puis le mannequin revient entier.
+func _training_scene(victim_name: String) -> void:
+	world.solo_killer = true
+	world.selected = "Alice"
+	world.start_training(true)
+	await get_tree().create_timer(0.6).timeout
+	var alice: PaperActor = world.local_actor()
+	var victim: PaperActor = null
+	for a: PaperActor in world.actors.values():
+		if a.character == victim_name and not a.killer: victim = a
+	if alice == null or not alice.killer or victim == null:
+		failures.append(victim_name + "_training: acteurs introuvables")
+		return
+	victim.global_position = alice.global_position + alice.aim.normalized() * 2.0
+	victim.reset_physics_interpolation()
+	victim.effects["revived"] = true
+	victim.hp = 1.0
+	await get_tree().create_timer(0.3).timeout
+	var before: float = float(world.time_left)
+	for attempt in range(8):
+		world.combat.damage(victim, 999.0, alice, false, "slash")
+		if bool(victim.effects.get("dying", false)): break
+	var scene: Dictionary = {}
+	for sc: Dictionary in world.kill_scenes._scenes.values(): scene = sc
+	if scene.is_empty():
+		failures.append(victim_name + "_training: pas d'exécution")
+		return
+	await get_tree().create_timer(float(scene.lead) + float(scene.length) + 0.4).timeout
+	var dead: bool = not victim.alive
+	await get_tree().create_timer(2.6).timeout
+	var line: String = "%s_training dead=%s back=%s dying=%s bonus=%.1f time_left=%.1f->%.1f lock=%.2f scenes=%d wrecked=%d" % [victim_name, str(dead), str(victim.alive), str(victim.effects.get("dying", false)), float(world.kill_scenes.bonus_total), before, float(world.time_left), float(alice.effects.get("kill_lock", 0.0)), world.kill_scenes._scenes.size(), world.kill_scenes._wrecked.size()]
+	results.append(line)
+	print("KILL_RESULT ", line)
+	if not dead: failures.append(victim_name + "_training: le mannequin n'a pas été éliminé")
+	if not victim.alive or bool(victim.effects.get("dying", false)): failures.append(victim_name + "_training: le mannequin n'est pas revenu")
+	if float(world.kill_scenes.bonus_total) > 0.0 or absf(float(world.time_left) - before) > 0.01: failures.append(victim_name + "_training: bonus de temps en entraînement")
+	if float(alice.effects.get("kill_lock", 0.0)) > 0.0: failures.append(victim_name + "_training: Alice reste verrouillée")
+	if is_instance_valid(victim.visual) and is_instance_valid(victim.visual._imported) and not victim.visual._imported.visible: failures.append(victim_name + "_training: modèle resté caché")

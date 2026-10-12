@@ -20,6 +20,13 @@ const MAX_REACH: float = 16.0
 const LYSIA_RADIUS: float = 7.0
 const LYSIA_STUN: float = 5.0
 const BLEND_BACK: float = 0.75
+# Onomatopées : fondu d'une ancienne quand une nouvelle apparaît ; hauteur
+# maximale d'une lettre à l'écran (fraction de l'image) dans les plans serrés.
+const WORD_CUT: float = 0.12
+const WORD_MAX_SCREEN: float = 0.2
+# Calque de rendu des acteurs et accessoires d'une exécution : l'éclairage film
+# ne touche qu'eux, pas le décor (le menu fait de même avec le bit 10).
+const KILL_LAYER: int = 1 << 11
 
 # gap : distance entre les deux acteurs ; length : durée des clips (la victime
 # meurt à lead + length) ; lock : fin du verrou d'Alice ; blast : explosion.
@@ -71,6 +78,11 @@ var _font: Font
 var _limb_cache: Dictionary = {}
 var _materials: Dictionary = {}
 var _ray: PhysicsRayQueryParameters3D
+# Éclairage « film » du plan d'exécution (comme les films du jeu) : contre-jour
+# froid derrière les deux acteurs, remplissage chaud côté caméra.
+var _rim: OmniLight3D
+var _fill: OmniLight3D
+var _light_amount: float = 0.0
 
 func setup(owner: Node) -> void :
 	world = owner
@@ -81,6 +93,8 @@ func setup(owner: Node) -> void :
 	_props_root.name = "KillProps"
 	_props_root.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_ON
 	add_child(_props_root)
+	_rim = _film_light("KillRim", Color("9caee4"), 7.5)
+	_fill = _film_light("KillFill", Color("eddfd3"), 6.5)
 	_font = load("res://ui/fonts/Anton-Regular.ttf") if ResourceLoader.exists("res://ui/fonts/Anton-Regular.ttf") else ThemeDB.fallback_font
 	for i in range(6):
 		var label: Label3D = Label3D.new()
@@ -98,7 +112,7 @@ func setup(owner: Node) -> void :
 		# Replacées à chaque image (face caméra) : pas d'interpolation physique.
 		label.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 		_props_root.add_child(label)
-		_words.append({"node": label, "age": 0.0, "life": 0.0, "origin": Vector3.ZERO, "size": 1.0, "tilt": 0.0})
+		_words.append({"node": label, "age": 0.0, "life": 0.0, "origin": Vector3.ZERO, "size": 1.0, "tilt": 0.0, "cut": 0.0})
 	_layer = CanvasLayer.new()
 	_layer.layer = 11
 	add_child(_layer)
@@ -120,6 +134,29 @@ func setup(owner: Node) -> void :
 	_layer.add_child(_bonus_label)
 
 
+func _film_light(light_name: String, color: Color, reach: float) -> OmniLight3D:
+	var light: OmniLight3D = OmniLight3D.new()
+	light.name = light_name
+	light.light_color = color
+	light.omni_range = reach
+	light.light_energy = 0.0
+	light.shadow_enabled = false
+	light.light_cull_mask = KILL_LAYER
+	light.visible = false
+	# Placée à chaque image avec la caméra : pas d'interpolation physique.
+	light.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
+	_props_root.add_child(light)
+	return light
+
+
+func _tag(node: Node, on: bool) -> void :
+	if not is_instance_valid(node): return
+	if node is GeometryInstance3D:
+		var geometry: GeometryInstance3D = node
+		geometry.layers = (geometry.layers | KILL_LAYER) if on else (geometry.layers & ~KILL_LAYER)
+	for child: Node in node.get_children(): _tag(child, on)
+
+
 func clear() -> void :
 	for id: Variant in _shows.keys(): _end_show(int(id), true)
 	_shows.clear()
@@ -138,6 +175,9 @@ func clear() -> void :
 	_bonus_time = -1.0
 	_bonus_label.visible = false
 	_hud_alpha(1.0)
+	_light_amount = 0.0
+	_update_lights(0.0)
+	_comic_guard(false)
 
 
 
@@ -243,7 +283,8 @@ func tick(delta: float) -> void :
 			continue
 		# Le chrono ne tombe pas à zéro au milieu d'une exécution : elle va à son terme
 		# (puis le bonus de l'élimination s'applique).
-		if victim != null and victim.alive and float(world.time_left) < 0.6: world.time_left = 0.6
+		# (Pas en entraînement : il n'y a pas de chrono, time_left reste à 0.)
+		if not world.training and victim != null and victim.alive and float(world.time_left) < 0.6: world.time_left = 0.6
 		if victim != null and victim.alive:
 			victim.global_position = spot
 			victim.velocity = Vector3.ZERO
@@ -263,6 +304,10 @@ func tick(delta: float) -> void :
 			alice.effects["root"] = maxf(float(alice.effects.get("root", 0.0)), 0.12)
 			alice.effects["attack_lock"] = maxf(float(alice.effects.get("attack_lock", 0.0)), 0.12)
 			alice.effects["kill_lock"] = maxf(0.001, lead + float(scene.lock) - t)
+			# La True Form ne s'achève pas au milieu de son fracas (le visuel d'Alice
+			# changerait de corps et lâcherait la victime) : elle tient jusqu'au relâchement.
+			if str(scene.variant) == "slam" and float(alice.effects.get("phase6", 0.0)) > 0.0:
+				alice.effects["phase6"] = maxf(float(alice.effects.phase6), lead + float(scene.lock) - t + 0.1)
 			alice.aim = _flat(spot - stand)
 			_release_holds(alice)
 			if alice.bot:
@@ -278,6 +323,16 @@ func tick(delta: float) -> void :
 		if t > lead + float(scene.length) + 0.4 and (victim == null or not victim.alive):
 			if alice != null and not bool(scene.released): _release(scene, alice)
 			_scenes.erase(id)
+	# Verrou orphelin (Alice reprise par l'IA après une déconnexion : son id change) :
+	# kill_lock n'est pas un effet minuté, on le lève ici.
+	for actor in world.actors.values():
+		if float(actor.effects.get("kill_lock", 0.0)) > 0.0 and not _holds_lock(actor): actor.effects["kill_lock"] = 0.0
+
+
+func _holds_lock(actor) -> bool:
+	for scene: Dictionary in _scenes.values():
+		if int(scene.killer) == int(actor.id) and not bool(scene.released): return true
+	return false
 
 
 func _release(scene: Dictionary, alice) -> void :
@@ -313,7 +368,9 @@ func _lysia_blast(scene: Dictionary, alice, victim, forced: bool) -> void :
 			var away: Vector3 = _flat(alice.global_position - at)
 			combat._start_motion(alice, away, 2.4, 0.42, "knock")
 	combat._dispel_radius(at, LYSIA_RADIUS, int(scene.victim))
-	world.event("lysia_explosion", {"actor": int(scene.victim), "position": at, "radius": LYSIA_RADIUS, "execution": int(scene.id)})
+	# Événement propre aux exécutions : la mise en scène locale fait toute l'explosion
+	# à son instant (le ralenti local peut la décaler) au lieu de doubler celle du jeu.
+	world.event("kill_blast", {"actor": int(scene.victim), "position": at, "radius": LYSIA_RADIUS, "execution": int(scene.id)})
 
 
 func on_eliminated(actor) -> void :
@@ -362,12 +419,14 @@ func on_event(kind: String, data: Dictionary) -> void :
 	match kind:
 		"kill_scene": _start_show(data)
 		"kill_bonus": _show_bonus(float(data.get("seconds", KILL_BONUS)))
-		"lysia_explosion":
+		"kill_blast":
 			var id: int = int(data.get("execution", 0))
 			if _shows.has(id): _wreck_when_due(_shows[id])
-			else:
-				for show: Dictionary in _shows.values():
-					if int(show.victim) == int(data.get("actor", -1)): _wreck_when_due(show)
+			elif world.has_method("_event_local"):
+				# Pas de mise en scène ici (serveur dédié, visuel absent) : explosion habituelle.
+				var plain: Dictionary = data.duplicate()
+				plain.erase("execution")
+				world.call("_event_local", "lysia_explosion", plain)
 
 
 # Le ralenti local peut mettre la mise en scène en retard sur l'hôte :
@@ -440,6 +499,8 @@ func _start_show(data: Dictionary) -> void :
 	(show.cues as Array).sort_custom( func(a: Array, b: Array) -> bool: return float(a[0]) < float(b[0]))
 	(show.shots as Array).sort_custom( func(a: Array, b: Array) -> bool: return float(a[0]) < float(b[0]))
 	_shows[id] = show
+	_tag(victim.visual, true)
+	_tag(alice.visual, true)
 	victim.visual.react_to_hit(1.0, Vector3(show.stand))
 	if Vector3(show.from).distance_to(Vector3(show.stand)) > 2.4:
 		_comic_cue(alice, "afterimage")
@@ -455,6 +516,12 @@ func _end_show(id: int, immediate: bool = false) -> void :
 	var victim: PaperActor = world.actors.get(int(show.victim))
 	if victim != null and is_instance_valid(victim.visual):
 		victim.visual.position = Vector3.ZERO
+		_tag(victim.visual, false)
+	var alice: PaperActor = world.actors.get(int(show.killer))
+	var shared: bool = false
+	for other: Dictionary in _shows.values():
+		if other != show and int(other.killer) == int(show.killer): shared = true
+	if alice != null and is_instance_valid(alice.visual) and not shared: _tag(alice.visual, false)
 	for key: Variant in (show.props as Dictionary).keys():
 		var node: Variant = show.props[key]
 		if is_instance_valid(node): (node as Node).queue_free()
@@ -476,8 +543,20 @@ func _restore_bones(show: Dictionary) -> void :
 
 func _process(delta: float) -> void :
 	if world == null: return
-	if str(world.phase) != "playing" and not _shows.is_empty():
+	# Pause en solo : la simulation est arrêtée, la mise en scène aussi (sinon elle
+	# se déroulerait derrière le menu, sons compris).
+	if _paused():
+		_update_bars(delta)
+		_update_lights(delta)
+		return
+	if str(world.phase) != "playing":
 		for id: Variant in _shows.keys(): _end_show(int(id), true)
+		# Manche finie pendant une exécution (dernière victime) : les bandes noires
+		# et le HUD estompé ne doivent pas rester sur le film de fin.
+		if _camera_id >= 0:
+			_camera_id = -1
+			_bars_amount = 0.0
+			_comic_guard(false)
 	for id: Variant in _shows.keys():
 		var show: Dictionary = _shows[id]
 		var hold: float = float(show.get("hold", 0.0))
@@ -513,12 +592,17 @@ func _process(delta: float) -> void :
 		if local > float(show.length) + 1.1: _end_show(int(id))
 	_update_words(delta)
 	_update_bars(delta)
+	_update_lights(delta)
 	_update_bonus(delta)
 	_restore_wrecks(false)
 
 
+func _paused() -> bool:
+	return bool(world.get("pause_open")) and not bool(world.get("networked"))
+
+
 func _physics_process(delta: float) -> void :
-	if world == null: return
+	if world == null or _paused(): return
 	for show: Dictionary in _shows.values():
 		var local: float = float(show.t) - float(show.lead)
 		var victim: PaperActor = world.actors.get(int(show.victim))
@@ -769,7 +853,11 @@ func _word(key: String, at: Vector3, color: Color, size: float = 1.0) -> void :
 	chosen.origin = at
 	chosen.size = size
 	chosen.tilt = randf_range(-0.22, 0.22)
+	chosen.cut = 0.0
 	label.visible = true
+	# Une onomatopée à la fois : la précédente s'efface vite au lieu de se superposer.
+	for entry: Dictionary in _words:
+		if entry.node != label and (entry.node as Label3D).visible and float(entry.get("cut", 0.0)) <= 0.0: entry.cut = WORD_CUT
 
 
 func _update_words(delta: float) -> void :
@@ -783,17 +871,33 @@ func _update_words(delta: float) -> void :
 		if t >= 1.0:
 			label.visible = false
 			continue
+		var cut: float = float(entry.get("cut", 0.0))
+		if cut > 0.0:
+			cut = maxf(0.0, cut - delta)
+			entry.cut = cut
+			if cut <= 0.0:
+				label.visible = false
+				continue
 		var u: float = clampf(t / 0.2, 0.0, 1.0) - 1.0
 		var swell: float = 1.0 + 2.4 * u * u * u + 1.5 * u * u
 		var at: Vector3 = Vector3(entry.origin) + Vector3.UP * 0.35 * (1.0 - pow(1.0 - t, 2.0))
 		var to_camera: Vector3 = camera.global_position - at
 		var distance: float = maxf(0.5, to_camera.length())
-		var scale: float = maxf(0.01, swell * float(entry.size) * clampf(distance / 4.0, 0.55, 2.4))
+		var base: float = float(entry.size) * clampf(distance / 4.0, 0.55, 2.4)
+		# Gros plan : la lettre ne dépasse pas WORD_MAX_SCREEN de la hauteur de l'image
+		# (sinon « TCHAC ! » couvre toute l'action).
+		var depth: float = -(camera.global_transform.affine_inverse() * at).z
+		if depth > 0.05:
+			var view_h: float = 2.0 * depth * tan(deg_to_rad(camera.fov) * 0.5)
+			var glyph: float = float(label.font_size) * label.pixel_size * base
+			if glyph > WORD_MAX_SCREEN * view_h: base *= WORD_MAX_SCREEN * view_h / glyph
+		var scale: float = maxf(0.01, swell * base)
 		if _camera_id >= 0: at = _keep_in_frame(camera, at, label, scale)
 		to_camera = camera.global_position - at
 		var facing: Basis = Basis.looking_at(-to_camera.normalized(), Vector3.UP) * Basis(Vector3.BACK, float(entry.tilt))
 		label.transform = Transform3D(facing.scaled(Vector3.ONE * scale), at)
 		var alpha: float = 1.0 - smoothstep(0.7, 1.0, t)
+		if cut > 0.0: alpha *= cut / WORD_CUT
 		label.modulate.a = alpha
 		label.outline_modulate = Color(0.09, 0.06, 0.12, alpha)
 
@@ -807,7 +911,9 @@ func _keep_in_frame(camera: Camera3D, at: Vector3, label: Label3D, scale: float)
 	if depth <= 0.05 or view.y <= 0.0: return at
 	var per_px: float = 2.0 * depth * tan(deg_to_rad(camera.fov) * 0.5) / view.y
 	var glyph: float = float(label.font_size) * label.pixel_size * scale / per_px
-	var half: Vector2 = Vector2(0.5 * 0.5 * glyph * float(label.text.length()), 0.62 * glyph)
+	# Largeur d'Anton en capitales (~0,52 em par signe) plus le contour épais et
+	# l'inclinaison : sinon le bord du mot sortait encore du cadre.
+	var half: Vector2 = Vector2(0.5 * glyph * (0.52 * float(label.text.length()) + 0.8), 0.7 * glyph)
 	var bar: float = view.y * 0.095 * smoothstep(0.0, 1.0, _bars_amount)
 	var screen: Vector2 = camera.unproject_position(at)
 	var low: Vector2 = Vector2(half.x + 12.0, bar + half.y + 8.0)
@@ -824,6 +930,8 @@ func camera_override(delta: float) -> bool:
 	if not camera_enabled: return false
 	var show: Dictionary = {}
 	for candidate: Dictionary in _shows.values():
+		# Acteur disparu (déconnexion : son id change) : pas de plan sur lui.
+		if world.actors.get(int(candidate.victim)) == null or world.actors.get(int(candidate.killer)) == null: continue
 		if _involved(candidate) and float(candidate.t) < float(candidate.lead) + float(candidate.length) + 0.25:
 			show = candidate
 			break
@@ -831,6 +939,7 @@ func camera_override(delta: float) -> bool:
 	if show.is_empty():
 		if _camera_id >= 0:
 			_camera_id = -1
+			_comic_guard(false)
 			var rig = world.get("camera_rig")
 			if rig != null:
 				rig._blend = 1.0
@@ -845,9 +954,11 @@ func camera_override(delta: float) -> bool:
 		_camera_blend = 1.0
 		if is_instance_valid(world.camera_obscured_actor): world.camera_obscured_actor.visual.visible = true
 		world.camera_obscured_actor = null
+		_mute_comic_words(true)
+		_comic_guard(true)
+	_mute_comic_words(false)
 	var victim: PaperActor = world.actors.get(int(show.victim))
 	var alice: PaperActor = world.actors.get(int(show.killer))
-	if victim == null or alice == null: return false
 	var local: float = float(show.t) - float(show.lead)
 	var shots: Array = show.shots
 	if shots.is_empty(): return false
@@ -873,6 +984,7 @@ func camera_override(delta: float) -> bool:
 	eye = _avoid_bodies(eye, holder, null if bool(spec.get("pov", false)) else body)
 	eye = _safe_eye(look, eye)
 	var goal: Transform3D = Transform3D(Basis.looking_at(look - eye, Vector3.UP), eye) if eye.distance_squared_to(look) > 0.0004 else camera.global_transform
+	_place_lights(eye, look)
 	var roll_value: Variant = spec.get("roll", 0.0)
 	var roll: float = lerpf(float(roll_value[0]), float(roll_value[1]), u) if roll_value is Array else float(roll_value)
 	if absf(roll) > 0.01: goal.basis = goal.basis * Basis(Vector3.BACK, deg_to_rad(roll))
@@ -936,6 +1048,59 @@ func _safe_eye(target: Vector3, desired: Vector3) -> Vector3:
 	if fraction >= 0.999: return desired
 	var motion: Vector3 = desired - target
 	return target + motion * maxf(0.08, fraction - 0.04 / maxf(motion.length(), 0.01))
+
+
+# Le plan suit les deux acteurs : contre-jour derrière eux par rapport à la
+# caméra, remplissage chaud de son côté, décalés pour modeler les visages.
+func _place_lights(eye: Vector3, look: Vector3) -> void :
+	var toward: Vector3 = look - eye
+	toward.y = 0.0
+	toward = toward.normalized() if toward.length_squared() > 0.0001 else Vector3.FORWARD
+	var side: Vector3 = toward.cross(Vector3.UP).normalized()
+	_rim.global_position = look + toward * 1.9 - side * 1.5 + Vector3.UP * 1.7
+	_fill.global_position = look - toward * 2.1 + side * 1.4 + Vector3.UP * 1.0
+
+
+func _update_lights(delta: float) -> void :
+	var wanted: bool = _camera_id >= 0 and not _paused()
+	_light_amount = move_toward(_light_amount, 1.0 if wanted else 0.0, delta * 2.6)
+	var on: bool = _light_amount > 0.002
+	for light: OmniLight3D in [_rim, _fill]:
+		if light.visible != on: light.visible = on
+	if not on: return
+	var k: float = smoothstep(0.0, 1.0, _light_amount)
+	_rim.light_energy = 1.35 * k
+	_fill.light_energy = 0.7 * k
+
+
+# Plan d'exécution : les onomatopées génériques du jeu (coup fatal, étourdissement)
+# laissent la place à celles de la mise en scène.
+func _mute_comic_words(cut: bool) -> void :
+	var comic: Node = _comic()
+	if comic == null: return
+	if float(comic.get("_word_clock")) < 0.1: comic.set("_word_clock", 0.1)
+	if not cut: return
+	var list: Variant = comic.get("_words")
+	if not list is Array: return
+	for item: Variant in list:
+		if item == null or not bool(item.get("active")): continue
+		item.set("active", false)
+		var node: Variant = item.get("node")
+		if node is Node3D and is_instance_valid(node): (node as Node3D).visible = false
+
+
+var _guarding: bool = false
+
+# Les effets BD posés pendant le plan restent dans le cadre (comme pendant les films).
+func _comic_guard(on: bool) -> void :
+	if on == _guarding: return
+	_guarding = on
+	var comic: Node = _comic()
+	if comic == null: return
+	# Un film (fin de manche) a pu démarrer entre-temps : il garde la main.
+	var film: Variant = world.get("film")
+	if not on and film != null and is_instance_valid(film) and not str(film.get("kind")).is_empty(): return
+	comic.set("frame_guard", on)
 
 
 func _update_bars(delta: float) -> void :
@@ -1017,6 +1182,7 @@ func _prop(show: Dictionary, key: String) -> Node3D:
 		"drone": node = _make_drone()
 	if node == null: return null
 	_props_root.add_child(node)
+	_tag(node, true)
 	node.visible = false
 	show.props[key] = node
 	return node
@@ -1150,6 +1316,7 @@ func _spawn_debris(mesh: Mesh, material: Material, at: Transform3D, velocity: Ve
 	node.mesh = mesh
 	if material != null: node.material_override = material
 	_props_root.add_child(node)
+	node.layers |= KILL_LAYER
 	node.global_transform = at
 	node.reset_physics_interpolation()
 	_debris.append({"node": node, "vel": velocity, "spin": spin, "ground": ground, "life": life, "age": 0.0, "rest": false, "paper": paper, "scale": at.basis.get_scale()})
@@ -1356,6 +1523,14 @@ func _wreck_lysia(show: Dictionary) -> void :
 		comic.mark(comic.PUDDLE, Vector3(at.x, ground + 0.03, at.z), Color("1c0f24", 0.85), 1.4, 2.8, 6.0, {"normal": Vector3.UP, "angle": randf() * TAU, "fade": 0.8})
 	world.presentation._emit(world.presentation.KIT_EMBER, at, Vector3.UP, Color("ffb35c"), false, 2.0)
 	world.presentation._emit(world.presentation.KIT_SPARK, at, Vector3.UP, Color("fff2a8"), false, 2.2, 180.0)
+	world.presentation._emit(world.presentation.KIT_SMOKE, at + Vector3.UP * 0.3, Vector3.UP, Color("796879"), false)
+	# Repère de jeu de l'explosion habituelle : l'onde montre la portée de l'étourdissement.
+	world.presentation.shock_ring(Vector3(at.x, ground + 0.12, at.z), Color("c99b79"), Vector3.UP, LYSIA_RADIUS)
+	if not _involved(show):
+		var screen: Node = _screen()
+		if screen != null and world.camera.is_inside_tree() and world.camera.global_position.distance_to(at) < 16.0:
+			screen.impact(0.8, false)
+			screen.pulse(Color(1.0, 0.55, 0.2, 0.34), 0.6)
 	_word("boom", at + Vector3.UP * 0.6, Color("ffd68a"), 1.6)
 	_sound("kill_boom", at, 1.1, 1.0)
 	_sound("ground_impact", at, 0.6, 0.7)
@@ -1397,6 +1572,7 @@ func _drop_photo(show: Dictionary) -> void :
 	node.visible = false
 	var copy: Node3D = _make_photo()
 	_props_root.add_child(copy)
+	_tag(copy, true)
 	copy.global_transform = transform
 	copy.reset_physics_interpolation()
 	_debris.append({"node": copy, "vel": -Vector3(show.f) * 0.35 + Vector3(show.r) * 0.25 + Vector3.UP * 0.4, "spin": Vector3(1.5, 2.5, 0.8), "ground": Vector3(show.spot).y, "life": 40.0, "age": 0.0, "rest": false, "paper": true, "scale": transform.basis.get_scale()})
@@ -1457,7 +1633,7 @@ func _script_usayuko(show: Dictionary) -> void :
 	cues.append([2.62, "sfx", "ground_impact", 0.45, 1.1])
 	cues.append([3.16, "sfx", "ground_impact", 0.85, 0.8])
 	cues.append([3.16, "shake", 0.25])
-	shots.append([-1.0, {"eye": [Vector3(1.6, 1.5, -half - 0.95), Vector3(1.45, 1.5, -half - 0.78)], "look": {"who": "a", "s": "eyes", "o": Vector3(0, -0.12, 0)}, "fov": [44.0, 40.0]}])
+	shots.append([-1.0, {"eye": [Vector3(2.0, 1.45, -half - 0.85), Vector3(1.85, 1.45, -half - 0.7)], "look": {"who": "a", "s": "eyes", "o": Vector3(0, -0.12, 0)}, "fov": [44.0, 40.0]}])
 	shots.append([0.42, {"eye": [Vector3(2.25, 1.4, 0.2), Vector3(2.1, 1.42, 0.25)], "look": {"who": "a", "s": "eyes", "mix": 0.5, "o": Vector3(0, -0.1, 0)}, "fov": [38.0, 35.0], "ease": "out"}])
 	shots.append([0.66, {"eye": [Vector3(-1.05, 1.55, 0.05), Vector3(-0.85, 1.6, -0.1)], "look": {"who": "a", "s": "eyes", "o": Vector3(0, -0.08, 0)}, "fov": [36.0, 32.0]}])
 	shots.append([1.25, {"eye": [Vector3(2.3, 0.6, 0.15), Vector3(2.15, 0.65, 0.35)], "look": Vector3(0, 1.25, 0.05), "fov": 50.0}])
@@ -1477,7 +1653,8 @@ func _script_elly(show: Dictionary) -> void :
 	tracks.append({"k": "reach", "who": "v", "side": -1, "to": "a", "socket": "hand_r", "offset": Vector3(0.05, 0.06, 0.18), "t0": 2.02, "t1": 2.46, "in": 0.08, "out": 0.12, "w": 0.7})
 	cues.append([0.36, "sfx", "camera_switch", 0.8, 0.75])
 	cues.append([0.9, "sweat", "v", 3])
-	cues.append([1.05, "word", "doubt", "v", "over", Vector3(-0.25, 0.1, 0.0), Color("bfe9ff"), 0.85])
+	# Devant elle, côté Alice : en gros plan, le mot ne doit pas masquer son visage.
+	cues.append([1.05, "word", "doubt", "v", "over", Vector3(0.0, 0.12, 0.42), Color("bfe9ff"), 0.7])
 	cues.append([1.2, "tear", 1])
 	cues.append([1.4, "sweat", "v", 2])
 	cues.append([1.6, "word", "clang", "v", "hand_l", Vector3(0.2, 0.35, 0.25), Color("e9eef7"), 1.1])
@@ -1569,7 +1746,7 @@ func _script_lysia(show: Dictionary) -> void :
 	cues.append([3.3, "screen", "pulse", Color(1.0, 0.55, 0.2, 0.42), 1.0])
 	shots.append([-1.0, {"eye": [Vector3(2.1, 1.45, -0.75), Vector3(1.9, 1.4, -0.6)], "look": {"who": "v", "s": "chest", "mix": 0.45, "o": Vector3(0, 0.1, 0)}, "fov": 44.0}])
 	shots.append([0.68, {"eye": [Vector3(2.3, 0.75, 0.65), Vector3(2.4, 0.85, 0.85)], "look": Vector3(0.35, 1.15, -0.1), "fov": 50.0, "ease": "out"}])
-	shots.append([1.2, {"eye": [Vector3(-0.62, 1.55, half + 0.85), Vector3(-0.55, 1.5, half + 0.7)], "look": {"who": "v", "s": "eyes", "o": Vector3(0, -0.12, 0)}, "fov": 40.0}])
+	shots.append([1.2, {"eye": [Vector3(-0.88, 1.55, half + 0.85), Vector3(-0.8, 1.5, half + 0.74)], "look": {"who": "v", "s": "eyes", "o": Vector3(0, -0.12, 0)}, "fov": 40.0}])
 	shots.append([2.0, {"eye": [Vector3(-1.2, 1.35, 0.1), Vector3(-1.05, 1.35, 0.05)], "look": {"who": "v", "s": "eyes", "o": Vector3(0, -0.12, 0)}, "fov": [40.0, 36.0]}])
 	shots.append([2.5, {"eye": [Vector3(2.0, 1.2, 0.0), Vector3(1.45, 1.25, 0.0)], "look": Vector3(0, 1.15, 0.0), "fov": [44.0, 38.0]}])
 	shots.append([3.3, {"eye": [Vector3(3.2, 2.0, -1.0), Vector3(4.1, 2.7, -1.7)], "look": Vector3(0, 0.9, 0.0), "fov": 55.0, "ease": "out"}])
@@ -1682,8 +1859,11 @@ func _script_bleuette(show: Dictionary) -> void :
 	cues.append([3.1, "sfx", "ground_impact", 0.75, 0.85])
 	cues.append([3.1, "shake", 0.2])
 	shots.append([-1.0, {"eye": [Vector3(1.9, 1.3, 0.1), Vector3(1.75, 1.3, 0.15)], "look": Vector3(0, 1.25, 0.0), "fov": 44.0}])
-	shots.append([0.35, {"eye": [{"who": "a", "s": "head", "o": Vector3(-0.46, 0.1, 0.46)}, {"who": "a", "s": "head", "o": Vector3(-0.4, 0.06, 0.4)}], "look": {"who": "v", "s": "eyes", "o": Vector3(0, -0.06, 0)}, "fov": [38.0, 33.0]}])
-	shots.append([1.25, {"eye": [Vector3(-1.6, 1.5, 0.25), Vector3(-1.45, 1.55, 0.3)], "look": {"who": "a", "s": "eyes", "mix": 0.5, "o": Vector3(0, -0.1, 0)}, "fov": 40.0}])
+	# Terreur : son visage de trois-quarts face, un peu en contre-plongée (par-dessus
+	# l'épaule d'Alice, sa frange et les cheveux d'Alice le cachaient), puis plus bas,
+	# la larme et la main d'Alice qui la tient.
+	shots.append([0.35, {"eye": [{"who": "v", "s": "eyes", "o": Vector3(0.6, -0.1, 0.55)}, {"who": "v", "s": "eyes", "o": Vector3(0.5, -0.08, 0.48)}], "look": {"who": "v", "s": "eyes", "o": Vector3(0, -0.03, 0)}, "fov": [36.0, 32.0]}])
+	shots.append([1.25, {"eye": [{"who": "v", "s": "eyes", "o": Vector3(0.3, -0.5, 0.35)}, {"who": "v", "s": "eyes", "o": Vector3(0.38, -0.46, 0.42)}], "look": {"who": "v", "s": "eyes", "o": Vector3(0, -0.02, 0)}, "fov": [40.0, 37.0]}])
 	shots.append([1.95, {"eye": [Vector3(1.45, 0.55, -0.75), Vector3(1.35, 0.6, -0.85)], "look": Vector3(0, 1.35, 0.0), "fov": 52.0}])
 	shots.append([2.6, {"eye": [Vector3(1.4, 2.5, -1.4), Vector3(1.2, 2.9, -1.8)], "look": {"who": "v", "s": "hips"}, "fov": 48.0}])
 
