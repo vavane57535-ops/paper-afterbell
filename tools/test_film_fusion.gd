@@ -25,6 +25,9 @@ extends Node
 #            Réseau (headless) : -- --host-test --tool test_film_fusion --ff-net host
 #                                -- --join-test --tool test_film_fusion --ff-net client
 #            (l'hôte exécute le dernier survivant ; chaque pair affiche FF_NET_END).
+#   watch  : passif, avec --simulate (partie de bots) : affiche FF_WATCH_END (type de fin, film, mode de
+#            la dernière élimination) quand la manche se termine. Ex. -- --simulate Alice --speed 4 --duration 360
+#            --tool test_film_fusion --ff-mode watch
 # --ff-alarm : secondes d'alerte avant la fin (0,8 pour que la sirène soit encore en cours).
 # --ff-xray : le joueur (Lysia) a son X-ray actif au moment de la fin. --ff-wheel : roue d'émotes ouverte.
 
@@ -69,6 +72,9 @@ func setup(owner: Node) -> void :
 	if not out_dir.is_empty(): DirAccess.make_dir_recursive_absolute(out_dir)
 	if not net_role.is_empty():
 		_run_net.call_deferred()
+		return
+	if mode == "watch":
+		_run_watch.call_deferred()
 		return
 	world.selected = person
 	if map_id != "school": world._rebuild_map(map_id)
@@ -554,3 +560,13 @@ func _run_net() -> void :
 	print("FF_NET ", net_role, " film_time=%.2f phase=%s" % [float(world.cinema), str(world.phase)])
 	print("FF_RESULT ", "OK" if failures.is_empty() else "FAIL " + ", ".join(failures))
 	get_tree().quit()
+
+
+func _run_watch() -> void :
+	var last_kind: String = ""
+	while str(world.phase) != "ending":
+		for a: PaperActor in world.actors.values():
+			if not a.killer and not a.alive and not bool(a.effects.get("escaped", false)) and a.character == str(world.last_victim_name):
+				last_kind = str(a.effects.get("death_kind", ""))
+		await get_tree().process_frame
+	print("FF_WATCH_END kind=", world.ending_kind, " film=", world.film.kind, " focus=", world.ending_focus, " last_death=", last_kind, " executed=", world.kill_scenes.last_executed, " outcome=", world.outcome)
