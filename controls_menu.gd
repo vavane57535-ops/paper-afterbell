@@ -22,8 +22,11 @@ func setup(owner: Node) -> void :
 	hide()
 
 var _entering: bool = false
+# Ouvert depuis le menu pause : « Enregistrer & retour » y ramène directement.
+var from_pause: bool = false
 
 func open() -> void :
+	from_pause = false
 	world.ui.page.hide()
 	show()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -34,6 +37,11 @@ func open() -> void :
 func close() -> void :
 	capture_action = ""
 	hide()
+	if from_pause and str(world.get("phase")) == "playing" and world.ui.has_method("_pause_reopen"):
+		from_pause = false
+		world.ui.call("_pause_reopen", "controls")
+		return
+	from_pause = false
 	world.ui.show_settings()
 
 func _build() -> void :

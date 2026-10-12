@@ -46,6 +46,9 @@ var _confirm: Control
 var _confirm_t: float = 0.0
 var _confirm_buttons: Array[Button] = []
 var _scraps: PackedVector3Array = PackedVector3Array()
+# Commande sélectionnée à l'ouverture (retour depuis les réglages ou le
+# carnet de commandes : on retrouve la commande d'où l'on vient).
+var start_action: String = ""
 
 
 class Layer extends Control:
@@ -68,6 +71,7 @@ func setup(owner_ui: Node) -> void :
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	var actor: Node = world.local_actor() if world.has_method("local_actor") else null
 	if actor: _person = str(actor.get("character"))
+	elif ui.has_method("_local_person"): _person = str(ui.call("_local_person"))
 	_art = MenuBackdrop.art(_person)
 	_accent = MenuBackdrop.accent_for(_person)
 	_red = Color("e0314f") if _person == "Alice" else T.RED
@@ -134,8 +138,10 @@ func _build_entries() -> void :
 		item.focus_neighbor_bottom = item.get_path_to(down)
 		item.focus_neighbor_left = item.get_path()
 		item.focus_neighbor_right = item.get_path()
-	_hint = str(specs[0][2])
-	_entries[0].call_deferred("grab_focus")
+	for i: int in range(specs.size()):
+		if str(specs[i][1]) == start_action: _selected = i
+	_hint = str(specs[_selected][2])
+	_entries[_selected].call_deferred("grab_focus")
 
 
 func _layout() -> void :
