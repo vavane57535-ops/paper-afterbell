@@ -20,6 +20,9 @@ const FOG_RED: Color = Color(0.32, 0.03, 0.05)
 const EXIT_GLOW: Color = Color(1.0, 0.86, 0.58)
 const BEACON_RED: Color = Color(1.0, 0.22, 0.08)
 const DOME_RED: Color = Color(1.0, 0.03, 0.02)
+# panneau « SORTIE » de la carte : vert d'issue de secours, cerné de noir (lisible sous la lumière de la sortie)
+const SIGN_GREEN: Color = Color(0.42, 1.0, 0.56)
+const SIGN_INK: Color = Color(0.0, 0.07, 0.03)
 
 const GRADE_SHADER: String = """
 shader_type canvas_item;
@@ -96,6 +99,9 @@ var _beacon_lights: Array[SpotLight3D] = []
 var _beacon_domes: Array[StandardMaterial3D] = []
 var _beam_material: StandardMaterial3D
 var _timer_touched: bool = false
+var _signs: Array[Label3D] = []
+var _sign_looks: Array = []
+var _signs_touched: bool = false
 
 
 func setup(game_world: Node) -> void :
@@ -239,6 +245,7 @@ func _process(delta: float) -> void :
 	_update_lamps()
 	_update_environment()
 	_update_rig(delta)
+	_update_signs()
 	_update_timer()
 	_update_hud(delta)
 	if phase in ["menu", "lobby", "loading"]:
@@ -517,6 +524,47 @@ func _build_rig() -> void :
 		_beacons.append(pivot)
 		_beacon_lights.append(light)
 		_beacon_domes.append(dome_material)
+
+
+func _update_signs() -> void :
+	if _level <= 0.001:
+		if _signs_touched: _restore_signs()
+		return
+	if not _signs_touched or (not _signs.is_empty() and not is_instance_valid(_signs[0])): _collect_signs()
+	for index: int in range(_signs.size()):
+		if not is_instance_valid(_signs[index]): continue
+		var label: Label3D = _signs[index]
+		var look: Array = _sign_looks[index]
+		label.modulate = (look[0] as Color).lerp(SIGN_GREEN, _level)
+		label.outline_modulate = (look[1] as Color).lerp(SIGN_INK, _level)
+		label.outline_size = int(round(lerpf(float(look[2]), 14.0, _level)))
+
+# Seuls les panneaux posés par la carte (enfants directs de school, près de l'issue) :
+# celui de map_interactables est déjà recoloré chaque image par update_exit.
+func _collect_signs() -> void :
+	if _signs_touched: _restore_signs()
+	_signs_touched = true
+	if not is_instance_valid(world.school): return
+	var exit_at: Vector3 = world.school.escape_position
+	for node: Node in world.school.get_children():
+		if not node is Label3D: continue
+		var label: Label3D = node
+		var offset: Vector3 = label.position - exit_at
+		if Vector2(offset.x, offset.z).length() > 9.0 or offset.y < 2.0: continue
+		_signs.append(label)
+		_sign_looks.append([label.modulate, label.outline_modulate, label.outline_size])
+
+func _restore_signs() -> void :
+	for index: int in range(_signs.size()):
+		if not is_instance_valid(_signs[index]): continue
+		var label: Label3D = _signs[index]
+		var look: Array = _sign_looks[index]
+		label.modulate = look[0]
+		label.outline_modulate = look[1]
+		label.outline_size = int(look[2])
+	_signs.clear()
+	_sign_looks.clear()
+	_signs_touched = false
 
 
 
