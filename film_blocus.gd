@@ -589,9 +589,14 @@ func _update_hand_props(t: float) -> void :
 			var basis: Basis = _facing_basis(lead)
 			var front: Vector3 = basis.z
 			if t >= _mega_mouth.x and t < _mega_mouth.y:
-				# Un peu sous la bouche et pointé vers le bas : de face, les yeux restent visibles.
+				# Un peu sous la bouche, décalé vers la main qui le tient et pointé de biais vers le bas :
+				# de face, le pavillon ne cache plus tout le visage (même chez les petits gabarits).
 				var mouth: Vector3 = _hand(lead, "mouth")
-				_megaphone.global_transform = Transform3D(basis * Basis(Vector3.RIGHT, PI * 0.5 + 0.22), mouth + front * 0.17 + Vector3.DOWN * 0.07)
+				var side: Vector3 = _hand(lead, "hand_r") - mouth
+				side.y = 0.0;side -= front * side.dot(front)
+				side = side.normalized() if side.length_squared() > 0.0001 else Vector3.ZERO
+				var yaw: float = -0.4 * signf(basis.x.dot(side)) if side != Vector3.ZERO else 0.0
+				_megaphone.global_transform = Transform3D(basis * Basis(Vector3.UP, yaw) * Basis(Vector3.RIGHT, PI * 0.5 + 0.22), mouth + front * 0.15 + side * 0.07 + Vector3.DOWN * 0.07)
 			else:
 				var grip: Vector3 = _hand(lead, "hand_r")
 				_megaphone.global_transform = Transform3D(basis * Basis(Vector3.RIGHT, PI * 0.15), grip + front * 0.08 + Vector3.DOWN * 0.04)

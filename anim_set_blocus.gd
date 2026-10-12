@@ -43,8 +43,9 @@ static func _sign(c: Dictionary) -> void :
 
 # Mégaphone collé à la bouche (main droite), bras gauche qui martèle les syllabes.
 static func _megaphone(c: Dictionary) -> void :
-	var hold: Dictionary = M([R(-0.26, 0.14, 0.72, 0.45), WR(0.0), {"curl": 1.0}])
-	var shout: Dictionary = M([_base(), hold, H(0.0, 0.03, 0.0), B(-0.1), C(-0.12), HD(0.16, 0.0, 0.0), L(0.55, 0.85, 0.15, 0.2), WL(0.0), {"curl_l": 1.1, "jaw": 1.0, "sq": 1.03}])
+	var hold: Dictionary = M([R(0.04, 0.2, 0.6, 0.45), WR(0.0), {"curl": 1.0}])
+	# Poing gauche levé bien sur le côté (chez les petits gabarits, il passait devant le visage).
+	var shout: Dictionary = M([_base(), hold, H(0.0, 0.03, 0.0), B(-0.1), C(-0.12), HD(0.16, 0.0, 0.0), L(0.78, 0.8, 0.02, 0.35), WL(0.0), {"curl_l": 1.1, "jaw": 1.0, "sq": 1.03}])
 	var beat: Dictionary = M([_base(), hold, H(0.0, -0.05, 0.0), B(0.08), C(0.06), HD(0.0, 0.0, 0.0), L(0.6, 0.15, 0.3, 0.2), WL(0.0), {"curl_l": 1.1, "jaw": 0.35, "sq": 0.97}])
 	c["dance_blocus_megaphone"] = {"len": BEAT * 2.0, "loop": true, "in": 0.12, "face": "angry", "keys": [
 		[0.0, shout, "h"], [BEAT * 0.5, M([shout, HD(0.2, 0.08, 0.05)]), "h"], [BEAT, beat, "h"], [BEAT * 1.5, M([beat, HD(0.04, -0.08, -0.05)]), "h"], [BEAT * 2.0, shout, "h"]]}
