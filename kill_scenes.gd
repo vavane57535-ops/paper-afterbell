@@ -1934,7 +1934,9 @@ func _script_bleuette(show: Dictionary) -> void :
 	# la larme et la main d'Alice qui la tient.
 	shots.append([0.35, {"eye": [{"who": "v", "s": "eyes", "o": Vector3(0.6, -0.1, 0.55)}, {"who": "v", "s": "eyes", "o": Vector3(0.5, -0.08, 0.48)}], "look": {"who": "v", "s": "eyes", "o": Vector3(0, -0.03, 0)}, "fov": [36.0, 32.0]}])
 	shots.append([1.25, {"eye": [{"who": "v", "s": "eyes", "o": Vector3(0.3, -0.5, 0.35)}, {"who": "v", "s": "eyes", "o": Vector3(0.38, -0.46, 0.42)}], "look": {"who": "v", "s": "eyes", "o": Vector3(0, -0.02, 0)}, "fov": [40.0, 37.0]}])
-	shots.append([1.95, {"eye": [Vector3(1.45, 0.55, -0.75), Vector3(1.35, 0.6, -0.85)], "look": Vector3(0, 1.35, 0.0), "fov": 52.0}])
+	# Plan large dès 1,58 s (et non 1,95) : ses mains, crispées sur le poignet d'Alice, montaient ensuite
+	# devant l'objectif du gros plan et couvraient son visage d'un grand aplat. Le large montre l'élan d'Alice.
+	shots.append([1.58, {"eye": [Vector3(1.45, 0.55, -0.75), Vector3(1.35, 0.6, -0.85)], "look": Vector3(0, 1.35, 0.0), "fov": 52.0}])
 	shots.append([2.6, {"eye": [Vector3(1.4, 2.5, -1.4), Vector3(1.2, 2.9, -1.8)], "look": {"who": "v", "s": "hips"}, "fov": 48.0}])
 
 

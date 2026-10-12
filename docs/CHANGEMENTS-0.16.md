@@ -14,6 +14,7 @@ Protocole réseau **16** : tous les joueurs doivent avoir la 0.16 pour jouer ens
 ## Cinémathèque
 - Les introductions des survivants et d'Alice sont retirées.
 - Catégories : Prologue, Victoires LMS, LMS · Alice gagne, Fuite en équipe, Fins (nouveau : le blocus).
+- Les films « LMS · Alice gagne » s'accordent : « Alice · Lysia rattrapée », « la dernière tentative d’Elly ».
 
 ## Exécutions d'Alice (dernière vie)
 - Quand un survivant est dans sa **dernière vie** (déjà relevé, ou sans relevage comme Lysia), le coup fatal d'Alice déclenche son exécution propre :

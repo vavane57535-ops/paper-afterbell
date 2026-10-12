@@ -217,7 +217,7 @@ const TEXT: Dictionary = {
 	"HA HA ! C'est tout ce que t'as, Alice ?!": "HA HA! Is that all you've got, Alice?!",
 	"Tiens bon, Bleuette. Personne ne reste en arrière.": "Hang in there, Bleuette. Nobody gets left behind.",
 	"J-je vais bien… enfin, je crois…": "I-I'm fine… I think…",
-	"Armure à quarante pour cent… Je tiens encore.": "Armor at forty percent… I'm still standing.",
+	"Armure à quarante pour cent… Je tiens encore.": "Armour at forty percent… I'm still standing.",
 	"SIMON ?! T'étais passé où, toi ?!": "SIMON?! Where have YOU been?!",
 	"…Longue histoire. Je suis avec toi !": "…Long story. I've got your back!",
 	"L’hôte jouait Alice : son salon est fermé.": "The host was playing Alice: their lobby is closed.",
@@ -245,7 +245,7 @@ const TEXT: Dictionary = {
 	"Poings sur les hanches, pied qui s’impatiente, doigt qui gronde et pouce levé.": "Fists on hips, impatient foot, scolding finger and a thumbs up.",
 	"Mains crochues, épaules qui sursautent, pas traînés. Pour la nuit de la cloche.": "Clawed hands, jolting shoulders, dragging steps. For the night of the bell.",
 	"J-je vais bien… je crois…": "I-I'm fine… I think…",
-	"Armure à 40 %… Je tiens encore.": "Armor at 40%… I'm still standing.",
+	"Armure à 40 %… Je tiens encore.": "Armour at 40%… I'm still standing.",
 	"Tous les joueurs doivent utiliser Paper Afterbell 0.16 · OM.": "All players must use Paper Afterbell 0.16 · OM.",
 	# Partie en jeu (vérification finale) : roue des émotes et spectateur évadé, restés en français.
 	"DANSES": "DANCES",
@@ -262,6 +262,11 @@ const TEMPLATES: Array = [
 	["BRANCHÉE · ASHURA ×1,5 · +10 PV / 1,3 s · %.1f s · BOUGER / INTERAGIR / 4 : DÉBRANCHER", "PLUGGED IN · ASHURA ×1.5 · +10 HP / 1.3 s · %.1f s · MOVE / INTERACT / 4: UNPLUG"],
 	["SURCHAUFFE · INVULNÉRABLE · ARMURE −%d PV · %.1f s", "OVERHEAT · INVULNERABLE · ARMOUR −%d HP · %.1f s"],
 	["PRISE · %d m", "OUTLET · %d m"],
+	["Alice · %s rattrapée", "Alice · %s caught"],
+	["La dernière tentative de %s échoue. Alice la rattrape, frappe et l’achève au sol.", "%s's last attempt fails. Alice catches her, strikes and finishes her on the floor."],
+	["La dernière tentative d’%s échoue. Alice la rattrape, frappe et l’achève au sol.", "%s's last attempt fails. Alice catches her, strikes and finishes her on the floor."],
+	["La dernière tentative de %s échoue. Alice le rattrape, frappe et l’achève au sol.", "%s's last attempt fails. Alice catches him, strikes and finishes him on the floor."],
+	["La dernière tentative d’%s échoue. Alice le rattrape, frappe et l’achève au sol.", "%s's last attempt fails. Alice catches him, strikes and finishes him on the floor."],
 ]
 
 static var _compiled: Array = []

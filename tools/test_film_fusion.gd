@@ -25,6 +25,8 @@ extends Node
 #            Réseau (headless) : -- --host-test --tool test_film_fusion --ff-net host
 #                                -- --join-test --tool test_film_fusion --ff-net client
 #            (l'hôte exécute le dernier survivant ; chaque pair affiche FF_NET_END).
+#   i18n   : titres et descriptions des films « Alice · … rattrapé(e) » de la cinémathèque, en français
+#            et en anglais (accord au féminin pour Lysia, Elly et Bleuette)
 #   watch  : passif, avec --simulate (partie de bots) : affiche FF_WATCH_END (type de fin, film, mode de
 #            la dernière élimination) quand la manche se termine. Ex. -- --simulate Alice --speed 4 --duration 360
 #            --tool test_film_fusion --ff-mode watch
@@ -137,6 +139,11 @@ func _run() -> void :
 	for i: int in range(6): await get_tree().process_frame
 	if mode == "films":
 		await _run_films()
+		print("FF_RESULT ", "OK" if failures.is_empty() else "FAIL " + ", ".join(failures))
+		get_tree().quit()
+		return
+	if mode == "i18n":
+		_run_i18n()
 		print("FF_RESULT ", "OK" if failures.is_empty() else "FAIL " + ", ".join(failures))
 		get_tree().quit()
 		return
@@ -570,3 +577,22 @@ func _run_watch() -> void :
 				last_kind = str(a.effects.get("death_kind", ""))
 		await get_tree().process_frame
 	print("FF_WATCH_END kind=", world.ending_kind, " film=", world.film.kind, " focus=", world.ending_focus, " last_death=", last_kind, " executed=", world.kill_scenes.last_executed, " outcome=", world.outcome)
+
+
+func _run_i18n() -> void :
+	var previous: String = PaperLanguage.language
+	for entry: Dictionary in PaperCinema.catalogue():
+		if str(entry.category) != "lms_loss": continue
+		var person: String = str(entry.focus)
+		var she: bool = person in ["Lysia", "Elly", "Bleuette"]
+		PaperLanguage.language = "fr"
+		var title_fr: String = PaperLanguage.t(str(entry.title))
+		PaperLanguage.language = "en"
+		var title_en: String = PaperLanguage.t(str(entry.title))
+		var text_en: String = PaperLanguage.t(str(entry.description))
+		print("FF_I18N %s | %s | %s | %s" % [title_fr, title_en, str(entry.description), text_en])
+		_check(title_fr.ends_with("rattrapée" if she else "rattrapé"), "accord du titre (%s)" % title_fr)
+		_check(title_en == "Alice · %s caught" % person, "titre anglais (%s)" % title_en)
+		_check(text_en == "%s's last attempt fails. Alice catches %s, strikes and finishes %s on the floor." % [person, "her" if she else "him", "her" if she else "him"], "description anglaise (%s)" % text_en)
+		_check(str(entry.description).begins_with("La dernière tentative " + ("d’" if person.left(1) in ["A", "E", "U"] else "de ")), "élision (%s)" % str(entry.description))
+	PaperLanguage.language = previous
