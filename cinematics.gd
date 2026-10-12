@@ -92,6 +92,8 @@ var _flights: Array = []
 var _door: Array = []
 # Fondu d'ouverture (noir → image) : 0,28 s par défaut ; l'épilogue d'exécution garde un noir avant.
 var _open_fade: Vector2 = Vector2(0.0, 0.28)
+# Neige / lucioles de la carte (elles suivent la caméra) cachées dans la chambre d'Alice, rendues à l'arrêt.
+var _hidden_particles: Array[Node3D] = []
 var _blackouts: Array = []
 var _trauma: float = 0.0
 var _shake_clock: float = 0.0
@@ -197,6 +199,12 @@ func begin(next: String, participants: Array, focus: String = "Ashura") -> void 
 	_length = anchor.distance_to(finish)
 	if next in ["intro_alice", PaperFilmExecutionEnd.KIND]:
 		anchor += Vector3.UP * 30.0;finish = anchor + forward * 7.0
+		# Décor intérieur : la neige ou les lucioles qui suivent la caméra n'ont rien à y faire.
+		if world.school.has_method("ambient_particles"):
+			for node: Node3D in world.school.ambient_particles():
+				if is_instance_valid(node) and node.visible:
+					node.visible = false
+					_hidden_particles.append(node)
 	elif world.school.has_method("set_cinematic_exit_open"):
 		world.school.set_cinematic_exit_open(next not in ["ending_killer", PaperFilmBlocus.KIND])
 	for person: String in people: _add_actor(person)
@@ -242,6 +250,9 @@ func _add_actor(person: String) -> void :
 func stop() -> void :
 	var was_playing: bool = not kind.is_empty()
 	victory.stop()
+	for node: Node3D in _hidden_particles:
+		if is_instance_valid(node): node.visible = true
+	_hidden_particles.clear()
 	if world and is_instance_valid(world.school) and world.school.has_method("set_cinematic_exit_open"): world.school.set_cinematic_exit_open(false)
 
 	for n: Node in get_children():

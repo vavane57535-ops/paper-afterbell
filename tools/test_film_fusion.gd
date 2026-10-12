@@ -527,6 +527,13 @@ func _run_exec_end() -> void :
 			continue
 		await get_tree().process_frame
 	_check(black_start >= 0.0 and black_start < 0.01, "noir tenu au début de l'épilogue (image visible à %.2f)" % black_start)
+	# Neige / lucioles de la carte (avec rendu seulement) : absentes de la chambre d'Alice, rendues après.
+	var flakes: Array = world.school.ambient_particles() if world.school.has_method("ambient_particles") else []
+	if not flakes.is_empty():
+		var shown: int = 0
+		for node: Node3D in flakes:
+			if is_instance_valid(node) and node.visible: shown += 1
+		_check(shown == 0, "neige ou lucioles cachées dans la chambre d'Alice (%d visibles)" % shown)
 	# (la première image de la phase « ending » peut précéder le passage de kill_scenes)
 	_check(bars_until < 0.05, "bandes noires de l'exécution coupées pendant l'épilogue (vues jusqu'à %.2f s)" % bars_until)
 	_check(debris_until < 0.05, "débris de l'exécution absents de l'épilogue (vus jusqu'à %.2f s)" % debris_until)
@@ -537,6 +544,8 @@ func _run_exec_end() -> void :
 		wait_results += 1
 	_check(bool(world.ending_presented) and str(world.ui.current_page) == "ending", "écran des résultats après l'épilogue (%s)" % str(world.ui.current_page))
 	_check(str(world.film.kind).is_empty(), "film arrêté après l'épilogue")
+	for node: Node3D in flakes:
+		if is_instance_valid(node): _check(node.visible, "particules de la carte rendues après le film (%s)" % node.name)
 	await _shot("results")
 
 
