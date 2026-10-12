@@ -269,6 +269,8 @@ func _process(delta: float) -> void :
 func _heart_floor() -> float:
 	var me: PaperActor = world.local_actor()
 	if bool(world.lms) or me == null or me.killer or not me.alive or bool(me.effects.get("escaped", false)): return 0.0
+	# Exécution du joueur (« dying ») : le cœur de l'alerte ne couvre pas les bruitages du film.
+	if bool(me.effects.get("dying", false)): return 0.0
 	if _since < RUSH_LEAD: return 0.6
 	return 0.38 + 0.37 * smoothstep(0.62, 0.8, _rush)
 

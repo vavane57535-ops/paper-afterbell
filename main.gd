@@ -1968,7 +1968,7 @@ func capture_gameplay_mouse() -> void :
 func _update_mobile_controls() -> void :
 	if not mobile_mode or not is_instance_valid(mobile_controls): return
 	if mobile_controls.editing: return
-	var usable: bool = phase == "playing" and not pause_open and mobile_focused and not ui.qte_panel.visible and not emote_wheel.visible
+	var usable: bool = phase == "playing" and not pause_open and mobile_focused and not ui.qte_panel.visible and not emote_wheel.visible and not (kill_scenes and kill_scenes.has_camera())
 	if mobile_controls.enabled != usable:
 		mobile_controls.cancel_all();mobile_controls.enabled = usable
 	Input.emulate_mouse_from_touch = not usable

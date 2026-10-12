@@ -12,6 +12,8 @@ extends Node
 #   team   : sortie ouverte (alerte + musique de course), tous les survivants s'évadent → fuite en équipe
 #   killer : sortie ouverte (alerte + course), Alice élimine tout le monde → victoire d'Alice
 #   blocus : sortie ouverte (alerte + course), Alice (humaine) quitte → blocus
+#   prologue : le film entier sans geste d'attente aléatoire (fidget) ; musique à 0 dB sur le bus PaperMusic
+#   films  : relevé (sans échec) des gestes d'attente aléatoires dans les films de la cinémathèque
 #   kill   : exécution du perso joué (vue victime), sortie ouverte : roue d'émotes ouverte au coup fatal,
 #            touche C pendant le plan, X-ray de Lysia, panneau SORTIE du jeu retiré du plan
 # --ff-alarm : secondes d'alerte avant la fin (0,8 pour que la sirène soit encore en cours).
@@ -107,6 +109,16 @@ func _hold_alice() -> void :
 
 func _run() -> void :
 	for i: int in range(6): await get_tree().process_frame
+	if mode == "films":
+		await _run_films()
+		print("FF_RESULT ", "OK" if failures.is_empty() else "FAIL " + ", ".join(failures))
+		get_tree().quit()
+		return
+	if mode == "prologue":
+		await _run_prologue()
+		print("FF_RESULT ", "OK" if failures.is_empty() else "FAIL " + ", ".join(failures))
+		get_tree().quit()
+		return
 	world.start_solo(false)
 	var waited: int = 0
 	while str(world.phase) != "playing" and waited < 2000:
@@ -265,7 +277,9 @@ func _run_kill() -> void :
 	for t: float in [0.6, 1.6, 2.6, 3.6]:
 		await _wait(t - (0.6 if t > 0.6 else 0.0) if t == 0.6 else 1.0)
 		await _shot("kill_%.1f" % t)
-		if is_equal_approx(t, 1.6): _check(float(world.audio.get("_hurt_level")) < 0.05, "son de l'exécution non étouffé par l'effet « blessé » (%.2f)" % float(world.audio.get("_hurt_level")))
+		if is_equal_approx(t, 1.6):
+			_check(float(world.audio.get("_hurt_level")) < 0.05, "son de l'exécution non étouffé par l'effet « blessé » (%.2f)" % float(world.audio.get("_hurt_level")))
+			_check(float(world.audio.heartbeat_floor) <= 0.0, "pas de cœur de l'alerte sur l'exécution (%.2f)" % float(world.audio.heartbeat_floor))
 	var wait_end: int = 0
 	while bool(world.kill_scenes.has_camera()) and wait_end < 600:
 		await get_tree().process_frame
@@ -274,3 +288,50 @@ func _run_kill() -> void :
 	_check(not bool(world.kill_scenes.has_camera()), "fin de l'exécution")
 	_check((world.camera.cull_mask & world.kill_scenes.SIGN_LAYER) != 0, "panneau SORTIE rendu à la caméra de jeu après l'exécution")
 	await _shot("kill_after")
+
+
+func _run_prologue() -> void :
+	world.play_prologue()
+	_check(str(world.phase) == "prologue", "prologue lancé")
+	var film: Node = world.prologue
+	world.set_process(false)
+	var fidgets: Array[String] = []
+	var seen: Dictionary = {}
+	var t: float = 0.0
+	while t <= float(film.duration):
+		film.update(t, 1.0 / 30.0)
+		for take: Variant in film.takes:
+			var fidgeting: bool = float(take.visual.get("_fidget_time")) >= 0.0
+			if fidgeting and not seen.get(take.person, false): fidgets.append("%s@%.1f" % [take.person, t])
+			seen[take.person] = fidgeting
+		t += 1.0 / 30.0
+	world.set_process(true)
+	_check(fidgets.is_empty(), "aucun geste d'attente aléatoire dans le prologue (%s)" % ", ".join(fidgets))
+	var music: AudioStreamPlayer = film.get("_music")
+	if music: _check(absf(music.volume_db) < 0.01, "musique du prologue à 0 dB sur le bus PaperMusic (%.1f dB)" % music.volume_db)
+	world.end_prologue()
+
+
+func _run_films() -> void :
+	world.gallery.open()
+	for k: int in range(3): await get_tree().process_frame
+	for entry: Dictionary in world.gallery.entries:
+		if str(entry.id) == "intro_yiero": continue
+		world.gallery.play_entry(entry)
+		world.gallery.playing = false
+		await get_tree().process_frame
+		var film: Node = world.film
+		var found: Array[String] = []
+		var seen: Dictionary = {}
+		var t: float = 0.0
+		while t <= float(film.duration):
+			film.update(t, 1.0 / 30.0)
+			for take: Variant in film.takes:
+				var fidgeting: bool = float(take.visual.get("_fidget_time")) >= 0.0
+				if fidgeting and not seen.get(take.person, false): found.append("%s@%.1f" % [take.person, t])
+				seen[take.person] = fidgeting
+			t += 1.0 / 30.0
+		print("FF_FIDGETS %s (%s) %s" % [str(entry.id), str(entry.kind), ", ".join(found) if not found.is_empty() else "aucun"])
+		world.gallery.browse()
+		await get_tree().process_frame
+	world.gallery.close()
