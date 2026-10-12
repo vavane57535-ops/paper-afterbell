@@ -12,6 +12,7 @@ extends Node
 #   kill_v   : exécution du joueur local (dernière vie) puis reprise de la caméra (spectateur).
 #   kill_a   : le joueur joue Alice et exécute un élève, puis reprise de la caméra.
 #   lms      : LMS de Bleuette : +65 PV, courage (au-delà de 150), annonce, barre de PV.
+#   pause    : élimination (+0:45) pendant l'alerte, puis menu pause ouvert aussitôt, puis reprise.
 #   lysia    : X-ray de Lysia (repères de prises) et prise avec Ashura (×1,5), puis les deux pendant l'alerte.
 # --hud-en : interface en anglais (sans rien enregistrer dans settings.cfg).
 # Chaque capture est écrite dans --hud-out (PNG 1280×800) et listée dans le journal (« HUD_SHOT »).
@@ -122,6 +123,7 @@ func _run() -> void :
 		"kill_a": await _plan_kill(true)
 		"lms": await _plan_lms()
 		"lysia": await _plan_lysia()
+		"pause": await _plan_pause()
 	print("HUD_RESULT ", "OK" if _failures.is_empty() else "FAIL", " ", JSON.stringify({"failures": _failures}))
 	get_tree().quit()
 
@@ -393,3 +395,27 @@ func _plan_lysia() -> void :
 		await _shot("lysia_%s02_outlet_ashura_side" % tag)
 		world.combat._stop_outlet(lysia, "cancelled")
 		await _wait(0.4)
+
+
+func _plan_pause() -> void :
+	var local: PaperActor = world.local_actor()
+	_freeze_bots()
+	local.bot = false
+	var alice: PaperActor = world.killer_actor()
+	if alice: _place(alice, local.global_position + Vector3(60, 0, 60))
+	world.time_left = 80.4
+	while not world.exit_flow.opened: await get_tree().process_frame
+	await _wait(1.0)
+	var victim: PaperActor = _others(local)[0]
+	victim.effects["death_source"] = alice.id if alice else -1
+	world.eliminate(victim)
+	await _wait(0.3)
+	await _press_action("pause_game")
+	_note("pause_open=%s bonus_visible=%s" % [str(world.pause_open), str(world.kill_scenes._bonus_label.visible)])
+	await _frames(20)
+	await _shot("pause_00_menu_after_kill")
+	if bool(world.kill_scenes._bonus_label.visible): _failures.append("+0:45 visible par-dessus le menu pause")
+	await _press_action("pause_game")
+	await _wait(0.5)
+	_note("pause_open=%s bonus_visible=%s" % [str(world.pause_open), str(world.kill_scenes._bonus_label.visible)])
+	await _shot("pause_01_resumed")

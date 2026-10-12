@@ -549,6 +549,8 @@ func _process(delta: float) -> void :
 	if _paused():
 		_update_bars(delta)
 		_update_lights(delta)
+		# « +0:45 » est sur un calque au-dessus de l'interface : il ne doit pas rester figé sur le menu pause.
+		if _bonus_label.visible: _bonus_label.visible = false
 		return
 	if str(world.phase) != "playing":
 		for id: Variant in _shows.keys(): _end_show(int(id), true)
@@ -1179,6 +1181,9 @@ func _update_bonus(delta: float) -> void :
 	_bonus_label.scale = Vector2.ONE * pop
 	_bonus_label.position = anchor + Vector2(0.0, -14.0 * smoothstep(0.4, life, _bonus_time)) - Vector2(0.0, _bonus_label.size.y * 0.1)
 	_bonus_label.modulate.a = smoothstep(0.0, 0.08, _bonus_time) * (1.0 - smoothstep(life - 0.6, life, _bonus_time))
+	# en réseau la partie continue derrière le menu pause : le chiffre reste caché tant qu'il est ouvert
+	var hidden: bool = bool(world.get("pause_open"))
+	if _bonus_label.visible == hidden: _bonus_label.visible = not hidden
 
 
 

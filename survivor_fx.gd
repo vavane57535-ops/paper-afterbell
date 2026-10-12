@@ -312,8 +312,13 @@ func _tick_link(link: Dictionary, lysia: PaperActor, partner: PaperActor, delta:
 	label.text = _tr("ASHURA ×1,5")
 	label.global_position = world.actor_render_position(lysia) + Vector3.UP * (2.25 + 0.05 * sin(float(link.age) * 3.2))
 	var appear: float = clampf(float(link.age) / 0.25, 0.0, 1.0)
-	label.modulate.a = appear
-	label.outline_modulate.a = 0.92 * appear
+	# Les prises sont au mur : en tournant autour de Lysia, la caméra s'y colle et l'étiquette (taille fixe
+	# dans le monde) couvrait tout l'écran. Elle s'efface quand la caméra arrive à moins de 3 m.
+	var viewer: Camera3D = get_viewport().get_camera_3d()
+	var near: float = smoothstep(1.7, 3.0, viewer.global_position.distance_to(label.global_position)) if viewer else 1.0
+	label.visible = near > 0.01
+	label.modulate.a = appear * near
+	label.outline_modulate.a = 0.92 * appear * near
 	var ends: Array[Sprite3D] = link.ends
 	ends[0].global_position = from
 	ends[1].global_position = to
