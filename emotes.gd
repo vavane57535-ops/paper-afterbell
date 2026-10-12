@@ -71,7 +71,12 @@ static func duration(id: String) -> float:
 static func sync_range(id: String) -> float:
 	return DANCE_SYNC_RANGE if PaperDances.is_dance(id) else SYNC_RANGE
 
+# Pose tenue (en tailleur) : on ne rejoint le groupe que pendant l'entrée, sinon le nouveau
+# venu sauterait sa propre mise en place ; au-delà il s'installe à son rythme.
+const HOLD_JOIN_SECONDS: float = 0.4
+
 # Jusqu'à quel temps partagé un nouveau venu rejoint le groupe en cours de route.
 static func join_window(id: String) -> float:
-	if PaperDances.is_dance(id) or holds(id): return INF
+	if PaperDances.is_dance(id): return INF
+	if holds(id): return HOLD_JOIN_SECONDS
 	return duration(id) * JOIN_FRACTION

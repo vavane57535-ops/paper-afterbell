@@ -1881,8 +1881,10 @@ func _is_emote(id: String) -> bool:
 # Changement d'émote ou saut de temps (synchronisation de groupe) : fondu depuis la pose actuelle.
 func _check_emote_jump(dt: float) -> void :
 	var id: String = _st_emote if _is_emote(_st_emote) else ""
-	if not id.is_empty() and not _emote_seen.is_empty() and _transition_left <= 0.0 and _signature >= 0:
-		if id != _emote_seen or absf(_st_emote_time - (_emote_seen_time + dt)) > 0.3: _begin_transition()
+	var jumped: bool = id != _emote_seen or absf(_st_emote_time - (_emote_seen_time + dt)) > 0.3
+	# Nouveau départ : pas de repères sonores rejoués entre l'ancien temps et le nouveau.
+	if jumped: _emote_clip_time = -1.0
+	if jumped and not id.is_empty() and not _emote_seen.is_empty() and _transition_left <= 0.0 and _signature >= 0: _begin_transition()
 	_emote_seen = id
 	_emote_seen_time = _st_emote_time
 

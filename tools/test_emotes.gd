@@ -197,6 +197,9 @@ func _run_sync() -> void :
 	ok = await _case("danse rejointe à 0,7 s (dance_floss)", survivors[0], survivors[1], "dance_floss", 0.7, "join") and ok
 	ok = await _case("danse rejointe à 0,7 s (nouvelle danse)", survivors[1], survivors[2], str(PaperDances.LIST[PaperDances.LIST.size() - 1].id), 0.7, "join") and ok
 	ok = await _case_far("même émote hors de portée : pas de synchro", survivors[0], survivors[2], "heart") and ok
+	ok = await _case_music("la musique continue sans coupure quand un danseur rejoint puis quitte le groupe", survivors[0], survivors[1], survivors[2]) and ok
+	ok = await _case_long("danse rejointe tard : le nouveau venu garde toute sa durée", survivors[0], survivors[1]) and ok
+	ok = await _case_sit("en tailleur rejoint tard : le nouveau venu s'assoit à son rythme, le groupe reste assis", survivors[0], survivors[1]) and ok
 	ok = await _bot_join(survivors[0], survivors[1]) and ok
 	_finish(ok)
 
@@ -250,6 +253,64 @@ func _case_far(label: String, a: PaperActor, b: PaperActor, id: String) -> bool:
 	var pass_case: bool = gap > 0.5
 	_log("%s %s : écart=%.3f s (attendu ~0,7)" % ["OK" if pass_case else "FAIL", label, gap])
 	b.position = keep
+	await _reset([a, b])
+	return pass_case
+
+func _music_players() -> Array:
+	var result: Array = []
+	for entry: Dictionary in world.emote_sync._music: result.append((entry.player as Node).get_instance_id())
+	return result
+
+func _case_music(label: String, a: PaperActor, b: PaperActor, c: PaperActor) -> bool:
+	await _reset([a, b, c])
+	var keep: Vector3 = c.position
+	c.position = a.position + Vector3(0.0, 0.0, 1.6)
+	world._start_emote(b, "dance_golden")
+	await _wait_clock(0.6)
+	var first: Array = _music_players()
+	world._start_emote(a, "dance_golden")
+	await _wait_clock(0.4)
+	world._start_emote(c, "dance_golden")
+	await _wait_clock(0.4)
+	var joined: Array = _music_players()
+	world.emote_sync.cancel(b)
+	await _wait_clock(0.4)
+	var left: Array = _music_players()
+	var pass_case: bool = first.size() == 1 and joined == first and left == first
+	_log("%s %s : lecteurs %s -> %s -> %s" % ["OK" if pass_case else "FAIL", label, str(first), str(joined), str(left)])
+	c.position = keep
+	await _reset([a, b, c])
+	return pass_case
+
+func _case_long(label: String, a: PaperActor, b: PaperActor) -> bool:
+	await _reset([a, b])
+	world._start_emote(a, "dance_floss")
+	# A danse depuis presque PaperDances.MAX_SECONDS.
+	var shift: float = PaperDances.MAX_SECONDS - 1.0
+	a.effects["emote_epoch"] = float(a.effects.emote_epoch) - shift
+	a.effects["last_emote"] = float(a.effects.last_emote) - shift
+	await _wait_clock(0.2)
+	world._start_emote(b, "dance_floss")
+	var same_epoch: bool = absf(float(a.effects.get("emote_epoch", 0.0)) - float(b.effects.get("emote_epoch", 1.0))) < 0.0001
+	await _wait_clock(1.6)
+	var a_done: bool = not a.effects.has("emote_id")
+	var b_dancing: bool = str(b.effects.get("emote_id", "")) == "dance_floss"
+	var pass_case: bool = same_epoch and a_done and b_dancing
+	_log("%s %s : même époque=%s, A arrêté à sa limite=%s, B danse encore=%s" % ["OK" if pass_case else "FAIL", label, str(same_epoch), str(a_done), str(b_dancing)])
+	await _reset([a, b])
+	return pass_case
+
+func _case_sit(label: String, a: PaperActor, b: PaperActor) -> bool:
+	await _reset([a, b])
+	world._start_emote(a, "sit")
+	await _wait_clock(3.0)
+	var a_before: float = float(a.effects.get("emote_time", 0.0))
+	world._start_emote(b, "sit")
+	await _wait_clock(0.2)
+	var a_after: float = float(a.effects.get("emote_time", 0.0))
+	var tb: float = float(b.effects.get("emote_time", -1.0))
+	var pass_case: bool = a_after > a_before and tb < 0.5
+	_log("%s %s : A %.2f -> %.2f (pas de redémarrage), B commence à %.2f s" % ["OK" if pass_case else "FAIL", label, a_before, a_after, tb])
 	await _reset([a, b])
 	return pass_case
 

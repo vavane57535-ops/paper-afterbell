@@ -22,7 +22,7 @@ const MUSIC_TOLERANCE: float = 0.15
 
 var world: Node
 var rng: RandomNumberGenerator = RandomNumberGenerator.new()
-var _music: Dictionary = {}
+var _music: Array[Dictionary] = []
 var _pending: Array[Dictionary] = []
 var _bot_until: Dictionary = {}
 var _voices: Array[AudioStreamPlayer3D] = []
@@ -47,8 +47,9 @@ func start(actor: PaperActor, id: String) -> bool:
 		var shared: float = float(lead.effects.get("emote_epoch", clock))
 		if clock - shared <= PaperEmotes.join_window(id):
 			epoch = shared
-		else:
+		elif not PaperEmotes.holds(id):
 			# Rejoint trop tard : tout le groupe recommence avec le nouveau venu.
+			# (Pose tenue déjà installée : le nouveau venu fait sa propre entrée, le groupe reste assis.)
 			for other: PaperActor in group(id, shared):
 				other.effects["emote_epoch"] = clock
 				other.effects["emote_time"] = 0.0
@@ -89,7 +90,11 @@ func tick(_delta: float) -> void :
 		var id: String = str(actor.effects.emote_id)
 		var t: float = clock - float(actor.effects.get("emote_epoch", clock))
 		actor.effects["emote_time"] = t
-		if not actor.active() or actor.move_input.length_squared() > 0.02 or float(actor.effects.get("stun", 0)) > 0 or t > PaperEmotes.duration(id): cancel(actor)
+		# Émote ponctuelle : finit avec le temps du groupe. Danse ou pose tenue : chacun garde sa
+		# propre durée depuis son entrée (rejoindre un groupe tard ne coupe pas la danse).
+		var looping: bool = PaperDances.is_dance(id) or PaperEmotes.holds(id)
+		var elapsed: float = clock - float(actor.effects.get("last_emote", clock)) if looping else t
+		if not actor.active() or actor.move_input.length_squared() > 0.02 or float(actor.effects.get("stun", 0)) > 0 or elapsed > PaperEmotes.duration(id): cancel(actor)
 	_tick_bots()
 
 
@@ -127,45 +132,62 @@ func extrapolate(delta: float) -> void :
 
 
 func update_music() -> void :
+	# Un lecteur 3D par groupe de danseurs synchronisés (même danse, même époque). Les lecteurs
+	# sont rattachés au groupe par son époque, pas par ses membres : quelqu'un qui rejoint ou
+	# quitte le groupe ne coupe pas la musique.
 	var clusters: Array[Dictionary] = []
 	if world.phase == "playing":
 		for actor: PaperActor in world.actors.values():
 			var id: String = str(actor.effects.get("emote_id", ""))
 			if not PaperDances.is_dance(id) or not actor.alive: continue
 			var t: float = float(actor.effects.get("emote_time", 0.0))
+			var epoch: float = _epoch_of(actor)
 			var found: Dictionary = {}
 			for cluster: Dictionary in clusters:
-				if cluster.id == id and absf(float(cluster.time) - t) < MUSIC_TOLERANCE:
+				if cluster.id == id and absf(float(cluster.epoch) - epoch) < MUSIC_TOLERANCE:
 					found = cluster
 					break
 			if found.is_empty():
-				found = {"id": id, "time": t, "sum": Vector3.ZERO, "count": 0, "key": actor.id}
+				found = {"id": id, "time": t, "epoch": epoch, "sum": Vector3.ZERO, "count": 0}
 				clusters.append(found)
 			found.sum += actor.position
 			found.count += 1
-			found.key = mini(int(found.key), actor.id)
-	var wanted: Dictionary = {}
-	for cluster: Dictionary in clusters: wanted[str(cluster.id) + ":" + str(cluster.key)] = cluster
-	for key: Variant in _music.keys():
-		if not wanted.has(key):
-			(_music[key] as Node).queue_free()
-			_music.erase(key)
-	for key: Variant in wanted:
-		var cluster: Dictionary = wanted[key]
+	for entry: Dictionary in _music: entry.used = false
+	for cluster: Dictionary in clusters:
 		var stream: AudioStream = PaperDances.music(str(cluster.id))
 		if stream == null: continue
+		var entry: Dictionary = {}
+		for candidate: Dictionary in _music:
+			if not bool(candidate.used) and candidate.id == cluster.id and absf(float(candidate.epoch) - float(cluster.epoch)) < MUSIC_TOLERANCE:
+				entry = candidate
+				break
 		var length: float = maxf(stream.get_length(), 0.1)
 		var want: float = fposmod(float(cluster.time), length)
-		var player: AudioStreamPlayer3D = _music.get(key)
-		if player == null:
+		var player: AudioStreamPlayer3D
+		if entry.is_empty():
 			player = AudioStreamPlayer3D.new();player.stream = stream;player.bus = world.audio.MUSIC_BUS;player.unit_size = 9.0;player.max_distance = 45.0;player.volume_db = 4.0
-			add_child(player);_music[key] = player
+			add_child(player)
+			entry = {"id": cluster.id, "epoch": cluster.epoch, "player": player, "used": false}
+			_music.append(entry)
 			player.play(want)
+		player = entry.player
+		entry.epoch = cluster.epoch
+		entry.used = true
 		player.global_position = cluster.sum / float(cluster.count) + Vector3.UP * 1.2
 		if not player.playing: player.play(want)
 		else:
 			var drift: float = absf(player.get_playback_position() - want)
 			if drift > 0.12 and drift < length - 0.12: player.seek(want)
+	for i: int in range(_music.size() - 1, -1, -1):
+		if not bool(_music[i].used):
+			(_music[i].player as Node).queue_free()
+			_music.remove_at(i)
+
+# Époque du groupe : connue de l'hôte ; chez un client, déduite du dernier instantané.
+func _epoch_of(actor: PaperActor) -> float:
+	var fx: Dictionary = actor.effects
+	if fx.has("emote_epoch"): return float(fx.emote_epoch)
+	return world.clock - float(fx.get("_emote_snap", fx.get("emote_time", 0.0)))
 
 
 
@@ -213,7 +235,9 @@ func _invite_bots(actor: PaperActor, id: String) -> void :
 		if not other.bot or other.killer or other == actor or other.effects.has("emote_id"): continue
 		if other.position.distance_to(actor.position) > BOT_JOIN_RANGE or not _bot_safe(other): continue
 		if rng.randf() > BOT_JOIN_CHANCE: continue
-		_pending.append({"actor": other.id, "id": id, "at": world.clock + rng.randf_range(0.35, 1.2)})
+		# Un bot rejoint toujours à temps : il ne fait jamais redémarrer l'émote du joueur.
+		var latest: float = 1.2 if PaperDances.is_dance(id) or PaperEmotes.holds(id) else clampf(PaperEmotes.join_window(id) * 0.85, 0.4, 1.2)
+		_pending.append({"actor": other.id, "id": id, "at": world.clock + rng.randf_range(0.35, latest)})
 
 func _tick_bots() -> void :
 	for i: int in range(_pending.size() - 1, -1, -1):
