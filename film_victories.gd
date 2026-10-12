@@ -1398,7 +1398,7 @@ func _fire(kind: String, data: Dictionary) -> void :
 						item.node.visible = false
 		"thunder":
 			if is_instance_valid(_thunder_player) and _thunder_player.stream and is_instance_valid(world.audio):
-				_thunder_player.volume_db = float(world.audio.volume_to_db(float(world.audio.effects_volume))) + linear_to_db(0.6 * float(data.get("gain", 1.0)))
+				_thunder_player.volume_db = float(world.audio.volume_to_db(float(world.audio.effects_volume))) + linear_to_db(0.6 * float(data.get("gain", 1.0)) * PaperAudio.FILM_SFX_TRIM)
 				_thunder_player.play(0.0)
 		"sound":
 			cinema._sound(str(data.kind), cinema._spot(data.at), float(data.get("gain", 1.0)), float(data.get("pitch", 1.0)))
@@ -1635,10 +1635,12 @@ func _update_audio(t: float, delta: float) -> void :
 	var audio: Node = world.audio
 	var music_db: float = -80.0
 	var sfx_db: float = -80.0
-	# the scores are mastered at -18 LUFS like the game's tracks: same level as PaperAudio.MUSIC_LEVEL
+	# the scores are mastered at -18 LUFS like the game's tracks; the PaperMusic bus already applies the
+	# Music slider and PaperAudio.MUSIC_LEVEL (same level as the LMS themes). Rain, TV and thunder keep the
+	# balance the film was mixed with against the score (PaperAudio.FILM_SFX_TRIM).
 	if is_instance_valid(audio):
-		music_db = float(audio.volume_to_db(float(audio.music_volume))) + linear_to_db(0.82)
-		sfx_db = float(audio.volume_to_db(float(audio.effects_volume)))
+		music_db = 0.0 if float(audio.music_volume) > 0.001 else -80.0
+		sfx_db = float(audio.volume_to_db(float(audio.effects_volume))) + linear_to_db(PaperAudio.FILM_SFX_TRIM)
 	var paused: bool = delta <= 0.0
 	if is_instance_valid(_thunder_player) and _thunder_player.playing: _thunder_player.stream_paused = paused
 	_sync(_music, t, music_db, paused, false)

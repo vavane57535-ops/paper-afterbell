@@ -132,6 +132,10 @@ func setup(owner: Node) -> void :
 	_bonus_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_bonus_label.visible = false
 	_layer.add_child(_bonus_label)
+	# Serveur dédié : seule la simulation sert (begin/tick, appelés par le combat), pas la mise en scène.
+	if bool(world.get("dedicated")):
+		set_process(false)
+		set_physics_process(false)
 
 
 func _film_light(light_name: String, color: Color, reach: float) -> OmniLight3D:
@@ -168,8 +172,8 @@ func clear() -> void :
 	_debris.clear()
 	_restore_wrecks(true)
 	for word: Dictionary in _words: (word.node as Label3D).visible = false
-	if _camera_id >= 0: _hold_rig(false)
 	_camera_id = -1
+	_drop_camera()
 	_camera_blend = 0.0
 	_bars_amount = 0.0
 	for bar: ColorRect in _bars: bar.visible = false
@@ -181,6 +185,17 @@ func clear() -> void :
 	_comic_guard(false)
 
 
+
+
+# Vrai pendant un plan d'exécution sur ce poste (bandes noires, caméra de cinéma).
+func cinematic() -> bool:
+	return _camera_id >= 0
+
+
+# Rend la caméra sans fondu (fin de manche, nettoyage) : le film ou la vue de jeu reprennent la main.
+func _drop_camera() -> void:
+	var rig = world.get("camera_rig") if world != null else null
+	if rig != null: rig.release_control(self, 0.0)
 
 
 func busy(actor) -> bool:
@@ -552,7 +567,10 @@ func _process(delta: float) -> void :
 		# « +0:45 » est sur un calque au-dessus de l'interface : il ne doit pas rester figé sur le menu pause.
 		if _bonus_label.visible: _bonus_label.visible = false
 		return
-	if str(world.phase) != "playing":
+	# Débris et accessoires restent dans la partie : ni dans le film de fin, ni sur l'écran des résultats.
+	var in_round: bool = str(world.phase) == "playing"
+	if _props_root.visible != in_round: _props_root.visible = in_round
+	if not in_round:
 		for id: Variant in _shows.keys(): _end_show(int(id), true)
 		# Manche finie pendant une exécution (dernière victime) : les bandes noires
 		# et le HUD estompé ne doivent pas rester sur le film de fin.
@@ -560,7 +578,7 @@ func _process(delta: float) -> void :
 			_camera_id = -1
 			_bars_amount = 0.0
 			_comic_guard(false)
-			_hold_rig(false)
+			_drop_camera()
 	for id: Variant in _shows.keys():
 		var show: Dictionary = _shows[id]
 		var hold: float = float(show.get("hold", 0.0))
@@ -936,6 +954,7 @@ func camera_override(delta: float) -> bool:
 	for candidate: Dictionary in _shows.values():
 		# Acteur disparu (déconnexion : son id change) : pas de plan sur lui.
 		if world.actors.get(int(candidate.victim)) == null or world.actors.get(int(candidate.killer)) == null: continue
+		if (candidate.shots as Array).is_empty(): continue
 		if _involved(candidate) and float(candidate.t) < float(candidate.lead) + float(candidate.length) + 0.25:
 			show = candidate
 			break
@@ -944,16 +963,14 @@ func camera_override(delta: float) -> bool:
 		if _camera_id >= 0:
 			_camera_id = -1
 			_comic_guard(false)
-			_hold_rig(false)
 			var rig = world.get("camera_rig")
 			if rig != null:
-				rig._blend = 1.0
-				rig._blend_from = camera.global_transform
+				# Retour à la vue de jeu en fondu (position et champ de vision).
+				rig.release_control(self, BLEND_BACK)
 				rig._following = true
 			world.camera_anchor_ready = false
 		return false
 	if _camera_id != int(show.id):
-		if _camera_id < 0 and not (show.shots as Array).is_empty(): _hold_rig(true)
 		_camera_id = int(show.id)
 		_camera_from = camera.global_transform
 		_camera_fov = camera.fov
@@ -962,12 +979,15 @@ func camera_override(delta: float) -> bool:
 		world.camera_obscured_actor = null
 		_mute_comic_words(true)
 		_comic_guard(true)
+		# Le plan prend la caméra comme les autres plans en jeu : souris, stick, tactile et touche C
+		# (bandeau « CAMÉRA », recentrage) restent bloqués jusqu'à la fin du plan.
+		var holder = world.get("camera_rig")
+		if holder != null: holder.take_control(self)
 	_mute_comic_words(false)
 	var victim: PaperActor = world.actors.get(int(show.victim))
 	var alice: PaperActor = world.actors.get(int(show.killer))
 	var local: float = float(show.t) - float(show.lead)
 	var shots: Array = show.shots
-	if shots.is_empty(): return false
 	var index: int = 0
 	for k: int in range(shots.size()):
 		if float(shots[k][0]) <= local: index = k
@@ -1015,16 +1035,6 @@ func camera_override(delta: float) -> bool:
 		camera.rotate_object_local(Vector3.UP, 0.026 * amount * (sin(c * 37.0 + 0.5) * 0.7 + sin(c * 83.0 + 2.9) * 0.3))
 		camera.rotate_object_local(Vector3.BACK, 0.05 * amount * (sin(c * 29.0 + 1.1) * 0.7 + sin(c * 71.0 + 0.3) * 0.3))
 	return true
-
-
-# Pendant le plan, la caméra de jeu est réservée auprès du rig (sans qu'il la place : on l'écrit
-# nous-mêmes) : souris, stick, tactile et touche de mode de caméra sont alors ignorés, comme pour
-# tout plan cinématique (sinon C affichait son bandeau sur le film et la visée tournait en fond).
-func _hold_rig(on: bool) -> void :
-	var rig = world.get("camera_rig") if world != null else null
-	if rig == null or not rig.has_method("take_control"): return
-	if on: rig.take_control(self, 0.0)
-	else: rig.release_control(self, 0.0)
 
 
 func _shot_point(show: Dictionary, value: Variant, u: float, holder: PaperVisual, body: PaperVisual) -> Vector3:
@@ -1147,6 +1157,9 @@ func _hud_alpha(alpha: float) -> void :
 	if not is_equal_approx(hud.modulate.a, alpha): hud.modulate.a = alpha
 	var toasts: Variant = ui.get("_toast_box")
 	if toasts is Control and is_instance_valid(toasts): (toasts as Control).modulate.a = alpha
+	# Mobile : les commandes tactiles s'estompent avec le HUD (sinon joystick et boutons restent par-dessus le plan).
+	var touch: Variant = world.get("mobile_controls")
+	if touch is Control and is_instance_valid(touch): (touch as Control).modulate.a = alpha
 
 
 

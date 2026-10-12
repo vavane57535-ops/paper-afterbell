@@ -42,7 +42,8 @@ func close() -> void :
 	release_focus()
 	if world.phase == "playing" and not world.pause_open: world.capture_gameplay_mouse()
 
-# Mis à terre ou exécuté la roue ouverte : elle se referme (sinon son voile restait sur le film de l'exécution).
+# Mis à terre, exécuté ou fin de manche la roue ouverte : elle se referme (sinon son voile restait sur
+# le film de l'exécution ; Alice, elle, ne peut pas ouvrir la roue).
 func _process(_delta: float) -> void :
 	if not visible or world == null: return
 	var actor: PaperActor = world.local_actor()
