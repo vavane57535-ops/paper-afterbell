@@ -2224,6 +2224,8 @@ func show_ending(winner: String, was_lms: bool) -> void :
 		header.add_child(lms_line)
 	if forfeit:
 		header.add_child(_label("ALICE A QUITTÉ LA PARTIE · LE BLOCUS A PAYÉ", "caps_wide", 15, T.GOLD))
+		# Forfait hors réseau = c'est l'hôte qui jouait Alice : son salon n'existe plus.
+		if not world.networked: header.add_child(_label("L’hôte jouait Alice : son salon est fermé.", "medium", 15, T.PAPER_DIM))
 
 	result_view = PaperResultsView.new()
 	overlay.add_child(result_view)
