@@ -278,6 +278,16 @@ func tick(delta: float) -> void :
 		if t > lead + float(scene.length) + 0.4 and (victim == null or not victim.alive):
 			if alice != null and not bool(scene.released): _release(scene, alice)
 			_scenes.erase(id)
+	# Verrou orphelin (Alice reprise par l'IA après une déconnexion : son id change) :
+	# kill_lock n'est pas un effet minuté, on le lève ici.
+	for actor in world.actors.values():
+		if float(actor.effects.get("kill_lock", 0.0)) > 0.0 and not _holds_lock(actor): actor.effects["kill_lock"] = 0.0
+
+
+func _holds_lock(actor) -> bool:
+	for scene: Dictionary in _scenes.values():
+		if int(scene.killer) == int(actor.id) and not bool(scene.released): return true
+	return false
 
 
 func _release(scene: Dictionary, alice) -> void :
@@ -476,8 +486,13 @@ func _restore_bones(show: Dictionary) -> void :
 
 func _process(delta: float) -> void :
 	if world == null: return
-	if str(world.phase) != "playing" and not _shows.is_empty():
+	if str(world.phase) != "playing":
 		for id: Variant in _shows.keys(): _end_show(int(id), true)
+		# Manche finie pendant une exécution (dernière victime) : les bandes noires
+		# et le HUD estompé ne doivent pas rester sur le film de fin.
+		if _camera_id >= 0:
+			_camera_id = -1
+			_bars_amount = 0.0
 	for id: Variant in _shows.keys():
 		var show: Dictionary = _shows[id]
 		var hold: float = float(show.get("hold", 0.0))

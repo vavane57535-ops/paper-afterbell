@@ -19,6 +19,7 @@ var out_dir: String = "user://kill_frames"
 var time_scale: float = 0.4
 var preset_time: float = -1.0
 var reset_mid: bool = false
+var last_kill: bool = false
 var cams: Array[String] = ["cine"]
 var headless: bool = false
 var failures: Array[String] = []
@@ -44,6 +45,7 @@ func setup(w) -> void:
 			"--scale": time_scale = float(next)
 			"--time": preset_time = float(next)
 			"--reset-mid": reset_mid = true
+			"--last": last_kill = true
 			"--cam": cams.assign(next.split(",", false))
 	if targets.is_empty(): targets.assign(NAMES)
 	if frames.is_empty() and not headless: frames.assign([0.15, 0.6, 1.2, 1.9, 2.6, 3.4])
@@ -145,6 +147,12 @@ func _scene(victim_name: String, phase6: bool) -> void:
 		world.event("phase6", {"actor": alice.id, "active": true, "true_form": true, "duration": 30.0, "position": alice.position})
 		await get_tree().create_timer(2.2).timeout
 	if preset_time >= 0.0: world.time_left = preset_time
+	if last_kill:
+		# Dernière survivante : les autres sont éliminés, la LMS se déclenche et
+		# l'exécution termine la manche.
+		for a: PaperActor in world.actors.values():
+			if a != victim and not a.killer and a.alive: world.eliminate(a)
+		await get_tree().create_timer(0.5).timeout
 	await get_tree().create_timer(0.6).timeout
 	var exit_before: bool = world.exit_flow.opened
 	var before: float = float(world.time_left)
@@ -178,6 +186,8 @@ func _scene(victim_name: String, phase6: bool) -> void:
 	var index: int = 0
 	var shots: Array[float] = frames.duplicate()
 	while float(world.clock) - clock0 < total + 1.2:
+		# Fin de manche (--last) : l'horloge de partie s'arrête avec la phase « playing ».
+		if str(world.phase) != "playing": break
 		var t: float = float(world.clock) - clock0
 		if float(alice.effects.get("kill_lock", 0.0)) > 0.0: lock_seen = true
 		stun_seen = maxf(stun_seen, float(alice.effects.get("stun", 0.0)))
@@ -221,6 +231,13 @@ func _scene(victim_name: String, phase6: bool) -> void:
 		if exit_before and not world.exit_flow.opened and not phase6: failures.append(tag + ": la sortie s'est refermée après le bonus")
 	results.append(line)
 	print("KILL_RESULT ", line)
+	if last_kill:
+		var line_last: String = "%s last phase=%s lms=%s camera_id=%d bars=%.2f hud_a=%.2f" % [tag, str(world.phase), str(world.lms), int(world.kill_scenes._camera_id), float(world.kill_scenes._bars_amount), float(world.ui.hud.modulate.a)]
+		results.append(line_last)
+		print("KILL_RESULT ", line_last)
+		if str(world.phase) == "playing": failures.append(tag + ": la manche aurait dû se terminer")
+		if int(world.kill_scenes._camera_id) >= 0 or float(world.kill_scenes._bars_amount) > 0.0: failures.append(tag + ": bandes noires restées sur la fin")
+		return
 	if str(world.phase) != "playing": failures.append(tag + ": la manche s'est terminée pendant l'exécution (%s)" % str(world.phase))
 	if victim.alive: failures.append(tag + ": la victime est encore vivante")
 	if not lock_seen: failures.append(tag + ": Alice jamais verrouillée")
