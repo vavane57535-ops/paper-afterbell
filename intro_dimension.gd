@@ -360,7 +360,7 @@ func _build_door() -> void :
 	_paper_box(door, Vector3(0.45, 4.6, 0.5), Vector3(-1.45, 2.3, 0), frame_color)
 	_paper_box(door, Vector3(0.45, 4.6, 0.5), Vector3(1.45, 2.3, 0), frame_color)
 	_paper_box(door, Vector3(3.35, 0.45, 0.5), Vector3(0, 4.6, 0), frame_color)
-	var sign: Label3D = Label3D.new();door.add_child(sign);sign.text = "SORTIE";sign.position = Vector3(0, 5.2, 0.3);sign.font_size = 64;sign.pixel_size = 0.012;sign.modulate = Color(1.0, 0.92, 0.75)
+	var sign: Label3D = Label3D.new();door.add_child(sign);sign.text = PaperLanguage.t("SORTIE");sign.position = Vector3(0, 5.2, 0.3);sign.font_size = 64;sign.pixel_size = 0.012;sign.modulate = Color(1.0, 0.92, 0.75)
 	var quad: QuadMesh = QuadMesh.new();quad.size = Vector2(2.5, 4.2)
 	var glow: MeshInstance3D = _mesh_node(quad, door_material, "Light", door);glow.position = Vector3(0, 2.15, 0)
 	for i: int in range(5):

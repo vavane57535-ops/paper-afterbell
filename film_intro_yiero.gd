@@ -1556,7 +1556,9 @@ func _write_school() -> void :
 		spark_t += 0.55
 	_cue(171.2, "event", "overheat", {"position": {"a": L}, "active": true})
 	_say(171.22, "Lysia", "Armure à 40 %… Je tiens encore.", 0.3, false, 1.3)
-	_shot(171.1, {"rel": {"a": L}, "eye": [Vector3(2.2, 0.72, 0.7), Vector3(2.0, 0.7, 0.6)], "look": {"a": L, "h": 0.78}, "fov": [38, 36], "hand": 0.3})
+	# Lysia à genoux, tête basse : elle relève la tête vers la caméra (basse, face à elle) pour parler.
+	_do(L, 170.9, "state", {"look_up": 0.55});_do(L, 173.6, "unset", ["look_up"])
+	_shot(171.1, {"rel": {"a": L}, "eye": [Vector3(-2.2, 0.55, 0.75), Vector3(-2.0, 0.56, 0.62)], "look": {"a": L, "h": 0.78}, "fov": [38, 36], "hand": 0.3})
 
 	_face(U, 173.6, "at", S);_do(U, 173.6, "mood", "surprise");_do(U, 173.6, "emote", "")
 	_say(173.72, "Usayuko", "SIMON ?! T'étais passé où, toi ?!", 0.4, true)
