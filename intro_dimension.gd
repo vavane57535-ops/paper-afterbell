@@ -290,7 +290,14 @@ func _build_debris() -> void :
 		var x: float = _rng.randf_range(-24.0, 24.0) if near_path else _rng.randf_range(-170.0, 170.0)
 		var z: float = _rng.randf_range(-330.0, 120.0)
 		var y: float = _rng.randf_range(0.6, 9.0) if near_path else _rng.randf_range(1.0, 70.0)
-		if big: y = _rng.randf_range(8.0, 60.0);x = _rng.randf_range(-160.0, 160.0)
+		if big:
+			y = _rng.randf_range(8.0, 60.0);x = _rng.randf_range(-160.0, 160.0)
+			# Pas de grands débris devant le visage de Yiero ni entre lui et les élèves (plans de révélation).
+			if absf(x) < 48.0 and z > -60.0: x = signf(x + 0.01) * (48.0 + fmod(absf(x) * 7.3, 110.0))
+		elif near_path and y > 2.4 and absf(x) < 9.0 and z > -26.0 and z < 72.0:
+			# Couloir caméra → visage de Yiero dégagé au-dessus des têtes (les débris proches de l'objectif
+			# masquaient le visage pendant la révélation).
+			x = signf(x + 0.01) * (9.0 + fmod(absf(x) * 5.1, 15.0))
 		var size: float = _rng.randf_range(0.18, 0.75) if not big else _rng.randf_range(3.0, 8.0)
 		var basis: Basis = Basis.from_euler(Vector3(_rng.randf() * TAU, _rng.randf() * TAU, _rng.randf() * TAU)).scaled(Vector3(size, size * _rng.randf_range(0.7, 1.35), size))
 		multimesh.set_instance_transform(i, Transform3D(basis, Vector3(x, y, z)))
@@ -353,7 +360,7 @@ func _build_door() -> void :
 	_paper_box(door, Vector3(0.45, 4.6, 0.5), Vector3(-1.45, 2.3, 0), frame_color)
 	_paper_box(door, Vector3(0.45, 4.6, 0.5), Vector3(1.45, 2.3, 0), frame_color)
 	_paper_box(door, Vector3(3.35, 0.45, 0.5), Vector3(0, 4.6, 0), frame_color)
-	var sign: Label3D = Label3D.new();door.add_child(sign);sign.text = "SORTIE";sign.position = Vector3(0, 5.2, 0.3);sign.font_size = 64;sign.pixel_size = 0.012;sign.modulate = Color(1.0, 0.92, 0.75)
+	var sign: Label3D = Label3D.new();door.add_child(sign);sign.text = PaperLanguage.t("SORTIE");sign.position = Vector3(0, 5.2, 0.3);sign.font_size = 64;sign.pixel_size = 0.012;sign.modulate = Color(1.0, 0.92, 0.75)
 	var quad: QuadMesh = QuadMesh.new();quad.size = Vector2(2.5, 4.2)
 	var glow: MeshInstance3D = _mesh_node(quad, door_material, "Light", door);glow.position = Vector3(0, 2.15, 0)
 	for i: int in range(5):

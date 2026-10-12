@@ -1301,6 +1301,9 @@ func _process_frame(delta: float) -> void :
 		else: ui.update_film("", "", prologue.black)
 		presentation.update_visuals(delta)
 		return
+	if prologue and not prologue.kind.is_empty():
+		if prologue.gallery_mode: prologue.stop()
+		else: _abort_prologue()
 	if phase == "ending":
 		cinema += delta
 		if not ending_presented and cinema >= film.duration:
@@ -1756,6 +1759,8 @@ func _prologue_wanted() -> bool:
 	var args: PackedStringArray = OS.get_cmdline_user_args()
 	if dedicated or test_mode or networked or intro_seen or not capture_path.is_empty() or "--no-intro" in args: return false
 	if ("--tool" in args or "--menu-preview" in args) and not "--first-launch" in args: return false
+	for arg: String in args:
+		if arg.begins_with("--server-host") or arg.begins_with("--join-ticket"): return false
 	return prologue != null
 
 func play_prologue() -> void :
@@ -1781,6 +1786,14 @@ func end_prologue() -> void :
 	for node: Node3D in objective_nodes: node.show()
 	phase = "menu";ui.show_main()
 	_update_camera(1.0)
+
+# Le prologue a été interrompu de l'extérieur (connexion à un salon…) : on le nettoie sans revenir au menu.
+func _abort_prologue() -> void :
+	prologue.stop();ui.hide_film()
+	audio.preview_end()
+	_prologue_map = ""
+	stage.show()
+	for node: Node3D in objective_nodes: node.show()
 
 func _begin_film(introduction: bool) -> void :
 	var people: Array = []

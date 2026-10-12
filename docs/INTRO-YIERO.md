@@ -10,9 +10,13 @@ revisionnable dans **Cinémathèque → « Prologue — Yiero »** (première en
 - Drapeau de premier lancement : `user://settings.cfg`, section `[story]`, clé `intro_seen` (booléen).
   Pour revoir le lancement automatique : supprimer la clé (ou le fichier).
 - Passer le film : **maintenir** Échap, Espace, Entrée ou le bouton A de la manette (~1,1 s, jauge en bas à droite).
-- Musique provisoire : `audio/cinematic/intro_yiero.ogg` (196 s, synthétisée par `tools/synth_intro_audio.py`).
-  **À remplacer** par une vraie composition au **même minutage** (feuille de minutage plus bas).
-- Bruitages : `audio/cinematic/sfx_*.wav` (synthétisés par le même script) + `audio/sfx/*` existants.
+- Musique : `audio/cinematic/intro_yiero.ogg` (196,0 s), **composition définitive** faite section par section
+  sur la feuille de minutage plus bas, normalisée à **-18 LUFS intégrés** (crête -4,9 dBFS). Le film a été recalé
+  sur les points de synchro **mesurés** dans le fichier (voir « Synchro mesurée »).
+- Bruitages : `audio/cinematic/sfx_*.wav`, **définitifs**, synthétisés par `tools/synth_intro_audio.py` (voix de
+  géant à formants pour Yiero, impacts à résonateurs, papier granulaire, réverbération), calés en RMS court terme
+  et dosés dans le film par `FILM_SFX_LEVEL` (`film_intro_yiero.gd`) ; plus quelques `audio/sfx/*` du jeu.
+- Mixage de contrôle hors du jeu : `tools/mix_intro_preview.py` (voir « Vérification »).
 - Voix : **aucune voix humaine** (retirées en 0.13.1) ; chaque personnage parle par « blips » synthétisés
   (une petite onomatopée par lettre, comme dans Undertale), sous-titres français.
 
@@ -20,13 +24,17 @@ revisionnable dans **Cinémathèque → « Prologue — Yiero »** (première en
 
 | Perso | Caractère dans le film | Blip |
 |---|---|---|
-| Simon | éclaireur, rapide, nerveux mais courageux, parle vite | carré aigu ~640 Hz, 34 ms, 40 lettres/s |
-| Ashura | observateur posé, bricoleur (drone, rollers), protecteur, phrases courtes | triangle ~300 Hz, 52 ms, 24 lettres/s |
-| Yiero | démon colossal, sadique, moqueur, lent | dent de scie ~70 Hz + sous-octave + saturation + bruit, 120 ms, 11 lettres/s |
-| Usayuko | protecteur, bagarreur, rieur, déjanté | carré grave ~250 Hz, 44 ms |
-| Elly | soigneuse calme et rassurante | sinus ~540 Hz, 48 ms |
-| Bleuette | timide, bégaie | sinus aigu ~860 Hz, 36 ms |
-| Lysia | automate, voix « robot » cassée | carré bit-crushé + modulation en anneau ~430 Hz |
+| Simon | éclaireur, rapide, nerveux mais courageux, parle vite | impulsion 30 % aiguë ~620 Hz, 30 ms, petite attaque montante, 34 lettres/s |
+| Ashura | observateur posé, bricoleur (drone, rollers), protecteur, phrases courtes | triangle doux ~290 Hz, 50 ms, 22 lettres/s |
+| Yiero | démon colossal, sadique, moqueur, lent | dent de scie 66 Hz + sous-octave + formants « o » + souffle, saturé, trémolo 23 Hz, 130 ms, 12 lettres/s |
+| Usayuko | protecteur, bagarreur, rieur, déjanté | carré grave ~240 Hz, 42 ms, 30 lettres/s |
+| Elly | soigneuse calme et rassurante | sinus + harmoniques ~540 Hz, 50 ms |
+| Bleuette | timide, bégaie | sinus aigu tremblé ~860 Hz, 36 ms |
+| Lysia | automate, voix « robot » cassée | impulsion modulée en anneau (61 Hz) et ré-échantillonnée (7 kHz) ~430 Hz, 45 ms |
+
+Blips synthétisés au lancement du film (`intro_overlay.gd`, oscillateurs à bande limitée, 44,1 kHz, 4 variantes
+par perso, niveau RMS calé par voix) ; un blip par lettre, jamais deux du même perso à moins de 75 % de sa durée
+(pas de bourdonnement sur les répliques rapides) ; répliques criées +2 dB.
 
 Armes bénies des dieux : **lumière dorée qui jaillit des poings** de Simon et d'Ashura, en plus de leurs
 outils habituels du jeu (Simon : flashbang, poing éclair, course éclair / esquive ; Ashura : drone, rollers).
@@ -48,20 +56,20 @@ Temps en secondes depuis le début du film.
 | # | Temps | Plan | Action / visage | Dialogue | Son |
 |---|---|---|---|---|---|
 | 6 | 30,0–34,0 | Gros plan Simon, lente poussée | Peur ; derrière lui, dans le noir, **deux yeux ronds pâles** s'ouvrent | — | chute de sous-basse |
-| 7 | 34,0–40,0 | Contrechamp large, contre-plongée | Seuls les yeux et le **sourire** existent ; le sourire se fend lentement, dents pointues, gencives rouges, reflets humides | Yiero : « Hm hm hm… Deux petites lumières… » | cordes dissonantes |
+| 7 | 34,0–40,0 | Contrechamp large, contre-plongée | Seuls les yeux et le **sourire** existent ; le sourire se fend lentement, puis d'un coup sur le coup sourd de 38,0 (secousse), dents pointues, gencives rouges, reflets humides | Yiero : « Hm hm hm… Deux petites lumières… » | coup sourd 38,0, tic-tac 39–45 |
 | 8 | 40,0–46,0 | Panoramique vertical (tilt) de bas en haut | Révélation de la taille : épaules qui sortent de l'encre, mains griffues géantes qui émergent de chaque côté ; tremblements | — | grondement, crescendo |
 | 9 | 46,0–52,0 | Ultra contre-plongée au ras de l'encre | Le visage remplit l'écran, se penche ; **la mâchoire s'ouvre** → **RUGISSEMENT** (50,2) : onde de choc, tempête de papier | Yiero : « …perdues dans MA dimension. » | **impact 50,2** |
-| 10 | 52,0–58,0 | Plan moyen, vent de face | Ils résistent au souffle ; détermination ; à 55,0 **les poings s'embrasent d'or** | Ashura : « Simon. Les armes bénies. Maintenant. » / Simon : « Ouais ! On le renvoie d'où il vient ! » | montée héroïque, impact 55,0 |
+| 10 | 52,0–59,45 | Plan moyen, vent de face, gros plan Simon (55,3), insert main (56,75), plan bas à deux (57,75) | Ils résistent au souffle ; détermination ; à **56,95** (coup de la musique) **les poings s'embrasent d'or** | Ashura : « Simon. Les armes bénies. Maintenant. » / Simon : « Ouais ! On le renvoie d'où il vient ! » | queue du rugissement, coup 56,95, montée 58,6 |
 
 ### Acte III — Le combat (58 → 104)
 | # | Temps | Plan | Action | Dialogue | Son |
 |---|---|---|---|---|---|
-| 11 | 58,0–62,0 | Plan héroïque en contre-plongée, orbite lente | Dos à dos, poings dorés, Yiero en fond | — | **DROP 58,0** |
+| 11 | 59,45–61,9 | Plan héroïque en contre-plongée, orbite | Dos à dos, poings dorés, Yiero en fond | — | **DROP 59,45** |
 | 12 | 62,0–65,5 | Plongée large | La griffe s'abat (impact 63,2, **ralenti** 63,2–63,9) ; Simon esquive à gauche, Ashura file à droite en rollers | — | impact 63,2 |
 | 13 | 65,5–70,0 | Travelling rapide de profil | Course éclair de Simon (traînées) ; saut à 68,4 ; flashbang dorée lancée vers l'œil | — | whoosh |
 | 14 | 70,0–73,0 | Gros plan œil de Yiero | Explosion dorée (69,5) ; l'œil se plisse, la tête recule | — | flash, grognement |
 | 15 | 73,0–77,0 | Travelling bas sur Ashura en rollers | Glisse, lance le drone doré (74,6) → impact sur les dents (76,0), un éclat de dent saute | Simon : « Il recule ! Ashura, il recule ! » | impact 76,0 |
-| 16 | 77,0–82,0 | Over-the-shoulder derrière eux en plein saut | Double coup de poing doré sur la mâchoire, **ralenti 79,0–80,2**, onde d'or, la tête part en arrière | Ashura : « Ensemble ! Vise la mâchoire ! » | **impact 79,0**, accord majeur (espoir) |
+| 16 | 77,0–82,0 | Over-the-shoulder derrière eux en plein saut, puis plan large (79,4) | Double coup de poing doré sur la mâchoire vu de près (« BOUM ! »), **ralenti 79,0–80,2**, puis la tête part en arrière en plan large | Ashura : « Ensemble ! Vise la mâchoire ! » | **impact 79,0** |
 | 17 | 82,0–87,0 | Contre-champ par-dessus l'épaule de Yiero (masse noire au premier plan) | Ils atterrissent ; la tête revient lentement… le sourire s'élargit encore | Yiero : « Ha… Ha ha ha ha. C'est tout ? » | musique coupée, rire |
 | 18 | 87,0–92,0 | Plan large, ciel qui tourbillonne | Retournement : les yeux s'embrasent, l'ombre s'étend, la lueur dorée vacille | Yiero : « Votre petite lumière… je vais l'ÉTEINDRE. » | variation sombre |
 | 19 | 92,0–97,0 | Plan latéral rapide | Revers de main géant : Simon est projeté (**ralenti 92,9–93,4**), glisse sur l'encre | Ashura : « SIMON ! » | impact 92,9 |
@@ -72,7 +80,7 @@ Temps en secondes depuis le début du film.
 |---|---|---|---|---|---|
 | 21 | 104,0–109,0 | Gros plan bas sur Simon au sol | Douleur, panique, il tend la main | Simon : « ASHURA ! Lâche-le ! » | élégie |
 | 22 | 109,0–113,5 | Gros plan Ashura dans la griffe | Tristesse puis calme résigné, la lumière dorée s'éteint | Ashura : « Simon… cours. Ne te retourne pas. » | voix soliste |
-| 23 | 113,5–119,0 | Plan moyen puis large | Ashura pendu aux griffes devant la gueule grande ouverte ; **il est effacé** : il se décolore, puis se désintègre en papier et en encre des pieds à la tête (bord doré qui brûle), les lambeaux s'envolent vers la bouche de Yiero ; son drone tombe dans l'encre | — | déchirure de papier, souffle inversé |
+| 23 | 113,5–119,0 | Plan moyen de profil, puis contre-plongée derrière Ashura vers la gueule (114,6) | Ashura pendu aux griffes devant la gueule grande ouverte ; **il est effacé** : il se décolore, puis se désintègre en papier et en encre des pieds à la tête (bord doré qui brûle et l'éclaire), les lambeaux s'envolent vers la bouche de Yiero ; la gueule se referme sur le vide (117,6) | — | déchirure de papier, souffle inversé |
 | 24 | 119,0–122,0 | Très gros plan Simon | Désespoir, cri | Simon : « ASHURAAA ! » | **silence 119,2–121** |
 
 ### Acte V — La course-poursuite (122 → 148)
@@ -97,20 +105,20 @@ Temps en secondes depuis le début du film.
 | 33 | 154,0–157,5 | Hall de l'école (carte école) | Un portail de papier lumineux ; Simon en jaillit et roule au sol, épuisé ; dans le portail qui se referme, les yeux et le sourire de Yiero apparaissent une demi-seconde | — |
 | 34 | 157,5–162,0 | Panoramique filé vers le combat | **Usayuko contre Alice**, aura hyper stylée (flammes or et blanc, anneau de runes au sol, talismans de papier en orbite, éclairs) : griffe d'Alice, blocage, contre, coup de poing | — |
 | 35 | 162,0–166,0 | Plan large dynamique | Dropkick d'Usayuko, Alice projetée ; Usayuko éclate de rire | Usayuko : « HA HA ! C'est tout ce que t'as, Alice ?! » |
-| 36 | 166,0–170,0 | Sur le côté | Elly soigne Bleuette blessée (zone de soin, croix de soin) | Elly : « Tiens bon, Bleuette. Personne ne reste en arrière. » / Bleuette : « J-je vais bien… enfin, je crois… » |
-| 37 | 170,0–173,5 | Plan serré | Lysia à moitié cassée, à genoux branchée à une prise : étincelles électriques, lumière qui grésille, vapeur | Lysia : « Armure à quarante pour cent… Je tiens encore. » |
+| 36 | 166,0–170,0 | Sur le côté | Elly soigne Bleuette blessée (zone de soin, croix de soin) | Elly : « Tiens bon, Bleuette. Personne ne reste en arrière. » / Bleuette : « J-je vais bien… je crois… » |
+| 37 | 170,0–173,5 | Plan serré | Lysia à moitié cassée, à genoux branchée à une prise : étincelles électriques, lumière qui grésille, vapeur | Lysia : « Armure à 40 %… Je tiens encore. » |
 | 38 | 173,5–177,0 | Champ / contrechamp | Usayuko remarque Simon ; Simon se relève, le poing brille d'or une dernière fois | Usayuko : « SIMON ?! T'étais passé où, toi ?! » / Simon : « …Longue histoire. Je suis avec toi ! » |
-| 39 | 177,0–182,0 | Plan héroïque | Simon fonce et frappe Alice en même temps qu'Usayuko (179,0) → **arrêt sur image** façon case de BD, puis noir (181,6) | — |
+| 39 | 177,3–181,6 | Insert poing doré (177,3), plan large (177,85), impact (178,83) | Simon fonce (177,9) et frappe Alice en même temps qu'Usayuko (**178,95**, coup de la musique) → **arrêt sur image** façon case de BD (179,0 → 181,6), puis noir (181,6) | — |
 
 ### Acte VIII — Le titre (182 → 196)
 | # | Temps | Action |
 |---|---|---|
-| 40 | 182,0–184,6 | Noir ; les yeux de Yiero apparaissent en surimpression, le sourire s'ouvre |
+| 40 | 182,0–184,6 | Noir ; les yeux de Yiero s'ouvrent d'un coup (182,0, retour de la musique) en surimpression, le sourire s'ouvre |
 | 41 | 184,6 | **« PAPER AFTERBELL »** (logo du jeu) claque au centre |
 | 42 | 186,6–192,0 | Dessous, en rouge, tapé lettre par lettre avec la voix de Yiero : « Bienvenue dans votre nouvel enfer. » |
 | 43 | 192,0–196,0 | Les yeux et le sourire se dissolvent, fondu au noir → menu |
 
-## Feuille de minutage musicale (pour la vraie composition)
+## Feuille de minutage musicale (commande de la composition)
 
 Fichier attendu : `audio/cinematic/intro_yiero.ogg`, **196,0 s**, stéréo, 44,1/48 kHz, sans boucle.
 Le film suit le minutage ci-dessous à la seconde près (les impacts visuels tombent sur ces temps).
@@ -148,11 +156,55 @@ en majeur au moment d'espoir (79 s) et en boîte à musique désaccordée pour l
 | 186,6 | 192,0 | « Bienvenue… » | boîte à musique désaccordée sur le thème, très sinistre | 3 | — |
 | 192,0 | 196,0 | Fin | fondu au silence | 1→0 | 196,0 |
 
+## Synchro mesurée sur la musique livrée
+
+Enveloppe d'énergie (RMS par 50 ms) et spectrogramme du fichier final, comparés au film. La composition suit la
+feuille ci-dessus, avec trois écarts (montée héroïque, drop, coup final) sur lesquels le **film a été recalé**.
+
+| Musique (s) | Ce qu'on entend | Film |
+|---|---|---|
+| 26,5 → 29,0 | décroissance jusqu'au silence numérique 29,0–29,95 | le ciel s'éteint, Simon sursaute |
+| 30,0 | coup + chute | gros plan Simon, l'œil s'ouvre (bruitage de chute 30,3) |
+| 37,4 → 38,0 | montée puis coup sourd | le sourire se fend d'un coup, secousse |
+| 39 → 45 | tic-tac à chaque seconde | révélation de la taille, mains qui sortent de l'encre |
+| 46,0 | entrée de la section suspense | ultra contre-plongée |
+| 50,0–50,1 | trou puis impact massif | rugissement (50,05), onde de choc (50,2) |
+| 50,1 → 56,9 | longue queue de l'impact jusqu'au quasi-silence (−68 dB) | répliques d'Ashura et de Simon |
+| **56,95** | coup | **embrasement doré** (déplacé depuis 55,0) |
+| 58,5 / 58,6 → 59,45 | coupure nette, montée | plan bas à deux, poings dorés |
+| **59,45** | **drop** (taikos) | **plan héroïque** (déplacé depuis 58,0) |
+| 59,45 → 82 | combat dense, −19 à −22 dB | impacts portés par les bruitages (63,2, 69,45, 76,0, 79,0) |
+| 82,0 → 86,5 | décroissance (moquerie) | rire de Yiero |
+| 87,0 | reprise sombre | retournement |
+| 101 → 103,5 → 104,5 | fondu puis élégie | Ashura soulevé ; « ASHURA ! Lâche-le ! » à 105,4 |
+| 112 → 114 | montée | effacement (113,8) |
+| 119,0 → 121,0 | quasi-silence (−41 à −47 dB) | « ASHURAAA ! » |
+| 121,0 | reprise | poursuite |
+| 146,2 → 147,95 | fondu jusqu'au silence | « Tu ne m'échapperas JAMAIS. » |
+| 148,0 | coup tenu | plan par-dessus l'épaule, la porte |
+| 150,55 / 150,6 → 153,15 | silence puis acouphène (~10,5 kHz) | CHOMP (150,55) et blanc ; l'acouphène est dans la musique (plus de bruitage d'acouphène) |
+| 153,2 | accord + cloche | sonnerie de l'école |
+| 157,0 / 157,5 | silence puis groove | bagarre Usayuko / Alice |
+| 166 → 173 | groove filtré | dialogues côté soin |
+| 173,0 / 173,5 | trou puis reprise | Usayuko remarque Simon |
+| 177,9 → 178,9 | retombée | Simon fonce |
+| **178,95** | **coup final**, coupure 179,85, silence 179,9–181,95 | **coup double** (déplacé depuis 179,72) puis arrêt sur image 179,0 → 181,6, noir 181,6 |
+| 182,0 | drone + battements | les yeux de Yiero s'ouvrent |
+| 184,6 | coup du titre | logo « PAPER AFTERBELL » |
+| 186,5 → 192 | boîte à musique | « Bienvenue dans votre nouvel enfer. » |
+
+Bande-son dosée aux réglages par défaut (musique 70 %, effets 100 %) : musique ≈ −24 LUFS intégrés en jeu,
+répliques ≈ −16 à −19 LUFS momentanés, gros impacts ≈ −12 à −15 ; le limiteur du mix (−1,2 dBFS) n'est quasiment
+jamais sollicité (mesuré avec `tools/mix_intro_preview.py`).
+
 ## Vérification
 - `tools/test_intro.gd` (voir l'en-tête du fichier) : `--intro-mode scan` (lecture complète sans rendu, répliques,
   retours en arrière), `capture` (une image toutes les 2 s + moments clés ; lancer avec `--fixed-fps 8`),
   `gallery` (lecture/pause/avance/retour depuis la cinémathèque), `first` / `second` (premier lancement puis
-  lancement suivant, à lancer avec un `XDG_DATA_HOME` de test et `--first-launch`).
+  lancement suivant, à lancer avec un `XDG_DATA_HOME` de test et `--first-launch`), `audio` (feuille JSON des
+  bruitages, blips et répliques + contrôle de lisibilité des sous-titres), `blips` (blips du jeu en WAV).
+- `tools/mix_intro_preview.py DIR [--report]` : rejoue la bande-son complète aux gains du jeu dans un WAV à écouter
+  (après les modes `audio` et `blips` dans le même dossier) et relève la sonie par événement.
 - Le prologue ne se lance pas automatiquement avec `--simulate`, `--capture`, `--dedicated`, `--tool` (sauf
   `--first-launch`), `--menu-preview` ni `--no-intro`.
 

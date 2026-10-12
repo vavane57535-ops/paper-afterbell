@@ -12,17 +12,24 @@ const Logo = preload("res://ui_menu_logo.gd")
 const NAMES: Dictionary = {"Simon": "SIMON", "Ashura": "ASHURA", "Yiero": "YIERO", "Usayuko": "USAYUKO", "Elly": "ELLY", "Bleuette": "BLEUETTE", "Lysia": "LYSIA", "Alice": "ALICE"}
 const TINTS: Dictionary = {"Simon": Color("dccbff"), "Ashura": Color("9fe0ee"), "Yiero": Color("ff4a3a"), "Usayuko": Color("ffd98a"), "Elly": Color("b9f3f5"), "Bleuette": Color("a9c8ff"), "Lysia": Color("a6f0d8"), "Alice": Color("ff5a78")}
 
-# Voix synthétisées (pas de voix humaines) : [fréquence Hz, durée s, forme, variation de hauteur]
+# Voix synthétisées (pas de voix humaines), une onomatopée par lettre comme dans Undertale :
+# [fréquence Hz, durée s, timbre, variation de hauteur entre les 4 variantes, attaque de hauteur
+# (glissando de départ), passe-bas Hz (0 = aucun), niveau RMS dBFS]. Oscillateurs à bande limitée
+# (PolyBLEP) à 44,1 kHz : pas de repliement ni de grésillement dans les aigus.
 const VOICES: Dictionary = {
-	"Simon": [640.0, 0.034, "square", 0.09],
-	"Ashura": [300.0, 0.052, "triangle", 0.05],
-	"Yiero": [72.0, 0.12, "demon", 0.12],
-	"Usayuko": [250.0, 0.044, "square", 0.08],
-	"Elly": [540.0, 0.048, "sine", 0.04],
-	"Bleuette": [860.0, 0.036, "sine", 0.1],
-	"Lysia": [430.0, 0.045, "robot", 0.03],
-	"Alice": [180.0, 0.06, "triangle", 0.06],
+	"Simon": [620.0, 0.030, "pulse", 0.08, 0.10, 5200.0, -15.0],
+	"Ashura": [290.0, 0.050, "soft", 0.05, 0.03, 2600.0, -15.0],
+	"Yiero": [66.0, 0.130, "demon", 0.12, -0.12, 0.0, -12.0],
+	"Usayuko": [240.0, 0.042, "square", 0.08, 0.06, 3400.0, -15.5],
+	"Elly": [540.0, 0.050, "sine", 0.04, 0.02, 0.0, -15.0],
+	"Bleuette": [860.0, 0.036, "shy", 0.10, 0.08, 0.0, -15.5],
+	"Lysia": [430.0, 0.045, "robot", 0.03, 0.0, 0.0, -16.0],
+	"Alice": [180.0, 0.060, "soft", 0.06, 0.02, 2200.0, -15.0],
 }
+const BLIP_RATE: int = 44100
+const VOICE_GAIN: float = 0.6
+const YIERO_GAIN: float = 0.9
+const SHOUT_GAIN: float = 1.25
 
 var _line_who: String = ""
 var _line_text: String = ""
@@ -50,7 +57,9 @@ var _players: Array[AudioStreamPlayer] = []
 var _next_player: int = 0
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var volume: float = 1.0
+var volume_db: float = 0.0
 var muted: bool = false
+var _last_blip: Dictionary = {}
 var bar: float = 0.0
 
 func setup() -> void :
@@ -64,7 +73,7 @@ func setup() -> void :
 	_logo.set("_duration", 1.35)
 	_logo.hide()
 	var bus: StringName = &"PaperFeedback" if AudioServer.get_bus_index(&"PaperFeedback") >= 0 else &"Master"
-	for i: int in range(8):
+	for i: int in range(10):
 		var player: AudioStreamPlayer = AudioStreamPlayer.new()
 		player.bus = bus
 		add_child(player)
@@ -79,58 +88,113 @@ func setup() -> void :
 
 
 
+static func _polyblep(t: float, dt: float) -> float:
+	if t < dt:
+		t /= dt
+		return t + t - t * t - 1.0
+	if t > 1.0 - dt:
+		t = (t - 1.0) / dt
+		return t * t + t + t + 1.0
+	return 0.0
+
+static func _pulse(phase: float, dt: float, duty: float) -> float:
+	var v: float = 1.0 if phase < duty else -1.0
+	return v + _polyblep(phase, dt) - _polyblep(fposmod(phase - duty, 1.0), dt)
+
+# Filtre passe-bande (biquad RBJ, gain de crête 0 dB) : [b0, b2, a1, a2, x1, x2, y1, y2] (Array : état modifié en place).
+static func _band(f0: float, q: float) -> Array:
+	var w0: float = TAU * f0 / float(BLIP_RATE)
+	var alpha: float = sin(w0) / (2.0 * q)
+	var a0: float = 1.0 + alpha
+	return [alpha / a0, - alpha / a0, -2.0 * cos(w0) / a0, (1.0 - alpha) / a0, 0.0, 0.0, 0.0, 0.0]
+
+static func _band_run(f: Array, x: float) -> float:
+	var y: float = float(f[0]) * x + float(f[1]) * float(f[5]) - float(f[2]) * float(f[6]) - float(f[3]) * float(f[7])
+	f[5] = f[4];f[4] = x;f[7] = f[6];f[6] = y
+	return y
+
 func _make_blips(who: String) -> Array:
 	var voice: Array = VOICES[who]
+	var kind: String = str(voice[2])
 	var out: Array = []
-	var rate: int = 22050
 	var rng: RandomNumberGenerator = RandomNumberGenerator.new()
 	rng.seed = hash(who)
+	var demon: bool = kind == "demon"
+	var lp: float = float(voice[5])
+	var lp_a: float = 1.0 - exp(- TAU * lp / float(BLIP_RATE)) if lp > 0.0 else 1.0
+	var tau: float = 0.03 if demon else 0.009
 	for variant: int in range(4):
 		var freq: float = float(voice[0]) * (1.0 + (float(variant) - 1.5) * float(voice[3]) * 0.66)
-		var length: float = float(voice[1])
-		var samples: int = int(rate * length)
-		var data: PackedByteArray = PackedByteArray()
-		data.resize(samples * 2)
+		var samples: int = int(float(BLIP_RATE) * float(voice[1]))
+		var wave: PackedFloat32Array = PackedFloat32Array()
+		wave.resize(samples)
 		var phase: float = 0.0
 		var phase2: float = 0.0
+		var ring: float = 0.0
+		var low: float = 0.0
+		var hold: float = 0.0
+		var formants: Array = [_band(380.0, 2.2), _band(820.0, 3.0), _band(2300.0, 5.0)] if demon else []
+		var energy: float = 0.0
 		for i: int in range(samples):
-			var t: float = float(i) / float(rate)
-			var env: float = minf(1.0, t / 0.003) * pow(1.0 - float(i) / float(samples), 1.6)
-			phase += freq / float(rate)
+			var t: float = float(i) / float(BLIP_RATE)
+			var u: float = float(i) / float(samples)
+			var f: float = freq * (1.0 + float(voice[4]) * exp(- t / tau))
+			if kind == "shy": f *= 1.0 + 0.02 * sin(t * TAU * 30.0)
+			var dt: float = f / float(BLIP_RATE)
+			phase = fposmod(phase + dt, 1.0)
 			var v: float = 0.0
-			match str(voice[2]):
-				"square": v = 1.0 if fmod(phase, 1.0) < 0.5 else -1.0;v *= 0.42
-				"triangle": v = (absf(fmod(phase, 1.0) * 4.0 - 2.0) - 1.0) * 0.6
-				"sine": v = sin(phase * TAU) * 0.7
+			match kind:
+				"pulse": v = _pulse(phase, dt, 0.3) * 0.5
+				"square": v = _pulse(phase, dt, 0.5) * 0.5
+				"soft": v = (absf(phase * 4.0 - 2.0) - 1.0) * 0.8 + _pulse(phase, dt, 0.5) * 0.12
+				"sine": v = sin(phase * TAU) + 0.25 * sin(phase * TAU * 2.0) + 0.08 * sin(phase * TAU * 3.0)
+				"shy": v = sin(phase * TAU) + 0.15 * sin(phase * TAU * 3.0)
 				"robot":
-					var sq: float = 1.0 if fmod(phase, 1.0) < 0.5 else -1.0
-					v = sq * sin(t * TAU * 61.0) * 0.55
-					v = floor(v * 4.0) / 4.0
+					ring += 61.0 / float(BLIP_RATE)
+					v = _pulse(phase, dt, 0.25) * sin(ring * TAU) * 0.7
+					if i % 6 == 0: hold = round(v * 12.0) / 12.0
+					v = hold
 				"demon":
-					phase2 += freq * 0.5 / float(rate)
-					var saw: float = fmod(phase, 1.0) * 2.0 - 1.0
+					phase2 = fposmod(phase2 + dt * 0.5, 1.0)
 					var sub: float = sin(phase2 * TAU)
-					var growl: float = 1.0 + 0.5 * sin(t * TAU * 23.0)
-					v = (saw * 0.55 + sub * 0.7) * growl + (rng.randf() - 0.5) * 0.35
-					v = clampf(v * 1.8, -1.0, 1.0) * 0.75
-					env = minf(1.0, t / 0.008) * pow(1.0 - float(i) / float(samples), 0.9)
-			var s: int = int(clampf(v * env, -1.0, 1.0) * 30000.0)
-			data.encode_s16(i * 2, s)
+					var src: float = (2.0 * phase - 1.0 - _polyblep(phase, dt)) * 0.8 + sub * 0.9 + (rng.randf() - 0.5) * 0.5
+					v = _band_run(formants[0], src) * 1.6 + _band_run(formants[1], src) * 0.9 + _band_run(formants[2], src) * 0.35 + sub * 0.5
+					v *= 1.0 + 0.45 * sin(t * TAU * 23.0)
+					v = tanh(v * 2.4)
+			low += lp_a * (v - low)
+			var attack: float = minf(1.0, t / (0.008 if demon else 0.0025))
+			var decay: float = pow(1.0 - u, 0.9 if demon else 1.5)
+			var tail: float = minf(1.0, float(samples - 1 - i) / (float(BLIP_RATE) * 0.0015))
+			wave[i] = low * attack * decay * tail
+			energy += wave[i] * wave[i]
+		var gain: float = db_to_linear(float(voice[6])) / (sqrt(energy / float(samples)) + 0.000000001)
+		var peak: float = 0.0
+		for i: int in range(samples): peak = maxf(peak, absf(wave[i]) * gain)
+		if peak > 0.89: gain *= 0.89 / peak
+		var data: PackedByteArray = PackedByteArray()
+		data.resize(samples * 2)
+		for i: int in range(samples): data.encode_s16(i * 2, int(clampf(wave[i] * gain, -1.0, 1.0) * 32767.0))
 		var stream: AudioStreamWAV = AudioStreamWAV.new()
 		stream.format = AudioStreamWAV.FORMAT_16_BITS
-		stream.mix_rate = rate
+		stream.mix_rate = BLIP_RATE
 		stream.stereo = false
 		stream.data = data
 		out.append(stream)
 	return out
 
-func blip(who: String) -> void :
+# Une lettre tapée : un blip, sauf si le précédent du même perso vient à peine de partir (sinon les
+# répliques rapides deviennent un bourdonnement continu).
+func blip(who: String, shout: bool = false) -> void :
 	if muted or volume <= 0.001 or not _blips.has(who) or _players.is_empty(): return
+	var length: float = float(VOICES[who][1])
+	if _clock - float(_last_blip.get(who, -9.0)) < length * 0.75: return
+	_last_blip[who] = _clock
 	var variants: Array = _blips[who]
 	var player: AudioStreamPlayer = _players[_next_player]
 	_next_player = (_next_player + 1) % _players.size()
 	player.stream = variants[_rng.randi_range(0, variants.size() - 1)]
-	player.volume_db = linear_to_db(maxf(0.0001, volume * (0.55 if who != "Yiero" else 0.95)))
+	var gain: float = (YIERO_GAIN if who == "Yiero" else VOICE_GAIN) * (SHOUT_GAIN if shout else 1.0)
+	player.volume_db = linear_to_db(gain) + volume_db
 	player.pitch_scale = _rng.randf_range(0.97, 1.03)
 	player.play()
 
