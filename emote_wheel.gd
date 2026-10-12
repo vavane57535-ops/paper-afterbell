@@ -15,6 +15,7 @@ var selected: int = -1
 var page: int = 0
 var _stick: Vector2 = Vector2.ZERO
 var _opened_at: int = 0
+var _tab_rects: Array[Rect2] = []
 
 func setup(owner_world: Node) -> void :
 	world = owner_world
@@ -40,16 +41,31 @@ func close() -> void :
 	release_focus()
 	if world.phase == "playing" and not world.pause_open: world.capture_gameplay_mouse()
 
+# Pages de 8 : toutes les émotes (gratuites), puis les danses achetées (une page vide
+# renvoie vers la boutique si aucune danse n'est achetée).
+func _pages() -> Array[Dictionary]:
+	var result: Array[Dictionary] = []
+	var emotes: Array[String] = PaperEmotes.ids()
+	var emote_pages: int = ceili(emotes.size() / 8.0)
+	for i: int in range(emote_pages): result.append({"dances": false, "ids": emotes.slice(i * 8, i * 8 + 8), "index": i, "count": emote_pages})
+	var owned: Array = world.owned_dances.filter( func(id: Variant) -> bool: return not PaperDances.info(str(id)).is_empty())
+	var dance_pages: int = maxi(1, ceili(owned.size() / 8.0))
+	for i: int in range(dance_pages): result.append({"dances": true, "ids": owned.slice(i * 8, i * 8 + 8), "index": i, "count": dance_pages})
+	return result
+
+func _current() -> Dictionary:
+	var pages: Array[Dictionary] = _pages()
+	page = posmod(page, pages.size())
+	return pages[page]
+
 func _ids() -> Array:
-	if page == 0: return IDS
-	return world.owned_dances.slice(0, 8)
+	return _current().ids
 
 func _labels() -> Array:
-	if page == 0: return LABELS
-	return _ids().map( func(id: Variant) -> String: return PaperDances.title(str(id)))
+	return _ids().map( func(id: Variant) -> String: return PaperEmotes.title(str(id)))
 
-func _flip() -> void :
-	page = 1 - page
+func _flip(step: int = 1) -> void :
+	page = posmod(page + step, _pages().size())
 	selected = -1
 	Sound.play("hover")
 	queue_redraw()
@@ -81,7 +97,15 @@ func _gui_input(event: InputEvent) -> void :
 	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_RIGHT:
 		_flip()
 		accept_event()
+	elif event is InputEventMouseButton and event.pressed and event.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN]:
+		_flip(-1 if event.button_index == MOUSE_BUTTON_WHEEL_UP else 1)
+		accept_event()
 	elif event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		for i: int in range(_tab_rects.size()):
+			if _tab_rects[i].grow(4.0).has_point(event.position):
+				if i != page: _flip(i - page)
+				accept_event()
+				return
 		var index: int = _sector_at(event.position)
 		if index >= 0: _choose(index)
 		elif (event.position - size * 0.5).length() < INNER: close()
@@ -101,7 +125,7 @@ func _input(event: InputEvent) -> void :
 			get_viewport().set_input_as_handled()
 			return
 		if event.keycode == KEY_TAB or event.keycode == KEY_9:
-			_flip()
+			_flip(-1 if event.shift_pressed else 1)
 			get_viewport().set_input_as_handled()
 			return
 		var digit: int = int(event.physical_keycode) - KEY_1
@@ -122,7 +146,7 @@ func _input(event: InputEvent) -> void :
 		_set_selected(posmod(selected - 1 if selected >= 0 else 0, 8))
 		get_viewport().set_input_as_handled()
 	elif event is InputEventJoypadButton and event.pressed and event.button_index in [JOY_BUTTON_LEFT_SHOULDER, JOY_BUTTON_RIGHT_SHOULDER]:
-		_flip()
+		_flip(-1 if event.button_index == JOY_BUTTON_LEFT_SHOULDER else 1)
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("ui_accept") and selected >= 0:
 		_choose(selected)
@@ -165,9 +189,47 @@ func _draw() -> void :
 		draw_string(caps, cap.position + Vector2(6, 15), key, HORIZONTAL_ALIGNMENT_LEFT, -1, 13, Color("10141c") if hovered else T.PAPER)
 	draw_circle(center, INNER - 8.0, Color(0.04, 0.05, 0.075, 0.96))
 	draw_arc(center, INNER - 8.0, 0, TAU, 48, Color(T.TEAL, 0.5), 1.5, true)
-	var head: String = PaperLanguage.t("ÉMOTES" if page == 0 else "DANSES")
+	var current: Dictionary = _current()
+	var dances: bool = bool(current.dances)
+	var head: String = PaperLanguage.t("DANSES" if dances else "ÉMOTES")
 	var head_width: float = title.get_string_size(head, HORIZONTAL_ALIGNMENT_LEFT, -1, 20).x
-	draw_string(title, center + Vector2( - head_width * 0.5, 2), head, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, T.PAPER)
-	var hint: String = PaperLanguage.t("TAB · Danses" if page == 0 else ("TAB · Émotes" if not world.owned_dances.is_empty() else "Boutique du menu"))
-	var hint_width: float = caps.get_string_size(hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
-	draw_string(caps, center + Vector2( - hint_width * 0.5, 24), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, T.PAPER_DIM)
+	draw_string(title, center + Vector2( - head_width * 0.5, -2), head, HORIZONTAL_ALIGNMENT_LEFT, -1, 20, T.PAPER)
+	var sub: String = "%d / %d" % [int(current.index) + 1, int(current.count)]
+	if dances and (current.ids as Array).is_empty(): sub = PaperLanguage.t("Boutique du menu")
+	var sub_width: float = caps.get_string_size(sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x
+	draw_string(caps, center + Vector2( - sub_width * 0.5, 18), sub, HORIZONTAL_ALIGNMENT_LEFT, -1, 12, T.TEAL if not dances else Color("ff6fd0"))
+	_draw_tabs(center + Vector2(0.0, OUTER + 46.0), caps)
+
+# Onglets sous la roue : une pastille par page, la page courante en couleur.
+func _draw_tabs(at: Vector2, caps: Font) -> void :
+	var pages: Array[Dictionary] = _pages()
+	var labels: Array[String] = []
+	for entry: Dictionary in pages:
+		var text: String = PaperLanguage.t("DANSES" if bool(entry.dances) else "ÉMOTES")
+		if int(entry.count) > 1: text += " " + str(int(entry.index) + 1)
+		labels.append(text)
+	var widths: Array[float] = []
+	var total: float = 0.0
+	for text: String in labels:
+		var w: float = caps.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 12).x + 22.0
+		widths.append(w)
+		total += w + 8.0
+	total -= 8.0
+	var x: float = at.x - total * 0.5
+	_tab_rects.clear()
+	for i: int in range(labels.size()):
+		var active: bool = i == page
+		var accent: Color = Color("ff6fd0") if bool(pages[i].dances) else T.TEAL
+		var box: StyleBoxFlat = StyleBoxFlat.new()
+		box.bg_color = accent if active else Color(0.06, 0.07, 0.1, 0.9)
+		box.border_color = Color(accent, 0.7)
+		box.set_border_width_all(1)
+		box.set_corner_radius_all(11)
+		var rect: Rect2 = Rect2(Vector2(x, at.y - 11.0), Vector2(widths[i], 22.0))
+		_tab_rects.append(rect)
+		draw_style_box(box, rect)
+		draw_string(caps, Vector2(x + 11.0, at.y + 5.0), labels[i], HORIZONTAL_ALIGNMENT_LEFT, -1, 12, Color("10141c") if active else T.PAPER_DIM)
+		x += widths[i] + 8.0
+	var hint: String = PaperLanguage.t("TAB · page suivante") if not world.mobile_mode else ""
+	var hint_width: float = caps.get_string_size(hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 11).x
+	if not hint.is_empty(): draw_string(caps, Vector2(at.x - hint_width * 0.5, at.y + 30.0), hint, HORIZONTAL_ALIGNMENT_LEFT, -1, 11, T.FAINT)

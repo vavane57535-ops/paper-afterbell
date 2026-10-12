@@ -11,7 +11,7 @@ extends RefCounted
 
 const AnimClip = preload("res://anim_clip.gd")
 
-const SETS: Array[String] = ["common", "emotes", "usayuko", "ashura", "simon", "lysia", "elly", "bleuette", "alice", "trueform", "extra"]
+const SETS: Array[String] = ["common", "emotes", "usayuko", "ashura", "simon", "lysia", "elly", "bleuette", "alice", "trueform", "extra", "emotes_plus", "tiktok"]
 
 static var _cache: Dictionary = {}
 static var _all: Dictionary = {}

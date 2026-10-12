@@ -49,6 +49,10 @@ func tick(delta: float) -> void :
 			if enemy != null and not drone.is_empty() and world.visible(actor.position, enemy.position):
 				world.combat.drone_input(actor, (enemy.position + Vector3.UP * 1.15 - Vector3(drone.position)).normalized())
 			continue
+		if world.emote_sync and world.emote_sync.holds_bot(actor):
+			actor.move_input = Vector3.ZERO
+			actor.sprint = false
+			continue
 		var state: Dictionary = actor.bot_state
 		if bool(actor.effects.get("boost_charging", false)):
 			actor.move_input = Vector3.ZERO
