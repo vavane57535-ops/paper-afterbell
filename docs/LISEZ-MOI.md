@@ -1,20 +1,22 @@
-# Paper Afterbell 0.14 — OM
+# Paper Afterbell 0.16 — OM
 
 ## Jouer maintenant
 
 **Windows :** décompresser entièrement le ZIP. Ouvrir `Launcher/PaperAfterbellLauncher.exe`, puis **Jouer**. Le jeu peut aussi être lancé directement avec `PaperAfterbell.exe`. Garder le fichier `.pck` à côté de l'exécutable.
 
-**Nouveau dans la 0.14 :** toutes les animations sont reparties de zéro (chaque capacité de chaque personnage a son propre geste), beaucoup plus d'effets visuels façon bande dessinée (éclats, onomatopées, traînées, lignes de vitesse, encre sur l'écran), tous les films refaits avec les vraies capacités, et le survol des boutons du menu corrigé. Voir `CHANGEMENTS-0.14.md`.
+**Nouveau dans la 0.16 :** prologue « Yiero » au premier lancement, exécutions d'Alice propres à chaque survivant (+45 s au chrono par élimination), victoires LMS façon Outcome Memories, alerte spectaculaire à l'ouverture de la sortie, musiques moins fortes et normalisées, courses refaites, caméra libre avec mode Derrière / Libre 360° (touche C), menus façon Persona en papier, nouvelles mécaniques de Lysia, Ashura et Bleuette, PV du LMS, 10 émotes et 10 danses TikTok synchronisées, choix d'Alice par l'hôte et blocus si Alice quitte. Tout le détail est dans `CHANGEMENTS-0.16.md`.
 
-**Rappel des versions précédentes :** voix des personnages retirées (0.13.1) ; nouvelles musiques et ambiances sonores, menu illustré et animé, trois cartes redessinées façon Outcome Memories (0.13). Voir `CHANGEMENTS-0.13.1.md`, `CHANGEMENTS-0.13.md` et `CHANGEMENTS-0.12.md`.
+**Rappel des versions précédentes :** danses, tickets et menu vivant (0.15) ; animations et effets BD refaits (0.14) ; voix retirées (0.13.1) ; nouvelles musiques, menu illustré et cartes façon Outcome Memories (0.13). Voir les fichiers `CHANGEMENTS-0.1x.md`.
 
 **Réglages conseillés :** tout est dans **Réglages → Graphismes** : qualité (Élevée / Équilibrée / Performance), plein écran (ou F11), synchronisation verticale, limite d'images par seconde et échelle de rendu 3D. Sur un petit PC, commence par « Équilibrée ».
 
+**Son :** **Réglages → Audio** : volume général, musique, effets.
+
 **Effets visuels :** ils se règlent dans **Réglages → Jeu** : « Secousses de caméra », « Onomatopées » et « Effets d'écran ». Si les éclairs et les flashs te gênent, active « Réduire les flashs » dans **Réglages → Accessibilité**.
 
-**Android :** cette livraison ne contient que la version Windows. L'APK 0.11 reste jouable seul, mais ne peut pas rejoindre une partie PC 0.14 (protocole réseau différent).
+**Android :** cette livraison ne contient que la version Windows. L'APK 0.11 reste jouable seul, mais ne peut pas rejoindre une partie PC 0.16 (protocole réseau différent).
 
-Le mode normal est désormais **OM uniquement**, avec trois cartes. Les anciens choix Forsaken sont retirés. Le terrain d'essai permet de changer de personnage et de tester les capacités, l'aura LMS et la True Form sans terminer une vraie partie. La cinémathèque permet de revoir les 77 films : intros, évasions et fins.
+Le mode normal est désormais **OM uniquement**, avec trois cartes. Les anciens choix Forsaken sont retirés. Le terrain d'essai permet de changer de personnage et de tester les capacités, l'aura LMS et la True Form sans terminer une vraie partie. Au premier lancement, le prologue « Yiero » se joue avant le menu (maintenir Échap pour le passer). La cinémathèque permet de revoir le prologue, les victoires LMS, les fins d'Alice, les fuites en équipe et le blocus.
 
 ## Commandes
 
@@ -22,7 +24,7 @@ Le mode normal est désormais **OM uniquement**, avec trois cartes. Les anciens 
 - 1 à 6 : capacités ; E : interagir, réanimer ou attraper un allié avec Simon pendant son boost ; R : annuler la visée.
 - Maintenir 2 avec Simon ou Ashura pour charger, puis relâcher. Moins d'une seconde annule ; 1–2 secondes donnent 3 secondes de boost ; 2–3 donnent 4 secondes ; au moins 3 donnent 6 secondes. Le personnage reste immobile pendant la charge.
 - 3 avec Simon ou Ashura : changer le mode de flashbang ou de drone. La flashbang lancée s'arme avec 1 et se confirme avec 1 ou le clic d'attaque.
-- G : émotes ; F2 : réglages du terrain d'essai ; Échap : pause.
+- G : roue des émotes (Tab, molette ou LB/RB : page suivante ; 1–9 : choisir) ; F2 : réglages du terrain d'essai ; Échap : pause.
 - C : mode de caméra. **Derrière** : la caméra se recolle pile derrière le dos et le personnage tourne avec la souris. **Libre 360°** : la caméra tourne tout autour du personnage sans le faire pivoter (on peut voir son visage) ; il avance dans la direction de la caméra. Le mode choisi est mémorisé (aussi dans **Réglages → Jeu → Mode de caméra**).
 - Manette : stick gauche déplacement, stick droit caméra, A/Croix saut, X/Carré interaction, RT/R2 capacité 1, LT/L2 charge, LB/L1 changement de mode, RB/R1 capacité 4, croix haut capacité 5, croix bas True Form. Clic du stick gauche : course. Clic du stick droit : mode de caméra (derrière / libre 360°). Garder le stick droit poussé à fond accélère la rotation (réglable dans Commandes → « Accélération du stick »).
 
@@ -42,7 +44,9 @@ La **True Form** se débloque après 15 étourdissements reçus, une seule utili
 
 ## Jouer entre amis
 
-Le protocole réseau est celui de la **0.14** : tous les joueurs doivent avoir la 0.14 (PC). Une 0.13 ou une 0.13.1 ne peut pas rejoindre une partie 0.14.
+Le protocole réseau est celui de la **0.16** : tous les joueurs doivent avoir la 0.16 (PC). Une 0.15 ou plus ancienne ne peut pas rejoindre une partie 0.16.
+
+Dans le salon, l'hôte choisit **qui joue Alice** (« Qui joue Alice ? » : aléatoire, plus haute malice, un joueur précis ou Alice IA) ; le badge ALICE s'affiche chez tout le monde. Si le joueur Alice quitte en pleine manche, les survivants gagnent par forfait… avec une cinématique de blocus devant l'école.
 
 **Disponible sans compte :** le salon Internet par code conserve une connexion entre joueurs avec relais de secours. Un joueur héberge toujours la simulation dans ce mode ; ce n'est pas un serveur régional. Sa connexion et son ordinateur influencent donc la partie. Le relais public expérimental peut être indisponible.
 
@@ -58,4 +62,4 @@ Les animations sont écrites à la main, pose clé par pose clé, puis jouées p
 
 Aucun fichier 3D de carte n'était présent dans les pièces jointes. L'école existante a donc été retravaillée avec le plan et les références FPE : cour/fontaine, gymnase, bassin vidé, salles de classe et pièce d'Alice. Les références trouvées sur Internet n'ont pas fourni une école complète directement réutilisable. Les trois cartes gardent leurs collisions, chemins et sorties.
 
-Voir `CHANGEMENTS-0.14.md` (et les fichiers des versions précédentes), les crédits audio, `UI-LICENSES` (polices OFL et icônes game-icons.net sous CC BY 3.0) et les licences jointes pour les détails.
+Voir `CHANGEMENTS-0.16.md` (et les fichiers des versions précédentes), les crédits audio, `UI-LICENSES` (polices OFL et icônes game-icons.net sous CC BY 3.0) et les licences jointes pour les détails.

@@ -89,3 +89,19 @@ Sources CC0/CC-BY vérifiées le 7 septembre 2026 ; intégration des OST fournie
 - coups de poing — deleted_user_7146007 (CC0) ; impacts — mateusboga (CC0) ; mouvements — PorkMuncher et qubodup (CC0) ; porte métallique — Fabrizio84 (CC0)
 
 Sons synthétisés pour le jeu : étoiles d'étourdissement, présence d'Alice, chouettes, déchirure de papier du menu.
+
+## Ajouts de la 0.16
+
+**Musiques générées avec ElevenLabs Music (v2.5), sur le compte ElevenLabs du joueur :**
+- Prologue « Yiero » (`audio/cinematic/intro_yiero.ogg`, 196 s) : 13 sections composées séparément (ambiance, horreur, combat épique, retournement, élégie, poursuite, bagarre rock-électro, titre…), assemblées à la seconde près sur le film, avec silences, acouphène et boîte à musique désaccordée synthétisés pour le jeu.
+- Course vers la sortie (`audio/exit_rush.ogg`, 80 s), qui s'intensifie jusqu'au final.
+- Blocus (`audio/cinematic/blocus.ogg`, environ 39 s), volontairement ringard : flûte à bec, kazoo, tambour jouet.
+
+**Compositions et sons créés par programme pour le jeu (synthèse) :**
+- Les 18 musiques de danse (10 nouvelles et 8 recomposées), au BPM de chaque chorégraphie, en boucles sans clic. Mélodies, accords et instruments sont originaux ; seuls le genre, le tempo et l'ambiance s'inspirent des tendances citées.
+- Les 6 stingers des victoires LMS, un par personnage.
+- Les « blips » de dialogue façon Undertale et les bruitages du prologue (rugissement, impacts, papier).
+- Les bruitages des exécutions d'Alice, l'alarme d'ouverture de la sortie et son dernier appel.
+- Les sons d'émotes (clap, claque, bisou, obturateur…) et les nouveaux sons de curseur, de balayage, d'ouverture et de fermeture des menus.
+
+**Niveaux :** toutes les musiques, y compris les OST fournies, sont normalisées à -18 LUFS intégrés par gain linéaire seul, sans compression. Les MP3 de Simon et de Bleuette sont donc ré-encodés (320 kbit/s) et ne sont plus identiques octet pour octet aux fichiers fournis. Celui de Bleuette, à -5,5 LUFS avec écrêtage, était la principale source de musique trop forte. La musique est ensuite baissée d'environ 7 dB dans le mixage du jeu.
