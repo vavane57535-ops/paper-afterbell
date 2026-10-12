@@ -489,6 +489,7 @@ func _begin_page(id: String, preview: String = "", focus_x: float = 0.66) -> voi
 
 func _end_page(focus_target: Control = null) -> void :
 	_page_focus = weakref(focus_target)
+	_decor_clock = -1.0
 	if PaperLanguage.language == "en": PaperLanguage.apply_tree(page)
 	if focus_target and ( not _pointer or not Input.get_connected_joypads().is_empty()): focus_target.call_deferred("grab_focus")
 	_run_cascade()
