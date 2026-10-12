@@ -510,19 +510,28 @@ func _write_simon() -> void :
 	_smear(run, run + 1.0, Vector2(0.0, 0.0))
 	_bolt(run + 0.55, 0.3, 1.2)
 	_flash(t_ink - 0.06, 0.14)
-	# INK · Simon racing away in profile, Alice left spinning in the foreground
+	# INK · the camera keeps pace with Simon in profile: he blows past Alice, who
+	# spins and slides out of the frame behind him, scraps of paper streaming by
 	var ink: float = t_ink
-	_jump(s, ink, _ink(0.2, 0, 0.6))
-	_jump(a, ink, _ink(1.55, 0, 2.6))
+	_jump(s, ink, _ink(1.0, 0, 0.0))
+	_jump(a, ink, _ink(-1.6, 0, -1.0))
 	c._face(s, ink, "move")
 	c._do(s, ink, "unset", ["speed_boost"])
 	c._do(s, ink, "state", {"speed_boost": 6.0})
-	c._move(s, ink + 0.01, ink + 2.55, _ink(-14.0, 0, -6.0), "linear")
+	c._move(s, ink + 0.01, ink + 2.55, _ink(-13.0, 0, 0.0), "linear")
 	c._do(a, ink, "stun", true)
 	_spin(ink, ink + 2.6, a, 3.0, "linear")
-	_burst(ink, _ink(1.55, 0.3, 2.6), Vector3.UP, 30, 1.6, {"spread": 0.4, "lift": 1.6, "swirl": 4.0, "radius": 1.1, "gravity": 0.4, "drag": 0.5, "life": 2.6, "size": 0.1})
-	_burst(ink + 0.05, _ink(-0.4, 0.9, -1.0), Vector3(1.0, 0.1, 0.3), 22, 4.5, {"spread": 0.35, "lift": 0.4, "gravity": 0.6, "drag": 0.9, "life": 2.4, "size": 0.09})
-	c._shot(ink, {"eye": _ink(2.7, 1.1, 5.6), "look": {"a": s, "h": 1.0, "o": Vector3(0.9, 0, 0)}, "fov": 42, "hand": 0.1, "safe": false})
+	_later(ink + 0.4, "cue", {"who": a, "cue": "spin"})
+	_burst(ink + 0.4, _ink(-1.6, 0.3, -1.0), Vector3.UP, 26, 1.6, {"spread": 0.4, "lift": 1.6, "swirl": 4.0, "radius": 1.0, "gravity": 0.4, "drag": 0.5, "life": 2.6, "size": 0.1})
+	for k: int in range(6):
+		var x: float = -3.2 - 2.2 * float(k)
+		_burst(ink + 0.04, _ink(x, 0.6, -1.6), Vector3(0.2, 1.0, 0.0), 7, 0.35, {"spread": 1.0, "lift": 0.3, "gravity": 0.05, "drag": 0.6, "life": 2.6, "size": 0.09 + 0.02 * float(k % 3)})
+		# grit kicked up behind his heels, where he is at that moment
+		var kick: float = 0.15 + 0.4 * float(k)
+		_burst(ink + kick, _ink(1.3 - 14.0 / 2.55 * kick, 0.15, 0.0), Vector3(1.0, 0.5, 0.0), 6, 3.0, {"spread": 0.5, "lift": 0.8, "gravity": 2.0, "drag": 1.2, "life": 1.4, "size": 0.07})
+	for k: int in range(8): _later(ink + 0.1 + 0.28 * float(k), "cue", {"who": s, "cue": "afterimage"})
+	for k: int in range(4): _later(ink + 0.15 + 0.6 * float(k), "whoosh", {"at": {"a": s, "h": 1.0, "o": Vector3(1.2, 0, 0)}, "dir": Vector3(1, 0, 0), "color": PAPER, "count": 6, "length": 2.2})
+	c._shot(ink, {"rel": {"a": s}, "eye": [Vector3(0.6, 1.0, 4.8), Vector3(0.45, 1.0, 4.6)], "look": {"a": s, "h": 0.95, "o": Vector3(-0.5, 0, 0)}, "fov": 42, "hand": 0.1, "safe": false})
 
 
 
@@ -591,7 +600,11 @@ func _write_usayuko() -> void :
 	var land: float = _far(12.5)
 	c._move(a, fly, fly + 0.35, _r(0.0, lerpf(2.5, land, 0.45), 1.6), "out")
 	c._move(a, fly + 0.35, fly + 0.82, _r(0.0, land, 0.0), "in")
-	_tilt(fly, fly + 0.85, a, Vector3(0, 0, 0), Vector3(-1.2, 0, 0.3))
+	# thrown back and tumbling: a fast lean, then a full turn in the air
+	_tilt(fly, fly + 0.25, a, Vector3(0, 0, 0), Vector3(-1.35, 0, 0.35))
+	_tilt(fly + 0.25, fly + 0.83, a, Vector3(-1.35, 0, 0.35), Vector3(-1.55, 0, 0.6))
+	_spin(fly + 0.05, fly + 0.8, a, 1.0, "out")
+	_burst(fly + 0.18, _r(0.0, lerpf(2.5, land, 0.3), 1.5), Vector3(0, 0.4, -1.0), 12, 1.8, {"spread": 0.9, "lift": 0.6, "gravity": 2.5, "drag": 1.0, "life": 1.4, "size": 0.1})
 	var crash: float = fly + 0.82
 	c._do(a, crash, "unset", ["forced_time", "force_name", "grounded"])
 	c._do(a, crash, "stun", true)
@@ -601,7 +614,8 @@ func _write_usayuko() -> void :
 	c._cue(crash, "shake", 0.6)
 	_burst(crash, _r(0.0, land, 0.2), Vector3(0, 1, 0.4), 22, 4.2, {"spread": 1.0, "lift": 2.0, "gravity": 8.0, "life": 1.3, "size": 0.1})
 	_smear(fly, fly + 0.35, Vector2(0.05, 0.0))
-	c._shot(fly, {"rel": {"a": a}, "eye": [Vector3(3.4, 1.3, -1.6), Vector3(3.7, 1.1, 0.4)], "look": {"a": a, "h": 0.9}, "fov": [50, 46], "hand": 0.6})
+	# chase camera inside the measured free corridor (no wall between it and her)
+	c._shot(fly, {"rel": {"a": a}, "eye": [Vector3(1.0, 1.6, -2.6), Vector3(0.8, 1.2, -2.0)], "look": {"a": a, "h": 0.8}, "fov": [50, 44], "hand": 0.6})
 	# F · steam from the fist, grin
 	var after: float = 7.05
 	c._face(s, after, "dir", Vector3(0, 0, 1))
@@ -812,6 +826,17 @@ func _write_lysia() -> void :
 	_burst(push, _r(0.2, 3.6, 1.0), Vector3(0, 0.3, 1), 26, 6.5, {"spread": 0.6, "lift": 1.4, "gravity": 6.0, "life": 1.5, "size": 0.11})
 	_smear(push, push + 0.3, Vector2(0.06, 0.0))
 	c._shot(push - 0.2, {"rel": {"a": s}, "eye": [Vector3(3.6, 1.2, 1.4), Vector3(4.2, 1.15, 3.0)], "look": {"a": a, "h": 1.0}, "fov": [44, 52], "hand": 0.7})
+	# E2 · riding along with Alice to the crash, still crackling
+	var land: float = push + 0.85
+	# chase camera inside the measured free corridor (no wall between it and her)
+	c._shot(push + 0.3, {"rel": {"a": a}, "eye": [Vector3(0.9, 1.5, -2.3), Vector3(0.75, 1.25, -1.7)], "look": {"a": a, "h": 0.85}, "fov": [48, 42], "hand": 0.6})
+	_smear(push + 0.3, push + 0.75, Vector2(0.045, 0.0))
+	c._cue(land, "dust_ring", {"a": a}, 1.3)
+	c._cue(land, "sound", "ground_impact", {"a": a}, 0.9, 0.85)
+	c._cue(land, "shake", 0.4)
+	c._cue(land + 0.08, "stars", {"a": a, "s": "over"}, 4)
+	_burst(land, _r(0.6, _far(13.5), 0.2), Vector3(0, 1, -0.3), 18, 3.6, {"spread": 1.0, "lift": 1.8, "gravity": 8.0, "life": 1.2, "size": 0.09})
+	for k: int in range(3): _later(land + 0.05 + 0.12 * float(k), "bolts", {"at": {"a": a, "h": 0.6}, "color": Color("d9fbff"), "count": 2, "radius": 0.6, "size": 0.7})
 	# F · venting, sparks, a calm look back
 	var vent: float = 7.65
 	c._do(s, vent, "mood", "calm")
@@ -1009,7 +1034,7 @@ func _write_bleuette() -> void :
 	c._do(s, ink + 0.06, "emote", "cheer")
 	c._do(a, ink, "life", "downed")
 	c._face(a, ink, "dir", Vector3(-1, 0, 0.2))
-	_burst(ink, _ink(-0.9, 1.9, 0.4), Vector3.UP, 14, 1.2, {"spread": 1.0, "lift": 1.4, "gravity": 0.5, "drag": 0.6, "life": 2.6, "size": 0.12})
+	_burst(ink + 0.08, _ink(-0.9, 1.7, 0.4), Vector3.UP, 18, 2.6, {"spread": 1.6, "lift": 1.6, "gravity": 2.2, "drag": 0.7, "life": 2.5, "size": 0.1})
 	c._shot(ink, {"eye": [_ink(0.1, 1.0, 6.2), _ink(0.15, 1.0, 5.8)], "look": [_ink(0.1, 0.95, 0.0), _ink(0.15, 0.95, 0.0)], "fov": 42, "hand": 0.1, "safe": false})
 
 

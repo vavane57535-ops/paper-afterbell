@@ -6,6 +6,8 @@ extends Node
 # Options : --victory <noms|all> · --vfilm <id de la cinémathèque> · --vcap-dir <dossier>
 #           --vcap-step <s> (0 = aucune capture) · --vcap-from <s> · --vcap-to <s>
 #           --vclean (cache les commandes de la cinémathèque sur les captures)
+#           --vseek : saute directement à --vcap-from (moins 0,6 s d'élan) au lieu de
+#           jouer tout le film (rendu logiciel lent)
 #           --vreal <nom> : joue la fin comme main.gd en fin de manche (phase « ending »,
 #           puis écran des résultats), sur la carte choisie avec --map school|forest|snow
 #           --vquit <s> : avec --vreal, quitte le jeu en plein film (test de fermeture)
@@ -19,6 +21,7 @@ var to_time: float = INF
 var clean: bool = false
 var real: String = ""
 var quit_at: float = INF
+var seek_first: bool = false
 
 
 func setup(game_world: Node) -> void :
@@ -39,6 +42,7 @@ func setup(game_world: Node) -> void :
 			"--vclean": clean = true
 			"--vreal": real = value
 			"--vquit": quit_at = float(value)
+			"--vseek": seek_first = true
 	if films.is_empty(): films.append("lms_win_Simon")
 	if not out_dir.is_empty(): DirAccess.make_dir_recursive_absolute(out_dir)
 	_run.call_deferred()
@@ -64,6 +68,9 @@ func _run() -> void :
 		print("VICTORY_TEST start ", id, " kind=", entry.kind, " duration=", entry.duration)
 		world.gallery.play_entry(entry)
 		if clean: world.ui.hide_gallery_transport()
+		if seek_first and from_time > 0.6:
+			await get_tree().process_frame
+			world.gallery.seek(from_time - 0.6)
 		print("VICTORY_TEST room=", world.film.victory.room, " turn=", rad_to_deg(world.film.victory.turn), " snowy=", world.film.victory.snowy)
 		var next_capture: float = from_time
 		var frames: int = 0
