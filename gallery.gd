@@ -57,7 +57,7 @@ func play_entry(item: Dictionary) -> void :
 	if world.phase != "gallery" or item.is_empty(): return
 	if _is_prologue(): world.prologue.stop()
 	entry = item.duplicate(true);time = 0.0;browsing = false;playing = true
-	var music_mode: String = "lms" if str(entry.category).begins_with("lms") else "ambient" if str(entry.category) == "intro" else "ending"
+	var music_mode: String = "lms" if str(entry.category).begins_with("lms") else "ambient" if str(entry.category) == "intro" else "blocus" if str(entry.kind) == PaperFilmBlocus.KIND else "ending"
 	world.audio.preview_begin(str(entry.focus), music_mode)
 	if _is_prologue():
 		world.film.stop();world.audio.preview_pause(true)

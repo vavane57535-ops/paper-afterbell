@@ -25,7 +25,7 @@ const NET_EFFECT_RULES: Dictionary = {
 	"stun_immunity": NET_RULE_VALUE, "stun_count": NET_RULE_VALUE, "true_form_used": NET_RULE_VALUE, "grinding": NET_RULE_VALUE, 
 	"running": NET_RULE_VALUE, "airborne": NET_RULE_VALUE, "air_time": NET_RULE_VALUE, "air_peak_delta": NET_RULE_VALUE, 
 	"land_roll_time": NET_RULE_VALUE, "landing_boost_time": NET_RULE_VALUE, "revive_invuln": NET_RULE_VALUE, "flash_melee": NET_RULE_VALUE, 
-	"aura_charge": NET_RULE_VALUE, "lms_buff_unlocked": NET_RULE_VALUE, "emote_id": NET_RULE_VALUE, 
+	"aura_charge": NET_RULE_VALUE, "lms_buff_unlocked": NET_RULE_VALUE, "emote_id": NET_RULE_VALUE, "score_points": NET_RULE_VALUE, 
 	"emote_time": NET_RULE_VALUE, "jump_cd": NET_RULE_VALUE, "drone_piloting": NET_RULE_VALUE, "downed": NET_RULE_VALUE, 
 	"dying": NET_RULE_VALUE, "revived": NET_RULE_VALUE, "death_time": NET_RULE_VALUE, "death_kind": NET_RULE_VALUE, 
 	"death_source": NET_RULE_ID, "recover": NET_RULE_VALUE, "revive_progress": NET_RULE_VALUE, "revive_target": NET_RULE_ID, 

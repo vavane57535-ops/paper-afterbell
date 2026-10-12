@@ -85,14 +85,14 @@ func _deny(peer: int) -> void :
 		get_tree().create_timer(0.3).timeout.connect( func():
 			if world.net and world.multiplayer.get_peers().has(peer): world.net.disconnect_peer(peer))
 
-func submit_results(results: Array, escapes: Array) -> void :
+func submit_results(results: Array, escapes: Array, winners: Array = []) -> void :
 	if not world.dedicated: return
 	var rows: Array = []
 	for result: Dictionary in results:
 		var actor_id: int = int(result.get("id", result.get("actor_id", -1)))
 		if not authenticated.has(actor_id): continue
 		var metrics: Dictionary = result.get("breakdown", {})
-		rows.append({"user_id": authenticated[actor_id].id, "stats": {"matches": 1, "wins": 1 if escapes.has(actor_id) else 0, "escapes": 1 if escapes.has(actor_id) else 0, "points": maxi(0, int(result.get("points", 0))), "stuns": maxi(0, int(metrics.get("stun", 0))), "heals": maxi(0, int(metrics.get("heal", 0))), "boosts": maxi(0, int(metrics.get("boost", 0))), "danger_seconds": maxi(0, int(metrics.get("danger", 0)))}})
+		rows.append({"user_id": authenticated[actor_id].id, "stats": {"matches": 1, "wins": 1 if escapes.has(actor_id) or winners.has(actor_id) else 0, "escapes": 1 if escapes.has(actor_id) else 0, "points": maxi(0, int(result.get("points", 0))), "stuns": maxi(0, int(metrics.get("stun", 0))), "heals": maxi(0, int(metrics.get("heal", 0))), "boosts": maxi(0, int(metrics.get("boost", 0))), "danger_seconds": maxi(0, int(metrics.get("danger", 0)))}})
 	var alice: PaperActor = world.killer_actor()
 	if alice and authenticated.has(alice.id): rows.append({"user_id": authenticated[alice.id].id, "stats": {"matches": 1, "wins": 1 if world.outcome == "killer" else 0, "points": 0, "stuns": 0, "heals": 0, "boosts": 0, "danger_seconds": 0, "escapes": 0}})
 	if rows.is_empty(): return

@@ -117,7 +117,7 @@ const USER_OST_FILES: Dictionary = {
 }
 const BASE_TRACKS: Dictionary = {"ambient": "01_empty_corridors", "chase": "02_shadow_in_pursuit", "ending": "04_after_the_bell", "true_form": "02_shadow_in_pursuit", 
 	"menu": "music_menu", "ambient_forest": "music_forest", "ambient_snow": "music_snow", "defeat": "music_defeat",
-	"exit": "exit_rush"}
+	"exit": "exit_rush", "blocus": "cinematic/blocus"}
 
 const EAGER_TRACKS: Array[String] = ["ambient", "chase", "ending", "true_form", "menu"]
 
@@ -137,7 +137,7 @@ const TRACK_GAINS: Dictionary = {
 	"ambient": 0.5, "chase": 0.891, "ending": 0.891, "true_form": 1.0, "exit": 0.891,
 
 
-	"menu": 0.75, "ambient_forest": 0.5, "ambient_snow": 0.5, "defeat": 0.891,
+	"menu": 0.75, "ambient_forest": 0.5, "ambient_snow": 0.5, "defeat": 0.891, "blocus": 0.891,
 
 	"lms_Ashura": 1.0, "lms_Usayuko": 1.0, "lms_Simon": 1.0,
 	"lms_Lysia": 1.0, "lms_Elly": 1.0, "lms_Bleuette": 1.0
@@ -398,12 +398,12 @@ func set_mode(next: String) -> void :
 		_select_track("true_form", not tracks["true_form"].playing)
 		if previous == "lms": _fade_speed["true_form"] = 1.0 / SUSPEND_FADE_SECONDS
 		return
-	if previous == "true_form" or next == "ending": _lms_resume_after_true_form = -1.0
+	if previous == "true_form" or next in ["ending", "blocus"]: _lms_resume_after_true_form = -1.0
 	if next == "chase" and previous == "ambient": stinger("chase")
 	if next == "exit":
 		_enter_rush()
 		return
-	_select_track(_track_for(next), next == "ending")
+	_select_track(_track_for(next), next in ["ending", "blocus"])
 
 func _enter_rush() -> void :
 	if active_track != "exit":
@@ -481,7 +481,7 @@ func _select_track(key: String, restart: bool) -> void :
 	var p: AudioStreamPlayer = tracks[key]
 	p.stream_paused = false
 	_fade_speed.erase(key)
-	if restart: _play_from(key, 0.0, key.begins_with("lms_"))
+	if restart: _play_from(key, 0.0, key.begins_with("lms_") or key == "blocus")
 	elif not p.playing: _play_from(key, float(_resume.get(key, 0.0)))
 
 
@@ -598,7 +598,7 @@ func preview_begin(character_name: String, preview_mode: String = "lms") -> void
 			"duck_time": _duck_time, "duck_gain": _duck_gain}
 	_preview_paused = false
 	lms_character = character_name if LMS_THEMES.has(character_name) else "Ashura"
-	mode = preview_mode if preview_mode in ["ambient", "chase", "ending", "lms"] else "ambient"
+	mode = preview_mode if preview_mode in ["ambient", "chase", "ending", "lms", "blocus"] else "ambient"
 	active_track = "lms_" + lms_character if mode == "lms" else mode
 	_stinger_queue.clear()
 	_start_requests.clear()
