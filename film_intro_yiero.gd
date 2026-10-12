@@ -22,6 +22,7 @@ const MUSIC_PATH: String = "res://audio/cinematic/intro_yiero.ogg"
 const SFX_DIR: String = "res://audio/cinematic/"
 # Les bruitages du film (sfx_*.wav, tools/synth_intro_audio.py) sont calés en RMS court terme ; ce
 # niveau les place au-dessus de la musique (-18 LUFS × MUSIC_LEVEL) sans saturer le limiteur du mix.
+# Dosage réglé avec la musique de la 0.15 : _play_stream et les blips y ajoutent PaperAudio.FILM_SFX_TRIM.
 const FILM_SFX_LEVEL: float = 0.6
 const CAST: Array[String] = ["Simon", "Ashura", "Usayuko", "Alice", "Elly", "Bleuette", "Lysia"]
 
