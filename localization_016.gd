@@ -261,6 +261,7 @@ const TEXT: Dictionary = {
 	"Sensibilité de la manette": "Controller sensitivity",
 	"Caméra au stick droit. Accélération et zone morte : Commandes.": "Right-stick camera. Acceleration and deadzone: Controls.",
 	"https://adresse-du-service": "https://service-address",
+	"VOUS ÊTES TOMBÉE": "YOU ARE DOWN",
 }
 
 # Modèles avec valeurs (%d, %s, %.1f) : [français, anglais].
@@ -271,6 +272,9 @@ const TEMPLATES: Array = [
 	["SURCHAUFFE · INVULNÉRABLE · ARMURE −%d PV · %.1f s", "OVERHEAT · INVULNERABLE · ARMOUR −%d HP · %.1f s"],
 	["PRISE · %d m", "OUTLET · %d m"],
 	["Alice · %s rattrapée", "Alice · %s caught"],
+	["%s a été éliminée.", "%s has been eliminated."],
+	["%s est au sol · 30 secondes pour la relever.", "%s is down · 30 seconds to revive them."],
+	["%s a été relevée · seconde vie.", "%s was revived · second life."],
 	["La dernière tentative de %s échoue. Alice la rattrape, frappe et l’achève au sol.", "%s's last attempt fails. Alice catches them, strikes and finishes them on the floor."],
 ]
 

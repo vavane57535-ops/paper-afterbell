@@ -1225,11 +1225,14 @@ func _event_local(kind: String, data: Dictionary) -> void :
 		if a and not a.killer:
 			for other: PaperActor in actors.values():
 				if other != a and other.alive and not other.killer and other.position.distance_to(a.position) < 20.0: other.visual.trigger("grieve")
-		ui.toast(str(data.get("character", "Un élève")) + " a été éliminé.", 3)
-		if actor_id == local_id(): ui.announcement("VOUS ÊTES TOMBÉ", "TAB · suivre un allié", 3)
+		# Accord au féminin pour Lysia, Elly et Bleuette.
+		var she: bool = str(data.get("character", "")) in ["Lysia", "Elly", "Bleuette"]
+		ui.toast(str(data.get("character", "Un élève")) + (" a été éliminée." if she else " a été éliminé."), 3)
+		if actor_id == local_id(): ui.announcement("VOUS ÊTES TOMBÉE" if she else "VOUS ÊTES TOMBÉ", "TAB · suivre un allié", 3)
 	elif kind == "downed":
 		if a: a.visual.set_life_state("downed")
-		ui.toast(str(data.get("character", a.character if a else "Un élève")) + " est au sol · 30 secondes pour le relever.", 3)
+		var downed_name: String = str(data.get("character", a.character if a else "Un élève"))
+		ui.toast(downed_name + (" est au sol · 30 secondes pour la relever." if downed_name in ["Lysia", "Elly", "Bleuette"] else " est au sol · 30 secondes pour le relever."), 3)
 	elif kind == "death_start":
 		var cause: String = str(data.get("death_kind", data.get("attack", "slash")))
 		if cause not in ["spike", "shadow"]: cause = "slash"
@@ -1249,7 +1252,7 @@ func _event_local(kind: String, data: Dictionary) -> void :
 			helper.visual.trigger("revive_help")
 
 			if a: get_tree().create_timer(1.0).timeout.connect(_thank_gesture.bind(a))
-		ui.toast((a.character if a else "Un élève") + " a été relevé · seconde vie.", 3)
+		ui.toast((a.character if a else "Un élève") + (" a été relevée · seconde vie." if a and a.character in ["Lysia", "Elly", "Bleuette"] else " a été relevé · seconde vie."), 3)
 	elif kind == "archive_qte" and not bool(data.get("ready", false)) and actor_id == local_id():
 		ui.toast("Contrôle réussi" if bool(data.get("success", false)) else "Contrôle raté · archive bloquée 3 s · Alice t’a repéré !", 2.5)
 	elif kind == "archive_alarm":

@@ -567,6 +567,7 @@ func _process(delta: float) -> void :
 	if _paused():
 		_update_bars(delta)
 		_update_lights(delta)
+		_update_bonus(0.0)
 		return
 	# Débris et accessoires restent dans la partie : ni dans le film de fin, ni sur l'écran des résultats.
 	var in_round: bool = str(world.phase) == "playing"
@@ -1195,6 +1196,9 @@ func _update_bonus(delta: float) -> void :
 	_bonus_label.scale = Vector2.ONE * pop
 	_bonus_label.position = anchor + Vector2(0.0, -14.0 * smoothstep(0.4, life, _bonus_time)) - Vector2(0.0, _bonus_label.size.y * 0.1)
 	_bonus_label.modulate.a = smoothstep(0.0, 0.08, _bonus_time) * (1.0 - smoothstep(life - 0.6, life, _bonus_time))
+	# Sa couche passe au-dessus de l'interface : caché tant que le menu pause (ou le terrain d'essai) est
+	# ouvert, il reprend à la fermeture (en solo, son chrono est figé avec la partie).
+	_bonus_label.visible = not bool(world.get("pause_open"))
 
 
 
