@@ -28,6 +28,7 @@ var _bot_until: Dictionary = {}
 var _voices: Array[AudioStreamPlayer3D] = []
 var _next_voice: int = 0
 var _streams: Dictionary = {}
+var _client_groups: Dictionary = {}
 
 func setup(owner_world: Node) -> void :
 	world = owner_world
@@ -92,9 +93,36 @@ func tick(_delta: float) -> void :
 	_tick_bots()
 
 
+# Côté client : les instantanés arrivent ~20 fois par seconde. Chaque groupe synchronisé (même
+# émote, même époque) garde une horloge locale qui avance à chaque image et rattrape en douceur
+# le temps de l'hôte (jamais de recul visible) ; tous les membres du groupe partagent la même.
 func extrapolate(delta: float) -> void :
+	var frame: int = Engine.get_physics_frames()
 	for actor: PaperActor in world.actors.values():
-		if actor.effects.has("emote_id"): actor.effects["emote_time"] = float(actor.effects.get("emote_time", 0.0)) + delta
+		var fx: Dictionary = actor.effects
+		if not fx.has("emote_id"): continue
+		var fresh: bool = not fx.has("_emote_snap")
+		var snap: float = float(fx.get("emote_time", 0.0)) if fresh else float(fx["_emote_snap"])
+		var key: String = str(fx.emote_id) + "@" + str(snappedf(world.clock - snap, 0.05))
+		var g: Dictionary = _client_groups.get(key, {})
+		if g.is_empty():
+			g = {"t": snap, "snap": snap, "age": 0.0, "frame": frame}
+			_client_groups[key] = g
+		elif int(g.frame) != frame:
+			g.frame = frame
+			if absf(snap - float(g.snap)) > 0.0001:
+				g.snap = snap
+				g.age = 0.0
+			else:
+				g.age = float(g.age) + delta
+			var target: float = float(g.snap) + float(g.age)
+			var error: float = target - float(g.t)
+			if absf(error) > 0.35: g.t = target
+			else: g.t = float(g.t) + delta * clampf(1.0 + error * 3.0, 0.4, 1.6)
+		fx["_emote_snap"] = snap
+		fx["emote_time"] = g.t
+	for key: Variant in _client_groups.keys():
+		if int(_client_groups[key].frame) < frame - 30: _client_groups.erase(key)
 
 
 
@@ -214,3 +242,4 @@ func holds_bot(actor: PaperActor) -> bool:
 func clear() -> void :
 	_pending.clear()
 	_bot_until.clear()
+	_client_groups.clear()
