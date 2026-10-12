@@ -59,6 +59,9 @@ var _next_scene: int = 1
 var _pending_bonus: int = 0
 var _pending_stamp: float = 0.0
 var bonus_total: float = 0.0
+# Hôte : la dernière élimination était une exécution (plan joué chez tous) ; main._finish choisit
+# alors l'épilogue d'Alice (PaperFilmExecutionEnd) au lieu du film où elle rattrape la victime.
+var last_executed: bool = false
 var camera_enabled: bool = true
 
 var _shows: Dictionary = {}
@@ -170,6 +173,7 @@ func clear() -> void :
 	_scenes.clear()
 	_pending_bonus = 0
 	bonus_total = 0.0
+	last_executed = false
 	for entry: Dictionary in _debris:
 		if is_instance_valid(entry.node): entry.node.queue_free()
 	_debris.clear()
@@ -394,6 +398,7 @@ func _lysia_blast(scene: Dictionary, alice, victim, forced: bool) -> void :
 
 func on_eliminated(actor) -> void :
 	if world == null or not world.authoritative() or world.training or actor == null or actor.killer: return
+	last_executed = str(actor.effects.get("death_kind", "")) == "execution"
 	var killer = null
 	for other in world.actors.values():
 		if other.killer: killer = other

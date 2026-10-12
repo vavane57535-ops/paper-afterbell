@@ -1058,6 +1058,8 @@ func _finish(winner: String, forfeit: bool = false) -> void :
 	for actor: PaperActor in actors.values():
 		if actor.lms: ending_focus = actor.character
 	ending_kind = "ending_killer" if winner == "killer" else "ending_lms" if lms else "ending_survivors"
+	# Dernier survivant exécuté (plan d'exécution) : pas de seconde mise à mort, épilogue d'Alice.
+	if winner == "killer" and kill_scenes and kill_scenes.last_executed: ending_kind = PaperFilmExecutionEnd.KIND
 	if forfeit: PaperAliceForfeit.stage(self)
 	event("ending", {"winner": winner, "lms": lms, "participants": ending_people.duplicate(), "focus": ending_focus, "kind": ending_kind, "results": match_results})
 	if networked: _broadcast_roster()

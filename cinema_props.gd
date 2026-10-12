@@ -19,7 +19,7 @@ var reduce_flashes: bool = false
 
 func setup(anchor: Vector3, right: Vector3, forward: Vector3, kind: String, names: Array[String]) -> void :
 	origin = anchor;axis_right = right;axis_forward = forward;film = kind
-	if kind == "intro_alice": _room()
+	if kind in ["intro_alice", PaperFilmExecutionEnd.KIND]: _room()
 	if "Simon" in names and kind != "intro_survivors":
 		grenade = _grenade()
 		grenade.visible = false

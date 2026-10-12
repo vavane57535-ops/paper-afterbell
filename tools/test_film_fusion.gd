@@ -18,6 +18,13 @@ extends Node
 #            (WAV dans --ff-out, à mesurer avec ffmpeg -af ebur128) : même niveau attendu
 #   kill   : exécution du perso joué (vue victime), sortie ouverte : roue d'émotes ouverte au coup fatal,
 #            touche C pendant le plan, X-ray de Lysia, panneau SORTIE du jeu retiré du plan
+#   exec_end : le dernier survivant (--ff-person) est exécuté : la manche se termine sur l'épilogue
+#            d'Alice (PaperFilmExecutionEnd, sans seconde mise à mort), puis l'écran des résultats.
+#            --ff-alice : vue d'Alice (sinon vue de la victime) ; --ff-tf : en True Form ;
+#            --ff-exit : sortie ouverte (alerte) pendant l'exécution.
+#            Réseau (headless) : -- --host-test --tool test_film_fusion --ff-net host
+#                                -- --join-test --tool test_film_fusion --ff-net client
+#            (l'hôte exécute le dernier survivant ; chaque pair affiche FF_NET_END).
 # --ff-alarm : secondes d'alerte avant la fin (0,8 pour que la sirène soit encore en cours).
 # --ff-xray : le joueur (Lysia) a son X-ray actif au moment de la fin. --ff-wheel : roue d'émotes ouverte.
 
@@ -32,6 +39,10 @@ var with_xray: bool = false
 var with_wheel: bool = false
 var failures: Array[String] = []
 var headless: bool = false
+var alice_view: bool = false
+var true_form: bool = false
+var exit_open: bool = false
+var net_role: String = ""
 
 
 func setup(owner: Node) -> void :
@@ -48,10 +59,17 @@ func setup(owner: Node) -> void :
 			"--ff-map": map_id = value
 			"--ff-xray": with_xray = true
 			"--ff-wheel": with_wheel = true
+			"--ff-alice": alice_view = true
+			"--ff-tf": true_form = true
+			"--ff-exit": exit_open = true
+			"--ff-net": net_role = value
 			"--ff-times":
 				times.clear()
 				for part: String in value.split(",", false): times.append(float(part))
 	if not out_dir.is_empty(): DirAccess.make_dir_recursive_absolute(out_dir)
+	if not net_role.is_empty():
+		_run_net.call_deferred()
+		return
 	world.selected = person
 	if map_id != "school": world._rebuild_map(map_id)
 	_run.call_deferred()
@@ -121,13 +139,19 @@ func _run() -> void :
 		print("FF_RESULT ", "OK" if failures.is_empty() else "FAIL " + ", ".join(failures))
 		get_tree().quit()
 		return
-	world.start_solo(false)
+	if mode == "exec_end" and alice_view: world.selected = "Alice"
+	world.start_solo(mode == "exec_end" and alice_view)
 	var waited: int = 0
 	while str(world.phase) != "playing" and waited < 2000:
 		await get_tree().process_frame
 		waited += 1
 	_check(str(world.phase) == "playing", "la manche démarre (%s)" % str(world.phase))
 	await _wait(2.0)
+	if mode == "exec_end":
+		await _run_exec_end()
+		print("FF_RESULT ", "OK" if failures.is_empty() else "FAIL " + ", ".join(failures))
+		get_tree().quit()
+		return
 	if mode == "levels":
 		await _run_levels()
 		print("FF_RESULT ", "OK" if failures.is_empty() else "FAIL " + ", ".join(failures))
@@ -405,3 +429,128 @@ func _run_levels() -> void :
 		guard_end += 1
 	_check(str(world.ending_kind) == "ending_lms", "victoire LMS (%s)" % str(world.ending_kind))
 	await _record_music(float(world.film.duration) - 0.2, "levels_victory_%s.wav" % person)
+
+
+# Exécution du dernier survivant : la manche se termine sur l'épilogue d'Alice.
+func _execute_last(victim: PaperActor, alice: PaperActor) -> bool:
+	for a: PaperActor in world.actors.values():
+		if a != victim and not a.killer and a.alive: world.eliminate(a)
+	for k: int in range(20): await get_tree().process_frame
+	var base: Vector3 = world.school.spawn_points[1] + Vector3(0, 0, -9)
+	victim.global_position = base
+	victim.aim = Vector3.BACK
+	victim.reset_physics_interpolation()
+	alice.global_position = base + Vector3(0.6, 0, -2.4)
+	alice.aim = (base - alice.global_position).normalized()
+	alice.reset_physics_interpolation()
+	if victim.character != "Lysia": victim.effects["revived"] = true
+	if true_form:
+		alice.effects["phase6"] = 30.0
+		alice.effects["true_form_used"] = true
+		world.event("phase6", {"actor": alice.id, "active": true, "true_form": true, "duration": 30.0, "position": alice.position})
+		for k: int in range(40): await get_tree().process_frame
+	alice.effects["stun"] = 0.0
+	alice.effects["stun_immunity"] = 0.0
+	for attempt: int in range(8):
+		world.combat.damage(victim, 999.0, alice, false, "slash")
+		if bool(victim.effects.get("dying", false)): break
+	return bool(victim.effects.get("dying", false))
+
+
+func _run_exec_end() -> void :
+	var alice: PaperActor = world.killer_actor()
+	var victim: PaperActor = null
+	for a: PaperActor in world.actors.values():
+		a.bot = false
+		a.move_input = Vector3.ZERO
+		a.velocity = Vector3.ZERO
+		if not a.killer and a.character == person: victim = a
+	if victim == null or alice == null:
+		_check(false, "acteurs introuvables")
+		return
+	if exit_open:
+		world.time_left = 75.0
+		for k: int in range(30): await get_tree().process_frame
+		_check(world.exit_flow.opened, "sortie ouverte avant l'exécution")
+	_check(await _execute_last(victim, alice), "exécution de %s déclenchée" % person)
+	var clock0: float = float(world.clock)
+	var plan_shots: Array[float] = [0.9, 2.2]
+	var guard: int = 0
+	while str(world.phase) == "playing" and guard < 1200:
+		var t: float = float(world.clock) - clock0
+		if not plan_shots.is_empty() and t >= plan_shots[0]:
+			plan_shots.pop_front()
+			await _shot("plan_%.1f" % t)
+			continue
+		await get_tree().process_frame
+		guard += 1
+	var end_t: float = float(world.clock) - clock0
+	_check(str(world.phase) == "ending", "fin de manche après l'exécution (%s à %.2f s)" % [str(world.phase), end_t])
+	print("FF_EXEC_END kind=", world.ending_kind, " film=", world.film.kind, " duration=", world.film.duration, " focus=", world.ending_focus, " takes=", world.film.takes.size(), " outcome=", world.outcome)
+	_check(str(world.ending_kind) == PaperFilmExecutionEnd.KIND, "épilogue d'Alice choisi (%s)" % str(world.ending_kind))
+	_check(str(world.film.kind) == PaperFilmExecutionEnd.KIND, "film d'épilogue joué (%s)" % str(world.film.kind))
+	var cast_ok: bool = world.film.takes.size() == 1 and str(world.film.takes[0].person) == "Alice"
+	_check(cast_ok, "Alice seule à l'écran : pas de victime qui réapparaît (%d acteurs)" % world.film.takes.size())
+	var index: int = 0
+	var black_start: float = -1.0
+	var bars_until: float = -1.0
+	var debris_until: float = -1.0
+	while str(world.phase) == "ending" and not bool(world.ending_presented) and index < times.size():
+		var t: float = float(world.cinema)
+		if t < 0.4: black_start = maxf(black_start, 1.0 - float(world.film.black))
+		if int(world.kill_scenes._camera_id) >= 0 or float(world.kill_scenes._bars_amount) > 0.001: bars_until = t
+		if world.kill_scenes._props_root.visible: debris_until = t
+		if t + 0.0001 >= times[index]:
+			while index < times.size() and times[index] <= t + 0.0001: index += 1
+			await _shot("epi_%05.2f" % t)
+			continue
+		await get_tree().process_frame
+	_check(black_start >= 0.0 and black_start < 0.01, "noir tenu au début de l'épilogue (image visible à %.2f)" % black_start)
+	# (la première image de la phase « ending » peut précéder le passage de kill_scenes)
+	_check(bars_until < 0.05, "bandes noires de l'exécution coupées pendant l'épilogue (vues jusqu'à %.2f s)" % bars_until)
+	_check(debris_until < 0.05, "débris de l'exécution absents de l'épilogue (vus jusqu'à %.2f s)" % debris_until)
+	_check(str(world.audio.active_track) == "defeat", "musique de fin d'Alice (%s)" % str(world.audio.active_track))
+	var wait_results: int = 0
+	while not bool(world.ending_presented) and wait_results < 900:
+		await get_tree().process_frame
+		wait_results += 1
+	_check(bool(world.ending_presented) and str(world.ui.current_page) == "ending", "écran des résultats après l'épilogue (%s)" % str(world.ui.current_page))
+	_check(str(world.film.kind).is_empty(), "film arrêté après l'épilogue")
+	await _shot("results")
+
+
+# Réseau : l'hôte exécute le dernier survivant (de préférence le client) ; chaque pair affiche le
+# type de fin reçu et le film joué.
+func _run_net() -> void :
+	var waited: float = 0.0
+	while str(world.phase) != "playing" and waited < 60.0:
+		await get_tree().process_frame
+		waited += get_process_delta_time()
+	if net_role == "host":
+		await get_tree().create_timer(2.5).timeout
+		var alice: PaperActor = world.killer_actor()
+		var victim: PaperActor = null
+		for a: PaperActor in world.actors.values():
+			a.bot = false
+			if not a.killer and a.alive and (victim == null or not a.bot): victim = a
+		for id: Variant in world.roster.keys():
+			var actor: PaperActor = world.actors.get(int(id))
+			if actor != null and int(id) != 1 and not actor.killer: victim = actor
+		if alice == null or victim == null:
+			_check(false, "acteurs introuvables (hôte)")
+		else:
+			print("FF_NET host executing ", victim.character, " id=", victim.id)
+			_check(await _execute_last(victim, alice), "exécution déclenchée (hôte)")
+	var guard: float = 0.0
+	var shows: int = 0
+	while str(world.phase) != "ending" and guard < 40.0:
+		shows = maxi(shows, world.kill_scenes._shows.size())
+		await get_tree().process_frame
+		guard += get_process_delta_time()
+	print("FF_NET_END ", net_role, " kind=", world.ending_kind, " film=", world.film.kind, " takes=", world.film.takes.size(), " show_seen=", shows > 0, " outcome=", world.outcome)
+	_check(str(world.ending_kind) == PaperFilmExecutionEnd.KIND and str(world.film.kind) == PaperFilmExecutionEnd.KIND, "épilogue d'Alice chez le %s" % net_role)
+	_check(shows > 0, "plan d'exécution reçu chez le %s" % net_role)
+	await get_tree().create_timer(3.0 if net_role != "host" else 6.0).timeout
+	print("FF_NET ", net_role, " film_time=%.2f phase=%s" % [float(world.cinema), str(world.phase)])
+	print("FF_RESULT ", "OK" if failures.is_empty() else "FAIL " + ", ".join(failures))
+	get_tree().quit()

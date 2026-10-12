@@ -90,6 +90,8 @@ var _shots: Array = []
 
 var _flights: Array = []
 var _door: Array = []
+# Fondu d'ouverture (noir → image) : 0,28 s par défaut ; l'épilogue d'exécution garde un noir avant.
+var _open_fade: Vector2 = Vector2(0.0, 0.28)
 var _blackouts: Array = []
 var _trauma: float = 0.0
 var _shake_clock: float = 0.0
@@ -112,6 +114,7 @@ static func duration_for(film: String, names: Array = []) -> float:
 		"intro_survivors": return 7.6
 		"ending_lms": return VictoryFilm.duration_for(str(names[0]) if not names.is_empty() else "Ashura")
 		"ending_killer": return 10.6
+		PaperFilmExecutionEnd.KIND: return PaperFilmExecutionEnd.DURATION
 		PaperFilmBlocus.KIND: return PaperFilmBlocus.DURATION
 		_: return float(_team_schedule(names).duration)
 
@@ -184,12 +187,12 @@ func begin(next: String, participants: Array, focus: String = "Ashura") -> void 
 	for name_value: Variant in participants:
 		var person: String = str(name_value)
 		if person in PaperData.NAMES and person not in people: people.append(person)
-	if next == "intro_alice": people.clear()
+	if next in ["intro_alice", PaperFilmExecutionEnd.KIND]: people.clear()
 	elif next in ["ending_lms", "ending_killer"]: people = [focus if focus in PaperData.NAMES else "Ashura"]
 	elif people.is_empty(): people = [focus if focus in PaperData.NAMES else "Ashura"]
 	if next in ["ending_lms", "ending_killer"]: focus_name = people[0]
 	_length = anchor.distance_to(finish)
-	if next == "intro_alice":
+	if next in ["intro_alice", PaperFilmExecutionEnd.KIND]:
 		anchor += Vector3.UP * 30.0;finish = anchor + forward * 7.0
 	elif world.school.has_method("set_cinematic_exit_open"):
 		world.school.set_cinematic_exit_open(next not in ["ending_killer", PaperFilmBlocus.KIND])
@@ -200,11 +203,12 @@ func begin(next: String, participants: Array, focus: String = "Ashura") -> void 
 	fill.omni_range = 9;fill.light_energy = 0.7;fill.light_color = Color("eddfd3")
 	duration = duration_for(next, people)
 	_spots.resize(takes.size())
-	_dark = next in ["ending_killer", "intro_alice"]
+	_dark = next in ["ending_killer", "intro_alice", PaperFilmExecutionEnd.KIND]
 	match next:
 		"intro_survivors": _write_intro_survivors()
 		"intro_alice": _write_intro_alice()
 		"ending_killer": _write_kill()
+		PaperFilmExecutionEnd.KIND: PaperFilmExecutionEnd.write(self)
 		"ending_lms": victory.write(self, people[0])
 		PaperFilmBlocus.KIND:
 			blocus = PaperFilmBlocus.new();add_child(blocus);blocus.write(self)
@@ -246,7 +250,7 @@ func stop() -> void :
 			if visual is PaperVisual: (visual as PaperVisual).mood_override = ""
 	cast.clear();takes.clear();people.clear();props = null;alice_index = -1;blocus = null
 	_track.clear();_shots.clear();_flights.clear();_door.clear();_blackouts.clear();_spots.clear()
-	hide();kind = "";last_shot = -1;caption = "";chapter = "";_time = -1.0;_trauma = 0.0
+	hide();kind = "";last_shot = -1;caption = "";chapter = "";_time = -1.0;_trauma = 0.0;_open_fade = Vector2(0.0, 0.28)
 	var comic: Node = _comic() if world else null
 	if comic:
 		comic.set("frame_guard", false)
@@ -282,9 +286,9 @@ func update(t: float, delta: float) -> void :
 	if t < _time - 0.0005 or t - _time > 0.3: _jump(t)
 	elif t > _time: _step(t, false)
 	elapsed = t
-	if kind not in ["intro_alice", "ending_killer", PaperFilmBlocus.KIND] and world.school.has_method("sample_cinematic_exit_open"):
+	if kind not in ["intro_alice", "ending_killer", PaperFilmExecutionEnd.KIND, PaperFilmBlocus.KIND] and world.school.has_method("sample_cinematic_exit_open"):
 		world.school.sample_cinematic_exit_open(t + 2.0)
-	black = 1.0 - smoothstep(0, 0.28, t)
+	black = 1.0 - smoothstep(_open_fade.x, _open_fade.y, t)
 	if t > duration - 0.32: black = smoothstep(duration - 0.32, duration, t)
 	for cut: Array in _blackouts:
 		if t >= float(cut[0]) and t < float(cut[1]): black = 1.0
@@ -585,7 +589,10 @@ func _run_cue(cue: Array) -> void :
 func _place_props(t: float) -> void :
 	if props == null: return
 	for entry: Array in _door:
-		props.set_door(smoothstep(float(entry[0]), float(entry[1]), t))
+		var opening: float = smoothstep(float(entry[0]), float(entry[1]), t)
+		# [début, fin, de, à] : porte qui se referme (épilogue d'exécution) ; [début, fin] : ouverture.
+		if entry.size() >= 4: opening = lerpf(float(entry[2]), float(entry[3]), opening)
+		props.set_door(opening)
 	var grenade_shown: bool = false
 	var drone_shown: bool = false
 	for flight: Array in _flights:
