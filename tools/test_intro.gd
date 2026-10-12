@@ -2,15 +2,17 @@ extends Node
 
 # Vérification du prologue « Yiero » (film du premier lancement).
 #   -- --tool test_intro --intro-mode scan                 lecture complète sans rendu (erreurs, dialogues)
-#   -- --tool test_intro --intro-mode capture [--intro-out DIR] [--intro-from S] [--intro-to S] [--intro-step S]
+#   -- --tool test_intro --intro-mode capture [--intro-out DIR] [--intro-from S] [--intro-to S] [--intro-step S] [--intro-ranges "A-B,C-D"]
 #        lecture réelle (lancer avec --fixed-fps 15 pour un pas de temps fixe) et une capture toutes les
 #        ~2 s + des captures rapprochées sur les moments clés
 #   -- --tool test_intro --intro-mode gallery              lecture depuis la cinémathèque (avance, pause, retour)
 #   -- --tool test_intro --intro-mode first --first-launch premier lancement : le film démarre seul, se passe en
 #        maintenant Échap, et le drapeau [story] intro_seen est écrit (utiliser un XDG_DATA_HOME de test !)
 #   -- --tool test_intro --intro-mode second --first-launch lancement suivant (même dossier) : le menu s'ouvre directement
+#   -- --tool test_intro --intro-mode audio --intro-out DIR  feuille audio (bruitages, blips, répliques) en JSON
+#   -- --tool test_intro --intro-mode blips --intro-out DIR  blips de dialogue synthétisés écrits en WAV
 
-const KEY_MOMENTS: Array[float] = [9.6, 18.5, 31.8, 35.6, 37.4, 39.2, 43.0, 47.5, 50.45, 55.15, 59.0, 63.35, 66.5, 68.7, 69.6, 70.5, 74.0, 75.3, 76.1, 78.3, 79.1, 79.6, 82.6, 84.0, 85.5, 88.0, 89.95, 92.95, 93.8, 97.0, 98.5, 100.0, 102.0, 105.0, 110.5, 114.5, 115.5, 116.6, 119.6, 123.0, 127.5, 132.1, 133.7, 136.8, 141.5, 146.0, 148.5, 150.2, 152.0, 154.6, 155.9, 158.0, 159.7, 161.0, 162.3, 163.5, 165.2, 167.0, 169.8, 171.8, 174.6, 177.2, 177.7, 179.2, 180.0, 183.5, 185.2, 187.6, 189.8, 193.0]
+const KEY_MOMENTS: Array[float] = [9.6, 18.5, 31.8, 35.6, 37.4, 39.2, 43.0, 47.5, 50.45, 57.1, 60.2, 63.35, 66.5, 68.7, 69.6, 70.5, 74.0, 75.3, 76.1, 78.3, 79.1, 79.6, 82.6, 84.0, 85.5, 88.0, 89.95, 92.95, 93.8, 97.0, 98.5, 100.0, 102.0, 105.0, 110.5, 114.5, 115.5, 116.6, 119.6, 123.0, 127.5, 132.1, 133.7, 136.8, 141.5, 146.0, 148.5, 150.2, 152.0, 154.6, 155.9, 158.0, 159.7, 161.0, 162.3, 163.5, 165.2, 167.0, 169.8, 171.8, 174.6, 177.5, 178.3, 178.97, 179.6, 182.3, 183.5, 185.2, 187.6, 189.8, 193.0]
 
 var world: Node
 var mode: String = "capture"
@@ -18,6 +20,7 @@ var out_dir: String = "user://intro_caps"
 var from_t: float = 0.0
 var to_t: float = 196.0
 var step: float = 2.0
+var ranges: Array[Vector2] = []
 var failures: Array[String] = []
 
 func setup(owner: Node) -> void :
@@ -31,6 +34,10 @@ func setup(owner: Node) -> void :
 			"--intro-from": from_t = float(args[i + 1])
 			"--intro-to": to_t = float(args[i + 1])
 			"--intro-step": step = float(args[i + 1])
+			"--intro-ranges":
+				for part: String in args[i + 1].split(","):
+					var bounds: PackedStringArray = part.split("-")
+					if bounds.size() == 2: ranges.append(Vector2(float(bounds[0]), float(bounds[1])))
 	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(out_dir) if out_dir.begins_with("user://") else out_dir)
 	_run.call_deferred()
 
@@ -59,6 +66,7 @@ func _run() -> void :
 		"first": await _first()
 		"second": await _second()
 		"audio": await _audio_sheet()
+		"blips": _save_blips()
 	print("INTRO_RESULT ", "OK" if failures.is_empty() else "FAIL " + ", ".join(failures))
 	get_tree().quit()
 
@@ -90,6 +98,14 @@ func _scan() -> void :
 
 
 func _capture() -> void :
+	if not ranges.is_empty():
+		# Plusieurs tranches (--intro-ranges "54-61,77.5-81") : saut au début de chacune.
+		var all: Array[Vector2] = ranges.duplicate()
+		for span: Vector2 in all:
+			from_t = span.x;to_t = span.y
+			ranges.clear()
+			await _capture()
+		return
 	if world.phase != "prologue": world.play_prologue()
 	var film: Node = world.prologue
 	if from_t > 0.0:
@@ -204,7 +220,7 @@ func _audio_sheet() -> void :
 		for i: int in range(text.length()):
 			var code: int = text.unicode_at(i)
 			if (code >= 48 and code <= 57) or (code >= 65 and code <= 90) or (code >= 97 and code <= 122) or code > 191:
-				blips.append({"t": float(line[0]) + times[i], "who": str(line[1])})
+				blips.append({"t": float(line[0]) + times[i], "who": str(line[1]), "shout": bool(line[4])})
 		if index + 1 < film._lines.size():
 			var next: Array = film._lines[index + 1]
 			var reading: float = maxf(0.9, float(text.length()) / 18.0)
@@ -216,6 +232,20 @@ func _audio_sheet() -> void :
 	file.store_string(JSON.stringify({"sfx": cues, "blips": blips, "lines": lines}, "\t"))
 	file.close()
 	print("INTRO_AUDIO sfx=", cues.size(), " blips=", blips.size(), " lignes=", lines.size())
+	world.end_prologue()
+
+
+# Écrit les blips de dialogue synthétisés (4 variantes par personnage) en WAV dans --intro-out,
+# pour les écouter hors du jeu.
+func _save_blips() -> void :
+	world.play_prologue()
+	var overlay: Node = world.prologue.overlay
+	for who: String in overlay._blips:
+		var variants: Array = overlay._blips[who]
+		for k: int in range(variants.size()):
+			var stream: AudioStreamWAV = variants[k]
+			stream.save_to_wav(out_dir.path_join("blip_%s_%d.wav" % [who, k]))
+		_check(variants.size() == 4 and (variants[0] as AudioStreamWAV).data.size() > 400, "blips de %s synthétisés" % who)
 	world.end_prologue()
 
 

@@ -1239,7 +1239,9 @@ func _process_frame(delta: float) -> void :
 		else: ui.update_film("", "", prologue.black)
 		presentation.update_visuals(delta)
 		return
-	if prologue and not prologue.kind.is_empty() and not prologue.gallery_mode: _abort_prologue()
+	if prologue and not prologue.kind.is_empty():
+		if prologue.gallery_mode: prologue.stop()
+		else: _abort_prologue()
 	if phase == "ending":
 		cinema += delta
 		if not ending_presented and cinema >= film.duration:

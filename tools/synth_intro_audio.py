@@ -569,6 +569,23 @@ def sfx_title():
 	return level(space(x, 2.4, 0.3, 4000.0), -13.0)
 
 
+def sfx_drop():
+	"""Chute de sous-basse quand l'œil de Yiero s'ouvre : glissando grave 90 → 26 Hz, harmonique
+	saturée discrète (audible sur de petits haut-parleurs), souffle sourd, longue queue."""
+	seconds = 3.2
+	n = int(seconds * SR)
+	t = np.arange(n) / SR
+	f = env_points(n, [(0.0, 92.0), (0.5, 58.0), (1.6, 34.0), (3.2, 26.0)])
+	phase = np.cumsum(f) / SR
+	body = np.sin(2 * np.pi * phase)
+	grit = soft(np.sin(2 * np.pi * phase) * 3.0, 3.0) - body * 0.9
+	grit = bandpass(grit, 90.0, 900.0) * 0.35
+	air = lowpass(brown(n), 160.0) * 0.35
+	envl = env_points(n, [(0.0, 0.0), (0.03, 1.0), (1.2, 0.75), (2.6, 0.25), (3.2, 0.0)])
+	x = (body + grit + air) * envl
+	return level(space(lowpass(x, 1200.0), 2.6, 0.22, 700.0), -14.0)
+
+
 def sfx_ink_step():
 	seconds = 0.35
 	n = int(seconds * SR)
@@ -585,7 +602,7 @@ SOUNDS = {
 	"sfx_thump": sfx_thump, "sfx_rumble": sfx_rumble, "sfx_splash": sfx_splash, "sfx_slam": sfx_slam,
 	"sfx_spike": sfx_spike, "sfx_whoosh": sfx_whoosh, "sfx_ignite": sfx_ignite, "sfx_gold_hit": sfx_gold_hit,
 	"sfx_metal": sfx_metal, "sfx_erase": sfx_erase, "sfx_chomp": sfx_chomp, "sfx_portal": sfx_portal,
-	"sfx_title": sfx_title, "sfx_ink_step": sfx_ink_step,
+	"sfx_title": sfx_title, "sfx_ink_step": sfx_ink_step, "sfx_drop": sfx_drop,
 }
 
 
