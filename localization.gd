@@ -1,6 +1,8 @@
 class_name PaperLanguage
 extends RefCounted
 
+const V16 = preload("res://localization_016.gd")
+
 
 static var language: String = "fr"
 static var _protected_names: Dictionary = {}
@@ -2735,6 +2737,8 @@ static func _translate(source: String, depth: int, protect_user: bool) -> String
 	if source.is_empty() or depth > 7: return source
 	if protect_user and _protected_names.has(source): return source
 	if source.begins_with(" · "): return " · " + _translate(source.substr(3), depth + 1, false)
+	var v16: Variant = V16.lookup(source)
+	if v16 != null: return str(v16)
 	if V12_TEXT.has(source): return str(V12_TEXT[source])
 	if V11_TEXT.has(source): return str(V11_TEXT[source])
 	if TEXT.has(source): return str(TEXT[source])

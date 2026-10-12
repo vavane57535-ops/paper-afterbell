@@ -3,7 +3,7 @@ extends RefCounted
 
 const IDS: Array[String] = ["om"]
 const LABELS: Dictionary = {"om": "OM"}
-const PROTOCOL: int = 15
+const PROTOCOL: int = 16
 
 static func normalize(value: String) -> String:
 	return "om"

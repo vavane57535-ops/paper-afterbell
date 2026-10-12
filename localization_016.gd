@@ -1,0 +1,279 @@
+extends RefCounted
+
+# Traductions anglaises des textes ajoutés en 0.16 (généré depuis les rapports des lots).
+
+const TEXT: Dictionary = {
+	"Victoires LMS": "LMS victories",
+	"Ultime souvenir :": "Last memory:",
+	"Ashura · Bricolage sous l’orage": "Ashura · Tinkering in the storm",
+	"Usayuko · Le poing de la dernière sonnerie": "Usayuko · The last bell's fist",
+	"Simon · Plus vite que l’ombre": "Simon · Faster than the shadow",
+	"Lysia · Surtension": "Lysia · Power surge",
+	"Elly · Dernière cartouche": "Elly · Last shell",
+	"Bleuette · Le courage au chocolat": "Bleuette · Chocolate courage",
+	"Sous la pluie, Ashura rafistole son drone, l’envoie dans la figure d’Alice et file en rollers pendant qu’elle titube.": "In the rain, Ashura patches up his drone, sends it into Alice's face and rolls away on his skates while she staggers.",
+	"Usayuko bloque la griffe d’Alice, serre le poing et l’envoie voler à travers la cour d’un coup monstrueux.": "Usayuko blocks Alice's claw, clenches his fist and sends her flying across the yard with a monstrous punch.",
+	"Simon charge sa course éclair et dépasse Alice si vite qu’elle tourne sur elle-même, puis la laisse loin derrière.": "Simon charges his lightning dash and blows past Alice so fast she spins around, then leaves her far behind.",
+	"Lysia se branche, surchauffe, fonce sur Alice et la repousse dans une décharge électrique.": "Lysia plugs in, overheats, charges at Alice and blasts her back with an electric discharge.",
+	"Blessée, Elly se soigne, esquive la griffe d’Alice et l’arrête net d’un tir de fusil à pompe.": "Wounded, Elly heals herself, dodges Alice's claw and stops her cold with a shotgun blast.",
+	"Bleuette tremble, croque son chocolat, trouve son courage et file si vite qu’Alice s’étale dans une flaque.": "Bleuette trembles, bites into her chocolate, finds her courage and dashes off so fast that Alice falls flat in a puddle.",
+	"Le blocus · Alice a quitté la partie": "The blockade · Alice left the game",
+	"Alice a quitté la manche : les survivants bloquent l’entrée de l’école avec des poubelles, des chaises et des banderoles mal écrites. Victoire par forfait.": "Alice left the round: the survivors block the school entrance with bins, chairs and badly written banners. Victory by forfeit.",
+	"Fins": "Endings",
+	"Aléatoire": "Random",
+	"Plus haute malice": "Highest malice",
+	"hôte": "host",
+	"Bot · Alice IA": "Bot · AI Alice",
+	"Alice choisie par l’hôte": "Alice picked by the host",
+	"Cette personne jouera Alice à la prochaine manche.": "This player will be Alice next round.",
+	"La personne choisie pour jouer Alice a quitté le salon : Alice sera tirée au sort.": "The player chosen to be Alice left the lobby: Alice will be drawn at random.",
+	"VICTOIRE PAR FORFAIT": "VICTORY BY FORFEIT",
+	"ALICE A QUITTÉ LA PARTIE · LE BLOCUS A PAYÉ": "ALICE LEFT THE GAME · THE BLOCKADE PAID OFF",
+	"PASSER LE BLOCUS  ▸▸": "SKIP THE BLOCKADE  ▸▸",
+	"CAMÉSCOPE DU FOYER DES ÉLÈVES": "STUDENT COMMON ROOM CAMCORDER",
+	"VEN. 13 OCT.": "FRI. OCT 13",
+	"fondu en cours": "fade in progress",
+	"DE L’ÉCOLE FONDAMENTALE": "OF THE FUNDAMENTAL SCHOOL",
+	"(ALICE A RAGE QUIT)": "(ALICE RAGE QUIT)",
+	"ALICE A RAGE QUIT": "ALICE RAGE QUIT",
+	"VICTOIRE PAR FORFAIT !!!": "VICTORY BY FORFEIT !!!",
+	"(sans jouer)": "(without playing)",
+	"Aucune Alice n’a été blessée pendant ce blocus.": "No Alice was harmed during this blockade.",
+	"(Elle était partie.)": "(She had left.)",
+	"mégaphone": "megaphone",
+	"Tout le monde": "Everyone",
+	"16 h 47. Alice a quitté la partie.": "4:47 pm. Alice left the game.",
+	"Les survivants décident alors de… bloquer l’école.": "So the survivors decide to… blockade the school.",
+	"Un, deux… un, deux… Ça marche, ce truc ?": "One, two… one, two… Is this thing on?",
+	"ALICE ! T’ES OÙ ?! ALICE ! T’ES OÙ ?!": "ALICE! WHERE ARE YOU?! ALICE! WHERE ARE YOU?!",
+	"♪ ON EST LÀ ! ON EST LÀ ! ♪": "♪ WE ARE HERE! WE ARE HERE! ♪",
+	"♪ MÊME SI ALICE VEUT PAS, NOUS ON EST LÀ ! ♪": "♪ EVEN IF ALICE SAYS NO, WE ARE HERE! ♪",
+	"[ ZOOM DRAMATIQUE ]": "[ DRAMATIC ZOOM ]",
+	"[ LA BANDEROLE SE DÉCROCHE ]": "[ THE BANNER COMES UNSTUCK ]",
+	"… Quelqu’un a du scotch ?": "… Anyone got tape?",
+	"♪ ET UN, ET DEUX, ET TROIS-ZÉRO ! ♪": "♪ AND ONE, AND TWO, AND THREE-NIL! ♪",
+	"♪ FOR-FAIT ! FOR-FAIT ! FOR-FAIT ! ♪": "♪ FOR-FEIT! FOR-FEIT! FOR-FEIT! ♪",
+	"ALICE, REVIENS SI T'ES CAP !": "ALICE, COME BACK IF YOU DARE!",
+	"PAS DE COURS, PAS DE COURSE-POURSUITE !": "NO CLASS, NO CHASE!",
+	"ROLLERS AUTORISÉS DANS LES COULOIRS !": "ROLLERBLADES ALLOWED IN THE HALLWAYS!",
+	"UNE PRISE ÉLECTRIQUE PAR ÉLÈVE !": "ONE POWER OUTLET PER STUDENT!",
+	"DES PANSEMENTS GRATUITS POUR TOUT LE MONDE !": "FREE BANDAGES FOR EVERYONE!",
+	"DU CHOCOLAT À LA CANTINE !!!": "CHOCOLATE IN THE CANTEEN!!!",
+	"VIVE LE BLOCUS !": "LONG LIVE THE BLOCKADE!",
+	"[ GRILLONS ]": "[ CRICKETS ]",
+	"[ FUMIGÈNE ARTISANAL ]": "[ HOMEMADE SMOKE BOMB ]",
+	"[ CRIS DE VICTOIRE ]": "[ VICTORY SCREAMS ]",
+	"ON A GAGNÉ\nPAR FORFAIT": "WE WON\nBY FORFEIT",
+	"PAS DE\nCOURS": "NO\nCLASS",
+	"ALICE =\nFORFÉ": "ALICE =\nFORFITED",
+	"ON VEUT DES\nVACANSES": "WE WANT\nHOLIDAZE",
+	"RENDEZ-NOUS\nLA RÉCRÉ": "GIVE US BACK\nRECESS",
+	"BLOCUS !!!": "BLOCKADE !!!",
+	"(en carton)": "(cardboard)",
+	"CAMÉRA : DERRIÈRE": "CAMERA: BEHIND",
+	"CAMÉRA : LIBRE 360°": "CAMERA: FREE 360°",
+	"Le personnage tourne avec la caméra": "The character turns with the camera",
+	"Tourne librement autour du personnage": "Orbit freely around the character",
+	"Caméra : derrière / libre 360°": "Camera: behind / free 360°",
+	"Caméra derrière / libre 360°": "Camera behind / free 360°",
+	"Accélération du stick (demi-tour rapide)": "Stick acceleration (quick turn)",
+	"Mode de caméra": "Camera mode",
+	"Derrière : le personnage tourne avec la caméra. Libre 360° : la caméra tourne autour de lui.": "Behind: the character turns with the camera. Free 360°: the camera orbits around them.",
+	"Derrière le personnage": "Behind the character",
+	"Libre 360°": "Free 360°",
+	"Caméra": "Camera",
+	"%s : caméra": "%s: camera",
+	"CAMÉRA": "CAMERA",
+	"DERRIÈRE": "BEHIND",
+	"LIBRE 360°": "FREE 360°",
+	"Applaudir": "Clap",
+	"Bouder": "Sulk",
+	"Cœur avec les mains": "Hand heart",
+	"Nananère": "Taunt",
+	"Salut militaire": "Salute",
+	"Révérence": "Bow",
+	"Faire le beau": "Beg",
+	"En tailleur": "Sit cross-legged",
+	"TAB · page suivante": "TAB · next page",
+	"NOUVEAU  ·  TENDANCES TIKTOK 2025-2026": "NEW  ·  TIKTOK TRENDS 2025-2026",
+	"LES CLASSIQUES": "THE CLASSICS",
+	"Chaque manche rapporte des tickets (+30, plus ton score, plus un bonus si ton camp gagne). En partie, les danses sont dans la roue des émotes (G), pages DANSES (Tab). Les survivants proches qui font la même émote ou la même danse se synchronisent, musique et sons compris.": "Every round earns tickets (+30, plus your score, plus a bonus if your side wins). In a match, dances are in the emote wheel (G), DANCES pages (Tab). Nearby survivors doing the same emote or dance sync up, music and sounds included.",
+	"Le 6-7": "The 6-7",
+	"Anxiety (le casque)": "Anxiety (headphones)",
+	"Poulet-Banane": "Chicken Banana",
+	"Pas Amapiano": "Amapiano step",
+	"Retour en 2016": "Back to 2016",
+	"Mème 2025": "2025 meme",
+	"Duo 2025": "2025 duo",
+	"Été 2025": "Summer 2025",
+	"Funk BR": "Brazilian funk",
+	"Nostalgie 2026": "2026 nostalgia",
+	"Paumes vers le ciel, « six… seven », la balance qui monte et descend sur un beat drill.": "Palms up, “six… seven”, hands see-sawing up and down on a drill beat.",
+	"L’air blasé… puis d’un coup les pouces levés qui montent et descendent, façon pom-pom girl coréenne.": "Looking bored… then suddenly thumbs up bouncing up and down, Korean cheerleader style.",
+	"Casque sur les oreilles, on vibre seul… jusqu’à ce qu’un ami vienne danser derrière toi.": "Headphones on, vibing alone… until a friend starts dancing behind you.",
+	"La griffe au visage, coup de hanche, griffures de chat, tour sur soi et rugissement.": "Claw by the face, hip pop, cat scratches, a spin and a roar.",
+	"Les ailes de poulet qui battent, la tête qui picore… puis la banane, bras en arc au-dessus de la tête.": "Flapping chicken wings, pecking head… then the banana, arms arched overhead.",
+	"Chasseuse de démons : dégainer, garde, coups nets et grand V doré. Le refrain qui a conquis 2025.": "Demon hunter: draw, guard, sharp strikes and a big golden V. The chorus that took over 2025.",
+	"Talon-pointe à toute vitesse, genoux qui rebondissent, hanches qui tournent, sur un funk brésilien à la cloche.": "Lightning heel-toe steps, bouncing knees, rolling hips, over cowbell Brazilian funk.",
+	"Genoux souples, pas glissés, mains qui poussent et grand penché arrière, sur le log drum.": "Soft knees, gliding steps, pushing hands and a big lean back, over the log drum.",
+	"Le Whip, le Nae Nae, deux pas de Juju… et Mannequin Challenge : tout le monde se fige !": "The Whip, the Nae Nae, a bit of Juju… and Mannequin Challenge: everybody freeze!",
+	"Doo-wop tout doux : claquements de doigts, bébé bercé, main sur le cœur et un petit twist.": "Gentle doo-wop: finger snaps, rocking a baby, hand on heart and a little twist.",
+	"Volume général": "Master volume",
+	"Tous les sons du jeu.": "All game sounds.",
+	"LA SORTIE EST OUVERTE": "THE EXIT IS OPEN",
+	"LA SORTIE SE ROUVRE": "THE EXIT REOPENS",
+	"DERNIÈRES SECONDES": "FINAL SECONDS",
+	"FUYEZ !": "RUN!",
+	"PAF !": "POW!",
+	"SHLAK !": "SLASH!",
+	"TCHAC !": "STAB!",
+	"CLANG !": "CLANG!",
+	"CRRRAC !": "RIIIP!",
+	"BZZT !": "BZZT!",
+	"BOUM !": "BOOM!",
+	"CHOPÉ !": "GOTCHA!",
+	"KRAAK !": "CRUNCH!",
+	"BRAOUM !": "KA-BOOM!",
+	"KRAAAK !": "SMASH!",
+	"BIP… BIP…": "BEEP… BEEP…",
+	"GRRAAH !": "GRRAAH!",
+	"HII !": "EEK!",
+	"ÉLÈVES": "STUDENTS",
+	"CARTES": "MAPS",
+	"EN LIGNE": "ONLINE",
+	"CONNEXION": "CONNECTING",
+	"RÉSEAU": "NETWORK",
+	"SALON": "LOBBY",
+	"BOUTIQUE": "SHOP",
+	"CINÉMA": "CINEMA",
+	"ESSAI": "PRACTICE",
+	"ÉVASION": "ESCAPE",
+	"LA CLOCHE SONNE": "THE BELL RINGS",
+	"Reprendre": "Resume",
+	"Valider": "Confirm",
+	"Choisir": "Select",
+	"onglets": "tabs",
+	"Les amis jouent encore : la manche continue pendant ta pause.": "Your friends are still playing: the round goes on while you pause.",
+	"Retourner dans la manche, là où la cloche t’attend.": "Back into the round, where the bell is waiting for you.",
+	"Jeu, graphismes, audio et accessibilité.": "Game, graphics, audio and accessibility.",
+	"Personnaliser le clavier et la manette.": "Customize keyboard and gamepad.",
+	"Quitter le salon de tes amis.": "Leave your friends' lobby.",
+	"Abandonner la manche et retourner au menu principal.": "Abandon the round and return to the main menu.",
+	"DOSSIER 013  ·  LA SONNERIE NE VOUS SAUVERA PAS": "FILE 013  ·  THE BELL WILL NOT SAVE YOU",
+	"Charge en avant. Au contact : Alice immobilisée 3 s, puis stun 2 s supplémentaires. Lysia invincible pendant la charge et la surchauffe, mais la chaleur use doucement son armure : −40 PV sur les 3 s (au prorata si elle est interrompue), jamais sous 1 PV.": "Charge forwards. On contact: root Alice for 3 s, followed by an extra 2 s stun. Lysia is invincible while charging and overheating, but the heat slowly wears down her armour: −40 HP over the 3 s (pro rata if interrupted), never below 1 HP.",
+	"Voit Alice et les prises électriques à travers les murs pendant 3 s.": "See Alice and electrical outlets through walls for 3 s.",
+	"Près d’une prise, branche-toi jusqu’à 15 s : +10 PV toutes les 2 s sans bouger, arrêt à armure pleine. Ashura à moins de 4 m : soin 1,5 fois plus rapide. Bouger, INTERAGIR ou 4 te débranche. Recharge 30 s après la fin du soin. Être frappée interrompt le branchement.": "Near an outlet, plug in for up to 15 s: +10 HP every 2 s while standing still, stopping at full armour. Ashura within 4 m: heals 1.5× faster. Moving, INTERACT or 4 unplugs you. 30 s cooldown after the heal ends. Getting hit interrupts the charge.",
+	"Vise n’importe quel allié à moins de 6 m : prochain drone -25 % recharge ; prochain stun d’Usayuko +1,5 s ; prochaine Course éclair de Simon +2 s ; prochaine recharge de Lysia -25 % ; prochain soin d’Elly ×2.": "Aim at any ally within 6 m: next drone cooldown −25%; Usayuko’s next stun +1.5 s; Simon’s next Flash Sprint +2 s; Lysia’s next cooldown −25%; Elly’s next heal ×2.",
+	"Aura remplie : augmente une fois les PV maximum de 30. Seul moyen de dépasser 150 PV en LMS.": "With full aura: increase maximum HP by 30 once. The only way to go above 150 HP during LMS.",
+	"Quand tu es frappé, tes alliés voient ta silhouette à travers les murs. Près de Lysia branchée à une prise (4 m), sa recharge est 1,5 fois plus rapide.": "When hit, your allies see your silhouette through walls. Near Lysia while she is plugged into an outlet (4 m), her recharge is 1.5× faster.",
+	"Cours, Simon, on te suit ! Ta prochaine Course éclair durera 2 s de plus.": "Run, Simon, we’re right behind you! Your next Flash Sprint will last 2 s longer.",
+	"BLEUETTE T’ENCOURAGE": "BLEUETTE CHEERS YOU ON",
+	"prochain drone : recharge −25 %": "next drone: cooldown −25%",
+	"prochain stun +1,5 s": "next stun +1.5 s",
+	"prochaine Course éclair +2 s": "next Flash Sprint +2 s",
+	"prochaine recharge −25 %": "next cooldown −25%",
+	"prochain soin ×2": "next heal ×2",
+	"ENCOURAGER · vise un allié à moins de 6 m : Ashura, Usayuko, Simon, Lysia ou Elly. Un bonus déjà prêt ne se cumule pas.": "ENCOURAGE · aim at an ally within 6 m: Ashura, Usayuko, Simon, Lysia or Elly. A ready bonus does not stack.",
+	"DERNIÈRE PRÉSENCE · +%d PV (maximum 150)": "LAST PRESENCE · +%d HP (150 max)",
+	"JE PEUX LE FAIRE ! +30 PV · au-delà de 150": "I CAN DO IT! +30 HP · beyond 150",
+	"BRANCHÉE · ASHURA ×1,5 · +10 PV / 1,3 s · %.1f s · BOUGER / INTERAGIR / 4 : DÉBRANCHER": "PLUGGED IN · ASHURA ×1.5 · +10 HP / 1.3 s · %.1f s · MOVE / INTERACT / 4: UNPLUG",
+	"SURCHAUFFE · INVULNÉRABLE · ARMURE −%d PV · %.1f s": "OVERHEAT · INVULNERABLE · ARMOUR −%d HP · %.1f s",
+	"ASHURA ×1,5 · TU ACCÉLÈRES LA RECHARGE DE LYSIA": "ASHURA ×1.5 · YOU SPEED UP LYSIA’S RECHARGE",
+	"ASHURA ×1,5": "ASHURA ×1.5",
+	"Début de LMS : +65 PV, jusqu’à 150 PV. Seul le courage de Bleuette (Je peux le faire) dépasse 150.": "LMS start: +65 HP, up to 150 HP. Only Bleuette’s courage (I can do it) goes beyond 150.",
+	"PRISE · %d m": "OUTLET · %d m",
+	"EN HAUT": "UPSTAIRS",
+	"EN BAS": "DOWNSTAIRS",
+	"PROCHAINE COURSE RENFORCÉE": "NEXT SPRINT ENHANCED",
+	"PROCHAINE RECHARGE RÉDUITE": "NEXT COOLDOWN REDUCED",
+	"Le film du premier lancement : Simon et Ashura affrontent Yiero dans une dimension ténébreuse… puis Simon atterrit à l’école en plein combat.": "The first-launch film: Simon and Ashura face Yiero in a dark dimension… then Simon lands at the school in the middle of a fight.",
+	"Revois le prologue et choisis qui affronte Alice. Les fins d’équipe s’adaptent aux survivants présents.": "Rewatch the prologue and choose who faces Alice. Team endings adapt to the survivors present.",
+	"Prologue, fins d’équipe et LMS.": "Prologue, team endings and LMS.",
+	"Maintenir pour passer": "Hold to skip",
+	"Avant la première sonnerie…": "Before the first bell…",
+	"Bienvenue dans votre nouvel enfer.": "Welcome to your new hell.",
+	"C'est calme… beaucoup trop calme.": "It's quiet… way too quiet.",
+	"Mes drones ne captent rien. Pas un seul écho.": "My drones aren't picking up anything. Not a single echo.",
+	"Hé… T'as entendu ça ?": "Hey… Did you hear that?",
+	"Hm hm hm… Deux petites lumières…": "Hm hm hm… Two little lights…",
+	"…perdues dans MA dimension.": "…lost in MY dimension.",
+	"Simon. Les armes bénies. Maintenant.": "Simon. The blessed weapons. Now.",
+	"Ouais ! On le renvoie d'où il vient !": "Yeah! Let's send him back where he came from!",
+	"Il recule ! Ashura, il recule !": "He's backing off! Ashura, he's backing off!",
+	"Ensemble ! Vise la mâchoire !": "Together! Aim for the jaw!",
+	"Ha… Ha ha ha ha. C'est tout ?": "Ha… Ha ha ha ha. Is that all?",
+	"Votre petite lumière… je vais l'ÉTEINDRE.": "Your little light… I'm going to PUT IT OUT.",
+	"SIMON !": "SIMON!",
+	"Toi, le petit observateur… Je vais t'effacer.": "You, little watcher… I'm going to erase you.",
+	"ASHURA ! Lâche-le !": "ASHURA! Let him go!",
+	"Simon… cours. Ne te retourne pas.": "Simon… run. Don't look back.",
+	"ASHURAAA !": "ASHURAAA!",
+	"Un de moins. À ton tour, petite lumière.": "One down. Your turn, little light.",
+	"Non non non non non…": "No no no no no…",
+	"Cours ! COURS ! C'est tellement plus drôle !": "Run! RUN! It's so much more fun!",
+	"Une porte… ?!": "A door…?!",
+	"Tu ne m'échapperas JAMAIS.": "You will NEVER escape me.",
+	"HA HA ! C'est tout ce que t'as, Alice ?!": "HA HA! Is that all you've got, Alice?!",
+	"Tiens bon, Bleuette. Personne ne reste en arrière.": "Hang in there, Bleuette. Nobody gets left behind.",
+	"J-je vais bien… enfin, je crois…": "I-I'm fine… I think…",
+	"Armure à quarante pour cent… Je tiens encore.": "Armor at forty percent… I'm still standing.",
+	"SIMON ?! T'étais passé où, toi ?!": "SIMON?! Where have YOU been?!",
+	"…Longue histoire. Je suis avec toi !": "…Long story. I've got your back!",
+	"L’hôte jouait Alice : son salon est fermé.": "The host was playing Alice: their lobby is closed.",
+}
+
+# Modèles avec valeurs (%d, %s, %.1f) : [français, anglais].
+const TEMPLATES: Array = [
+	["%s : caméra", "%s: camera"],
+	["DERNIÈRE PRÉSENCE · +%d PV (maximum 150)", "LAST PRESENCE · +%d HP (150 max)"],
+	["BRANCHÉE · ASHURA ×1,5 · +10 PV / 1,3 s · %.1f s · BOUGER / INTERAGIR / 4 : DÉBRANCHER", "PLUGGED IN · ASHURA ×1.5 · +10 HP / 1.3 s · %.1f s · MOVE / INTERACT / 4: UNPLUG"],
+	["SURCHAUFFE · INVULNÉRABLE · ARMURE −%d PV · %.1f s", "OVERHEAT · INVULNERABLE · ARMOUR −%d HP · %.1f s"],
+	["PRISE · %d m", "OUTLET · %d m"],
+]
+
+static var _compiled: Array = []
+
+
+static func lookup(source: String) -> Variant:
+	if TEXT.has(source): return TEXT[source]
+	if _compiled.is_empty(): _compile()
+	for entry: Array in _compiled:
+		var found: RegExMatch = (entry[0] as RegEx).search(source)
+		if not found: continue
+		var output: String = str(entry[1])
+		for i: int in range(1, found.get_group_count() + 1): output = output.replace("\u0001%d\u0002" % i, found.get_string(i))
+		return output
+	return null
+
+
+static func _compile() -> void :
+	var token: RegEx = RegEx.new()
+	token.compile("%(?:[0-9]*\\.[0-9]+f|0?[0-9]*d|s|f)")
+	for pair: Array in TEMPLATES:
+		var french: String = str(pair[0])
+		var pattern: String = "^"
+		var at: int = 0
+		for found: RegExMatch in token.search_all(french):
+			pattern += _escape(french.substr(at, found.get_start() - at))
+			var kind: String = found.get_string()
+			pattern += "(.+?)" if kind == "%s" else "(-?[0-9]+(?:[.,][0-9]+)?)"
+			at = found.get_end()
+		pattern += _escape(french.substr(at)) + "$"
+		var english: String = str(pair[1])
+		var index: int = 0
+		var rebuilt: String = ""
+		at = 0
+		for found: RegExMatch in token.search_all(english):
+			index += 1
+			rebuilt += english.substr(at, found.get_start() - at) + "\u0001%d\u0002" % index
+			at = found.get_end()
+		rebuilt += english.substr(at)
+		var expression: RegEx = RegEx.new()
+		if expression.compile(pattern) == OK: _compiled.append([expression, rebuilt])
+
+
+static func _escape(text: String) -> String:
+	var output: String = ""
+	for character: String in text:
+		output += ("\\" + character) if "\\^$.|?*+()[]{}".contains(character) else character
+	return output
