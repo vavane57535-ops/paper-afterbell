@@ -912,7 +912,10 @@ def glue(x, ratio=2.0, window=0.04, smooth=0.08, above=4.0):
 def master(x, target=LUFS):
     # tone: clean sub, a touch of presence, softer air (matched by ear-less
     # long-term spectrum against the game's orchestral tracks)
-    x = hp(x, 32.0, 3)
+    # the 808 tails, booms and reese subs piled up around 40 Hz (4 to 10 dB above
+    # the game's LMS tracks in the 35-50 Hz band): steeper high-pass and a dip there
+    x = hp(x, 38.0, 4)
+    x = bell_eq(x, 45.0, -4.0, 0.6)
     x = shelf(x, 70.0, -1.5, high=False)
     x = bell_eq(x, 2800.0, 1.5, 1.2)
     x = shelf(x, 9000.0, -4.0, high=True)
