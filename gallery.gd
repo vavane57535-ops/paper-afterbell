@@ -49,18 +49,10 @@ func browse() -> void :
 	world.audio.preview_end()
 	world.film.begin("intro_survivors", PaperData.NAMES, "Simon")
 	world.film.seek(2.4)
+	world._show_exit_sign(false)
 	_backdrop_clock = 1.0
 	world.ui.hide_film()
 	world.ui.show_gallery()
-	# Le panneau 3D « SORTIE · À 01:20 » flottait en grand dans le décor figé derrière la liste
-	# (les films de victoire le réaffichent en s'arrêtant) : caché tant qu'on parcourt la liste.
-	_show_exit_sign(false)
-
-func _show_exit_sign(shown: bool) -> void :
-	var items: Variant = world.get("map_interactables")
-	if not is_instance_valid(items): return
-	var sign: Variant = items.get("exit_sign")
-	if is_instance_valid(sign): (sign as Node3D).visible = shown
 
 func play_entry(item: Dictionary) -> void :
 	if world.phase != "gallery" or item.is_empty(): return
@@ -72,6 +64,8 @@ func play_entry(item: Dictionary) -> void :
 		world.film.stop();world.audio.preview_pause(true)
 		world.prologue.begin_prologue(true)
 	else: world.film.begin(str(entry.kind), entry.participants, str(entry.focus))
+	# Panneau de jeu « SORTIE · À 01:20 » : jamais dans les films de la cinémathèque.
+	world._show_exit_sign(false)
 	world.ui.show_film();world.ui.show_gallery_transport(entry)
 	_film().seek(0.0)
 	world.ui.update_film("", "", _film().black)
@@ -131,9 +125,9 @@ func close() -> void :
 	playing = false;browsing = true
 	if _is_prologue(): world.prologue.stop()
 	world.audio.preview_end();world.film.stop()
-	_show_exit_sign(true)
 	world.ui.hide_gallery_transport();world.ui.hide_film()
 	if saved_map != world.selected_map: world._rebuild_map(saved_map)
+	world._show_exit_sign(true)
 	world.stage.show();world.presentation.show()
 	for node: Node3D in world.objective_nodes: node.show()
 	world.phase = "menu";world.ui.show_main()

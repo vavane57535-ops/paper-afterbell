@@ -120,6 +120,7 @@ const TEXT: Dictionary = {
 	"Doo-wop tout doux : claquements de doigts, bébé bercé, main sur le cœur et un petit twist.": "Gentle doo-wop: finger snaps, rocking a baby, hand on heart and a little twist.",
 	"Volume général": "Master volume",
 	"Tous les sons du jeu.": "All game sounds.",
+	"Ambiance, poursuites, LMS, films et danses.": "Ambience, chases, LMS, films and dances.",
 	"LA SORTIE EST OUVERTE": "THE EXIT IS OPEN",
 	"LA SORTIE SE ROUVRE": "THE EXIT REOPENS",
 	"DERNIÈRES SECONDES": "FINAL SECONDS",
@@ -245,6 +246,7 @@ const TEXT: Dictionary = {
 	"Mains crochues, épaules qui sursautent, pas traînés. Pour la nuit de la cloche.": "Clawed hands, jolting shoulders, dragging steps. For the night of the bell.",
 	"J-je vais bien… je crois…": "I-I'm fine… I think…",
 	"Armure à 40 %… Je tiens encore.": "Armor at 40%… I'm still standing.",
+	"Tous les joueurs doivent utiliser Paper Afterbell 0.16 · OM.": "All players must use Paper Afterbell 0.16 · OM.",
 	# Vérification finale des menus (boutique, salon, réglages, toasts).
 	"APERÇU": "PREVIEW",
 	"DANSES": "DANCES",
@@ -255,7 +257,6 @@ const TEXT: Dictionary = {
 	"Pas assez de tickets : joue une manche pour en gagner.": "Not enough tickets: play a round to earn some.",
 	"Pas de chrono": "No timer",
 	"Mannequins réinitialisables": "Resettable dummies",
-	"Ambiance, poursuites, sortie, LMS, danses et fins.": "Ambience, chases, exit rush, LMS, dances and endings.",
 	"A · pause     ← → · 1 s     B · retour": "A · pause     ← → · 1 s     B · back",
 	"Sensibilité de la manette": "Controller sensitivity",
 	"Caméra au stick droit. Accélération et zone morte : Commandes.": "Right-stick camera. Acceleration and deadzone: Controls.",

@@ -260,6 +260,9 @@ func tick(delta: float, authoritative: bool) -> void :
 func _camera_facing(facing: Vector3, action_facing: bool) -> Vector3:
 	var view_mode: int = int(effects.get("cam_facing", 0))
 	if view_mode == 0 or bot or action_facing or bool(effects.get("downed", false)): return facing
+	# Exécution : la mise en scène tourne Alice et sa victime l'une vers l'autre pendant l'approche
+	# (sinon, en Libre 360°, elles gardaient leur orientation puis pivotaient d'un coup au début du clip).
+	if float(effects.get("kill_lock", 0.0)) > 0.0 or str(effects.get("death_kind", "")) == "execution": return facing
 	var aiming: bool = bool(effects.get("grenade_aiming", false)) or bool(effects.get("spike_aiming", false)) or bool(effects.get("boost_charging", false)) or bool(effects.get("drone_piloting", false))
 	var flat: Vector3 = Vector3(velocity.x, 0, velocity.z)
 	if view_mode == 1:
