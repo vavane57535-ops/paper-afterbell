@@ -35,6 +35,12 @@ func setup(game_world: Node) -> void :
 		if args[i] == "--hud-plan" and i + 1 < args.size(): plan = args[i + 1]
 		if args[i] == "--hud-out" and i + 1 < args.size(): out_dir = args[i + 1]
 		if args[i] == "--hud-en": english = true
+	if english:
+		# comme Réglages → Langue avant de jouer (en mémoire seulement, rien dans settings.cfg) :
+		# la liste des élèves et la carte du HUD sont construites directement en anglais
+		world.options.language = "en"
+		PaperLanguage.language = "en"
+		if world.ui.has_method("refresh_language"): world.ui.refresh_language()
 	DirAccess.make_dir_recursive_absolute(out_dir)
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_run.call_deferred()
