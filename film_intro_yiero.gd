@@ -21,7 +21,7 @@ const SKIP_HOLD: float = 1.1
 const MUSIC_PATH: String = "res://audio/cinematic/intro_yiero.ogg"
 const SFX_DIR: String = "res://audio/cinematic/"
 # Les bruitages du film (sfx_*.wav, tools/synth_intro_audio.py) sont calés en RMS court terme ; ce
-# niveau les place au-dessus de la musique (-18 LUFS × MUSIC_LEVEL) sans saturer le limiteur du mix.
+# niveau les place au-dessus de la musique (-18 LUFS, bus PaperMusic) sans saturer le limiteur du mix.
 const FILM_SFX_LEVEL: float = 0.6
 const CAST: Array[String] = ["Simon", "Ashura", "Usayuko", "Alice", "Elly", "Bleuette", "Lysia"]
 
@@ -1058,7 +1058,9 @@ func _update_music(t: float, delta: float, jumped: bool) -> void :
 	if not _music or not _music.stream: return
 	var audio: Variant = world.get("audio")
 	if audio:
-		var level: float = float(audio.call("_slider_gain", float(audio.get("music_volume")))) * float(PaperAudio.MUSIC_LEVEL)
+		# 0.16 : le bus PaperMusic applique déjà le curseur Musique et MUSIC_LEVEL ; la piste (-18 LUFS)
+		# joue à 0 dB comme les musiques du jeu (sinon curseur et niveau comptaient deux fois : -12,5 dB).
+		var level: float = 1.0 if float(audio.get("music_volume")) > 0.001 else 0.0
 		_music.volume_db = -80.0 if bool(audio.get("muted")) or level <= 0.0001 else linear_to_db(level)
 	var running: bool = delta > 0.0 and not paused and t < duration - 0.05
 	if running:

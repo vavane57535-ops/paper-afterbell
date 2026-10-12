@@ -27,6 +27,9 @@ const WORD_MAX_SCREEN: float = 0.2
 # Calque de rendu des acteurs et accessoires d'une exécution : l'éclairage film
 # ne touche qu'eux, pas le décor (le menu fait de même avec le bit 10).
 const KILL_LAYER: int = 1 << 11
+# Panneau de jeu « SORTIE · … » (Label3D en billboard de map_interactables) : retiré des plans de
+# l'exécution par le masque de la caméra (les films de fin le cachent eux-mêmes par visible).
+const SIGN_LAYER: int = 1 << 12
 
 # gap : distance entre les deux acteurs ; length : durée des clips (la victime
 # meurt à lead + length) ; lock : fin du verrou d'Alice ; blast : explosion.
@@ -926,6 +929,12 @@ func _keep_in_frame(camera: Camera3D, at: Vector3, label: Label3D, scale: float)
 
 
 
+# Vrai tant que la mise en scène pilote la caméra de ce poste (victime ou Alice jouée ici) :
+# la caméra de jeu bloque alors la visée et la touche Derrière / Libre (core_camera_rig.look_locked).
+func has_camera() -> bool:
+	return _camera_id >= 0
+
+
 func camera_override(delta: float) -> bool:
 	if not camera_enabled: return false
 	var show: Dictionary = {}
@@ -956,6 +965,9 @@ func camera_override(delta: float) -> bool:
 		world.camera_obscured_actor = null
 		_mute_comic_words(true)
 		_comic_guard(true)
+		# Roue d'émotes restée ouverte au moment du coup fatal : elle ne reste pas sur le film.
+		var wheel: Variant = world.get("emote_wheel")
+		if wheel is Control and is_instance_valid(wheel) and (wheel as Control).visible: wheel.close()
 	_mute_comic_words(false)
 	var victim: PaperActor = world.actors.get(int(show.victim))
 	var alice: PaperActor = world.actors.get(int(show.killer))
@@ -1116,9 +1128,23 @@ func _update_bars(delta: float) -> void :
 		bar.position = Vector2(0.0, 0.0 if i == 0 else size.y - height)
 		bar.size = Vector2(size.x, height)
 	_hud_alpha(1.0 - smoothstep(0.0, 1.0, _bars_amount))
+	_mask_game_sign(_camera_id >= 0)
 
 
 var _hud_dimmed: bool = false
+var _sign_masked: bool = false
+
+func _mask_game_sign(on: bool) -> void :
+	if on == _sign_masked: return
+	var camera: Camera3D = world.camera if world != null else null
+	if camera == null: return
+	_sign_masked = on
+	if on:
+		var items: Variant = world.get("map_interactables")
+		var sign: Variant = items.get("exit_sign") if is_instance_valid(items) else null
+		if sign is VisualInstance3D and is_instance_valid(sign): (sign as VisualInstance3D).layers = SIGN_LAYER
+		camera.cull_mask &= ~SIGN_LAYER
+	else: camera.cull_mask |= SIGN_LAYER
 
 # Estompe le HUD et les bulles d'info pendant le plan cinématique. N'écrit rien
 # hors exécution, pour ne pas contrarier un autre système qui réglerait le HUD.

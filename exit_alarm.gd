@@ -75,6 +75,8 @@ var _last_beat: int = -1
 var _round_seen: int = -1
 var _final_done: bool = false
 var _alarm: AudioStreamPlayer
+var _alarm_db: float = 0.0
+var _alarm_fade: float = 1.0
 var _streams: Array[AudioStream] = []
 var _grade: ColorRect
 var _grade_material: ShaderMaterial
@@ -241,7 +243,15 @@ func _process(delta: float) -> void :
 		_final_call()
 	var cinematic: bool = world.ui.film_layer.visible if is_instance_valid(world.ui) and world.ui.get("film_layer") else false
 	var goal: float = 1.0 if open and not cinematic else 0.0
-	_level = move_toward(_level, goal, delta * (2.6 if goal > _level else (0.9 if playing else 2.5)))
+	# Film de fin de manche (ou autre film plein écran) : coupe nette sur son premier plan. Sans ça, le
+	# filtre rouge, les lampes et les gyrophares s'effaçaient pendant 0,4 s par-dessus le film.
+	if cinematic: _level = 0.0
+	else: _level = move_toward(_level, goal, delta * (2.6 if goal > _level else (0.9 if playing else 2.5)))
+	# La sirène (3,6 s) ne déborde pas sur le film non plus : fondu de 0,15 s.
+	if _alarm.playing and (cinematic or phase == "ending"):
+		_alarm_fade = maxf(0.0, _alarm_fade - delta / 0.15)
+		if _alarm_fade <= 0.0: _alarm.stop()
+		else: _alarm.volume_db = _alarm_db + linear_to_db(_alarm_fade)
 	_update_pulse(delta)
 	_update_screen()
 	_update_lamps()
@@ -297,7 +307,9 @@ func _play_alarm(index: int, gain_db: float) -> void :
 	if audio == null or audio.muted or index >= _streams.size() or _streams[index] == null: return
 	if audio.effects_volume <= 0.001: return
 	_alarm.stream = _streams[index]
-	_alarm.volume_db = gain_db + audio.volume_to_db(audio.effects_volume)
+	_alarm_db = gain_db + audio.volume_to_db(audio.effects_volume)
+	_alarm_fade = 1.0
+	_alarm.volume_db = _alarm_db
 	_alarm.play()
 
 

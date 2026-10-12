@@ -280,6 +280,9 @@ func _announce() -> void :
 func look_locked() -> bool:
 	for entry: Dictionary in _controllers:
 		if bool(entry.get("lock_look", true)) and (entry.owner as WeakRef).get_ref() != null: return true
+	# Exécution (kill_scenes) : elle pilote la caméra par camera_override, sans take_control.
+	var scenes: Variant = world.get("kill_scenes") if world != null else null
+	if scenes != null and is_instance_valid(scenes) and scenes.has_method("has_camera") and bool(scenes.has_camera()): return true
 	return false
 
 func turn(amount: Vector2) -> void :

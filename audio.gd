@@ -403,6 +403,9 @@ func set_mode(next: String) -> void :
 	if next == "exit":
 		_enter_rush()
 		return
+	# Fin de manche pendant la course vers la sortie : la course s'efface en 0,3 s sous le film
+	# (comme le thème LMS sous une victoire) au lieu de chevaucher la musique de fin pendant 1,35 s.
+	if previous == "exit" and next in ["ending", "blocus"]: _fade_speed["exit"] = 1.0 / 0.3
 	_select_track(_track_for(next), next in ["ending", "blocus"])
 
 func _enter_rush() -> void :

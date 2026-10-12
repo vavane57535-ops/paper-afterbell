@@ -103,7 +103,9 @@ func link_active(lysia_id: int) -> bool:
 
 func _update_xray(delta: float, playing: bool) -> void :
 	var local: PaperActor = world.local_actor() if playing else null
-	var lysia: bool = local != null and local.character == "Lysia" and local.alive and not bool(local.effects.get("downed", false))
+	# Fin de manche (film) : coupe nette. Exécution de Lysia (« dying ») : les prises ne restent pas sur le film.
+	if not playing: _xray_alpha = 0.0
+	var lysia: bool = local != null and local.character == "Lysia" and local.alive and not bool(local.effects.get("downed", false)) and not bool(local.effects.get("dying", false))
 	var xray: float = float(local.effects.get("xray", 0.0)) if lysia else 0.0
 	var goal: float = 1.0 if xray > 0.0 else 0.0
 	if xray > 0.0 and xray < XRAY_FADE_OUT: goal = xray / XRAY_FADE_OUT

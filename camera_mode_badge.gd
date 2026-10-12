@@ -133,7 +133,9 @@ func _key_text() -> String:
 func _process(delta: float) -> void :
 	if not visible: return
 	# Fin de manche, retour au menu ou pause pendant l'affichage : le bandeau ne reste pas par-dessus.
-	if world != null and (str(world.get("phase")) != "playing" or bool(world.get("pause_open"))):
+	var rig: Variant = world.get("camera_rig") if world != null else null
+	var filmed: bool = rig != null and is_instance_valid(rig) and bool(rig.look_locked())
+	if world != null and (str(world.get("phase")) != "playing" or bool(world.get("pause_open")) or filmed):
 		_time = 0.0
 		hide()
 		return
