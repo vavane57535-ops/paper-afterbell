@@ -7,6 +7,7 @@ const CoreArchives = preload("res://core_archives.gd")
 const CorePerf = preload("res://core_perf.gd")
 const PrologueFilm = preload("res://film_intro_yiero.gd")
 const ExitAlarm = preload("res://exit_alarm.gd")
+const KillScenes = preload("res://kill_scenes.gd")
 const PORT: int = 27842
 
 const PITCH_MIN: float = -0.6
@@ -59,6 +60,7 @@ var loading_ready: Dictionary = {}
 var loading_remote_count: int = 1
 var archive_locks: Dictionary = {}
 var film: PaperCinema
+var kill_scenes: KillScenes
 var gallery: PaperGallery
 var prologue: PrologueFilm
 var intro_seen: bool = false
@@ -206,6 +208,7 @@ func _ready() -> void :
 	film = PaperCinema.new();add_child(film);film.setup(self)
 	prologue = PrologueFilm.new();add_child(prologue);prologue.setup_prologue(self)
 	if not dedicated: exit_alarm = ExitAlarm.new();add_child(exit_alarm);exit_alarm.setup(self)
+	kill_scenes = KillScenes.new();add_child(kill_scenes);kill_scenes.setup(self)
 	gallery = PaperGallery.new(self)
 	_build_objectives()
 	_build_stage()
@@ -637,6 +640,7 @@ func _clear_round() -> void :
 	if presentation: presentation.clear_entities()
 	if ui and ui.screen_fx: ui.screen_fx.clear()
 	if film: film.stop()
+	if kill_scenes: kill_scenes.clear()
 	if ui: ui.hide_film()
 	if presentation: presentation.show()
 	for node: Node3D in objective_nodes: node.show()
@@ -857,6 +861,7 @@ func _collect_input(delta: float) -> void :
 	var a: PaperActor = local_actor()
 	if not a or not a.alive or a.bot: return
 	if not a.active() and not (ruleset == "om" and bool(a.effects.get("downed", false))): return
+	if kill_scenes and kill_scenes.input_locked(a): return
 	var input: Vector2 = Input.get_vector("left", "right", "forward", "back") if not pause_open else Vector2.ZERO
 	var running: bool = Input.is_action_pressed("sprint") or bindings.controller_sprint
 	var interacting: bool = Input.is_action_pressed("interact")
@@ -985,6 +990,7 @@ func eliminate(a: PaperActor) -> void :
 	a.alive = false;a.move_input = Vector3.ZERO;a.velocity = Vector3.ZERO
 	if not training: last_victim_name = a.character
 	a.collider.set_deferred("disabled", true)
+	if kill_scenes: kill_scenes.on_eliminated(a)
 	event("eliminated", {"actor": a.id, "character": a.character, "position": a.position})
 
 func _finish(winner: String) -> void :
@@ -1082,6 +1088,7 @@ func _thank_gesture(a: PaperActor) -> void :
 
 func _event_local(kind: String, data: Dictionary) -> void :
 	if presentation: presentation.receive(kind, data)
+	if kill_scenes: kill_scenes.on_event(kind, data)
 	if ui and ui.screen_fx: ui.screen_fx.on_event(kind, data)
 	if training: practice.observe(kind, data)
 	var actor_id: int = int(data.get("actor", -1))
@@ -1439,6 +1446,7 @@ func _camera_feedback(kind: String, data: Dictionary, a: PaperActor) -> void :
 			if bool(data.get("released", false)) and bool(data.get("wall", false)) and actor_id == me: camera_rig.punch(-3.5)
 
 func _update_camera(delta: float) -> void :
+	if kill_scenes and phase == "playing" and kill_scenes.camera_override(delta): return
 	if camera_rig: camera_rig.update(delta)
 
 func _update_reveals() -> void :
@@ -1559,8 +1567,11 @@ func _test_tick(delta: float) -> void :
 				if not a.killer and a.id != local_id(): eliminate(a)
 		elif test_scenario == "survivor_win": time_left = 0.3
 		elif test_scenario == "killer_win":
+			var hunter: PaperActor = killer_actor()
 			for a: PaperActor in actors.values():
-				if not a.killer: eliminate(a)
+				if not a.killer:
+					if hunter: a.effects["death_source"] = hunter.id
+					eliminate(a)
 	if test_host and not test_started and test_elapsed > 3:
 		test_started = true;start_multiplayer_round()
 		if local_actor(): local_actor().bot = true
