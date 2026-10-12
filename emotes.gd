@@ -29,9 +29,10 @@ const LIST: Array[Dictionary] = [
 const HOLD_SECONDS: float = 90.0
 
 # Portée de synchronisation : deux survivants à moins de cette distance qui font la même
-# émote se calent sur le même temps. Les danses gardent la portée de la 0.15 (musique audible).
+# émote se calent sur le même temps. Les danses se synchronisent sur toute la carte : une même
+# danse n'a qu'un temps (et qu'une musique), jamais deux versions décalées audibles à la fois.
 const SYNC_RANGE: float = 14.0
-const DANCE_SYNC_RANGE: float = 30.0
+const DANCE_SYNC_RANGE: float = INF
 
 # Une émote ponctuelle rejointe tôt : le nouveau venu prend le temps du groupe.
 # Rejointe tard (au-delà de cette fraction) : tout le groupe repart ensemble de zéro.

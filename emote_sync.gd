@@ -135,8 +135,10 @@ func extrapolate(delta: float) -> void :
 func update_music() -> void :
 	# Un lecteur 3D par groupe de danseurs synchronisés (même danse, même époque). Les lecteurs
 	# sont rattachés au groupe par son époque, pas par ses membres : quelqu'un qui rejoint ou
-	# quitte le groupe ne coupe pas la musique.
+	# quitte le groupe ne coupe pas la musique. Le son part du danseur le plus proche de la
+	# caméra (un groupe peut être dispersé sur la carte).
 	var clusters: Array[Dictionary] = []
+	var listener: Vector3 = world.camera.global_position if world.camera and world.camera.is_inside_tree() else Vector3.ZERO
 	if world.phase == "playing":
 		for actor: PaperActor in world.actors.values():
 			var id: String = str(actor.effects.get("emote_id", ""))
@@ -149,10 +151,12 @@ func update_music() -> void :
 					found = cluster
 					break
 			if found.is_empty():
-				found = {"id": id, "time": t, "epoch": epoch, "sum": Vector3.ZERO, "count": 0}
+				found = {"id": id, "time": t, "epoch": epoch, "at": actor.position, "near": INF}
 				clusters.append(found)
-			found.sum += actor.position
-			found.count += 1
+			var distance: float = actor.position.distance_squared_to(listener)
+			if distance < float(found.near):
+				found.at = actor.position
+				found.near = distance
 	for entry: Dictionary in _music: entry.used = false
 	for cluster: Dictionary in clusters:
 		var stream: AudioStream = PaperDances.music(str(cluster.id))
@@ -175,7 +179,7 @@ func update_music() -> void :
 		entry.epoch = cluster.epoch
 		entry.used = true
 		player.volume_db = _music_db()
-		player.global_position = cluster.sum / float(cluster.count) + Vector3.UP * 1.2
+		player.global_position = Vector3(cluster.at) + Vector3.UP * 1.2
 		if not player.playing: player.play(want)
 		else:
 			var drift: float = absf(player.get_playback_position() - want)
@@ -234,6 +238,8 @@ func _sfx_stream(sfx_name: String) -> AudioStream:
 
 func _bot_safe(bot: PaperActor) -> bool:
 	if not bot.active() or bool(bot.effects.get("chased", false)) or bool(bot.effects.get("downed", false)): return false
+	# Pas de pause danse quand il faut fuir : dernier survivant ou sortie ouverte.
+	if world.lms or (world.exit_flow and world.exit_flow.is_open()): return false
 	for key: String in ["revive_target", "heal_target", "carrying_id", "carried_by", "grabbed_by"]:
 		if int(bot.effects.get(key, -1)) >= 0: return false
 	if float(bot.effects.get("heal_time", 0)) > 0 or bool(bot.effects.get("boost_charging", false)) or int(bot.effects.get("archive_qte_id", 0)) > 0: return false

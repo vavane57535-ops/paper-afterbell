@@ -197,6 +197,7 @@ func _run_sync() -> void :
 	ok = await _case("danse rejointe à 0,7 s (dance_floss)", survivors[0], survivors[1], "dance_floss", 0.7, "join") and ok
 	ok = await _case("danse rejointe à 0,7 s (nouvelle danse)", survivors[1], survivors[2], str(PaperDances.LIST[PaperDances.LIST.size() - 1].id), 0.7, "join") and ok
 	ok = await _case_far("même émote hors de portée : pas de synchro", survivors[0], survivors[2], "heart") and ok
+	ok = await _case_far_dance("même danse à 70 m : synchro sur toute la carte, une seule musique", survivors[0], survivors[2]) and ok
 	ok = await _case_music("la musique continue sans coupure quand un danseur rejoint puis quitte le groupe", survivors[0], survivors[1], survivors[2]) and ok
 	ok = await _case_long("danse rejointe tard : le nouveau venu garde toute sa durée", survivors[0], survivors[1]) and ok
 	ok = await _case_sit("en tailleur rejoint tard : le nouveau venu s'assoit à son rythme, le groupe reste assis", survivors[0], survivors[1]) and ok
@@ -252,6 +253,24 @@ func _case_far(label: String, a: PaperActor, b: PaperActor, id: String) -> bool:
 	var gap: float = absf(float(a.effects.get("emote_time", 0.0)) - float(b.effects.get("emote_time", 0.0)))
 	var pass_case: bool = gap > 0.5
 	_log("%s %s : écart=%.3f s (attendu ~0,7)" % ["OK" if pass_case else "FAIL", label, gap])
+	b.position = keep
+	await _reset([a, b])
+	return pass_case
+
+func _case_far_dance(label: String, a: PaperActor, b: PaperActor) -> bool:
+	await _reset([a, b])
+	var keep: Vector3 = b.position
+	b.position = a.position + Vector3(70.0, 0.0, 0.0)
+	world._start_emote(a, "dance_retro")
+	await _wait_clock(0.7)
+	world._start_emote(b, "dance_retro")
+	await _wait_clock(0.3)
+	var gap: float = absf(float(a.effects.get("emote_time", 0.0)) - float(b.effects.get("emote_time", 0.0)))
+	var players: int = 0
+	for entry: Dictionary in world.emote_sync._music:
+		if str(entry.id) == "dance_retro": players += 1
+	var pass_case: bool = gap < 0.001 and players == 1
+	_log("%s %s : écart=%.4f s, lecteurs de musique=%d" % ["OK" if pass_case else "FAIL", label, gap, players])
 	b.position = keep
 	await _reset([a, b])
 	return pass_case

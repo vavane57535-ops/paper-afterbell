@@ -681,9 +681,9 @@ func show_shop() -> void :
 	v.add_child(_label("TICKETS  :  %d" % world.tickets, "title", 26, T.TEAL))
 	_paragraph("Chaque manche rapporte des tickets (+30, plus ton score, plus un bonus si ton camp gagne). En partie, les danses sont dans la roue des émotes (G), pages DANSES (Tab). Les survivants proches qui font la même émote ou la même danse se synchronisent, musique et sons compris.", v, 15, T.PAPER_DIM)
 	var first: Control = null
-	if shop_selected.is_empty(): shop_selected = str(PaperDances.LIST[0].id)
 	var fresh: Array = PaperDances.LIST.filter( func(entry: Dictionary) -> bool: return bool(entry.get("new", false)))
 	var classics: Array = PaperDances.LIST.filter( func(entry: Dictionary) -> bool: return not bool(entry.get("new", false)))
+	if shop_selected.is_empty(): shop_selected = str((fresh[0] if not fresh.is_empty() else PaperDances.LIST[0]).id)
 	for group: Array in [fresh, classics]:
 		if group.is_empty(): continue
 		v.add_child(_kicker("NOUVEAU  ·  TENDANCES TIKTOK 2025-2026" if group == fresh else "LES CLASSIQUES", Color("ff6fd0") if group == fresh else T.TEAL))
@@ -692,7 +692,7 @@ func show_shop() -> void :
 			var row: HBoxContainer = _hbox(v, 10)
 			var text: VBoxContainer = _vbox(row, 1)
 			text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			text.add_child(_label(str(entry.name).to_upper() + "   ·   " + str(entry.tag) + "   ·   ♪ %d BPM" % int(entry.bpm), "title", 19, T.PAPER if id != shop_selected else T.TEAL))
+			text.add_child(_label(_t(str(entry.name)).to_upper() + "   ·   " + _t(str(entry.tag)) + "   ·   ♪ %d BPM" % int(entry.bpm), "title", 19, T.PAPER if id != shop_selected else T.TEAL))
 			var line: Label = _paragraph(str(entry.desc), text, 14, T.PAPER_DIM)
 			line.custom_minimum_size.x = 300
 			var preview: Button = _button("APERÇU", func() -> void :

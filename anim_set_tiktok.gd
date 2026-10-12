@@ -73,7 +73,7 @@ static func _drill_step(side: float, dip: float) -> Dictionary:
 
 static func _six_point(side: float) -> Dictionary:
 	return M([FL(0.18, 0.05), FR(0.18, -0.05), H(0.05 * side, -0.1, 0.0), B(0.1, -0.15 * side, 0.0), C(0.08, -0.12 * side, 0.0), HD(0.0, 0.2 * side, 0.0),
-		R(0.1 + 0.25 * side, 0.05, 0.9, 0.2), L(0.1 - 0.25 * side, 0.0, 0.9, 0.2), WR(0.0), WL(0.0), {"gesture": "point", "curl": 1.0, "curl_l": 1.0, "fp_l": 0.0, "fp_r": 0.0, "sq": 0.98}])
+		R(0.1 + 0.25 * side, 0.05, 0.9, 0.2), L(0.1 - 0.25 * side, 0.0, 0.9, 0.2), WR(0.0), WL(0.0), {"gesture": "point_both", "curl": 1.0, "curl_l": 1.0, "fp_l": 0.0, "fp_r": 0.0, "sq": 0.98}])
 
 
 
@@ -109,11 +109,11 @@ static func _bored(sway: float) -> Dictionary:
 static func _pk(side: float, accent: float, turn: float) -> Dictionary:
 	return M([FL(0.14, 0.0), FR(0.14, 0.0), H(0.07 * side, -0.07 * accent, 0.0), B(0.04, 0.0, -0.05 * side), C(0.0, 0.06 * side, -0.04 * side), HD(0.06, -0.1 * side, 0.12 * side),
 		Lt(0.22, -0.2 + 0.22 * side, 0.55, 0.25), Rt(0.22, -0.2 - 0.22 * side, 0.55, 0.25), WL(-0.2, 1.4, 0.0), WR(-0.2, -1.4, 0.0),
-		{"gesture": "thumbsup", "curl": 1.0, "curl_l": 1.0, "turn": turn, "fp_l": -0.25 * maxf(side, 0.0), "fp_r": -0.25 * maxf(- side, 0.0), "sq": 1.0 - 0.03 * accent, "face": "grin"}])
+		{"gesture": "thumbsup_both", "curl": 1.0, "curl_l": 1.0, "turn": turn, "fp_l": -0.25 * maxf(side, 0.0), "fp_r": -0.25 * maxf(- side, 0.0), "sq": 1.0 - 0.03 * accent, "face": "grin"}])
 
 static func _pk_down(accent: float) -> Dictionary:
 	return M([FL(0.2, 0.0), FR(0.2, 0.0), H(0.0, -0.14 * accent, 0.0), B(0.12), C(0.08), HD(0.1, 0.0, 0.0), L(0.55, -0.45 - 0.15 * accent, 0.35, 0.3), R(0.55, -0.45 - 0.15 * accent, 0.35, 0.3), WL(0.0, -1.4, 0.0), WR(0.0, 1.4, 0.0),
-		{"gesture": "thumbsup", "curl": 1.0, "curl_l": 1.0, "turn": 0.0, "fp_l": 0.0, "fp_r": 0.0, "sq": 1.0 - 0.04 * accent, "face": "menace"}])
+		{"gesture": "thumbsup_both", "curl": 1.0, "curl_l": 1.0, "turn": 0.0, "fp_l": 0.0, "fp_r": 0.0, "sq": 1.0 - 0.04 * accent, "face": "menace"}])
 
 
 

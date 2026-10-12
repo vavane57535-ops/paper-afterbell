@@ -282,8 +282,8 @@ func set_hand_gesture(gesture: String, weight: float) -> void :
 	for mesh in _hand_shapes:
 		for shape in range(mesh.mesh.get_blend_shape_count()):
 			var label: String = mesh.mesh.get_blend_shape_name(shape)
-			if label == "RightThumbsUp": mesh.set_blend_shape_value(shape, _hand_weight if gesture == "thumbsup" else 0.0)
-			elif label == "RightPoint": mesh.set_blend_shape_value(shape, _hand_weight if gesture == "point" else 0.0)
+			if label == "RightThumbsUp": mesh.set_blend_shape_value(shape, _hand_weight if gesture.trim_suffix("_both") == "thumbsup" else 0.0)
+			elif label == "RightPoint": mesh.set_blend_shape_value(shape, _hand_weight if gesture.trim_suffix("_both") == "point" else 0.0)
 
 
 func set_forearm_twist(left: float, right: float) -> void :
@@ -550,13 +550,16 @@ func sync(clock: float = 0.0, speed: float = 0.0) -> void :
 		_motion_dt = 0.0
 
 func _write_fingers() -> void :
+	# Geste « thumbsup_both » / « point_both » : les deux mains (sinon la main droite seule).
+	var both: bool = _hand_gesture.ends_with("_both")
+	var gesture: String = _hand_gesture.trim_suffix("_both")
 	for i in _fingers:
 		var right: bool = _is_right[i] == 1
 		var curl: float = _finger_curl if right else _finger_curl_left
 
-		if right and _hand_weight > 0.1:
-			if _hand_gesture == "thumbsup" and _finger_kind[i] == 1: curl = lerpf(curl, 0.0, _hand_weight)
-			elif _hand_gesture == "point" and _finger_kind[i] == 2: curl = lerpf(curl, 0.0, _hand_weight)
+		if (right or both) and _hand_weight > 0.1:
+			if gesture == "thumbsup" and _finger_kind[i] == 1: curl = lerpf(curl, 0.0, _hand_weight)
+			elif gesture == "point" and _finger_kind[i] == 2: curl = lerpf(curl, 0.0, _hand_weight)
 			else: curl = lerpf(curl, 1.0, _hand_weight)
 		skeleton.set_bone_pose_rotation(i, _chain_rest[i].basis.get_rotation_quaternion() * _finger_rotation(i, curl))
 
