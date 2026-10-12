@@ -56,7 +56,7 @@ func play_entry(item: Dictionary) -> void :
 	if world.phase != "gallery" or item.is_empty(): return
 	entry = item.duplicate(true);time = 0.0;browsing = false;playing = true
 	world.film.begin(str(entry.kind), entry.participants, str(entry.focus))
-	var music_mode: String = "lms" if str(entry.category).begins_with("lms") else "ambient" if str(entry.category) == "intro" else "ending"
+	var music_mode: String = "lms" if str(entry.category).begins_with("lms") else "ambient" if str(entry.category) == "intro" else "blocus" if str(entry.kind) == PaperFilmBlocus.KIND else "ending"
 	world.audio.preview_begin(str(entry.focus), music_mode)
 	world.ui.show_film();world.ui.show_gallery_transport(entry)
 	world.film.seek(0.0)

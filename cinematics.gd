@@ -95,6 +95,8 @@ var _shake_clock: float = 0.0
 var _spots: Array[Vector3] = []
 var _dark: bool = false
 
+var blocus: PaperFilmBlocus
+
 
 
 
@@ -106,6 +108,7 @@ static func duration_for(film: String, names: Array = []) -> float:
 		"intro_survivors": return 7.6
 		"ending_lms": return 11.4
 		"ending_killer": return 10.6
+		PaperFilmBlocus.KIND: return PaperFilmBlocus.DURATION
 		_: return float(_team_schedule(names).duration)
 
 static func catalogue() -> Array[Dictionary]:
@@ -135,6 +138,7 @@ static func catalogue() -> Array[Dictionary]:
 		if "Elly" in team: parts.append("Elly soigne le groupe" if team.size() > 1 else "Elly esquive et pose sa zone de soin")
 		if "Bleuette" in team: parts.append("Bleuette encourage le groupe" if team.size() > 1 else "Bleuette esquive et se donne du courage")
 		rows.append(_entry("team_%02d" % mask, " + ".join(PackedStringArray(team)), "team", "ending_survivors", team, team[0], " ; ".join(parts) + ". Puis l’équipe s’échappe."))
+	rows.append(_entry("blocus", PaperFilmBlocus.title(), "fins", PaperFilmBlocus.KIND, PaperData.NAMES.duplicate(), "Usayuko", PaperFilmBlocus.description()))
 	return rows
 
 static func _entry(id: String, title: String, category: String, film: String, names: Array, focus: String, description: String) -> Dictionary:
@@ -193,9 +197,9 @@ func begin(next: String, participants: Array, focus: String = "Ashura") -> void 
 	if next == "intro_alice":
 		anchor += Vector3.UP * 30.0;finish = anchor + forward * 7.0
 	elif world.school.has_method("set_cinematic_exit_open"):
-		world.school.set_cinematic_exit_open(next != "ending_killer")
+		world.school.set_cinematic_exit_open(next not in ["ending_killer", PaperFilmBlocus.KIND])
 	for person: String in people: _add_actor(person)
-	if next != "intro_survivors": alice_index = takes.size();_add_actor("Alice")
+	if next not in ["intro_survivors", PaperFilmBlocus.KIND]: alice_index = takes.size();_add_actor("Alice")
 	props = PaperCinemaProps.new();add_child(props);props.reduce_flashes = _flashes_reduced();props.setup(anchor, right, forward, next, people)
 	rim.omni_range = 11;rim.light_energy = 1.25;rim.light_color = Color("9caee4")
 	fill.omni_range = 9;fill.light_energy = 0.7;fill.light_color = Color("eddfd3")
@@ -207,6 +211,8 @@ func begin(next: String, participants: Array, focus: String = "Ashura") -> void 
 		"intro_alice": _write_intro_alice()
 		"ending_killer": _write_kill()
 		"ending_lms": _write_last_stand()
+		PaperFilmBlocus.KIND:
+			blocus = PaperFilmBlocus.new();add_child(blocus);blocus.write(self)
 		_: _write_escape()
 	_seal()
 	show()
@@ -242,7 +248,7 @@ func stop() -> void :
 		for visual: Node in _cast_root.get_children():
 			visual.hide()
 			if visual is PaperVisual: (visual as PaperVisual).mood_override = ""
-	cast.clear();takes.clear();people.clear();props = null;alice_index = -1
+	cast.clear();takes.clear();people.clear();props = null;alice_index = -1;blocus = null
 	_track.clear();_shots.clear();_flights.clear();_door.clear();_blackouts.clear();_spots.clear()
 	hide();kind = "";last_shot = -1;caption = "";chapter = "";_time = -1.0;_trauma = 0.0
 	var comic: Node = _comic() if world else null
@@ -280,7 +286,7 @@ func update(t: float, delta: float) -> void :
 	if t < _time - 0.0005 or t - _time > 0.3: _jump(t)
 	elif t > _time: _step(t, false)
 	elapsed = t
-	if kind not in ["intro_alice", "ending_killer"] and world.school.has_method("sample_cinematic_exit_open"):
+	if kind not in ["intro_alice", "ending_killer", PaperFilmBlocus.KIND] and world.school.has_method("sample_cinematic_exit_open"):
 		world.school.sample_cinematic_exit_open(t + 2.0)
 	black = 1.0 - smoothstep(0, 0.28, t)
 	if t > duration - 0.32: black = smoothstep(duration - 0.32, duration, t)
@@ -288,6 +294,7 @@ func update(t: float, delta: float) -> void :
 		if t >= float(cut[0]) and t < float(cut[1]): black = 1.0
 	_place_props(t)
 	_camera(t, delta)
+	if is_instance_valid(blocus): blocus.update(t, delta)
 
 
 func _jump(t: float) -> void :

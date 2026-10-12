@@ -1742,12 +1742,12 @@ func show_gallery() -> void :
 	var back: Button = _button("←  RETOUR AU JEU", func() -> void : world.gallery.close(), 0, "GhostButton")
 	back.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	v.add_child(back)
-	var categories: Array = ["all", "intro", "lms_win", "lms_loss", "team"]
+	var categories: Array = ["all", "intro", "lms_win", "lms_loss", "team", "fins"]
 	var filters: HBoxContainer = _hbox(v, 10)
 	var choice: OptionButton = OptionButton.new()
 	choice.custom_minimum_size = Vector2(300, 46)
 	filters.add_child(choice)
-	for title: String in ["Toutes les scènes", "Introductions", "LMS · Le survivant s’échappe", "LMS · Alice gagne", "Fuite en équipe · Choisir les survivants"]: choice.add_item(title)
+	for title: String in ["Toutes les scènes", "Introductions", "LMS · Le survivant s’échappe", "LMS · Alice gagne", "Fuite en équipe · Choisir les survivants", "Fins"]: choice.add_item(title)
 	choice.select(maxi(0, categories.find(world.gallery.category)))
 	choice.item_selected.connect( func(index: int) -> void :
 		world.gallery.category = categories[index]
