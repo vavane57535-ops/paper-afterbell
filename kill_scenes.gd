@@ -1027,7 +1027,17 @@ func camera_override(delta: float) -> bool:
 	if _camera_blend > 0.0:
 		_camera_blend = maxf(0.0, _camera_blend - delta / 0.32)
 		var w: float = smoothstep(0.0, 1.0, 1.0 - _camera_blend)
-		camera.global_transform = _camera_from.interpolate_with(goal, w)
+		var blended: Transform3D = _camera_from.interpolate_with(goal, w)
+		# Raccord en arc autour de la scène (et non en ligne droite) : depuis la vue de jeu, derrière
+		# Alice, la ligne droite traversait ses cheveux et son dos pendant 2 ou 3 images.
+		var pivot: Vector3 = Vector3(show.o) + Vector3.UP * 1.1
+		var from_offset: Vector3 = _camera_from.origin - pivot
+		var to_offset: Vector3 = goal.origin - pivot
+		if from_offset.length() > 0.5 and to_offset.length() > 0.5:
+			var direction: Vector3 = from_offset.normalized().slerp(to_offset.normalized(), w)
+			blended.origin = pivot + direction * lerpf(from_offset.length(), to_offset.length(), w)
+			blended.origin.y = maxf(blended.origin.y, Vector3(show.o).y + 0.25)
+		camera.global_transform = blended
 		camera.fov = lerpf(_camera_fov, fov, w)
 	else:
 		camera.global_transform = goal
