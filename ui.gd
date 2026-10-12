@@ -20,7 +20,7 @@ const PAGE_TITLES: Dictionary = {"main": "MENU", "characters": "ÉLÈVES", "alic
 
 const MENU_PAGES: Array[String] = ["main", "characters", "alice", "maps", "network", "connecting", "advanced", "lobby", "settings", "credits", "shop"]
 
-const VERSION_TEXT: String = "v0.15  ·  OM  ·  PC + Android"
+const VERSION_TEXT: String = "v0.16  ·  OM  ·  PC + Android"
 const INK = Color("15171c")
 const PAPER = Color("ece5d5")
 const MUTED = Color("a9acac")
@@ -559,6 +559,7 @@ func _form_panel(width: float = 620) -> VBoxContainer:
 	active_menu_panel = panel
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
 	panel.add_child(scroll)
 	var v: VBoxContainer = _vbox(scroll, 12)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1692,7 +1693,7 @@ func _option_row(parent: Node, title: String, labels: Array, values: Array, key:
 
 # Sélecteur « Qui joue Alice ? » de l'hôte : aléatoire, malice, chaque joueur du salon, ou l'IA.
 func _alice_row(parent: Node) -> void :
-	var row: HBoxContainer = _hbox(parent, 12)
+	var row: HBoxContainer = _list_row(parent, 12)
 	var label: Label = _label("Qui joue Alice ?", "medium", 16, T.PAPER_DIM)
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -1772,10 +1773,14 @@ func refresh_lobby() -> void :
 			host.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			h.add_child(host)
 		if int(peer) == world.chosen_alice_peer():
+			# Étiquette de papier rouge déchiré, encre crème et ombre d'encre (style des menus 0.16).
 			var badge: PanelContainer = PanelContainer.new()
-			badge.add_theme_stylebox_override("panel", T.box(Color(T.RED, 0.22), T.RED, 1, 4, 8, 2))
+			var tag: StyleBox = T.strip(T.RED, 12, 3, 7.0, int(peer) % 11 + 3)
+			tag.set("shadow", Color(T.INK, 0.85))
+			tag.set("shadow_offset", Vector2(3, 3))
+			badge.add_theme_stylebox_override("panel", tag)
 			badge.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-			badge.add_child(_label(_t("ALICE"), "caps", 12, Color("ff8a9b")))
+			badge.add_child(_label(_t("ALICE"), "display", 16, T.CREAM))
 			badge.tooltip_text = _t("Cette personne jouera Alice à la prochaine manche.")
 			h.add_child(badge)
 	if is_instance_valid(lobby_names):
@@ -1844,6 +1849,7 @@ func show_settings() -> void :
 	v.add_child(rule)
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(scroll)
 	var content: VBoxContainer = _vbox(scroll, 6)
@@ -1970,6 +1976,10 @@ func _settings_game(content: VBoxContainer) -> void :
 		_setting_row(content, "Sensibilité de la souris", "Vitesse de rotation de la caméra.", _slider(0.0006, 0.008, 0.0001, float(world.sensitivity), func(x: float) -> String: return "%d %%" % int(round(x / 0.0025 * 100.0)), func(x: float) -> void :
 			world.sensitivity = x
 			world.save_preferences()))
+		# Même réglage que « Sensibilité » du carnet de commandes (caméra au stick droit).
+		_setting_row(content, "Sensibilité de la manette", "Caméra au stick droit. Accélération et zone morte : Commandes.", _slider(0.5, 6.0, 0.1, float(world.bindings.look_sensitivity), func(x: float) -> String: return "%d %%" % int(round(x / 2.6 * 100.0)), func(x: float) -> void :
+			world.bindings.look_sensitivity = x
+			world.bindings.save()))
 	_setting_row(content, "Caméra souple", "Suivi amorti derrière le personnage.", _check(bool(world.options.get("camera_smooth", true)), func(on: bool) -> void : _set_option("camera_smooth", on)))
 	_setting_row(content, "Mode de caméra", "Derrière : le personnage tourne avec la caméra. Libre 360° : la caméra tourne autour de lui.", _options(["Derrière le personnage", "Libre 360°"], 0 if world.camera_rig.is_behind() else 1, func(index: int) -> void : world.camera_rig.set_mode("behind" if index == 0 else "free", false)), 300)
 	_setting_row(content, "Champ de vision", "Angle de la caméra en jeu. Une valeur haute montre plus de décor.", _slider(60, 95, 1, float(world.options.get("fov", 72)), func(x: float) -> String: return "%d°" % int(x), func(x: float) -> void : _set_option("fov", int(x))))
@@ -2007,7 +2017,7 @@ func _settings_audio(content: VBoxContainer) -> void :
 	_setting_row(content, "Volume général", "Tous les sons du jeu.", _slider(0, 1, 0.05, float(world.audio.master_volume), percent, func(x: float) -> void :
 		world.audio.master_volume = x
 		world.save_preferences()))
-	_setting_row(content, "Musique", "Ambiance, poursuites, LMS et fins.", _slider(0, 1, 0.05, float(world.audio.music_volume), percent, func(x: float) -> void :
+	_setting_row(content, "Musique", "Ambiance, poursuites, sortie, LMS, danses et fins.", _slider(0, 1, 0.05, float(world.audio.music_volume), percent, func(x: float) -> void :
 		world.audio.music_volume = x
 		world.save_preferences()))
 	_setting_row(content, "Effets sonores", "Pas, coups, capacités et interface.", _slider(0, 1, 0.05, float(world.audio.effects_volume), percent, func(x: float) -> void :
@@ -2038,7 +2048,10 @@ func _settings_controls(content: VBoxContainer) -> void :
 		_key_line(alice, spec[0], str(spec[1]))
 	_spacer(alice, 10)
 	alice.add_child(_kicker("PARTOUT", T.PAPER_DIM, 12))
-	for spec: Array in [[[_binding("pause_game", "Échap")], "Pause / retour"], [[_binding("training_menu", "F2")], "Terrain d’essai"], [[_binding("camera_mode", "C")], "Caméra derrière / libre 360°"], [["F11"], "Plein écran"]]:
+	# La bascule de caméra (0.16) affiche aussi sa touche manette (R3 par défaut).
+	var camera_pad: String = str(world.bindings.label("camera_mode", true)) if world.bindings else ""
+	if camera_pad == "—": camera_pad = ""
+	for spec: Array in [[[_binding("pause_game", "Échap")], "Pause / retour"], [[_binding("training_menu", "F2")], "Terrain d’essai"], [[_binding("camera_mode", "C"), camera_pad], "Caméra derrière / libre 360°"], [["F11"], "Plein écran"]]:
 		_key_line(alice, spec[0], str(spec[1]))
 	_spacer(content, 8)
 	var edit_row: HBoxContainer = _hbox(content, 14)
@@ -2197,7 +2210,8 @@ func _refresh_gallery_results() -> void :
 	if items.is_empty(): _paragraph("Aucune scène pour cette recherche. Essaie un nom de personnage ou efface la sélection.", gallery_results, 16)
 	for item: Dictionary in items:
 		var watch: Button = Button.new()
-		watch.text = "▶  " + str(item.title)
+		# Titre traduit avant le préfixe : « ▶  A · B » serait sinon coupé sur « · » par la traduction.
+		watch.text = "▶  " + _t(str(item.title))
 		watch.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		watch.custom_minimum_size.y = 50
 		watch.tooltip_text = str(item.description)
@@ -2666,6 +2680,7 @@ func show_ending(winner: String, was_lms: bool) -> void :
 	titles.add_child(_label("CLASSEMENT · CONTRIBUTION À LA PARTIE", "caps", 12, T.INK_MUTED))
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_child(scroll)
 	var rows: VBoxContainer = _vbox(scroll, 4)
@@ -2904,6 +2919,7 @@ func show_training_panel(open: bool = true) -> void :
 	panel.offset_bottom = minf(panel.offset_bottom, view_height * 0.5 - 20)
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
 	panel.add_child(scroll)
 	var v: VBoxContainer = _vbox(scroll, 10)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL

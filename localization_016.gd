@@ -245,6 +245,18 @@ const TEXT: Dictionary = {
 	"Mains crochues, épaules qui sursautent, pas traînés. Pour la nuit de la cloche.": "Clawed hands, jolting shoulders, dragging steps. For the night of the bell.",
 	"J-je vais bien… je crois…": "I-I'm fine… I think…",
 	"Armure à 40 %… Je tiens encore.": "Armor at 40%… I'm still standing.",
+	# Vérification finale des menus (boutique, salon, réglages, toasts).
+	"APERÇU": "PREVIEW",
+	"DANSES": "DANCES",
+	"✓ À TOI": "✓ YOURS",
+	"Boutique de danses": "Dance shop",
+	"Boutique du menu": "Main menu shop",
+	"Pas assez de tickets : joue une manche pour en gagner.": "Not enough tickets: play a round to earn some.",
+	"Pas de chrono": "No timer",
+	"Mannequins réinitialisables": "Resettable dummies",
+	"Ambiance, poursuites, sortie, LMS, danses et fins.": "Ambience, chases, exit rush, LMS, dances and endings.",
+	"Sensibilité de la manette": "Controller sensitivity",
+	"Caméra au stick droit. Accélération et zone morte : Commandes.": "Right-stick camera. Acceleration and deadzone: Controls.",
 }
 
 # Modèles avec valeurs (%d, %s, %.1f) : [français, anglais].
@@ -254,6 +266,8 @@ const TEMPLATES: Array = [
 	["BRANCHÉE · ASHURA ×1,5 · +10 PV / 1,3 s · %.1f s · BOUGER / INTERAGIR / 4 : DÉBRANCHER", "PLUGGED IN · ASHURA ×1.5 · +10 HP / 1.3 s · %.1f s · MOVE / INTERACT / 4: UNPLUG"],
 	["SURCHAUFFE · INVULNÉRABLE · ARMURE −%d PV · %.1f s", "OVERHEAT · INVULNERABLE · ARMOUR −%d HP · %.1f s"],
 	["PRISE · %d m", "OUTLET · %d m"],
+	["Alice · %s rattrapée", "Alice · %s caught"],
+	["La dernière tentative de %s échoue. Alice la rattrape, frappe et l’achève au sol.", "%s's last attempt fails. Alice catches them, strikes and finishes them on the floor."],
 ]
 
 static var _compiled: Array = []

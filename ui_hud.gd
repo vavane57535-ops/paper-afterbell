@@ -577,6 +577,8 @@ func announce(title: String, subtitle: String, duration: float) -> void :
 
 func on_show() -> void :
 	announce_time = 0
+	# Le HUD se traduit lui-même (language_user_text) : unité de vie « PV » → « HP ».
+	hp_unit.text = PaperLanguage.t("PV")
 	archive_panel.hide()
 	_refresh_keys()
 	for i: int in range(6):

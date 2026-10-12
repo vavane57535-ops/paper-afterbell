@@ -89,6 +89,7 @@ func _build() -> void :
 	var scroll: ScrollContainer = ScrollContainer.new()
 	panel.add_child(scroll)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
 	list = VBoxContainer.new()
 	scroll.add_child(list)
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -223,7 +224,8 @@ func _slider(title: String, low: float, high: float, value: float, callback: Cal
 func _input(event: InputEvent) -> void :
 	if not visible or _leaving: return
 	if capture_action.is_empty():
-		if event.is_action_pressed("pause_game"):
+		# Échap / Start, ou B à la manette (ui_cancel, comme dans les autres menus).
+		if event.is_action_pressed("pause_game") or (event is InputEventJoypadButton and event.is_action_pressed("ui_cancel")):
 			close()
 			get_viewport().set_input_as_handled()
 		return
