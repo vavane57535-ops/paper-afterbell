@@ -251,6 +251,8 @@ const TEXT: Dictionary = {
 	"DANSES": "DANCES",
 	"Boutique du menu": "Shop in the main menu",
 	"ÉVADÉ · TU ES EN SÉCURITÉ": "ESCAPED · YOU ARE SAFE",
+	# Encourager de Bleuette : tous les alliés sont désormais concernés (plus d'allié « compatible »).
+	"Vise un allié à moins de 6 m": "Aim at an ally within 6 m",
 }
 
 # Modèles avec valeurs (%d, %s, %.1f) : [français, anglais].

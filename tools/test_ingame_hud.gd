@@ -15,6 +15,9 @@ extends Node
 #   kill_dance : le joueur danse quand Alice l'exécute (transition danse → exécution, plan tiers).
 #   pause    : élimination (+0:45) pendant l'alerte, puis menu pause ouvert aussitôt, puis reprise.
 #   lysia    : X-ray de Lysia (repères de prises) et prise avec Ashura (×1,5), puis les deux pendant l'alerte.
+# --hud-exit (plans kill_v / kill_a) : la sortie est ouverte (alerte en cours) au moment de l'exécution.
+# --hud-badge (plans kill_v / kill_a) : C pressé juste avant le coup fatal ; le bandeau de caméra doit
+#   s'effacer sur le plan d'exécution. Les plans kill_* capturent aussi l'apparition de « +0:45 ».
 # --hud-en : interface en anglais (sans rien enregistrer dans settings.cfg).
 # Chaque capture est écrite dans --hud-out (PNG 1280×800) et listée dans le journal (« HUD_SHOT »).
 
@@ -84,6 +87,11 @@ func _place(a: PaperActor, at: Vector3, facing: Vector3 = Vector3.ZERO) -> void 
 	a.velocity = Vector3.ZERO
 	if facing.length_squared() > 0.001: a.aim = facing.normalized()
 	a.reset_physics_interpolation()
+
+func _badge_alpha() -> float:
+	var badge: Variant = world.camera_rig.get("_badge")
+	if badge == null or not is_instance_valid(badge) or not (badge as Control).visible: return 0.0
+	return (badge as Control).modulate.a
 
 func _look(direction: Vector3, pitch: float = -0.16) -> void :
 	world.yaw = atan2( - direction.x, - direction.z)
@@ -281,13 +289,28 @@ func _plan_kill(as_alice: bool) -> void :
 		_look(Vector3(0, 0, -1).rotated(Vector3.UP, 0.4))
 	if victim.character != "Lysia": victim.effects["revived"] = true
 	victim.hp = 1.0
+	if "--hud-exit" in OS.get_cmdline_user_args():
+		# exécution pendant l'alerte de sortie (bandeau passé)
+		world.time_left = 80.3
+		await _wait(4.6)
 	await _wait(0.8)
 	await _shot("kill_00_before")
+	var badge_check: bool = "--hud-badge" in OS.get_cmdline_user_args()
+	if badge_check:
+		# C pressé juste avant le coup fatal : le bandeau de caméra ne doit pas rester sur le plan.
+		await _press_action("camera_mode")
+		await _wait(0.15)
+		_note("badge before execution=%s" % str(_badge_alpha()))
 	var before: float = float(world.time_left)
 	for attempt in range(8):
 		world.combat.damage(victim, 999.0, alice, false, "slash")
 		if bool(victim.effects.get("dying", false)): break
 	_note("execution started=%s variant=%s" % [str(not world.kill_scenes._scenes.is_empty()), str(world.kill_scenes._scenes.values()[0].variant) if not world.kill_scenes._scenes.is_empty() else "-"])
+	if badge_check:
+		await _wait(0.45)
+		await _shot("kill_00b_badge_on_shot")
+		_note("badge on shot=%.2f locked=%s" % [_badge_alpha(), str(world.camera_rig.look_locked())])
+		if _badge_alpha() > 0.05: _failures.append("bandeau de caméra resté sur le plan d'exécution")
 	await _wait(0.5)
 	# touche caméra pendant le plan cinématique : doit être ignorée (pas de bandeau sur le film)
 	await _press_action("camera_mode")
@@ -296,8 +319,15 @@ func _plan_kill(as_alice: bool) -> void :
 	await _shot("kill_01_cine_after_C")
 	await _wait(1.4)
 	await _shot("kill_02_cine_mid")
+	var bonus_seen: bool = false
 	while not world.kill_scenes._shows.is_empty() or not world.kill_scenes._scenes.is_empty():
 		await get_tree().process_frame
+		if not bonus_seen and world.kill_scenes._bonus_label.visible:
+			# « +0:45 » au moment où il apparaît (fin du plan, HUD encore estompé ?)
+			bonus_seen = true
+			await _wait(0.1)
+			await _shot("kill_02b_bonus_pop")
+			_note("bonus pop: hud alpha=%.2f bars=%.2f" % [world.ui.hud.modulate.a, float(world.kill_scenes._bars_amount)])
 		if float(world.clock) > before + 30.0: break
 	_note("execution over; victim alive=%s time_left %.1f -> %.1f" % [str(victim.alive), before, world.time_left])
 	await _wait(0.12)

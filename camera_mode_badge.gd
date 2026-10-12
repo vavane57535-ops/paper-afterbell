@@ -153,6 +153,10 @@ func _process(delta: float) -> void :
 		_time = 0.0
 		hide()
 		return
+	# Plan cinématique en jeu (exécution…) : la caméra appartient au film. Un bandeau affiché juste avant
+	# (C pressé au moment du coup fatal) s'efface au lieu de rester par-dessus le plan, hors du HUD estompé.
+	var rig: Variant = world.get("camera_rig") if world != null else null
+	if rig != null and rig.has_method("look_locked") and rig.look_locked(): _time = minf(_time, FADE_OUT * 0.5)
 	_time = maxf(0.0, _time - delta)
 	_dodge = lerpf(_dodge, _dodge_goal(), 1.0 - exp( - delta * 14.0))
 	_apply()

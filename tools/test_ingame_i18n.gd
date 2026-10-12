@@ -26,6 +26,8 @@ const SOURCES: Array[String] = [
 	"LA DERNIÈRE BLESSURE…", "ÉTOURDI  ·  %.1f s", "AURA · %d / 100", "PRÊTE",
 	"LMS · AURA COMPLÈTE, SORTIE MAINTENUE", "LMS · LA SORTIE S’OUVRIRA AUX 80 DERNIÈRES SECONDES",
 	"TRUE FORM · LA SORTIE SE REFERME", "LMS · LA SORTIE SE REFERME",
+	"Vise un allié à moins de 6 m", "Allié à moins de 6 m, près d’Alice, avec une recharge en cours",
+	"DERNIÈRE PRÉSENCE · +%d PV (maximum 150)", "PV",
 ]
 
 func setup(_world: Node) -> void :

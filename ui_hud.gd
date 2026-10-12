@@ -967,7 +967,8 @@ func _prompt_text(a: PaperActor) -> String:
 				if c.state == "salvage" and a.position.distance_to(c.position) < 2.8: return _t("MARCHE SUR LE DRONE · +7 PV")
 			var target: Dictionary = world.combat.overheat_target(a)
 			if float(a.cooldowns.get(0, 0)) <= 0: return "1 · " + _t(str(target.reason))
-		if a.character == "Bleuette":
+		# LMS : plus aucun allié à encourager, le rappel se tait.
+		if a.character == "Bleuette" and not world.lms:
 			var support: Dictionary = world.combat.support_target_preview(a, 0)
 			return "1 · " + _t(str(support.reason))
 	if world.training: return _t("F2 · PRÉPARER UN TEST / CHANGER DE PERSONNAGE")

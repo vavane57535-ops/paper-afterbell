@@ -74,6 +74,7 @@ var _bars: Array[ColorRect] = []
 var _bars_amount: float = 0.0
 var _bonus_label: Label
 var _bonus_time: float = -1.0
+var _bonus_bell: bool = false
 var _font: Font
 var _limb_cache: Dictionary = {}
 var _materials: Dictionary = {}
@@ -178,6 +179,7 @@ func clear() -> void :
 	_bars_amount = 0.0
 	for bar: ColorRect in _bars: bar.visible = false
 	_bonus_time = -1.0
+	_bonus_bell = false
 	_bonus_label.visible = false
 	_hud_alpha(1.0)
 	_light_amount = 0.0
@@ -1170,17 +1172,31 @@ func _show_bonus(seconds: float) -> void :
 	var total: int = int(round(seconds))
 	_bonus_label.text = "+%d:%02d" % [total / 60, total % 60]
 	_bonus_time = 0.0
-	_bonus_label.visible = true
+	_bonus_bell = true
+	_bonus_label.visible = _bars_amount <= 0.05
+	if _bonus_label.visible: _ring_bonus()
+
+
+func _ring_bonus() -> void :
+	_bonus_bell = false
 	if world.audio and world.audio.has_method("sfx") and world.camera.is_inside_tree():
 		world.audio.sfx("bell", world.camera.global_position, world.camera.global_position, 0.3, 1.32)
 
 
 func _update_bonus(delta: float) -> void :
 	if _bonus_time < 0.0: return
+	# Plan d'exécution sur ce poste : le chrono est masqué avec le HUD. « +0:45 » (et sa cloche) attend
+	# la fin des bandes noires pour apparaître près du chrono, au lieu de flotter seul sur la bande du plan.
+	if _bonus_bell and str(world.phase) == "playing":
+		if _bars_amount > 0.05:
+			_bonus_label.visible = false
+			return
+		_ring_bonus()
 	_bonus_time += delta
 	var life: float = 2.6
 	if _bonus_time >= life or str(world.phase) != "playing":
 		_bonus_time = -1.0
+		_bonus_bell = false
 		_bonus_label.visible = false
 		return
 	var anchor: Vector2 = Vector2(get_viewport().get_visible_rect().size.x * 0.5 + 92.0, 18.0)
