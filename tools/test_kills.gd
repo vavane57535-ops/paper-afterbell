@@ -18,6 +18,7 @@ var frames: Array[float] = []
 var out_dir: String = "user://kill_frames"
 var time_scale: float = 0.4
 var preset_time: float = -1.0
+var reset_mid: bool = false
 var cams: Array[String] = ["cine"]
 var headless: bool = false
 var failures: Array[String] = []
@@ -42,6 +43,7 @@ func setup(w) -> void:
 			"--out": out_dir = next
 			"--scale": time_scale = float(next)
 			"--time": preset_time = float(next)
+			"--reset-mid": reset_mid = true
 			"--cam": cams.assign(next.split(",", false))
 	if targets.is_empty(): targets.assign(NAMES)
 	if frames.is_empty() and not headless: frames.assign([0.15, 0.6, 1.2, 1.9, 2.6, 3.4])
@@ -54,6 +56,12 @@ func _run() -> void:
 	for phase6: bool in phase6_modes:
 		for victim_name: String in targets:
 			await _scene(victim_name, phase6)
+	# Bruitages dédiés : chaque famille utilisée doit être chargée dans la banque.
+	if targets.size() == NAMES.size() and phase6_modes.size() == 2 and world.audio and not bool(world.audio.get("_silent")):
+		for key: String in world.kill_scenes.KILL_SFX:
+			var bank: Array = world.audio.effects.get(key, [])
+			if bank.size() != int(world.kill_scenes.KILL_SFX[key]): failures.append("son manquant : %s (%d)" % [key, bank.size()])
+		results.append("sons=%d familles" % world.kill_scenes.KILL_SFX.size())
 	print("KILL_TEST ", "OK" if failures.is_empty() else "FAIL", " ", JSON.stringify({"results": results, "failures": failures}))
 	get_tree().quit()
 
@@ -151,6 +159,17 @@ func _scene(victim_name: String, phase6: bool) -> void:
 		failures.append(tag + ": pas d'exécution déclenchée (dying=%s)" % str(victim.effects.get("dying", false)))
 		return
 	var total: float = float(scene.lead) + float(scene.length)
+	if reset_mid:
+		# Terrain d'essai : la victime est réinitialisée au milieu de l'exécution.
+		await get_tree().create_timer(1.2).timeout
+		world.combat.reset_for_training(victim)
+		for k in range(4): await get_tree().physics_frame
+		var line_reset: String = "%s reset_mid scenes=%d alice_lock=%.2f victim_alive=%s" % [tag, world.kill_scenes._scenes.size(), float(alice.effects.get("kill_lock", 0.0)), str(victim.alive)]
+		results.append(line_reset)
+		print("KILL_RESULT ", line_reset)
+		if not world.kill_scenes._scenes.is_empty(): failures.append(tag + ": exécution bloquée après réinitialisation")
+		if float(alice.effects.get("kill_lock", 0.0)) > 0.0: failures.append(tag + ": Alice reste verrouillée après réinitialisation")
+		return
 	var stun_seen: float = 0.0
 	var lock_seen: bool = false
 	var lag_max: float = 0.0
@@ -202,6 +221,7 @@ func _scene(victim_name: String, phase6: bool) -> void:
 		if exit_before and not world.exit_flow.opened and not phase6: failures.append(tag + ": la sortie s'est refermée après le bonus")
 	results.append(line)
 	print("KILL_RESULT ", line)
+	if str(world.phase) != "playing": failures.append(tag + ": la manche s'est terminée pendant l'exécution (%s)" % str(world.phase))
 	if victim.alive: failures.append(tag + ": la victime est encore vivante")
 	if not lock_seen: failures.append(tag + ": Alice jamais verrouillée")
 	if float(alice.effects.get("kill_lock", 0.0)) > 0.0: failures.append(tag + ": Alice toujours verrouillée")

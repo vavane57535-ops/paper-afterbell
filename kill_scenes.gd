@@ -33,6 +33,8 @@ const VARIANTS: Dictionary = {
 	"slam": {"gap": 1.35, "length": 3.3, "lock": 2.95},
 }
 
+const KILL_SFX: Dictionary = {"kill_punch": 2, "kill_stab": 2, "kill_clang": 2, "kill_rip": 2, "kill_zap": 2, "kill_beep": 1, "kill_boom": 1, "kill_crunch": 2, "kill_slam": 2}
+
 const WORDS: Dictionary = {
 	"punch": ["PAF !", "POW!"], "slash": ["SHLAK !", "SLASH!"], "stab": ["TCHAC !", "STAB!"],
 	"clang": ["CLANG !", "CLANG!"], "rip": ["CRRRAC !", "RIIIP!"], "zap": ["BZZT !", "BZZT!"],
@@ -93,6 +95,8 @@ func setup(owner: Node) -> void :
 		label.render_priority = 7
 		label.outline_render_priority = 6
 		label.visible = false
+		# Replacées à chaque image (face caméra) : pas d'interpolation physique.
+		label.physics_interpolation_mode = Node.PHYSICS_INTERPOLATION_MODE_OFF
 		_props_root.add_child(label)
 		_words.append({"node": label, "age": 0.0, "life": 0.0, "origin": Vector3.ZERO, "size": 1.0, "tilt": 0.0})
 	_layer = CanvasLayer.new()
@@ -231,6 +235,15 @@ func tick(delta: float) -> void :
 		var lead: float = float(scene.lead)
 		var spot: Vector3 = scene.spot
 		var stand: Vector3 = scene.stand
+		# Victime remise sur pied entre-temps (réinitialisation du terrain d'essai) :
+		# on rend la main à tout le monde.
+		if victim != null and victim.alive and not bool(victim.effects.get("dying", false)):
+			if alice != null and not bool(scene.released): _release(scene, alice)
+			_scenes.erase(id)
+			continue
+		# Le chrono ne tombe pas à zéro au milieu d'une exécution : elle va à son terme
+		# (puis le bonus de l'élimination s'applique).
+		if victim != null and victim.alive and float(world.time_left) < 0.6: world.time_left = 0.6
 		if victim != null and victim.alive:
 			victim.global_position = spot
 			victim.velocity = Vector3.ZERO
@@ -711,7 +724,22 @@ func _comic_visual(visual: PaperVisual, cue: String) -> void :
 
 func _sound(kind: String, at: Vector3, gain: float = 1.0, pitch: float = 1.0) -> void :
 	if world.audio == null or not world.audio.has_method("sfx"): return
+	if KILL_SFX.has(kind): _ensure_sfx(kind)
 	world.audio.sfx(kind, at, world._listener_position(), gain, pitch)
+
+
+# Bruitages propres aux exécutions (audio/sfx/kill_*.wav), ajoutés à la banque
+# de PaperAudio au premier usage sans toucher à audio.gd.
+func _ensure_sfx(kind: String) -> void :
+	var bank: Variant = world.audio.get("effects")
+	if not bank is Dictionary or (bank as Dictionary).has(kind) or bool(world.audio.get("_silent")): return
+	var variants: Array[AudioStream] = []
+	for index in range(int(KILL_SFX[kind])):
+		var path: String = "res://audio/sfx/%s_%02d.wav" % [kind, index]
+		if ResourceLoader.exists(path):
+			var stream: AudioStream = load(path) as AudioStream
+			if stream: variants.append(stream)
+	(bank as Dictionary)[kind] = variants
 
 
 func _involved(show: Dictionary) -> bool:
@@ -760,11 +788,34 @@ func _update_words(delta: float) -> void :
 		var at: Vector3 = Vector3(entry.origin) + Vector3.UP * 0.35 * (1.0 - pow(1.0 - t, 2.0))
 		var to_camera: Vector3 = camera.global_position - at
 		var distance: float = maxf(0.5, to_camera.length())
+		var scale: float = maxf(0.01, swell * float(entry.size) * clampf(distance / 4.0, 0.55, 2.4))
+		if _camera_id >= 0: at = _keep_in_frame(camera, at, label, scale)
+		to_camera = camera.global_position - at
 		var facing: Basis = Basis.looking_at(-to_camera.normalized(), Vector3.UP) * Basis(Vector3.BACK, float(entry.tilt))
-		label.transform = Transform3D(facing.scaled(Vector3.ONE * maxf(0.01, swell * float(entry.size) * clampf(distance / 4.0, 0.55, 2.4))), at)
+		label.transform = Transform3D(facing.scaled(Vector3.ONE * scale), at)
 		var alpha: float = 1.0 - smoothstep(0.7, 1.0, t)
 		label.modulate.a = alpha
 		label.outline_modulate = Color(0.09, 0.06, 0.12, alpha)
+
+
+# Plans serrés : l'onomatopée reste lisible entre les bandes noires au lieu
+# d'être coupée par le bord de l'image.
+func _keep_in_frame(camera: Camera3D, at: Vector3, label: Label3D, scale: float) -> Vector3:
+	if camera.is_position_behind(at): return at
+	var view: Vector2 = get_viewport().get_visible_rect().size
+	var depth: float = -(camera.global_transform.affine_inverse() * at).z
+	if depth <= 0.05 or view.y <= 0.0: return at
+	var per_px: float = 2.0 * depth * tan(deg_to_rad(camera.fov) * 0.5) / view.y
+	var glyph: float = float(label.font_size) * label.pixel_size * scale / per_px
+	var half: Vector2 = Vector2(0.5 * 0.5 * glyph * float(label.text.length()), 0.62 * glyph)
+	var bar: float = view.y * 0.095 * smoothstep(0.0, 1.0, _bars_amount)
+	var screen: Vector2 = camera.unproject_position(at)
+	var low: Vector2 = Vector2(half.x + 12.0, bar + half.y + 8.0)
+	var high: Vector2 = Vector2(view.x - half.x - 12.0, view.y - bar - half.y - 8.0)
+	var target: Vector2 = Vector2(clampf(screen.x, low.x, maxf(low.x, high.x)), clampf(screen.y, low.y, maxf(low.y, high.y)))
+	var shift: Vector2 = target - screen
+	if shift.length_squared() < 0.25: return at
+	return at + camera.global_basis.x * shift.x * per_px - camera.global_basis.y * shift.y * per_px
 
 
 
@@ -902,11 +953,19 @@ func _update_bars(delta: float) -> void :
 	_hud_alpha(1.0 - smoothstep(0.0, 1.0, _bars_amount))
 
 
+var _hud_dimmed: bool = false
+
+# Estompe le HUD et les bulles d'info pendant le plan cinématique. N'écrit rien
+# hors exécution, pour ne pas contrarier un autre système qui réglerait le HUD.
 func _hud_alpha(alpha: float) -> void :
+	if alpha >= 1.0 and not _hud_dimmed: return
+	_hud_dimmed = alpha < 1.0
 	var ui: Variant = world.get("ui") if world != null else null
 	if ui == null or not is_instance_valid(ui) or ui.get("hud") == null: return
 	var hud: Control = ui.hud
 	if not is_equal_approx(hud.modulate.a, alpha): hud.modulate.a = alpha
+	var toasts: Variant = ui.get("_toast_box")
+	if toasts is Control and is_instance_valid(toasts): (toasts as Control).modulate.a = alpha
 
 
 
@@ -1298,8 +1357,8 @@ func _wreck_lysia(show: Dictionary) -> void :
 	world.presentation._emit(world.presentation.KIT_EMBER, at, Vector3.UP, Color("ffb35c"), false, 2.0)
 	world.presentation._emit(world.presentation.KIT_SPARK, at, Vector3.UP, Color("fff2a8"), false, 2.2, 180.0)
 	_word("boom", at + Vector3.UP * 0.6, Color("ffd68a"), 1.6)
-	_sound("flash", at, 1.0, 0.72)
-	_sound("ground_impact", at, 1.0, 0.7)
+	_sound("kill_boom", at, 1.1, 1.0)
+	_sound("ground_impact", at, 0.6, 0.7)
 
 
 func _restore_wrecks(force: bool) -> void :
@@ -1378,8 +1437,8 @@ func _script_usayuko(show: Dictionary) -> void :
 	tracks.append({"k": "reach", "who": "a", "side": 1, "to": "v", "socket": "chest", "offset": Vector3(0.0, 0.05, 0.12), "t0": 1.75, "t1": 1.95, "in": 0.05, "out": 0.1, "w": 0.65})
 	cues.append([0.48, "word", "punch", "a", "head", Vector3(0.32, 0.12, 0.0), Color("ffe7b0"), 1.15])
 	cues.append([0.48, "pop", "a", "eyes", Vector3(0.1, 0.0, -0.05), Vector3(-0.4, 0.2, 1.0), Color("ffd98a"), 1.2])
-	cues.append([0.48, "sfx", "punch", 1.0, 0.86])
-	cues.append([0.48, "sfx", "hit", 0.8, 0.8])
+	cues.append([0.48, "sfx", "kill_punch", 1.0, 1.0])
+	cues.append([0.48, "sfx", "hit", 0.55, 0.8])
 	cues.append([0.48, "shake", 0.55])
 	cues.append([0.48, "screen", "impact", 0.75])
 	cues.append([0.48, "hitstop", 0.12])
@@ -1389,8 +1448,8 @@ func _script_usayuko(show: Dictionary) -> void :
 	cues.append([1.6, "sfx", "slash", 0.35, 1.3])
 	cues.append([1.82, "claw", "chest", 0.9])
 	cues.append([1.82, "word", "slash", "v", "chest", Vector3(-0.3, 0.45, 0.0), Color("ff8aa0"), 1.3])
-	cues.append([1.82, "sfx", "slash", 1.0, 0.82])
-	cues.append([1.82, "sfx", "hit", 0.9, 0.7])
+	cues.append([1.82, "sfx", "kill_stab", 1.0, 0.95])
+	cues.append([1.82, "sfx", "slash", 0.6, 0.82])
 	cues.append([1.82, "shake", 0.75])
 	cues.append([1.82, "screen", "impact", 1.0])
 	cues.append([1.82, "screen", "frame", Color(1.0, 0.25, 0.35, 0.22), 0.09])
@@ -1423,14 +1482,14 @@ func _script_elly(show: Dictionary) -> void :
 	cues.append([1.4, "sweat", "v", 2])
 	cues.append([1.6, "word", "clang", "v", "hand_l", Vector3(0.2, 0.35, 0.25), Color("e9eef7"), 1.1])
 	cues.append([1.6, "pop", "v", "hand_l", Vector3(0.0, 0.05, 0.3), Vector3(1.0, 0.3, 0.0), Color("e9eef7"), 1.0])
-	cues.append([1.6, "sfx", "block", 1.0, 0.9])
+	cues.append([1.6, "sfx", "kill_clang", 1.0, 1.0])
 	cues.append([1.6, "shake", 0.35])
 	cues.append([1.61, "drop_gun"])
 	cues.append([1.62, "exclaim", "v", Color("ffe066")])
 	cues.append([1.97, "stab", "hips"])
 	cues.append([1.97, "word", "stab", "v", "chest", Vector3(-0.35, 0.4, 0.0), Color("ff8aa0"), 1.3])
-	cues.append([1.97, "sfx", "slash", 1.0, 0.7])
-	cues.append([1.97, "sfx", "hit", 0.9, 0.75])
+	cues.append([1.97, "sfx", "kill_stab", 1.0, 0.9])
+	cues.append([1.97, "sfx", "slash", 0.6, 0.7])
 	cues.append([1.97, "shake", 0.7])
 	cues.append([1.97, "screen", "impact", 1.0])
 	cues.append([1.97, "screen", "frame", Color(1.0, 0.25, 0.35, 0.22), 0.09])
@@ -1464,24 +1523,24 @@ func _script_lysia(show: Dictionary) -> void :
 	cues.append([0.1, "sfx", "grab", 0.9, 0.85])
 	cues.append([0.45, "sparks", "v", "chest", Vector3(0.6, 0.2, 0.0), 0.6])
 	cues.append([0.6, "sparks", "v", "chest", Vector3(0.6, 0.2, 0.0), 0.8])
-	cues.append([0.6, "sfx", "camera_switch", 0.5, 1.5])
+	cues.append([0.6, "sfx", "kill_zap", 0.45, 1.15])
 	cues.append([0.76, "rip", "R_Upperarm", Vector3(2.4, 0.0, 1.4)])
 	cues.append([0.76, "word", "rip", "v", "chest", Vector3(0.45, 0.45, 0.0), Color("c9b6ff"), 1.3])
-	cues.append([0.76, "sfx", "grab", 1.0, 0.65])
-	cues.append([0.76, "sfx", "camera_switch", 1.0, 1.35])
-	cues.append([0.76, "sfx", "hit", 0.7, 1.2])
+	cues.append([0.46, "sfx", "kill_rip", 1.0, 1.0])
+	cues.append([0.76, "sfx", "hit", 0.5, 1.2])
 	cues.append([0.76, "shake", 0.5])
 	cues.append([0.76, "screen", "impact", 0.65, false])
 	cues.append([0.76, "hitstop", 0.1])
 	cues.append([0.95, "sparks", "v", "chest", Vector3(0.6, 0.1, 0.0), 0.7])
 	cues.append([1.1, "sparks", "v", "chest", Vector3(0.6, 0.1, 0.0), 0.5])
 	cues.append([1.05, "word", "zap", "v", "head", Vector3(0.35, 0.15, 0.0), Color("bff6ff"), 0.9])
+	cues.append([1.02, "sfx", "kill_zap", 0.9, 1.0])
 	cues.append([1.22, "sfx", "grab", 0.8, 0.9])
 	cues.append([1.86, "rip", "L_Upperarm", Vector3(-2.4, 0.0, 1.4)])
 	cues.append([1.86, "word", "rip", "v", "chest", Vector3(-0.45, 0.45, 0.0), Color("c9b6ff"), 1.3])
-	cues.append([1.86, "sfx", "grab", 1.0, 0.6])
-	cues.append([1.86, "sfx", "camera_switch", 1.0, 1.25])
-	cues.append([1.86, "sfx", "hit", 0.7, 1.15])
+	cues.append([1.53, "sfx", "kill_rip", 1.0, 0.95])
+	cues.append([1.86, "sfx", "hit", 0.5, 1.15])
+	cues.append([2.05, "sfx", "kill_zap", 0.7, 0.9])
 	cues.append([1.86, "shake", 0.55])
 	cues.append([1.86, "screen", "impact", 0.7, false])
 	cues.append([1.86, "hitstop", 0.1])
@@ -1489,19 +1548,19 @@ func _script_lysia(show: Dictionary) -> void :
 	cues.append([2.1, "sparks", "v", "chest", Vector3(0.6, 0.1, 0.0), 0.6])
 	cues.append([2.3, "glow", "v", "chest", Color("ffb35c", 0.55), 0.3, 0.9, 0.5])
 	cues.append([2.3, "fx", "v", "steam"])
-	cues.append([2.5, "sfx", "camera_switch", 0.8, 1.15])
+	cues.append([2.5, "sfx", "kill_beep", 0.8, 1.0])
 	cues.append([2.55, "word", "beep", "v", "over", Vector3(0.3, 0.1, 0.0), Color("ffd68a"), 0.95])
 	cues.append([2.6, "glow", "v", "chest", Color("ffb35c", 0.7), 0.4, 1.3, 0.4])
-	cues.append([2.75, "sfx", "camera_switch", 0.85, 1.25])
+	cues.append([2.75, "sfx", "kill_beep", 0.85, 1.06])
 	cues.append([2.85, "glow", "v", "chest", Color("ffc070", 0.8), 0.6, 1.6, 0.3])
-	cues.append([2.95, "sfx", "camera_switch", 0.9, 1.35])
+	cues.append([2.95, "sfx", "kill_beep", 0.9, 1.12])
 	cues.append([3.0, "flash", Color(1.0, 0.9, 0.7, 0.16), 0.06])
 	cues.append([3.05, "glow", "v", "chest", Color("ffd08a", 0.9), 0.8, 2.0, 0.25])
-	cues.append([3.08, "sfx", "camera_switch", 0.95, 1.45])
+	cues.append([3.08, "sfx", "kill_beep", 0.95, 1.18])
 	cues.append([3.15, "flash", Color(1.0, 0.92, 0.75, 0.22), 0.06])
-	cues.append([3.18, "sfx", "camera_switch", 1.0, 1.55])
+	cues.append([3.18, "sfx", "kill_beep", 1.0, 1.24])
 	cues.append([3.22, "glow", "v", "chest", Color("fff0c0", 1.0), 1.0, 3.0, 0.2])
-	cues.append([3.25, "sfx", "camera_switch", 1.0, 1.65])
+	cues.append([3.25, "sfx", "kill_beep", 1.05, 1.3])
 	cues.append([2.5, "shake", 0.15])
 	cues.append([2.9, "shake", 0.2])
 	cues.append([3.3, "shake", 1.0])
@@ -1534,8 +1593,8 @@ func _script_simon(show: Dictionary) -> void :
 	cues.append([2.72, "sfx", "slash", 0.3, 1.4])
 	cues.append([2.99, "claw", "back", 1.1])
 	cues.append([2.99, "word", "slash", "v", "head", Vector3(0.4, 0.35, 0.0), Color("ff8aa0"), 1.3])
-	cues.append([2.99, "sfx", "slash", 1.0, 0.75])
-	cues.append([2.99, "sfx", "hit", 0.9, 0.7])
+	cues.append([2.99, "sfx", "kill_stab", 1.0, 0.85])
+	cues.append([2.99, "sfx", "slash", 0.6, 0.75])
 	cues.append([2.99, "shake", 0.7])
 	cues.append([2.99, "screen", "impact", 1.0])
 	cues.append([2.99, "screen", "frame", Color(1.0, 0.25, 0.35, 0.22), 0.09])
@@ -1578,9 +1637,8 @@ func _script_ashura(show: Dictionary) -> void :
 	cues.append([1.25, "sweat", "v", 3])
 	cues.append([1.52, "drone_burst"])
 	cues.append([1.52, "word", "crunch", "v", "head", Vector3(0.35, 0.3, 0.0), Color("e6dcff"), 1.35])
-	cues.append([1.52, "sfx", "punch", 1.0, 0.7])
-	cues.append([1.52, "sfx", "ground_impact", 0.7, 1.3])
-	cues.append([1.52, "sfx", "flash", 0.35, 1.4])
+	cues.append([1.52, "sfx", "kill_crunch", 1.0, 1.0])
+	cues.append([1.52, "sfx", "punch", 0.6, 0.75])
 	cues.append([1.52, "shake", 0.85])
 	cues.append([1.52, "screen", "impact", 1.0, false])
 	cues.append([1.52, "screen", "frame", Color(1.0, 1.0, 1.0, 0.25), 0.07])
@@ -1614,8 +1672,8 @@ func _script_bleuette(show: Dictionary) -> void :
 	cues.append([1.85, "sfx", "slash", 0.3, 1.4])
 	cues.append([2.05, "stab", "chest"])
 	cues.append([2.05, "word", "stab", "v", "head", Vector3(0.35, 0.35, 0.0), Color("ff8aa0"), 1.3])
-	cues.append([2.05, "sfx", "slash", 1.0, 0.7])
-	cues.append([2.05, "sfx", "hit", 0.9, 0.75])
+	cues.append([2.05, "sfx", "kill_stab", 1.0, 1.0])
+	cues.append([2.05, "sfx", "slash", 0.6, 0.7])
 	cues.append([2.05, "shake", 0.7])
 	cues.append([2.05, "screen", "impact", 1.0])
 	cues.append([2.05, "screen", "frame", Color(1.0, 0.25, 0.35, 0.22), 0.09])
@@ -1650,9 +1708,8 @@ func _script_slam(show: Dictionary) -> void :
 	cues.append([0.78, "shake", 0.3])
 	cues.append([1.14, "crack", Vector3(0.0, 0.0, -half), 2.2, 1.6])
 	cues.append([1.14, "word", "slam", "v", "chest", Vector3(0.5, 0.6, 0.0), Color("ffe7b0"), 1.5])
-	cues.append([1.14, "sfx", "ground_impact", 1.0, 0.7])
-	cues.append([1.14, "sfx", "punch", 1.0, 0.6])
-	cues.append([1.14, "sfx", "hit", 0.9, 0.65])
+	cues.append([1.14, "sfx", "kill_slam", 1.0, 1.0])
+	cues.append([1.14, "sfx", "punch", 0.7, 0.7])
 	cues.append([1.14, "shake", 1.0])
 	cues.append([1.14, "screen", "impact", 1.0])
 	cues.append([1.14, "screen", "frame", Color(1.0, 0.25, 0.35, 0.25), 0.1])
@@ -1660,9 +1717,8 @@ func _script_slam(show: Dictionary) -> void :
 	cues.append([1.14, "ink", Vector3(0.0, 0.0, -half), 7])
 	cues.append([1.77, "crack", Vector3(0.0, 0.0, -half), 3.0, 2.2])
 	cues.append([1.77, "word", "slam2", "v", "chest", Vector3(-0.5, 0.7, 0.0), Color("ff8aa0"), 1.6])
-	cues.append([1.77, "sfx", "ground_impact", 1.0, 0.6])
-	cues.append([1.77, "sfx", "hit", 1.0, 0.6])
-	cues.append([1.77, "sfx", "punch", 0.9, 0.55])
+	cues.append([1.77, "sfx", "kill_slam", 1.1, 0.88])
+	cues.append([1.77, "sfx", "kill_stab", 0.7, 0.75])
 	cues.append([1.77, "shake", 1.0])
 	cues.append([1.77, "screen", "impact", 1.0])
 	cues.append([1.77, "screen", "splash", 2.2])
