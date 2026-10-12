@@ -1661,11 +1661,12 @@ func show_lobby() -> void :
 	v.add_child(choose)
 	_section(v, "MODE DE JEU")
 	if world.can_manage_lobby(): _option_row(v, "À quoi joue-t-on ?", ["Manche OM", "Terrain d’essai · École"], ["match", "training"], "mode")
+	# « Qui joue Alice ? » juste sous le mode, avant le résumé : visible sans faire défiler en 1280×800.
+	if world.can_manage_lobby() and world.room_options.mode == "match": _alice_row(v)
 	lobby_options = _paragraph("", v, 16, T.PAPER)
 	var launch: Button = null
 	if world.can_manage_lobby():
 		if world.room_options.mode == "match":
-			_alice_row(v)
 			_option_row(v, "Survivants (bots compris)", ["2", "3", "4", "5", "6"], [2, 3, 4, 5, 6], "survivors")
 			_option_row(v, "Durée de la manche", ["5 min 20", "6 min 20", "7 min 20", "9 min 20"], [320, 380, 440, 560], "round_seconds")
 			_paragraph("Le LMS dure exactement le temps de la musique du dernier survivant.", v, 14, T.MUTED)
@@ -2289,7 +2290,7 @@ func show_gallery_transport(item: Dictionary) -> void :
 	gallery_clock.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	gallery_clock.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(gallery_clock)
-	var keys: Label = _label("ESPACE · pause     ← → · 1 s     ÉCHAP · retour", "caps", 12, T.MUTED)
+	var keys: Label = _label("A · pause     ← → · 1 s     B · retour" if pad_input else "ESPACE · pause     ← → · 1 s     ÉCHAP · retour", "caps", 12, T.MUTED)
 	keys.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(keys)
 	if PaperLanguage.language == "en": PaperLanguage.apply_tree(gallery_controls)

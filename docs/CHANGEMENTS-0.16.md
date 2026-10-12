@@ -63,7 +63,7 @@ Protocole réseau **16** : tous les joueurs doivent avoir la 0.16 pour jouer ens
 - **Courses refaites** pour les 6 survivants, avec un moteur de foulée commun : marche, footing, sprint et sur-sprint. Contact, poussée, repli du talon, rebond du bassin, contre-rotation des épaules, pieds qui suivent le sol, et une personnalité pour chacun.
 
 ## Caméra et déplacements
-- Caméra libre et immédiate : aucune inertie sur la rotation, plage verticale beaucoup plus large (-77° à +69°), sensibilité souris réglable, accélération réglable du stick, collisions sans saut.
+- Caméra libre et immédiate : aucune inertie sur la rotation, plage verticale beaucoup plus large (-77° à +69°), sensibilités souris et manette réglables dans Réglages → Jeu, accélération réglable du stick (Commandes), collisions sans saut.
 - **C** (ou clic du stick droit) bascule entre :
   - **Derrière** : la caméra se recolle dans le dos et le personnage tourne avec elle ;
   - **Libre 360°** : on tourne tout autour du personnage, on voit son visage, et il avance dans la direction de la caméra.
@@ -77,7 +77,7 @@ Protocole réseau **16** : tous les joueurs doivent avoir la 0.16 pour jouer ens
   - Feuilles de papier qui balayent l'écran aux transitions, avec le titre de la page suivante.
   - Décors animés en boucle et sons de curseur papier.
 - **Menu pause** : le jeu se fige en trame rouge, une feuille de cahier glisse, la silhouette du personnage arrive, puis les entrées s'ouvrent en éventail, avec une confirmation en volet.
-- Clavier, souris et manette : A valide, B revient, LB/RB changent d'onglet. Lisible en 1280×800 comme en 1920×1080.
+- Clavier, souris et manette : A valide, B revient (y compris depuis le carnet de commandes), LB/RB changent d'onglet, et les listes défilent pour garder la sélection à l'écran. Dans la cinémathèque, pendant un film : A met en pause, la croix avance ou recule d'une seconde. Lisible en 1280×800 comme en 1920×1080.
 
 ## Mécaniques des survivants
 - **Lysia** :

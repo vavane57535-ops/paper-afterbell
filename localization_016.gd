@@ -255,6 +255,7 @@ const TEXT: Dictionary = {
 	"Pas de chrono": "No timer",
 	"Mannequins réinitialisables": "Resettable dummies",
 	"Ambiance, poursuites, sortie, LMS, danses et fins.": "Ambience, chases, exit rush, LMS, dances and endings.",
+	"A · pause     ← → · 1 s     B · retour": "A · pause     ← → · 1 s     B · back",
 	"Sensibilité de la manette": "Controller sensitivity",
 	"Caméra au stick droit. Accélération et zone morte : Commandes.": "Right-stick camera. Acceleration and deadzone: Controls.",
 }

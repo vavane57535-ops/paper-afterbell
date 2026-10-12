@@ -71,7 +71,7 @@ static func width(text: String, size_px: float, seed_value: int, plain: bool = f
 # de base ; rotation/échelle de l'entrée). lit (0..1+) : élément sélectionné
 # (dalle colorée découpée qui se déplie, lettres inversées). boil > 0 : le
 # trait frémit (image courante du boil).
-static func draw_word(ci: CanvasItem, text: String, base: Transform2D, size_px: float, seed_value: int, lit: float = 0.0, accent: Color = T.RED, alpha: float = 1.0, boil: int = 0, plain: bool = false, letter_color: Color = T.CREAM, red_chip: Color = T.RED) -> void :
+static func draw_word(ci: CanvasItem, text: String, base: Transform2D, size_px: float, seed_value: int, lit: float = 0.0, accent: Color = T.RED, alpha: float = 1.0, boil: int = 0, plain: bool = false, letter_color: Color = T.CREAM, red_chip: Color = T.RED, dark_on_light: bool = false) -> void :
 	var data: Dictionary = layout(text, size_px, seed_value, plain)
 	var glyphs: Array = data.glyphs
 	if glyphs.is_empty(): return
@@ -115,6 +115,8 @@ static func draw_word(ci: CanvasItem, text: String, base: Transform2D, size_px: 
 			G.polygon(item, glyph.paper_shade, Color(0, 0, 0, 0.5 * alpha))
 			G.polygon(item, paper, Color(chip_color, alpha))
 			ink = T.INK_TEXT if chip == CHIP_CREAM else T.CREAM
+			# Titres : sur une découpe claire (turquoise d'un verdict…), lettre à l'encre sombre, lisible.
+			if dark_on_light and chip == CHIP_RED and red_chip.get_luminance() > 0.5: ink = T.INK_TEXT
 		elif on:
 			ink = T.INK_TEXT
 		else:

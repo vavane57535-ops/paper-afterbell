@@ -130,6 +130,14 @@ func close() -> void :
 	world._update_camera(1.0)
 
 func handle_input(event: InputEvent) -> bool:
+	# Manette pendant la lecture : A pause / lecture, croix ← → ±1 s (B est géré par l'interface).
+	if event is InputEventJoypadButton and event.pressed and not browsing:
+		match event.button_index:
+			JOY_BUTTON_A: toggle_pause()
+			JOY_BUTTON_DPAD_LEFT: seek(time - 1.0)
+			JOY_BUTTON_DPAD_RIGHT: seek(time + 1.0)
+			_: return false
+		return true
 	if not (event is InputEventKey and event.pressed and not event.echo): return false
 	match event.keycode:
 		KEY_ESCAPE:

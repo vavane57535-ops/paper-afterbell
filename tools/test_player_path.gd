@@ -17,6 +17,7 @@ extends Node
 #   gallery   Cinémathèque : liste, catégories, lecture d'un film de chaque catégorie.
 #   pause     Partie solo lancée depuis la préparation, menu pause et ses sous-menus.
 #   results   Fins réelles : victoire, défaite, forfait (blocus) puis écran de résultats.
+#   verdicts  Les trois écrans de résultats seuls (résultats factices), pour juger la mise en page.
 # Journal : lignes « PATH » (étapes, focus) et « PATH_CHECK OK|FAIL » ; DIR/log.txt.
 # Le dossier XDG_DATA_HOME doit être vierge et dédié : l'outil écrit user://settings.cfg.
 
@@ -130,6 +131,12 @@ func _click(control: Control, settle: float = 0.3) -> void :
 	if control == null:
 		_check(false, "clic sur un contrôle introuvable")
 		return
+	# Comme un joueur à la molette : la page défile jusqu'au bouton visé.
+	var holder: ScrollContainer = _scroll_parent(control)
+	if holder:
+		holder.ensure_control_visible(control)
+		await get_tree().process_frame
+		await get_tree().process_frame
 	var point: Vector2 = _window_point(control)
 	await _mouse_to(point)
 	var hovered: Control = get_viewport().gui_get_hovered_control()
@@ -193,6 +200,7 @@ func _run() -> void :
 			"gallery": await _step_gallery()
 			"pause": await _step_pause()
 			"results": await _step_results()
+			"verdicts": await _step_verdicts()
 	_note("fin · %d échec(s)" % _fails)
 	var file: FileAccess = FileAccess.open(out_dir.path_join("log.txt"), FileAccess.WRITE)
 	if file: file.store_string("\n".join(_log))
@@ -486,6 +494,15 @@ func _step_gallery() -> void :
 		else: world.gallery.play_entry(wanted)
 		await _wait(0.6)
 		_check(world.gallery.playing, "lecture de « %s »" % wanted.title)
+		if str(spec[0]) == "lms_win":
+			# Manette pendant la lecture : A met en pause, la croix avance d'une seconde, A relance.
+			await _pad(JOY_BUTTON_A, 0.3)
+			var paused_at: float = float(world.gallery.time)
+			_check(not world.gallery.playing, "A met le film en pause")
+			await _pad(JOY_BUTTON_DPAD_RIGHT, 0.3)
+			_check(absf(float(world.gallery.time) - paused_at - 1.0) < 0.05, "croix → avance d'1 s (%.2f → %.2f)" % [paused_at, float(world.gallery.time)])
+			await _pad(JOY_BUTTON_A, 0.3)
+			_check(world.gallery.playing, "A relance le film")
 		for at: Variant in spec[2]:
 			world.gallery.seek(float(at))
 			await _wait(0.5)
@@ -558,3 +575,18 @@ func _step_results() -> void :
 		_note("résultats %s : %s" % [spec[2], _state()])
 		await _click(_find("MENU PRINCIPAL", world.ui.overlay), 1.0)
 		_check(world.phase == "menu", "MENU PRINCIPAL depuis les résultats")
+
+func _step_verdicts() -> void :
+	for spec: Array in [["survivors", false, "ending_survivors", "victoire"], ["killer", true, "ending_killer", "defaite_lms"], ["survivors", false, PaperAliceForfeit.KIND, "forfait"]]:
+		var rows: Array = []
+		var people: Array = ["Simon", "Lysia", "Ashura", "Elly", "Bleuette", "Usayuko"]
+		for i: int in range(people.size()):
+			rows.append({"id": i + 2, "character": people[i], "name": people[i] + (" · Toi" if i == 0 else " · IA"), "points": [412, 355, 280, 211, 160, 90][i], "grade": ["A", "B", "B", "C", "C", "D"][i], "aura": 40 + i * 9, "breakdown": {"heal": 30 + i * 4, "stun": 2 + i, "danger": 12}})
+		world.match_results = rows
+		world.ending_kind = str(spec[2])
+		world.ui.show_ending(str(spec[0]), bool(spec[1]))
+		await _wait(1.8)
+		await _mouse_to(Vector2(8, 8))
+		await _shot("verdict_" + str(spec[3]))
+	world.quit_to_menu()
+	await _wait(0.6)
