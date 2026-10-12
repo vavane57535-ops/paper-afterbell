@@ -1103,7 +1103,7 @@ class CollageTitle extends Control:
 	func _get_minimum_size() -> Vector2:
 		var widest: float = 0.0
 		for line: String in _lines: widest = maxf(widest, Collage.width(line, px, absi(line.hash()) % 997))
-		return Vector2(minf(widest + px * 0.3, max_width + px * 0.3), float(maxi(1, _lines.size())) * px * 1.12 + px * 0.28)
+		return Vector2(minf(widest + px * 0.3, max_width + px * 0.3), float(maxi(1, _lines.size())) * px * 1.12 + px * 0.42)
 
 	func _draw() -> void :
 		if T.tr_text(text).to_upper() != _shown:
@@ -1111,7 +1111,9 @@ class CollageTitle extends Control:
 			return
 		for i: int in range(_lines.size()):
 			var line: String = _lines[i]
-			var base: Transform2D = Transform2D(tilt, Vector2.ONE, 0.0, Vector2(px * 0.12 + float(i) * px * 0.35, px * 0.98 + float(i) * px * 1.1))
+			# Marge au-dessus : la première lettre (plus grande) et les accents
+			# découpés ne mordent pas sur la ligne du dessus.
+			var base: Transform2D = Transform2D(tilt, Vector2.ONE, 0.0, Vector2(px * 0.12 + float(i) * px * 0.35, px * 1.12 + float(i) * px * 1.1))
 			Collage.draw_word(self, line, base, px, absi(line.hash()) % 997, 0.0, accent, 1.0, 0, false, T.CREAM, accent)
 
 

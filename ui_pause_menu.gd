@@ -473,7 +473,8 @@ func _paint_front(layer: Control) -> void :
 		var drift: float = sin(t * 0.9) * 6.0 * k * motion
 		var at: Vector2 = Vector2(view.x * 0.04 + drift, view.y * 0.955)
 		var base: Transform2D = Transform2D(-0.14, Vector2(scale, scale), 0.0, at)
-		C.draw_word(layer, word, base, px, seed_value, 0.0, _red, clampf(giant_p * 2.0, 0.0, 1.0), 0, false, T.CREAM, _red)
+		# Volet de confirmation ouvert : « PAUSE » s'efface derrière lui.
+		C.draw_word(layer, word, base, px, seed_value, 0.0, _red, clampf(giant_p * 2.0, 0.0, 1.0) * (1.0 - 0.75 * _confirm_t), 0, false, T.CREAM, _red)
 	# Étiquette « MENU · PAUSE » + chrono, scotchée en haut à droite.
 	var tag_p: float = _phase(0.22, 0.18)
 	if tag_p > 0.0:
@@ -497,7 +498,7 @@ func _paint_front(layer: Control) -> void :
 		T.draw_tape(item, tag_pos + Vector2(180, 0) * k, 90.0 * k, -0.06, Color(0.96, 0.93, 0.84, 0.6), 7)
 	# Bande d'aide : description de la commande sélectionnée.
 	var hint_p: float = _phase(0.26, 0.16)
-	if hint_p > 0.0 and not _hint.is_empty():
+	if hint_p > 0.0 and not _hint.is_empty() and _confirm_t < 0.5:
 		var shown: String = T.tr_text(_hint)
 		var font: Font = T.font("semibold")
 		var fs: int = int(19 * k)
