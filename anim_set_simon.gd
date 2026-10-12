@@ -73,21 +73,27 @@ static func _carriage(c: Dictionary) -> void :
 	]}
 
 
+	# Course : la foulée et les bras viennent de la locomotion procédurale (rapide et léger, genoux hauts) ;
+	# ces clips n'ajoutent que l'attitude (menton, épaules) et les poings.
 	c["run@Simon"] = {"len": 1.0, "loop": true, "add": true, "keys": [
-		[0.0, M([{"r_arm": V(0.85, -0.08, 0.14), "r_elb": 1.6, "l_arm": V(-1.05, 0.0, -0.16), "l_elb": 1.45}, C(-0.08, 0.12), HD(0.06, -0.1), {"curl": 0.15}])], 
-		[0.5, M([{"l_arm": V(0.85, 0.08, -0.14), "l_elb": 1.6, "r_arm": V(-1.05, 0.0, 0.16), "r_elb": 1.45}, C(-0.08, -0.12), HD(0.06, 0.1)])], 
+		[0.0, M([HD(0.04, -0.04, 0.0), {"curl": 0.75}])],
+		[0.5, M([HD(0.04, 0.04, 0.0)])],
 	]}
 
 
 	c["sprint@Simon"] = {"len": 1.0, "loop": true, "add": true, "keys": [
-		[0.0, M([{"r_arm": V(1.4, -0.3, 0.2), "r_elb": 1.85, "l_arm": V(-1.3, 0.0, -0.18), "l_elb": 1.15}, B(0.08), C(-0.1, 0.2), HD(0.2, -0.16), {"curl": 0.0}])], 
-		[0.5, M([{"l_arm": V(1.4, 0.3, -0.2), "l_elb": 1.85, "r_arm": V(-1.3, 0.0, 0.18), "r_elb": 1.15}, B(0.08), C(-0.1, -0.2), HD(0.2, 0.16)])], 
+		[0.0, M([C(0.04, 0.0, 0.0), HD(0.06, -0.03, 0.0), {"curl": 0.9}])],
+		[0.5, M([C(0.04, 0.0, 0.0), HD(0.06, 0.03, 0.0)])],
 	]}
 
 
-	c["boost@Simon"] = {"len": 1.0, "loop": true, "add": true, "keys": [
-		[0.0, M([B(0.55), C(0.12, 0.1), HD(0.66, -0.08), L(0.4, 0.14, -0.9, 0.2), R(0.46, 0.3, -0.83, 0.2), WL(0.25), WR(0.25), {"curl": 0.0}])], 
-		[0.5, M([B(0.55), C(0.12, -0.1), HD(0.66, 0.08), L(0.46, 0.3, -0.83, 0.2), R(0.4, 0.14, -0.9, 0.2)])], 
+	# Boost de vitesse : sur-sprint façon anime. Le buste plonge vers l'avant (allure « boost » de anim_gait.gd),
+	# les genoux montent haut, les talons claquent sous les fesses, les poings pompent ; la tête reste levée vers l'avant.
+	c["boost@Simon"] = {"len": 1.0, "loop": true, "add": true, "face": "determined", "keys": [
+		[0.0, M([C(0.08, 0.0, 0.0), HD(0.12, -0.04, 0.0), {"curl": 1.0}])],
+		[0.25, M([C(0.1, 0.0, 0.0), HD(0.1, 0.0, 0.0)])],
+		[0.5, M([C(0.08, 0.0, 0.0), HD(0.12, 0.04, 0.0)])],
+		[0.75, M([C(0.1, 0.0, 0.0), HD(0.1, 0.0, 0.0)])],
 	]}
 
 
@@ -163,8 +169,10 @@ static func _flash(c: Dictionary) -> void :
 
 
 
+# Position de départ en starting-blocks (charge du boost). « À vos marques » (rise 0) : genou arrière posé au sol
+# sous la hanche, tibia à plat, pointe du pied en appui ; « prêts » (rise 1) : bassin levé, genou arrière à ~120°.
 static func _blocks(rise: float, sway: float = 0.0) -> Dictionary:
-	return M([FL(0.04, lerpf(0.16, 0.1, rise)), FR(0.1, lerpf(-0.84, -0.5, rise)), H(0.1 * sway, lerpf(-0.57, -0.24, rise), lerpf(-0.08, 0.1, rise)), B(lerpf(0.98, 1.5, rise), 0.0, 0.14 * sway), C(lerpf(0.2, 0.25, rise), 0.0, -0.1 * sway), HD(lerpf(0.8, 1.2, rise)), 
+	return M([FL(0.04, lerpf(0.16, 0.1, rise)), FR(0.1, lerpf(-0.5, -0.5, rise)), H(0.1 * sway, lerpf(-0.57, -0.24, rise), lerpf(-0.08, 0.1, rise)), B(lerpf(0.98, 1.5, rise), 0.0, 0.14 * sway), C(lerpf(0.2, 0.25, rise), 0.0, -0.1 * sway), HD(lerpf(0.8, 1.2, rise)), 
 		Lg(0.14, lerpf(0.14, 0.05, rise), 0.18 * rise), Rg(0.14, lerpf(0.1, 0.05, rise), 0.18 * rise), {"fp_r": -0.9, "fp_l": -0.4 * rise, "curl": 0.1}])
 
 

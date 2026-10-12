@@ -141,15 +141,15 @@ static func _carriage(c: Dictionary) -> void :
 
 
 
+	# Course mécanique : bras en pistons (balancier à arrêts nets, coude fixe à angle droit, mains plates),
+	# buste qui ne tourne presque pas et tête stable ; la vapeur s'échappe à chaque cycle de sprint.
 	c["run@Lysia"] = {"len": 1.0, "loop": true, "add": true, "keys": [
-		[0.0, M([AR(0.95, 0.06, RIGHT), AL(-0.75, 0.06, RIGHT), WL(0.0), WR(0.0), {"curl": 0.0}]), "l"], 
-		[0.5, M([AR(-0.75, 0.06, RIGHT), AL(0.95, 0.06, RIGHT)]), "l"], 
+		[0.0, M([WL(0.0), WR(0.0), {"curl": 0.05}])],
 	]}
 
 
 	c["sprint@Lysia"] = {"len": 1.0, "loop": true, "add": true, "keys": [
-		[0.0, M([B(0.2), HD(0.22), AL(-0.82, 0.34, 0.0), AR(-0.74, 0.34, 0.0), WL(0.0), WR(0.0), {"curl": 0.0, "fx": "steam"}])], 
-		[0.5, M([AL(-0.74, 0.34, 0.0), AR(-0.82, 0.34, 0.0)])], 
+		[0.0, M([HD(0.04), WL(0.0), WR(0.0), {"curl": 0.05, "fx": "steam"}])],
 	]}
 
 

@@ -21,14 +21,16 @@ static func _carriage(c: Dictionary) -> void :
 		[0.45, M([H(0, -0.16, 0.03), Lt(-0.2, 0.03, 0.58, 0.15), Rt(-0.3, -0.05, 0.42, 0.2)])], 
 	]}
 
+	# Course puissante : foulée appuyée (bassin qui s'écrase à chaque appui), gros balancier de bras poings serrés,
+	# épaules qui roulent et menton rentré. Les bras et les jambes viennent de la locomotion procédurale.
 	c["run@Usayuko"] = {"len": 1.0, "loop": true, "add": true, "keys": [
-		[0.0, M([Rt(-0.1, -0.2, 0.55, 0.25), Lt(0.2, -0.5, -0.15, 0.4), C(0.06, 0.18), HD(0.06, -0.14), {"curl": 1.0}])], 
-		[0.5, M([Rt(0.2, -0.5, -0.15, 0.4), Lt(-0.1, -0.2, 0.55, 0.25), C(0.06, -0.18), HD(0.06, 0.14)])], 
+		[0.0, M([C(0.05, 0.04, 0.0), HD(-0.06, -0.05, 0.0), {"curl": 1.0}])],
+		[0.5, M([C(0.05, -0.04, 0.0), HD(-0.06, 0.05, 0.0)])],
 	]}
 
 	c["sprint@Usayuko"] = {"len": 1.0, "loop": true, "add": true, "keys": [
-		[0.0, M([Rt(-0.15, 0.0, 0.7, 0.2), Lt(0.3, -0.45, -0.45, 0.5), B(0.14), C(0.1, 0.26), HD(0.12, -0.2), {"curl": 1.0}])], 
-		[0.5, M([Rt(0.3, -0.45, -0.45, 0.5), Lt(-0.15, 0.0, 0.7, 0.2), B(0.14), C(0.1, -0.26), HD(0.12, 0.2)])], 
+		[0.0, M([C(0.06, 0.05, 0.0), HD(-0.04, -0.05, 0.0), {"curl": 1.0}])],
+		[0.5, M([C(0.06, -0.05, 0.0), HD(-0.04, 0.05, 0.0)])],
 	]}
 
 
