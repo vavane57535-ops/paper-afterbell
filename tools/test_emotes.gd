@@ -345,9 +345,26 @@ func _bot_join(human: PaperActor, bot: PaperActor) -> bool:
 			joined = absf(float(bot.effects.get("emote_epoch", 0.0)) - float(human.effects.get("emote_epoch", 1.0))) < 0.0001
 			break
 		await _reset([human, bot])
+	# Danse : le bot rejoint, puis s'arrête quand le joueur s'arrête.
+	await _reset([human, bot])
+	var danced: bool = false
+	var stopped: bool = false
+	for attempt: int in range(6):
+		# Le bot a pu repartir entre deux essais : on le remet à côté du joueur.
+		bot.position = human.position + Vector3(1.6, 0.0, 0.0);bot.net_position = bot.position;bot.move_input = Vector3.ZERO
+		world._start_emote(human, "dance_amapiano")
+		await _wait_clock(1.6)
+		if str(bot.effects.get("emote_id", "")) == "dance_amapiano":
+			danced = true
+			world.emote_sync.cancel(human)
+			await _wait_clock(0.3)
+			stopped = not bot.effects.has("emote_id")
+			break
+		await _reset([human, bot])
 	bot.bot = false
 	_log("%s un bot proche rejoint l'émote du joueur, synchronisé" % ("OK" if joined else "FAIL"))
-	return joined
+	_log("%s un bot qui danse avec le joueur s'arrête avec lui (rejoint=%s, arrêté=%s)" % ["OK" if danced and stopped else "FAIL", str(danced), str(stopped)])
+	return joined and danced and stopped
 
 func _finish(ok: bool) -> void :
 	_log("RESULT " + ("PASS" if ok else "FAIL"))

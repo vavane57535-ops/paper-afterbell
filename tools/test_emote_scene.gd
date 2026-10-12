@@ -64,6 +64,8 @@ func _run() -> void :
 	var dist: float = float(args.get("dist", "5.2"))
 	var height: float = float(args.get("height", "1.55"))
 	cam_tf = Transform3D(Basis.IDENTITY, base + Vector3(0.0, height, dist)).looking_at(base + Vector3(0.0, 0.95, 0.0), Vector3.UP)
+	# Le joueur local vise là où regarde sa caméra : yaw = PI le tourne vers notre caméra (+Z).
+	world.yaw = PI
 	framing = true
 	world.camera.fov = float(args.get("fov", "52"))
 	await _wait_clock(1.0)
