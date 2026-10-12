@@ -875,7 +875,7 @@ func _update_spectator(a: PaperActor) -> void :
 	spectator_panel.visible = watching
 	if not watching: return
 	var escaped: bool = a != null and bool(a.effects.get("escaped", false))
-	var head: String = _t("ÉVADÉ · TU ES EN SÉCURITÉ") if escaped else _t("SPECTATEUR")
+	var head: String = _t("ÉVADÉE · TU ES EN SÉCURITÉ" if a.character in ["Lysia", "Elly", "Bleuette"] else "ÉVADÉ · TU ES EN SÉCURITÉ") if escaped else _t("SPECTATEUR")
 	var camera_hint: String = "" if world.mobile_mode else "  ·  " + _t("%s : caméra") % _binding("camera_mode", "C")
 	_write(spectator_label, head + "  ·  " + _t(ui._touch_text("TAB : allié suivant")) + camera_hint)
 	var viewed: PaperActor = world.call("_view_actor") if world.has_method("_view_actor") else null

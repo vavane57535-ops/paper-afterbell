@@ -266,6 +266,12 @@ const TEXT: Dictionary = {
 	"Caméra au stick droit. Accélération et zone morte : Commandes.": "Right-stick camera. Acceleration and deadzone: Controls.",
 	"https://adresse-du-service": "https://service-address",
 	"VOUS ÊTES TOMBÉE": "YOU ARE DOWN",
+	"POURSUIVIE": "CHASED",
+	"ÉLIMINÉE": "ELIMINATED",
+	"ÉVADÉE": "ESCAPED",
+	"TOMBÉE": "FELL",
+	"ÉVADÉE · TU ES EN SÉCURITÉ": "ESCAPED · YOU ARE SAFE",
+	"Contrôle raté · archive bloquée 3 s · Alice t’a repérée !": "Check failed · archive jammed for 3 s · Alice has spotted you!",
 	"Lignes de vitesse, encre sur l’écran, halos selon l’état du personnage et filtre rouge de l’alerte de sortie.": "Speed lines, ink on the screen, glows for the state of your character and the red filter of the exit alarm.",
 }
 
@@ -280,6 +286,7 @@ const TEMPLATES: Array = [
 	["%s a été éliminée.", "%s has been eliminated."],
 	["%s est au sol · 30 secondes pour la relever.", "%s is down · 30 seconds to revive them."],
 	["%s a été relevée · seconde vie.", "%s was revived · second life."],
+	["%s s’est échappée.", "%s escaped."],
 	["La dernière tentative de %s échoue. Alice la rattrape, frappe et l’achève au sol.", "%s's last attempt fails. Alice catches them, strikes and finishes them on the floor."],
 ]
 

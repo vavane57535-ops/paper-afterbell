@@ -110,8 +110,10 @@ func refresh() -> void :
 			var state: String = "DERNIÈRE VIE" if life == "second_life" else "ARMURE · SANS RELEVAGE" if person == "Lysia" else "1 RELEVAGE"
 			var tone: Color = Color(T.PAPER, 0.55)
 			if life == "second_life": tone = Color("aab6f2")
+			# Accord au féminin pour Lysia, Elly et Bleuette.
+			var she: bool = person in ["Lysia", "Elly", "Bleuette"]
 			if chased:
-				state = "POURSUIVI"
+				state = "POURSUIVIE" if she else "POURSUIVI"
 				tone = Color("ef8a99")
 			if down:
 				state = _t("À TERRE · %d s") % int(ceil(float(actor.effects.get("bleedout", 30))))
@@ -119,10 +121,10 @@ func refresh() -> void :
 				if progress > 0: state += " · %d %%" % int(progress * 100)
 				tone = T.AMBER
 			if dead:
-				state = "ÉLIMINÉ"
+				state = "ÉLIMINÉE" if she else "ÉLIMINÉ"
 				tone = Color(T.PAPER, 0.4)
 			if life == "escaped":
-				state = "ÉVADÉ"
+				state = "ÉVADÉE" if she else "ÉVADÉ"
 				tone = Color("a9dcc8")
 			_write(row.status, state if down else _t(state))
 			if row.status.get_theme_color("font_color") != tone: row.status.add_theme_color_override("font_color", tone)

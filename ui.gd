@@ -2807,7 +2807,8 @@ func _result_row(row: Dictionary, rank: int) -> Button:
 	player.set_meta("language_user_text", true)
 	names.add_child(player)
 	if not fate.is_empty():
-		var tag: Label = _label({"escaped": "ÉVADÉ", "dead": "TOMBÉ", "alive": "EN VIE"}.get(fate, ""), "caps", 11, Color("2e6d68") if fate == "escaped" else T.INK_MUTED)
+		var she: bool = person in ["Lysia", "Elly", "Bleuette"]
+		var tag: Label = _label({"escaped": "ÉVADÉE" if she else "ÉVADÉ", "dead": "TOMBÉE" if she else "TOMBÉ", "alive": "EN VIE"}.get(fate, ""), "caps", 11, Color("2e6d68") if fate == "escaped" else T.INK_MUTED)
 		tag.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		h.add_child(tag)
 	var points: Label = _label("%d" % int(row.get("points", 0)), "digits", 30, T.INK_TEXT)
