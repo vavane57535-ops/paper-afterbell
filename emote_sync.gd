@@ -19,6 +19,7 @@ const BOT_JOIN_RANGE: float = 9.0
 const BOT_JOIN_CHANCE: float = 0.7
 const BOT_SAFE_DISTANCE: float = 24.0
 const MUSIC_TOLERANCE: float = 0.15
+const MUSIC_DB: float = 6.0
 
 var world: Node
 var rng: RandomNumberGenerator = RandomNumberGenerator.new()
@@ -165,7 +166,7 @@ func update_music() -> void :
 		var want: float = fposmod(float(cluster.time), length)
 		var player: AudioStreamPlayer3D
 		if entry.is_empty():
-			player = AudioStreamPlayer3D.new();player.stream = stream;player.bus = world.audio.MUSIC_BUS;player.unit_size = 9.0;player.max_distance = 45.0;player.volume_db = 4.0
+			player = AudioStreamPlayer3D.new();player.stream = stream;player.bus = world.audio.MUSIC_BUS;player.unit_size = 9.0;player.max_distance = 45.0;player.volume_db = _music_db()
 			add_child(player)
 			entry = {"id": cluster.id, "epoch": cluster.epoch, "player": player, "used": false}
 			_music.append(entry)
@@ -173,6 +174,7 @@ func update_music() -> void :
 		player = entry.player
 		entry.epoch = cluster.epoch
 		entry.used = true
+		player.volume_db = _music_db()
 		player.global_position = cluster.sum / float(cluster.count) + Vector3.UP * 1.2
 		if not player.playing: player.play(want)
 		else:
@@ -182,6 +184,11 @@ func update_music() -> void :
 		if not bool(_music[i].used):
 			(_music[i].player as Node).queue_free()
 			_music.remove_at(i)
+
+# Musique de danse : suit le réglage « Musique » (pistes à -18 LUFS ; +2 dB au réglage par défaut).
+func _music_db() -> float:
+	if world.audio == null: return MUSIC_DB
+	return MUSIC_DB + world.audio.volume_to_db(world.audio.music_volume)
 
 # Époque du groupe : connue de l'hôte ; chez un client, déduite du dernier instantané.
 func _epoch_of(actor: PaperActor) -> float:
@@ -193,6 +200,9 @@ func _epoch_of(actor: PaperActor) -> float:
 
 func on_cue(cue: String, visual: PaperVisual) -> void :
 	if not SFX.has(cue) or not is_instance_valid(visual) or not visual.is_inside_tree(): return
+	# Sons d'émotes : suivent le réglage « Effets » comme les autres bruitages.
+	var effects_db: float = world.audio.volume_to_db(world.audio.effects_volume) if world.audio else 0.0
+	if effects_db <= -79.0: return
 	var listener: Vector3 = world.camera.global_position if world.camera else visual.global_position
 	if visual.global_position.distance_to(listener) > SFX_REACH: return
 	var spec: Array = SFX[cue]
@@ -208,7 +218,7 @@ func on_cue(cue: String, visual: PaperVisual) -> void :
 	var player: AudioStreamPlayer3D = _voices[_next_voice % _voices.size()]
 	_next_voice += 1
 	player.stream = stream
-	player.volume_db = float(spec[1])
+	player.volume_db = float(spec[1]) + effects_db
 	player.pitch_scale = 1.0 + rng.randf_range(- float(spec[2]), float(spec[2]))
 	player.global_position = visual.global_position + Vector3.UP * 1.3
 	player.play()
