@@ -53,6 +53,8 @@ func _collect(node: Node, out: Array) -> void :
 				elif control is Button and control.get_script() != null: value = T_tr(value)
 				out.append(value)
 			if control is LineEdit: out.append(str((control as LineEdit).placeholder_text))
+			# Aides affichées seulement au survol / à la sélection (entrées du menu principal…).
+			if "hint" in control and control.get("hint") is String: out.append(T_tr(str(control.get("hint"))))
 			if not control.tooltip_text.is_empty(): out.append(control.tooltip_text)
 	for child: Node in node.get_children(): _collect(child, out)
 
