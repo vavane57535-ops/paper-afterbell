@@ -3,7 +3,7 @@ extends Node
 
 
 const FILES: Dictionary = {"hover": "res://ui/sfx/ui_cursor.wav", "click": "res://ui/sfx/ui_click.wav", "back": "res://ui/sfx/ui_back.wav", "confirm": "res://ui/sfx/ui_confirm.wav", "page": "res://ui/sfx/ui_page.wav", "tear": "res://ui/sfx/ui_tear.wav", "swoosh": "res://ui/sfx/ui_swoosh.wav", "open": "res://ui/sfx/ui_open.wav", "close": "res://ui/sfx/ui_close.wav"}
-const GAINS: Dictionary = {"hover": -15.0, "click": -11.0, "back": -12.0, "confirm": -13.0, "page": -15.0, "tear": -16.0, "swoosh": -17.0, "open": -13.0, "close": -17.0}
+const GAINS: Dictionary = {"hover": -15.0, "click": -11.0, "back": -12.0, "confirm": -13.0, "page": -15.0, "tear": -16.0, "swoosh": -18.0, "open": -17.0, "close": -19.0}
 
 static var instance: Node
 
@@ -45,4 +45,6 @@ func _play(kind: String) -> void :
 	if kind == "hover" and now - int(_last_played.get(kind, -1000)) < 55: return
 	_last_played[kind] = now
 	player.volume_db = float(GAINS.get(kind, -12.0)) + linear_to_db(volume)
+	# Curseur : hauteur qui varie un peu, agréable même répété vite.
+	if kind == "hover": player.pitch_scale = randf_range(0.95, 1.06)
 	player.play()

@@ -22,8 +22,14 @@ func setup(owner: Node) -> void :
 	hide()
 
 var _entering: bool = false
+# Ouvert depuis le menu pause : « Enregistrer & retour » y ramène directement
+# (le carnet reste affiché sous le volet jusqu'à ce que la pause revienne).
+var from_pause: bool = false
+var _leaving: bool = false
 
 func open() -> void :
+	from_pause = false
+	_leaving = false
 	world.ui.page.hide()
 	show()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -32,8 +38,20 @@ func open() -> void :
 	_entering = false
 
 func close() -> void :
+	if _leaving: return
 	capture_action = ""
+	if from_pause and str(world.get("phase")) == "playing" and world.ui.has_method("_pause_reopen"):
+		from_pause = false
+		_leaving = true
+		world.ui.call("_pause_reopen", "controls")
+		# Filet de sécurité si le volet est interrompu (manche finie, retour au menu…).
+		get_tree().create_timer(0.8).timeout.connect(func() -> void :
+			if _leaving:
+				_leaving = false
+				hide())
+		return
 	hide()
+	from_pause = false
 	world.ui.show_settings()
 
 func _build() -> void :
@@ -203,7 +221,7 @@ func _slider(title: String, low: float, high: float, value: float, callback: Cal
 	slider.value_changed.connect(callback)
 
 func _input(event: InputEvent) -> void :
-	if not visible: return
+	if not visible or _leaving: return
 	if capture_action.is_empty():
 		if event.is_action_pressed("pause_game"):
 			close()

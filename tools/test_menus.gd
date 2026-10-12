@@ -16,6 +16,8 @@ var times: Array[float] = [0.0, 80.0, 160.0, 300.0, 600.0]
 var slow: float = 0.12
 var _clock: float = 0.0
 var _log: PackedStringArray = PackedStringArray()
+var _english: bool = false
+var _reduced: bool = false
 
 func setup(game_world: Node) -> void :
 	world = game_world
@@ -27,14 +29,18 @@ func setup(game_world: Node) -> void :
 		if args[i] == "--menu-times" and i + 1 < args.size():
 			times.clear()
 			for part: String in args[i + 1].split(","): times.append(float(part))
-		if args[i] == "--menu-reduced": world.options["reduce_flashes"] = true
+		if args[i] == "--menu-reduced": _reduced = true
 		if args[i] == "--menu-size" and i + 1 < args.size():
 			var parts: PackedStringArray = args[i + 1].split("x")
 			if parts.size() == 2: get_window().size = Vector2i(int(parts[0]), int(parts[1]))
-		if args[i] == "--menu-en": world.options["language"] = "en"
+		if args[i] == "--menu-en": _english = true
 	DirAccess.make_dir_recursive_absolute(out_dir)
-	world.apply_options()
-	world.ui.reduced_motion = bool(world.options.get("reduce_flashes", false))
+	# Langue et « Réduire les flashs » changés pour cette session seulement :
+	# world.options n'est pas touché, sinon une sauvegarde des préférences
+	# (fin de manche…) les garderait dans user://settings.cfg, partagé par
+	# toutes les copies du projet.
+	if _english: PaperLanguage.language = "en"
+	world.ui.reduced_motion = bool(world.options.get("reduce_flashes", false)) or _reduced
 	_run.call_deferred()
 
 func _process(delta: float) -> void :
@@ -222,7 +228,7 @@ func _run() -> void :
 		await _burst("lobby_open", func() -> void : ui.show_lobby(), [0, 160, 600, 1200])
 		world.quit_to_menu()
 		await _wait_game(0.5)
-	if "pause" in menus or "ending" in menus or "emotes" in menus:
+	if "pause" in menus or "ending" in menus or "emotes" in menus or "pausectl" in menus:
 		world.selected = "Simon"
 		world.start_solo(false)
 		var waited: float = 0.0
@@ -266,6 +272,13 @@ func _run() -> void :
 				await _wait_game(0.2)
 				await _save("pause_hover_left")
 			await _burst("pause_close", func() -> void : _press_pause(), [0, 60, 120, 200, 320])
+		if "pausectl" in menus:
+			# Pause → Commandes → retour : le volet passe au-dessus du carnet.
+			if not world.pause_open: _press_pause()
+			await _wait_game(0.8)
+			await _burst("pausectl_open", func() -> void : ui._pause_controls(), [0, 80, 160, 300, 600])
+			await _burst("pausectl_back", func() -> void : world.controls_menu.close(), [0, 80, 160, 300, 600])
+			_note("après retour des commandes : commandes=%s focus=%s" % [world.controls_menu.visible, _focus_name()])
 		if "ending" in menus:
 			world.match_results = _fake_results()
 			await _burst("ending_open", func() -> void : ui.show_ending("survivors", true), [0, 80, 160, 300, 600, 1000, 1600])

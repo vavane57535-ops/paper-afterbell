@@ -46,6 +46,10 @@ var _confirm: Control
 var _confirm_t: float = 0.0
 var _confirm_buttons: Array[Button] = []
 var _scraps: PackedVector3Array = PackedVector3Array()
+var _scrap_shapes: Array[PackedVector2Array] = []
+# Commande sélectionnée à l'ouverture (retour depuis les réglages ou le
+# carnet de commandes : on retrouve la commande d'où l'on vient).
+var start_action: String = ""
 
 
 class Layer extends Control:
@@ -68,6 +72,7 @@ func setup(owner_ui: Node) -> void :
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	var actor: Node = world.local_actor() if world.has_method("local_actor") else null
 	if actor: _person = str(actor.get("character"))
+	elif ui.has_method("_local_person"): _person = str(ui.call("_local_person"))
 	_art = MenuBackdrop.art(_person)
 	_accent = MenuBackdrop.accent_for(_person)
 	_red = Color("e0314f") if _person == "Alice" else T.RED
@@ -134,8 +139,10 @@ func _build_entries() -> void :
 		item.focus_neighbor_bottom = item.get_path_to(down)
 		item.focus_neighbor_left = item.get_path()
 		item.focus_neighbor_right = item.get_path()
-	_hint = str(specs[0][2])
-	_entries[0].call_deferred("grab_focus")
+	for i: int in range(specs.size()):
+		if str(specs[i][1]) == start_action: _selected = i
+	_hint = str(specs[_selected][2])
+	_entries[_selected].call_deferred("grab_focus")
 
 
 func _layout() -> void :
@@ -445,9 +452,11 @@ func _paint_back(layer: Control) -> void :
 			var s: Vector3 = _scraps[i]
 			var px: float = fposmod(s.x * view.x + t * (30.0 + s.z * 40.0), view.x + 80.0) - 40.0
 			var py: float = fposmod(s.y * view.y + t * (14.0 + s.z * 20.0), view.y + 60.0) - 30.0
-			var scrap: Rect2 = Rect2(Vector2(-9, -6) * (0.6 + s.z), Vector2(18, 12) * (0.6 + s.z))
+			if _scrap_shapes.size() <= i:
+				var scrap: Rect2 = Rect2(Vector2(-9, -6) * (0.6 + s.z), Vector2(18, 12) * (0.6 + s.z))
+				_scrap_shapes.append(G.cut(scrap, i * 7 + 3, 0.2))
 			var xform: Transform2D = Transform2D(t * (0.6 + s.z) + float(i), Vector2(px, py))
-			G.polygon(item, G.transformed(G.cut(scrap, i * 7 + 3, 0.2), xform), Color(T.CREAM if i % 3 else _red, 0.55 * _open_amount()))
+			G.polygon_xform(item, _scrap_shapes[i], xform, Color(T.CREAM if i % 3 else _red, 0.55 * _open_amount()))
 
 
 func _paint_front(layer: Control) -> void :
@@ -467,7 +476,8 @@ func _paint_front(layer: Control) -> void :
 		var drift: float = sin(t * 0.9) * 6.0 * k * motion
 		var at: Vector2 = Vector2(view.x * 0.04 + drift, view.y * 0.955)
 		var base: Transform2D = Transform2D(-0.14, Vector2(scale, scale), 0.0, at)
-		C.draw_word(layer, word, base, px, seed_value, 0.0, _red, clampf(giant_p * 2.0, 0.0, 1.0), 0, false, T.CREAM, _red)
+		# Volet de confirmation ouvert : « PAUSE » s'efface derrière lui.
+		C.draw_word(layer, word, base, px, seed_value, 0.0, _red, clampf(giant_p * 2.0, 0.0, 1.0) * (1.0 - 0.75 * _confirm_t), 0, false, T.CREAM, _red)
 	# Étiquette « MENU · PAUSE » + chrono, scotchée en haut à droite.
 	var tag_p: float = _phase(0.22, 0.18)
 	if tag_p > 0.0:
@@ -491,7 +501,7 @@ func _paint_front(layer: Control) -> void :
 		T.draw_tape(item, tag_pos + Vector2(180, 0) * k, 90.0 * k, -0.06, Color(0.96, 0.93, 0.84, 0.6), 7)
 	# Bande d'aide : description de la commande sélectionnée.
 	var hint_p: float = _phase(0.26, 0.16)
-	if hint_p > 0.0 and not _hint.is_empty():
+	if hint_p > 0.0 and not _hint.is_empty() and _confirm_t < 0.5:
 		var shown: String = T.tr_text(_hint)
 		var font: Font = T.font("semibold")
 		var fs: int = int(19 * k)
@@ -506,7 +516,8 @@ func _paint_front(layer: Control) -> void :
 	# Touches (bas à droite).
 	var keys_p: float = _phase(0.3, 0.14)
 	if keys_p > 0.0 and not world.mobile_mode:
-		var specs: Array = [[ui.key_label("pause_game", "Échap"), "Reprendre"], [ui.key_label("ui_accept", "Entrée"), "Valider"], ["↑ ↓", "Choisir"]]
+		var pad: bool = bool(ui.get("pad_input"))
+		var specs: Array = [["B" if pad else ui.key_label("pause_game", "Échap"), "Reprendre"], ["A" if pad else ui.key_label("ui_accept", "Entrée"), "Valider"], ["↑ ↓", "Choisir"]]
 		var x: float = view.x - 40.0 * k
 		var yk: float = view.y - 34.0 * k + (1.0 - _out(keys_p)) * 80.0 * k
 		var label_font: Font = T.font("caps")

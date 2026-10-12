@@ -152,6 +152,11 @@ var _tab_direction: float = 1.0
 var _page_rerender: bool = false
 var _page_focus: WeakRef = weakref(null)
 var _setup_dealt: String = ""
+var _pause_from: String = ""
+# Dernière commande reçue d'une manette (aides des menus : A / B au lieu
+# d'Entrée / Échap).
+var pad_input: bool = false
+var _decor_clock: float = -1.0
 const SETTINGS_TABS: Array = ["game", "display", "audio", "controls", "access"]
 
 
@@ -187,6 +192,7 @@ func setup(game_world: Node) -> void :
 	fx = MenuFx.new()
 	add_child(fx)
 	fx.setup(self)
+	_ensure_pad_ui_actions()
 	page = Control.new()
 	page.name = "Page"
 	root.add_child(page)
@@ -333,6 +339,20 @@ func _badge(texture: Texture2D, size_px: float, bg: Color, tint: Color) -> Panel
 	panel.add_child(rect)
 	return panel
 
+# Manette dans les menus : Godot 4 ne met aucun bouton de manette dans
+# ui_accept / ui_cancel par défaut. A (Croix) valide, B (Rond) revient.
+func _ensure_pad_ui_actions() -> void :
+	for spec: Array in [[&"ui_accept", JOY_BUTTON_A], [&"ui_cancel", JOY_BUTTON_B]]:
+		if not InputMap.has_action(spec[0]): continue
+		var known: bool = false
+		for event: InputEvent in InputMap.action_get_events(spec[0]):
+			if event is InputEventJoypadButton and (event as InputEventJoypadButton).button_index == spec[1]: known = true
+		if known: continue
+		var pad: InputEventJoypadButton = InputEventJoypadButton.new()
+		pad.button_index = spec[1]
+		pad.device = -1
+		InputMap.action_add_event(spec[0], pad)
+
 # Contour de focus « découpé » pour les zones cliquables transparentes.
 func _paper_focus() -> StyleBox:
 	var outline: StyleBox = T.strip(Color(0, 0, 0, 0), 0, 0, 5.0, 77)
@@ -433,12 +453,14 @@ func _begin_page(id: String, preview: String = "", focus_x: float = 0.66) -> voi
 	current_page = id
 	menu_paper = false
 	_page_serial += 1
+	if not _wipe_hold: _wipe_action = Callable()
 	var animate: bool = previous != id and not reduced_motion and world.phase in ["menu", "lobby"] and previous in MENU_PAGES and id in MENU_PAGES and page.visible and page.get_child_count() > 0
 	var came_from_game: bool = not page.visible
 	_cascade_lists.clear()
 	# Même page reconstruite (aperçu de danse, choix de carte…) : pas de
 	# nouvelle entrée en cascade ni de glissement du panneau.
 	_page_rerender = previous == id and not _quiet_page and page.visible and page.get_child_count() > 0
+	_decor_clock = _running_decor_clock() if previous == id and page.visible and page.get_child_count() > 0 else -1.0
 	_retire_decors(animate)
 	if animate: _retire_page(id)
 	else:
@@ -470,6 +492,7 @@ func _begin_page(id: String, preview: String = "", focus_x: float = 0.66) -> voi
 
 func _end_page(focus_target: Control = null) -> void :
 	_page_focus = weakref(focus_target)
+	_decor_clock = -1.0
 	if PaperLanguage.language == "en": PaperLanguage.apply_tree(page)
 	if focus_target and ( not _pointer or not Input.get_connected_joypads().is_empty()): focus_target.call_deferred("grab_focus")
 	_run_cascade()
@@ -613,13 +636,25 @@ func _place_decor(decor: Control) -> void :
 	if is_instance_valid(_wipe) and _wipe.busy() and decor is MenuFx.Decor: (decor as MenuFx.Decor).start_delay = _wipe.time_to_cover()
 	if _decor_in_backdrop():
 		menu_backdrop.decor_holder.add_child(decor)
-		return
-	if world.phase == "gallery" and decor is MenuFx.Decor:
-		# Devant le film de la cinémathèque : seulement le ruban qui défile.
-		(decor as MenuFx.Decor).band_alpha = 0.0
-		(decor as MenuFx.Decor).giant_alpha = 0.0
-	page.add_child(decor)
-	if is_instance_valid(active_menu_panel) and active_menu_panel.get_parent() == page: page.move_child(decor, active_menu_panel.get_index())
+	else:
+		if world.phase == "gallery" and decor is MenuFx.Decor:
+			# Devant le film de la cinémathèque : seulement le ruban qui défile.
+			(decor as MenuFx.Decor).band_alpha = 0.0
+			(decor as MenuFx.Decor).giant_alpha = 0.0
+		page.add_child(decor)
+		if is_instance_valid(active_menu_panel) and active_menu_panel.get_parent() == page: page.move_child(decor, active_menu_panel.get_index())
+	if _decor_clock >= 0.0 and decor is MenuFx.Decor: (decor as MenuFx.Decor).resume_at(_decor_clock)
+
+# Horloge du décor affiché (la page reconstruite garde son ruban qui défile
+# au même endroit au lieu de rejouer son entrée).
+func _running_decor_clock() -> float:
+	var holders: Array = [page]
+	if is_instance_valid(menu_backdrop) and is_instance_valid(menu_backdrop.get("decor_holder")): holders.append(menu_backdrop.decor_holder)
+	var best: float = -1.0
+	for holder: Node in holders:
+		for child: Node in holder.get_children():
+			if child is MenuFx.Decor and not child.has_meta("decor_leaving"): best = maxf(best, float((child as MenuFx.Decor).get("_time")))
+	return best
 
 func _decor_in_backdrop() -> bool:
 	return is_instance_valid(menu_backdrop) and is_instance_valid(menu_backdrop.get("decor_holder")) and world.phase in ["menu", "lobby"] and menu_backdrop.mode != "hidden"
@@ -861,6 +896,11 @@ func _main_column(column: VBoxContainer, mobile: bool) -> Control:
 		item.hinted.connect(_on_nav_vignette.bind(str(entry[1])))
 		nav.add_child(item)
 		if first == null: first = item
+	# Liste circulaire (haut sur JOUER → QUITTER), comme les menus de Persona.
+	var last: Control = nav.get_child(nav.get_child_count() - 1) as Control
+	if first and last and last != first:
+		first.focus_neighbor_top = first.get_path_to(last)
+		last.focus_neighbor_bottom = last.get_path_to(first)
 	if not mobile:
 		_spacer(column, 10)
 		_nav_hint = _paragraph("", column, 16, T.INK_TEXT, "semibold")
@@ -1130,6 +1170,9 @@ func _show_setup(role: String = "", index: int = -1) -> void :
 	column.add_child(_kicker("SALON  ·  TON PERSONNAGE" if world.networked else "PRÉPARER LA MANCHE", T.RED if role == "alice" else T.TEAL))
 	column.add_child(_display_title("Choisis ton personnage" if world.networked else "Incarne Alice" if role == "alice" else "Choisis ton élève", 36 if compact else 46))
 	_spacer(column, 6 if compact else 10)
+	var role_tabs: Array = []
+	var map_cards: Array = []
+	var card_grid: GridContainer = null
 	if not world.networked:
 		var tabs: HBoxContainer = _hbox(column, 12)
 		var group: ButtonGroup = ButtonGroup.new()
@@ -1144,6 +1187,7 @@ func _show_setup(role: String = "", index: int = -1) -> void :
 			tab.custom_minimum_size = Vector2(259, 54 if compact else 62)
 			tab.pressed.connect(_set_role.bind(str(spec[0])))
 			tabs.add_child(tab)
+			role_tabs.append(tab)
 		_spacer(column, 10 if compact else 18)
 	var first: Control = null
 	if role == "alice": first = _alice_dossier(column, compact)
@@ -1171,6 +1215,7 @@ func _show_setup(role: String = "", index: int = -1) -> void :
 			grid.add_child(card)
 			setup_cards.append(card)
 			if person == chosen: first = card
+		card_grid = grid
 	if not world.networked:
 		_spacer(column, 10 if compact else 20)
 		column.add_child(_kicker("CARTE", T.TEAL, 12))
@@ -1183,6 +1228,7 @@ func _show_setup(role: String = "", index: int = -1) -> void :
 			card.tooltip_text = _t(str(MAP_LINES[key]))
 			card.pressed.connect(_pick_map.bind(key))
 			maps.add_child(card)
+			map_cards.append(card)
 
 	var sheet: PanelContainer = PanelContainer.new()
 	var paper: W.PaperStyle = _paper_style(21, 24, true)
@@ -1228,6 +1274,7 @@ func _show_setup(role: String = "", index: int = -1) -> void :
 	setup_cta.pressed.connect(_setup_confirm)
 	setup_cta.mouse_entered.connect(_sfx.bind("hover"))
 	cta_box.add_child(setup_cta)
+	if card_grid: _link_grid(card_grid, card_grid.columns, role_tabs, map_cards, setup_cta)
 	_update_setup_texts()
 	_intro(column)
 	_intro(sheet, 18.0)
@@ -1252,6 +1299,24 @@ func _fit_dossier(scroll: ScrollContainer) -> void :
 func _setup_back() -> void :
 	if world.networked: show_lobby()
 	else: show_main()
+
+# Voisins explicites dans une grille de cartes : la carte sélectionnée
+# grossit et penche (ressort façon Persona), ce qui fausserait la recherche
+# géométrique du focus de Godot (clavier / croix directionnelle).
+func _link_grid(grid: Container, columns: int, above: Array = [], below: Array = [], beside: Control = null) -> void :
+	var cells: Array[Control] = []
+	for child: Node in grid.get_children():
+		if child is Control and (child as Control).focus_mode != Control.FOCUS_NONE: cells.append(child as Control)
+	for i: int in range(cells.size()):
+		var cell: Control = cells[i]
+		var column: int = i % columns
+		cell.focus_neighbor_left = cell.get_path_to(cells[i - 1]) if column > 0 else NodePath(".")
+		if column < columns - 1 and i + 1 < cells.size(): cell.focus_neighbor_right = cell.get_path_to(cells[i + 1])
+		elif beside: cell.focus_neighbor_right = cell.get_path_to(beside)
+		if i >= columns: cell.focus_neighbor_top = cell.get_path_to(cells[i - columns])
+		elif not above.is_empty(): cell.focus_neighbor_top = cell.get_path_to(above[mini(above.size() - 1, column * above.size() / columns)])
+		if i + columns < cells.size(): cell.focus_neighbor_bottom = cell.get_path_to(cells[i + columns])
+		elif not below.is_empty(): cell.focus_neighbor_bottom = cell.get_path_to(below[mini(below.size() - 1, column)])
 
 func _set_role(role: String) -> void :
 	if role == setup_role: return
@@ -1732,7 +1797,7 @@ func show_settings() -> void :
 	style.content_margin_top = 28
 	style.content_margin_bottom = 24
 	panel.add_theme_stylebox_override("panel", style)
-	var decor: Control = _page_decor("RÉGLAGES", T.TEAL_DEEP.lerp(T.RED_DEEP, 0.4))
+	_page_decor("RÉGLAGES", T.TEAL_DEEP.lerp(T.RED_DEEP, 0.4))
 	var view: Vector2 = get_viewport().get_visible_rect().size
 	var wide: bool = view.x >= 1200.0 and not world.mobile_mode
 	if wide: _page_art(_local_person(), view.x * 0.84, _quiet_page)
@@ -1800,7 +1865,6 @@ func show_settings() -> void :
 	if not world.mobile_mode: note.text = _t("Échap · retour") + "     ◀ LB · RB ▶  " + _t("onglets")
 	if _quiet_page:
 		# Changement d'onglet : seul le contenu repart en cascade, côté de l'onglet.
-		if is_instance_valid(decor): (decor as MenuFx.Decor).set("_enter", 1.0)
 		_cascade(content, Vector2(90.0 * _tab_direction, 0), 0.04 * _tab_direction, 0.022, 0.22)
 	else:
 		_intro(panel, 0.0)
@@ -2008,13 +2072,23 @@ func _settings_access(content: VBoxContainer) -> void :
 
 func _settings_back() -> void :
 	if world.phase == "playing":
-		transition(func() -> void :
-			if world.phase != "playing": return
-			_clear(page)
-			page.hide()
-			hud.show()
-			show_pause(true), "PAUSE", 1.0)
+		_pause_reopen("settings")
 	else: show_main()
+
+# Retour au menu pause depuis les réglages ou le carnet de commandes : la
+# commande d'où l'on vient reste sélectionnée.
+func _pause_reopen(from_action: String) -> void :
+	transition(func() -> void :
+		if is_instance_valid(world.controls_menu) and world.controls_menu.visible:
+			world.controls_menu.hide()
+			world.controls_menu.set("_leaving", false)
+		if world.phase != "playing": return
+		_clear(page)
+		page.hide()
+		hud.show()
+		world.pause_open = true
+		_pause_from = from_action
+		show_pause(true), "PAUSE", 1.0)
 
 
 
@@ -2376,6 +2450,8 @@ func show_pause(open: bool) -> void :
 	if not open: return
 	if not bool(world.get("dedicated")):
 		_pause_menu = PauseMenu.new()
+		_pause_menu.set("start_action", _pause_from)
+		_pause_from = ""
 		overlay.add_child(_pause_menu)
 		_pause_menu.call("setup", self)
 		if PaperLanguage.language == "en": PaperLanguage.apply_tree(overlay)
@@ -2430,15 +2506,23 @@ func _pause_resume() -> void :
 	world.capture_gameplay_mouse()
 	show_pause(false)
 
+# La pause a pu être refermée (Échap) ou la manche finir pendant le volet :
+# l'écran suivant ne s'ouvre alors pas par-dessus la partie.
+func _pause_still_open() -> bool:
+	return world.phase == "playing" and world.pause_open and is_instance_valid(_pause_menu)
+
 func _pause_settings() -> void :
 	transition(func() -> void :
+		if not _pause_still_open(): return
 		_clear(overlay)
 		show_settings(), "RÉGLAGES")
 
 func _pause_controls() -> void :
 	transition(func() -> void :
+		if not _pause_still_open(): return
 		_clear(overlay)
-		world.controls_menu.open(), "COMMANDES")
+		world.controls_menu.open()
+		world.controls_menu.set("from_pause", true), "COMMANDES")
 
 func _fill_pause_actions(actions: VBoxContainer) -> void :
 	_clear(actions)
@@ -3309,6 +3393,7 @@ func _input(event: InputEvent) -> void :
 			if not event.pressed: _drop_button_focus.call_deferred()
 		elif event is InputEventMouseMotion: _drop_button_focus()
 	elif event is InputEventKey or event is InputEventJoypadButton or (event is InputEventJoypadMotion and absf(event.axis_value) > 0.5):
+		pad_input = not (event is InputEventKey)
 		_set_pointer_mode(false)
 		if event.is_pressed() and not event.is_echo(): _restore_focus(event)
 
@@ -3383,6 +3468,14 @@ func _unhandled_input(event: InputEvent) -> void :
 
 	if _settings_tab_input(event): return
 	if not event.is_action_pressed("ui_cancel"): return
+	# Cinémathèque à la manette (le clavier passe par gallery.handle_input) :
+	# B revient à la liste, puis au menu.
+	if world.phase == "gallery" and event is InputEventJoypadButton and is_instance_valid(world.gallery):
+		if world.gallery.browsing: world.gallery.close()
+		else: world.gallery.browse()
+		Sound.play("back")
+		get_viewport().set_input_as_handled()
+		return
 	if world.phase not in ["menu", "lobby"] or not page.visible: return
 	if (world.online_menu and world.online_menu.visible) or (world.controls_menu and world.controls_menu.visible): return
 	var focus: Control = get_viewport().gui_get_focus_owner()

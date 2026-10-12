@@ -43,7 +43,7 @@ func _frame_tick() -> void :
 	if _measuring and _last_start > 0: _works.append(float(now - _last_start) / 1000.0)
 	_last_start = now
 
-func _sample(label: String, frames: int = 150) -> void :
+func _sample(label: String, frames: int = 300) -> void :
 	_works.clear()
 	_measuring = true
 	for i: int in range(frames): await get_tree().process_frame
@@ -52,7 +52,8 @@ func _sample(label: String, frames: int = 150) -> void :
 		print("[perf] %s : pas de mesure (frame_pre_draw absent)" % label)
 		return
 	_works.sort()
-	print("[perf] %s : médiane %.2f ms de travail / image, 90e centile %.2f ms (%d images)" % [label, _works[_works.size() / 2], _works[int(_works.size() * 0.9)], _works.size()])
+	# Le 10e centile approche le coût sans concurrence (machine chargée).
+	print("[perf] %s : 10e centile %.2f ms, médiane %.2f ms de travail / image, 90e centile %.2f ms (%d images)" % [label, _works[int(_works.size() * 0.1)], _works[_works.size() / 2], _works[int(_works.size() * 0.9)], _works.size()])
 
 func _nodes_of(root: Node, script_path: String, out: Array) -> void :
 	for child: Node in root.get_children():

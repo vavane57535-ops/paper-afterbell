@@ -43,6 +43,10 @@ func play(direction: float, alice: bool = false, title: String = "") -> void :
 	_seed = randi() % 991
 	_t = 0.0
 	_covered_sent = false
+	# Toujours au-dessus des autres écrans (carnet de commandes, menu en
+	# ligne… ajoutés après lui sous la même racine).
+	var parent: Node = get_parent()
+	if parent: parent.move_child(self, parent.get_child_count() - 1)
 	visible = true
 	mouse_filter = Control.MOUSE_FILTER_STOP
 	set_process(true)

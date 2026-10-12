@@ -3,7 +3,7 @@ shader_type canvas_item;
 // trame (demi-teintes d'encre) teintée de rouge, comme la partie qui se fige
 // et vire au rouge à l'ouverture du menu de Persona 5, version papier.
 
-uniform sampler2D screen_tex : hint_screen_texture, filter_linear_mipmap;
+uniform sampler2D screen_tex : hint_screen_texture, filter_linear;
 uniform float amount : hint_range(0.0, 1.0) = 0.0;
 uniform vec4 tint : source_color = vec4(0.62, 0.1, 0.17, 1.0);
 uniform vec4 ink : source_color = vec4(0.03, 0.03, 0.05, 1.0);

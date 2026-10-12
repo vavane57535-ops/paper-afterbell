@@ -291,6 +291,14 @@ class Decor extends Control:
 		set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 		_enter = 1.0 if reduced else 0.0
 
+	# Même page reconstruite : le décor reprend où il en était (déjà entré,
+	# ruban et mot géant à la même position).
+	func resume_at(time: float) -> void :
+		_time = time
+		_enter = 1.0
+		start_delay = 0.0
+		queue_redraw()
+
 	func _process(delta: float) -> void :
 		if start_delay > 0.0:
 			start_delay -= delta
