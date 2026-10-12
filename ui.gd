@@ -2006,6 +2006,9 @@ func _settings_back() -> void :
 # commande d'où l'on vient reste sélectionnée.
 func _pause_reopen(from_action: String) -> void :
 	transition(func() -> void :
+		if is_instance_valid(world.controls_menu) and world.controls_menu.visible:
+			world.controls_menu.hide()
+			world.controls_menu.set("_leaving", false)
 		if world.phase != "playing": return
 		_clear(page)
 		page.hide()

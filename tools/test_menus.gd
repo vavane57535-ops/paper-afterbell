@@ -222,7 +222,7 @@ func _run() -> void :
 		await _burst("lobby_open", func() -> void : ui.show_lobby(), [0, 160, 600, 1200])
 		world.quit_to_menu()
 		await _wait_game(0.5)
-	if "pause" in menus or "ending" in menus or "emotes" in menus:
+	if "pause" in menus or "ending" in menus or "emotes" in menus or "pausectl" in menus:
 		world.selected = "Simon"
 		world.start_solo(false)
 		var waited: float = 0.0
@@ -266,6 +266,13 @@ func _run() -> void :
 				await _wait_game(0.2)
 				await _save("pause_hover_left")
 			await _burst("pause_close", func() -> void : _press_pause(), [0, 60, 120, 200, 320])
+		if "pausectl" in menus:
+			# Pause → Commandes → retour : le volet passe au-dessus du carnet.
+			if not world.pause_open: _press_pause()
+			await _wait_game(0.8)
+			await _burst("pausectl_open", func() -> void : ui._pause_controls(), [0, 80, 160, 300, 600])
+			await _burst("pausectl_back", func() -> void : world.controls_menu.close(), [0, 80, 160, 300, 600])
+			_note("après retour des commandes : commandes=%s focus=%s" % [world.controls_menu.visible, _focus_name()])
 		if "ending" in menus:
 			world.match_results = _fake_results()
 			await _burst("ending_open", func() -> void : ui.show_ending("survivors", true), [0, 80, 160, 300, 600, 1000, 1600])
