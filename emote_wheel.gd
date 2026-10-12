@@ -8,6 +8,7 @@ const Sound = preload("res://ui_sound.gd")
 const IDS: Array[String] = ["wave", "thumbsup", "cheer", "laugh", "point", "shrug", "sad", "fear"]
 const LABELS: Array[String] = ["Salut", "Bien joué", "Célébrer", "Rire", "Par ici", "Hausser les épaules", "Déception", "Effroi"]
 const INNER: float = 84.0
+const SECTORS: int = 9
 const OUTER: float = 236.0
 var world: Node
 var selected: int = -1
@@ -41,16 +42,16 @@ func close() -> void :
 	release_focus()
 	if world.phase == "playing" and not world.pause_open: world.capture_gameplay_mouse()
 
-# Pages de 8 : toutes les émotes (gratuites), puis les danses achetées (une page vide
+# Pages de SECTORS (9) : toutes les émotes (gratuites), puis les danses achetées (une page vide
 # renvoie vers la boutique si aucune danse n'est achetée).
 func _pages() -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
 	var emotes: Array[String] = PaperEmotes.ids()
-	var emote_pages: int = ceili(emotes.size() / 8.0)
-	for i: int in range(emote_pages): result.append({"dances": false, "ids": emotes.slice(i * 8, i * 8 + 8), "index": i, "count": emote_pages})
+	var emote_pages: int = ceili(emotes.size() / float(SECTORS))
+	for i: int in range(emote_pages): result.append({"dances": false, "ids": emotes.slice(i * SECTORS, i * SECTORS + SECTORS), "index": i, "count": emote_pages})
 	var owned: Array = world.owned_dances.filter( func(id: Variant) -> bool: return not PaperDances.info(str(id)).is_empty())
-	var dance_pages: int = maxi(1, ceili(owned.size() / 8.0))
-	for i: int in range(dance_pages): result.append({"dances": true, "ids": owned.slice(i * 8, i * 8 + 8), "index": i, "count": dance_pages})
+	var dance_pages: int = maxi(1, ceili(owned.size() / float(SECTORS)))
+	for i: int in range(dance_pages): result.append({"dances": true, "ids": owned.slice(i * SECTORS, i * SECTORS + SECTORS), "index": i, "count": dance_pages})
 	return result
 
 func _current() -> Dictionary:
@@ -82,8 +83,8 @@ func _sector_at(point: Vector2) -> int:
 	var distance: float = offset.length()
 	if distance < INNER or distance > OUTER + 40.0: return -1
 
-	var angle: float = fposmod(offset.angle() + PI * 0.5 + TAU / 16.0, TAU)
-	return int(angle / (TAU / 8.0)) % 8
+	var angle: float = fposmod(offset.angle() + PI * 0.5 + TAU / (2.0 * SECTORS), TAU)
+	return int(angle / (TAU / SECTORS)) % SECTORS
 
 func _set_selected(index: int) -> void :
 	if index == selected: return
@@ -124,12 +125,12 @@ func _input(event: InputEvent) -> void :
 			close()
 			get_viewport().set_input_as_handled()
 			return
-		if event.keycode == KEY_TAB or event.keycode == KEY_9:
+		if event.keycode == KEY_TAB or event.keycode == KEY_0:
 			_flip(-1 if event.shift_pressed else 1)
 			get_viewport().set_input_as_handled()
 			return
 		var digit: int = int(event.physical_keycode) - KEY_1
-		if digit >= 0 and digit < 8:
+		if digit >= 0 and digit < SECTORS:
 			_choose(digit)
 			get_viewport().set_input_as_handled()
 			return
@@ -140,10 +141,10 @@ func _input(event: InputEvent) -> void :
 		get_viewport().set_input_as_handled()
 		return
 	if event.is_action_pressed("ui_right") or event.is_action_pressed("ui_down"):
-		_set_selected(posmod(selected + 1, 8))
+		_set_selected(posmod(selected + 1, SECTORS))
 		get_viewport().set_input_as_handled()
 	elif event.is_action_pressed("ui_left") or event.is_action_pressed("ui_up"):
-		_set_selected(posmod(selected - 1 if selected >= 0 else 0, 8))
+		_set_selected(posmod(selected - 1 if selected >= 0 else 0, SECTORS))
 		get_viewport().set_input_as_handled()
 	elif event is InputEventJoypadButton and event.pressed and event.button_index in [JOY_BUTTON_LEFT_SHOULDER, JOY_BUTTON_RIGHT_SHOULDER]:
 		_flip(-1 if event.button_index == JOY_BUTTON_LEFT_SHOULDER else 1)
@@ -159,9 +160,9 @@ func _draw() -> void :
 	var caps: Font = T.font("caps")
 	var body: Font = T.font("semibold")
 	var labels: Array = _labels()
-	for i: int in range(8):
-		var start: float = - PI * 0.5 - TAU / 16.0 + float(i) * TAU / 8.0 + 0.012
-		var end: float = start + TAU / 8.0 - 0.024
+	for i: int in range(SECTORS):
+		var start: float = - PI * 0.5 - TAU / (2.0 * SECTORS) + float(i) * TAU / SECTORS + 0.012
+		var end: float = start + TAU / SECTORS - 0.024
 		var hovered: bool = i == selected
 		var outer: float = OUTER + (10.0 if hovered else 0.0)
 		var points: PackedVector2Array = PackedVector2Array()
@@ -174,10 +175,10 @@ func _draw() -> void :
 		draw_polyline(edge, T.TEAL if hovered else Color(1, 1, 1, 0.08), 2.0 if hovered else 1.0, true)
 		var mid: Vector2 = center + Vector2.from_angle((start + end) * 0.5) * (INNER + outer) * 0.5
 		var text: String = PaperLanguage.t(str(labels[i])) if i < labels.size() else "—"
-		var size_px: int = 16 if text.length() < 12 else 14
+		var size_px: int = 15 if text.length() < 12 else 13
 		var width: float = body.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px).x
-		if width > 118.0:
-			draw_multiline_string(body, mid + Vector2(-60, 6), text, HORIZONTAL_ALIGNMENT_CENTER, 120, size_px, 2, T.PAPER if hovered else T.PAPER_DIM)
+		if width > 104.0:
+			draw_multiline_string(body, mid + Vector2(-54, 6), text, HORIZONTAL_ALIGNMENT_CENTER, 108, size_px, 2, T.PAPER if hovered else T.PAPER_DIM)
 		else:
 			draw_string(body, mid + Vector2( - width * 0.5, 12), text, HORIZONTAL_ALIGNMENT_LEFT, -1, size_px, T.PAPER if hovered else T.PAPER_DIM)
 		var key: String = str(i + 1)

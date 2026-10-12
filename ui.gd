@@ -128,6 +128,7 @@ var _pause_confirm: bool = false
 var menu_backdrop: Control
 var menu_vignettes: Control
 var shop_selected: String = ""
+var _shop_scroll: int = 0
 var _leaving: Control
 var _wipe: Control
 var _backdrop_active: bool = false
@@ -678,41 +679,57 @@ func show_shop() -> void :
 	var v: VBoxContainer = _form_panel(600)
 	_form_header(v, "DANSES  ·  ÉMOTES", "Boutique")
 	v.add_child(_label("TICKETS  :  %d" % world.tickets, "title", 26, T.TEAL))
-	_paragraph("Chaque manche rapporte des tickets (+30, plus ton score, plus un bonus si ton camp gagne). En partie, les danses sont dans la roue des émotes (G), page DANSES (Tab). Deux personnages sur la même danse se synchronisent, musique comprise.", v, 15, T.PAPER_DIM)
+	_paragraph("Chaque manche rapporte des tickets (+30, plus ton score, plus un bonus si ton camp gagne). En partie, les danses sont dans la roue des émotes (G), pages DANSES (Tab). Les survivants proches qui font la même émote ou la même danse se synchronisent, musique et sons compris.", v, 15, T.PAPER_DIM)
 	var first: Control = null
 	if shop_selected.is_empty(): shop_selected = str(PaperDances.LIST[0].id)
-	for entry: Dictionary in PaperDances.LIST:
-		var id: String = str(entry.id)
-		var row: HBoxContainer = _hbox(v, 10)
-		var text: VBoxContainer = _vbox(row, 1)
-		text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		text.add_child(_label(str(entry.name).to_upper() + "   ·   " + str(entry.tag), "title", 19, T.PAPER if id != shop_selected else T.TEAL))
-		var line: Label = _paragraph(str(entry.desc), text, 14, T.PAPER_DIM)
-		line.custom_minimum_size.x = 300
-		var preview: Button = _button("APERÇU", func() -> void :
-			shop_selected = id
-			show_shop(), 110, "GhostButton")
-		row.add_child(preview)
-		var owned: bool = world.owned_dances.has(id)
-		var buy: Button = _button("✓ À TOI" if owned else "%d TICKETS" % int(entry.price), func() -> void :
-			if world.owned_dances.has(id): return
-			if world.tickets < int(entry.price):
-				toast("Pas assez de tickets : joue une manche pour en gagner.", 4)
-				return
-			world.tickets -= int(entry.price)
-			world.owned_dances.append(id)
-			world.save_preferences()
-			_sfx("confirm")
-			shop_selected = id
-			show_shop(), 150)
-		buy.disabled = owned
-		row.add_child(buy)
-		if first == null: first = preview
+	var fresh: Array = PaperDances.LIST.filter( func(entry: Dictionary) -> bool: return bool(entry.get("new", false)))
+	var classics: Array = PaperDances.LIST.filter( func(entry: Dictionary) -> bool: return not bool(entry.get("new", false)))
+	for group: Array in [fresh, classics]:
+		if group.is_empty(): continue
+		v.add_child(_kicker("NOUVEAU  ·  TENDANCES TIKTOK 2025-2026" if group == fresh else "LES CLASSIQUES", Color("ff6fd0") if group == fresh else T.TEAL))
+		for entry: Dictionary in group:
+			var id: String = str(entry.id)
+			var row: HBoxContainer = _hbox(v, 10)
+			var text: VBoxContainer = _vbox(row, 1)
+			text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			text.add_child(_label(str(entry.name).to_upper() + "   ·   " + str(entry.tag) + "   ·   ♪ %d BPM" % int(entry.bpm), "title", 19, T.PAPER if id != shop_selected else T.TEAL))
+			var line: Label = _paragraph(str(entry.desc), text, 14, T.PAPER_DIM)
+			line.custom_minimum_size.x = 300
+			var preview: Button = _button("APERÇU", func() -> void :
+				_shop_scroll = (v.get_parent() as ScrollContainer).scroll_vertical
+				shop_selected = id
+				show_shop(), 110, "GhostButton")
+			row.add_child(preview)
+			var owned: bool = world.owned_dances.has(id)
+			var buy: Button = _button("✓ À TOI" if owned else "%d TICKETS" % int(entry.price), func() -> void :
+				if world.owned_dances.has(id): return
+				if world.tickets < int(entry.price):
+					toast("Pas assez de tickets : joue une manche pour en gagner.", 4)
+					return
+				world.tickets -= int(entry.price)
+				world.owned_dances.append(id)
+				world.save_preferences()
+				_sfx("confirm")
+				_shop_scroll = (v.get_parent() as ScrollContainer).scroll_vertical
+				shop_selected = id
+				show_shop(), 150)
+			buy.disabled = owned
+			row.add_child(buy)
+			if first == null or id == shop_selected: first = preview
 	_spacer(v, 6)
-	var back: Button = _button("←  RETOUR", show_main, 160)
+	var back: Button = _button("←  RETOUR", func() -> void :
+		_shop_scroll = 0
+		show_main(), 160)
 	v.add_child(back)
 	_end_page(first)
+	_restore_shop_scroll.call_deferred(v.get_parent() as ScrollContainer, _shop_scroll)
 	if is_instance_valid(menu_vignettes): menu_vignettes.preview_dance(str(world.selected), shop_selected)
+
+# Garde la position de défilement quand la boutique se reconstruit (aperçu, achat).
+func _restore_shop_scroll(scroll: ScrollContainer, value: int) -> void :
+	if not is_instance_valid(scroll) or value <= 0: return
+	await get_tree().process_frame
+	if is_instance_valid(scroll): scroll.scroll_vertical = value
 
 
 func _on_nav_hint(text: String) -> void :
