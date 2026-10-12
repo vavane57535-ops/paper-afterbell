@@ -92,3 +92,26 @@ sfx/slash_03-06      : fendus, PorkMuncher — CC0 ; slash_07 : qubodup — CC0 
 sfx/door_open_02     : porte métallique, Fabrizio84 — CC0 (CDDA-Soundpacks open_door/door_metal)
 sfx/stun_03-05, presence_00-02, owl_00-01 : synthétisés pour le jeu (audio/music_src/sfx_build.py).
 Montage : découpe, fondus, niveaux alignés sur chaque famille existante.
+
+========================================================================
+AJOUTS 0.16 — OUVERTURE DE LA SORTIE ET MIXAGE
+========================================================================
+
+MUSIQUE
+exit_rush.ogg « Course vers la sortie » : composition originale pour le jeu (ElevenLabs Music),
+80 s à 128 BPM, qui s'intensifie jusqu'à la fin du chrono (coupure à 59,97 s, final de 61,8 à 77 s).
+Ré-encodée en Ogg Vorbis, -18 LUFS. En jeu, filtre passe-bas, volume et légère accélération
+sont pilotés par le chrono (audio.gd, set_rush).
+
+BRUITAGES (synthèse, créés pour le jeu)
+sfx/exit_alarm_00.wav : ouverture de la sortie (coup sourd, sonnerie électrique d'école, sirène).
+sfx/exit_alarm_01.wav : dernier appel (sirène qui monte et sonnerie en crescendo, 1,85 s).
+Source : tools/audio/exit_alarm_build.py (numpy, sans échantillon externe).
+
+MIXAGE
+Toutes les musiques sont désormais normalisées à -18 LUFS intégrés dans les fichiers eux-mêmes
+(gain linéaire, sans compression ni modification de la dynamique) : BLEUETTE LMS -12,5 dB,
+USAYUKO OST -7,5 dB, Simon OST +0,8 dB, Signal to Noise +2,9 dB, autres pistes Scott Buckley
+-0,3 à -0,5 dB, musiques de danse -3,6 à -5,8 dB. Les MP3 de Simon et de Bleuette sont ré-encodés
+à 320 kbit/s. Les gains de lecture par piste ci-dessus (0.12) sont remplacés par ce réglage.
+La musique est jouée 7 dB plus bas qu'en 0.15 par rapport aux effets et aux ambiances.

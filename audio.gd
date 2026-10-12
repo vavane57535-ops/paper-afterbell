@@ -98,6 +98,7 @@ const RUSH_BEAT: float = 60.0 / 128.0
 const RUSH_BEAT_OFFSET: float = -0.02
 const RUSH_TRIM_DB: Vector2 = Vector2(0.0, 1.5)
 const RUSH_CUTOFF: Vector2 = Vector2(1500.0, 20000.0)
+const RUSH_PITCH: float = 0.025
 const HEARTBEAT_PATH: String = "res://audio/fx_heartbeat.wav"
 const LMS_THEMES: Dictionary = {
 	"Ashura": "lms_ashura", "Usayuko": "lms_usayuko", "Simon": "lms_simon", 
@@ -439,6 +440,8 @@ func _update_rush() -> void :
 	_rush_trim = db_to_linear(lerpf(RUSH_TRIM_DB.x, RUSH_TRIM_DB.y, _rush_level))
 	var cutoff: float = RUSH_CUTOFF.x * pow(RUSH_CUTOFF.y / RUSH_CUTOFF.x, smoothstep(0.0, 0.45, _rush_level))
 	var player: AudioStreamPlayer = tracks.get("exit")
+	# les 16 dernières secondes accélèrent à peine (+43 cents) : la bande « s'emballe »
+	if player: player.pitch_scale = 1.0 + RUSH_PITCH * smoothstep(0.8, 1.0, _rush_level)
 	var on: bool = cutoff < 18500.0 and player != null and player.playing
 	if on != _rush_filter_on:
 		_rush_filter_on = on

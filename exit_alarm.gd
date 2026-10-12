@@ -313,14 +313,16 @@ func _update_pulse(delta: float) -> void :
 
 func _update_screen() -> void :
 	var shown: bool = _level > 0.002 and screen_effects()
-	if _grade.visible != shown: _grade.visible = shown
-	var glow_shown: bool = shown and not light_profile()
-	if _glow.visible != glow_shown: _glow.visible = glow_shown
+	# profils mobiles légers : pas de copie de l'écran, seulement le halo additif
+	var grade_shown: bool = shown and not light_profile()
+	if _grade.visible != grade_shown: _grade.visible = grade_shown
+	if _glow.visible != shown: _glow.visible = shown
 	if not shown: return
 	var amount: float = _level * (0.55 if calm() else 1.0)
-	_grade_material.set_shader_parameter("level", amount)
-	_grade_material.set_shader_parameter("pulse", _pulse)
-	if glow_shown:
+	if grade_shown:
+		_grade_material.set_shader_parameter("level", amount)
+		_grade_material.set_shader_parameter("pulse", _pulse)
+	if shown:
 		_glow_material.set_shader_parameter("level", amount * (0.5 if calm() else 1.0))
 		_glow_material.set_shader_parameter("pulse", _pulse)
 		_glow_material.set_shader_parameter("sweep", _clock * (1.2 if calm() else 3.4))
