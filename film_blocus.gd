@@ -362,9 +362,12 @@ func _write_cast() -> void :
 		film._do(i, 0.0, "mood", "determined")
 	# Le chef monte sur sa chaise et prend le mégaphone jusqu'au fumigène.
 	var up: Vector3 = spots[lead] + Vector3(0, 0.47, 0.15)
-	film._move(lead, b(16.0) - 0.3, b(16.0), up, "out")
-	# Le mégaphone monte à la bouche dès le « Un, deux… » (sinon il flotte à côté du visage).
-	_loop(lead, _mega_mouth.x - 0.12, b(55.0), "dance_blocus_megaphone")
+	# Il grimpe pendant le plan large (en mouvement, la pose du mégaphone ne s'affiche pas),
+	# puis le mégaphone monte à la bouche avec la pose avant la coupe du « Un, deux… ».
+	var climb: float = b(16.0) - 1.0
+	film._move(lead, climb, climb + 0.3, up, "out")
+	_mega_mouth.x = climb + 0.34
+	_loop(lead, climb + 0.32, b(55.0), "dance_blocus_megaphone")
 	film._move(lead, b(55.6), b(56.2), spots[lead] + Vector3(0.45, 0, 0.75), "out")
 	_loop(lead, b(56.3), b(57.0), "fear")
 	_loop(lead, b(57.0), DURATION, "cheer")
@@ -427,7 +430,8 @@ func _write_story(speakers: Array[int], turn_beats: float) -> void :
 		var person: String = film.people[i]
 		_caption(start + 0.05, start + BEAT * turn_beats - 0.02, person, str(SLOGANS.get(person, "VIVE LE BLOCUS !")))
 		_cue_sound(start + 0.1, "encourage", {"a": i}, 0.5, 0.9 + 0.08 * float(index))
-	if others.is_empty():
+	# Seul ou à deux, les slogans s'arrêtent au temps 49 : silence gêné jusqu'au fumigène.
+	if others.size() <= 1:
 		_caption(b(49.0), b(55.0), "", "[ GRILLONS ]")
 	_caption(b(55.0), b(57.0), "", "[ FUMIGÈNE ARTISANAL ]")
 	film._cue(_smoke_at + 0.2, "word", "hot", L(-0.4, 2.0, 1.3), Color("ff8fc8"), 0.9)
@@ -482,7 +486,9 @@ func _write_shots() -> void :
 		var i: int = speakers[index]
 		var side: float = 1.0 if index % 2 == 0 else -1.0
 		var start: float = b(43.0) + BEAT * turn_beats * float(index)
-		film._shot(start, {"rel": {"a": i}, "eye": [Vector3(0.35 * side, 1.0, 2.25), Vector3(0.3 * side, 1.02, 2.0)], "look": {"a": i, "h": 1.38}, "fov": 36.0, "hand": 0.25, "roll": 5.0 * side, "safe": false})
+		# Seul au mégaphone : plan de trois quarts, sinon le pavillon cache tout le visage.
+		var lateral: float = 3.0 if i == lead else 1.0
+		film._shot(start, {"rel": {"a": i}, "eye": [Vector3(0.35 * side * lateral, 1.0, 2.25), Vector3(0.3 * side * lateral, 1.02, 2.0)], "look": {"a": i, "h": 1.38}, "fov": 36.0, "hand": 0.25, "roll": 5.0 * side, "safe": false})
 	# H. Plongée de « caméra de surveillance » pour le final.
 	film._shot(b(55.0), {"rel": base, "eye": [Vector3(2.4, 3.3, 9.2), Vector3(2.2, 3.2, 8.8)], "look": L(0.4, 1.1, 2.0), "fov": 54.0, "hand": 0.1, "roll": 0.0, "safe": false})
 
