@@ -8,6 +8,8 @@ extends Node
 #   host_alice   : l'hôte se choisit lui-même ; il ferme la partie en pleine manche → blocus local chez le client.
 #   lobby_reset  : l'hôte choisit le client, le client quitte le salon → le choix repasse en « aléatoire ».
 #   bot_alice    : Alice IA ; le client (survivant) quitte en pleine manche → pas de blocus, la manche continue.
+#   leader       : l'hôte se comporte en serveur dédié (dedicated) dont le client est chef de groupe : le chef
+#                  choisit Alice et lance la manche par lobby_command ; il quitte ensuite → blocus côté serveur.
 # Port dédié (pas le 27842 du jeu) pour ne pas gêner d'autres parties locales.
 
 var world: Node
@@ -95,6 +97,10 @@ func _host() -> void :
 			if world.roster.size() < 2: return
 			for key: Variant in world.roster:
 				if int(key) != 1: other = int(key)
+			if scenario == "leader":
+				world.dedicated = true;world.lobby_leader = other;world._broadcast_roster()
+				_go("leader_wait")
+				return
 			match scenario:
 				"host_alice": world.set_alice_choice("player", 1)
 				"bot_alice": world.set_alice_choice("bot", 0)
@@ -115,6 +121,11 @@ func _host() -> void :
 			if step_clock < 2.0: return
 			world.start_multiplayer_round()
 			_go("wait_play")
+		"leader_wait":
+			if world.phase == "loading" or world.phase == "playing":
+				_check(str(world.room_options.killer_mode) == "player" and int(world.room_options.alice_peer) == other, "serveur : choix du chef reçu par lobby_command (%s)" % str(world.room_options))
+				_go("wait_play")
+			elif step_clock > 25.0: _check(false, "serveur : le chef n'a jamais lancé la manche");_end()
 		"wait_play":
 			if world.phase != "playing": return
 			var alice: PaperActor = world.killer_actor()
@@ -146,13 +157,13 @@ func _host() -> void :
 				_check(world.ending_kind == PaperAliceForfeit.KIND, "hôte : fin = blocus (%s)" % world.ending_kind)
 				_check(world.film.kind == PaperAliceForfeit.KIND and is_instance_valid(world.film.blocus), "hôte : le film du blocus est lancé")
 				_check(not world.ending_people.is_empty(), "hôte : distribution du blocus %s" % str(world.ending_people))
-				_check(world.tickets > tickets_before, "hôte : tickets gagnés (%d -> %d)" % [tickets_before, world.tickets])
+				_check(scenario == "leader" or world.tickets > tickets_before, "hôte : tickets gagnés (%d -> %d)" % [tickets_before, world.tickets])
 				_check(not world.match_results.is_empty(), "hôte : résultats de manche (%d lignes)" % world.match_results.size())
 				_check(str(world.room_options.killer_mode) == "random", "hôte : le choix d'Alice repasse en aléatoire (%s)" % str(world.room_options.killer_mode))
 				_go("watch_film")
 		"watch_film":
 			if step_clock < 3.0: return
-			_check(world.film.elapsed > 1.0 and world.phase == "ending", "hôte : le film avance (%.1f s)" % world.film.elapsed)
+			_check(scenario == "leader" or (world.film.elapsed > 1.0 and world.phase == "ending"), "hôte : le film avance (%.1f s)" % world.film.elapsed)
 			_end()
 		"closing":
 			if step_clock > 1.5: _end()
@@ -162,6 +173,15 @@ func _client() -> void :
 	match step:
 		"wait_roster":
 			if not world.roster.has(world.local_id()): return
+			if scenario == "leader":
+				if world.lobby_leader != world.local_id():
+					if step_clock > 15.0: _check(false, "client : jamais chef de groupe");_end()
+					return
+				world.ui.show_lobby()
+				_check(world.can_manage_lobby() and is_instance_valid(world.ui.get("lobby_alice")), "chef : le sélecteur d'Alice est proposé")
+				world.set_alice_choice("player", world.local_id())
+				_go("leader_choice")
+				return
 			var expected: int = 1 if scenario == "host_alice" else -1 if scenario == "bot_alice" else world.local_id()
 			if world.chosen_alice_peer() != expected:
 				if step_clock > 15.0: _check(false, "client : choix d'Alice jamais reçu (%d)" % world.chosen_alice_peer());_end()
@@ -171,6 +191,13 @@ func _client() -> void :
 			_check(not world.can_manage_lobby() and not is_instance_valid(world.ui.get("lobby_alice")), "client : pas de sélecteur pour les autres joueurs")
 			# Un client ne peut pas imposer son choix : l'appel est ignoré par l'hôte.
 			world.set_alice_choice("bot", 0)
+			_go("lobby")
+		"leader_choice":
+			if world.chosen_alice_peer() != world.local_id():
+				if step_clock > 10.0: _check(false, "chef : choix jamais confirmé par le serveur");_end()
+				return
+			_check(_badge_shown(), "chef : choix confirmé, badge ALICE")
+			world.start_multiplayer_round()
 			_go("lobby")
 		"lobby":
 			if scenario == "lobby_reset":
@@ -185,11 +212,11 @@ func _client() -> void :
 			if tickets_before < 0:
 				var me: PaperActor = world.local_actor()
 				var alice: PaperActor = world.killer_actor()
-				var expected_alice: bool = scenario == "client_alice"
+				var expected_alice: bool = scenario in ["client_alice", "leader"]
 				_check(me != null and me.killer == expected_alice, "client : rôle reçu (Alice = %s)" % str(me.killer if me else "?"))
 				if scenario == "host_alice": _check(alice != null and alice.id == 1, "client : l'hôte est Alice")
 				tickets_before = world.tickets
-			if scenario in ["client_alice", "bot_alice"]:
+			if scenario in ["client_alice", "bot_alice", "leader"]:
 				if step_clock < 4.0: return
 				_log("le client quitte la manche")
 				world.quit_to_menu()
