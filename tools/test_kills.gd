@@ -21,6 +21,7 @@ var preset_time: float = -1.0
 var reset_mid: bool = false
 var last_kill: bool = false
 var training: bool = false
+var pause_mid: bool = false
 var cams: Array[String] = ["cine"]
 var headless: bool = false
 var failures: Array[String] = []
@@ -48,6 +49,7 @@ func setup(w) -> void:
 			"--reset-mid": reset_mid = true
 			"--last": last_kill = true
 			"--training": training = true
+			"--pause-mid": pause_mid = true
 			"--cam": cams.assign(next.split(",", false))
 	if targets.is_empty(): targets.assign(NAMES)
 	if frames.is_empty() and not headless: frames.assign([0.15, 0.6, 1.2, 1.9, 2.6, 3.4])
@@ -181,6 +183,22 @@ func _scene(victim_name: String, phase6: bool) -> void:
 		if not world.kill_scenes._scenes.is_empty(): failures.append(tag + ": exécution bloquée après réinitialisation")
 		if float(alice.effects.get("kill_lock", 0.0)) > 0.0: failures.append(tag + ": Alice reste verrouillée après réinitialisation")
 		return
+	if pause_mid:
+		# Pause en solo au milieu : la mise en scène reste figée, puis reprend.
+		await get_tree().create_timer(1.0).timeout
+		var show_p: Dictionary = {}
+		for sh: Dictionary in world.kill_scenes._shows.values(): show_p = sh
+		var t_before: float = float(show_p.get("t", -1.0))
+		world.pause_open = true
+		await get_tree().create_timer(2.5).timeout
+		var t_paused: float = float(show_p.get("t", -1.0))
+		var still: bool = world.kill_scenes._shows.has(int(show_p.get("id", -1)))
+		world.pause_open = false
+		var line_pause: String = "%s pause_mid t=%.2f->%.2f show_kept=%s" % [tag, t_before, t_paused, str(still)]
+		results.append(line_pause)
+		print("KILL_RESULT ", line_pause)
+		if show_p.is_empty() or not still: failures.append(tag + ": la mise en scène s'est terminée pendant la pause")
+		elif absf(t_paused - t_before) > 0.05: failures.append(tag + ": la mise en scène a avancé pendant la pause")
 	var stun_seen: float = 0.0
 	var lock_seen: bool = false
 	var lag_max: float = 0.0
