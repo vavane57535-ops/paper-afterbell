@@ -559,13 +559,20 @@ func _form_panel(width: float = 620) -> VBoxContainer:
 	active_menu_panel = panel
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.follow_focus = true
+	_follow_focus_later(scroll)
 	panel.add_child(scroll)
 	var v: VBoxContainer = _vbox(scroll, 12)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_intro(panel)
 	_cascade(v)
 	return v
+
+# La liste défile pour garder la sélection clavier / manette à l'écran. Activé après le focus
+# initial de la page : posé avant la mise en page, il la faisait défiler n'importe où.
+func _follow_focus_later(scroll: ScrollContainer) -> void :
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if is_instance_valid(scroll): scroll.follow_focus = true
 
 func _form_header(parent: Node, kicker: String, title: String, kicker_color: Color = T.TEAL) -> void :
 	parent.add_child(_kicker(kicker, kicker_color))
@@ -1850,7 +1857,7 @@ func show_settings() -> void :
 	v.add_child(rule)
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.follow_focus = true
+	_follow_focus_later(scroll)
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(scroll)
 	var content: VBoxContainer = _vbox(scroll, 6)
@@ -2681,7 +2688,7 @@ func show_ending(winner: String, was_lms: bool) -> void :
 	titles.add_child(_label("CLASSEMENT · CONTRIBUTION À LA PARTIE", "caps", 12, T.INK_MUTED))
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.follow_focus = true
+	_follow_focus_later(scroll)
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_child(scroll)
 	var rows: VBoxContainer = _vbox(scroll, 4)
@@ -2920,7 +2927,7 @@ func show_training_panel(open: bool = true) -> void :
 	panel.offset_bottom = minf(panel.offset_bottom, view_height * 0.5 - 20)
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.follow_focus = true
+	_follow_focus_later(scroll)
 	panel.add_child(scroll)
 	var v: VBoxContainer = _vbox(scroll, 10)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL

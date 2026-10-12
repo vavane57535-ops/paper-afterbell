@@ -89,7 +89,8 @@ func _build() -> void :
 	var scroll: ScrollContainer = ScrollContainer.new()
 	panel.add_child(scroll)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.follow_focus = true
+	# La liste suit la sélection clavier / manette (activé après le focus initial, une fois mise en page).
+	get_tree().create_timer(0.05).timeout.connect(scroll.set.bind("follow_focus", true))
 	list = VBoxContainer.new()
 	scroll.add_child(list)
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
