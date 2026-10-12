@@ -14,6 +14,8 @@ extends Node
 #   blocus : sortie ouverte (alerte + course), Alice (humaine) quitte → blocus
 #   prologue : le film entier sans geste d'attente aléatoire (fidget) ; musique à 0 dB sur le bus PaperMusic
 #   films  : relevé (sans échec) des gestes d'attente aléatoires dans les films de la cinémathèque
+#   levels : enregistre le bus PaperMusic pendant le thème LMS en jeu puis pendant la victoire LMS
+#            (WAV dans --ff-out, à mesurer avec ffmpeg -af ebur128) : même niveau attendu
 #   kill   : exécution du perso joué (vue victime), sortie ouverte : roue d'émotes ouverte au coup fatal,
 #            touche C pendant le plan, X-ray de Lysia, panneau SORTIE du jeu retiré du plan
 # --ff-alarm : secondes d'alerte avant la fin (0,8 pour que la sirène soit encore en cours).
@@ -126,6 +128,11 @@ func _run() -> void :
 		waited += 1
 	_check(str(world.phase) == "playing", "la manche démarre (%s)" % str(world.phase))
 	await _wait(2.0)
+	if mode == "levels":
+		await _run_levels()
+		print("FF_RESULT ", "OK" if failures.is_empty() else "FAIL " + ", ".join(failures))
+		get_tree().quit()
+		return
 	if mode == "kill":
 		await _run_kill()
 		print("FF_RESULT ", "OK" if failures.is_empty() else "FAIL " + ", ".join(failures))
@@ -268,6 +275,9 @@ func _run_kill() -> void :
 	_check(str(world.camera_rig.mode) == mode_before, "touche C ignorée pendant l'exécution (%s -> %s)" % [mode_before, str(world.camera_rig.mode)])
 	_check(not (is_instance_valid(badge) and (badge as Control).visible), "pas de bandeau caméra sur l'exécution")
 	_check(absf(angle_difference(yaw_before, float(world.yaw))) < 0.001, "visée bloquée pendant l'exécution")
+	await _wait(0.5)
+	var alarm: Node = world.exit_alarm
+	_check(not alarm._grade.visible and not alarm._glow.visible, "filtre rouge d'écran effacé pendant l'exécution (lampes du décor gardées : %s)" % str(alarm.get("_lamps_touched")))
 	var masked: bool = (world.camera.cull_mask & world.kill_scenes.SIGN_LAYER) == 0
 	_check(masked, "panneau SORTIE du jeu retiré des plans de l'exécution")
 	var fx: Node = null
@@ -287,6 +297,8 @@ func _run_kill() -> void :
 	for k: int in range(5): await get_tree().process_frame
 	_check(not bool(world.kill_scenes.has_camera()), "fin de l'exécution")
 	_check((world.camera.cull_mask & world.kill_scenes.SIGN_LAYER) != 0, "panneau SORTIE rendu à la caméra de jeu après l'exécution")
+	for k: int in range(20): await get_tree().process_frame
+	_check(world.exit_alarm._grade.visible, "filtre rouge revenu après l'exécution")
 	await _shot("kill_after")
 
 
@@ -335,3 +347,53 @@ func _run_films() -> void :
 		world.gallery.browse()
 		await get_tree().process_frame
 	world.gallery.close()
+
+
+func _record_music(seconds: float, file_name: String) -> void :
+	var bus: int = AudioServer.get_bus_index(&"PaperMusic")
+	var recorder: AudioEffectRecord = AudioEffectRecord.new()
+	AudioServer.add_bus_effect(bus, recorder)
+	recorder.set_recording_active(true)
+	var until: float = Time.get_ticks_msec() * 0.001 + seconds
+	while Time.get_ticks_msec() * 0.001 < until:
+		_hold_alice()
+		await get_tree().process_frame
+	recorder.set_recording_active(false)
+	var sample: AudioStreamWAV = recorder.get_recording()
+	if sample and not out_dir.is_empty():
+		sample.save_to_wav(out_dir.path_join(file_name))
+		print("FF_WAV ", out_dir.path_join(file_name), " ", sample.get_length(), " s")
+	for index: int in range(AudioServer.get_bus_effect_count(bus)):
+		if AudioServer.get_bus_effect(bus, index) == recorder:
+			AudioServer.remove_bus_effect(bus, index)
+			break
+
+
+func _run_levels() -> void :
+	world.start_solo(false)
+	var waited: int = 0
+	while str(world.phase) != "playing" and waited < 2000:
+		await get_tree().process_frame
+		waited += 1
+	await _wait(1.5)
+	var me: PaperActor = world.local_actor()
+	for a: PaperActor in world.actors.values():
+		if not a.killer: a.bot = false
+		if not a.killer and a != me: world.eliminate(a)
+	var guard: int = 0
+	while not bool(world.lms) and guard < 300:
+		_hold_alice()
+		await get_tree().process_frame
+		guard += 1
+	_check(bool(world.lms), "LMS de %s" % person)
+	await _wait(3.0)
+	await _record_music(8.0, "levels_lms_%s.wav" % person)
+	me.position = world.school.escape_position + Vector3(0.0, 0.05, 0.0)
+	world.time_left = 79.0
+	var guard_end: int = 0
+	while str(world.phase) == "playing" and guard_end < 400:
+		_hold_alice()
+		await get_tree().process_frame
+		guard_end += 1
+	_check(str(world.ending_kind) == "ending_lms", "victoire LMS (%s)" % str(world.ending_kind))
+	await _record_music(float(world.film.duration) - 0.2, "levels_victory_%s.wav" % person)

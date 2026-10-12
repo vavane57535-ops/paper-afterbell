@@ -77,6 +77,7 @@ var _final_done: bool = false
 var _alarm: AudioStreamPlayer
 var _alarm_db: float = 0.0
 var _alarm_fade: float = 1.0
+var _screen_mute: float = 0.0
 var _streams: Array[AudioStream] = []
 var _grade: ColorRect
 var _grade_material: ShaderMaterial
@@ -342,13 +343,18 @@ func _update_pulse(delta: float) -> void :
 	if _since < 0.8: _pulse = maxf(_pulse, 1.0 - _since / 0.8)
 
 func _update_screen() -> void :
-	var shown: bool = _level > 0.002 and screen_effects()
+	# Exécution filmée pour ce poste : le filtre et le halo d'écran s'effacent avec l'arrivée des bandes
+	# noires (les lampes et les gyrophares, eux, restent allumés dans le décor).
+	var scenes: Variant = world.get("kill_scenes")
+	var filmed: bool = scenes != null and is_instance_valid(scenes) and scenes.has_method("has_camera") and bool(scenes.has_camera())
+	_screen_mute = move_toward(_screen_mute, 1.0 if filmed else 0.0, get_process_delta_time() * 3.2)
+	var shown: bool = _level * (1.0 - _screen_mute) > 0.002 and screen_effects()
 	# profils mobiles légers : pas de copie de l'écran, seulement le halo additif
 	var grade_shown: bool = shown and not light_profile()
 	if _grade.visible != grade_shown: _grade.visible = grade_shown
 	if _glow.visible != shown: _glow.visible = shown
 	if not shown: return
-	var amount: float = _level * (0.55 if calm() else 1.0)
+	var amount: float = _level * (1.0 - _screen_mute) * (0.55 if calm() else 1.0)
 	if grade_shown:
 		_grade_material.set_shader_parameter("level", amount)
 		_grade_material.set_shader_parameter("pulse", _pulse)

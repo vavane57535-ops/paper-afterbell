@@ -26,7 +26,7 @@ Protocole réseau **16** : tous les joueurs doivent avoir la 0.16 pour jouer ens
 - En **True Form** (la « phase 6 » d'Alice), toute exécution devient : Alice attrape la victime et la fracasse violemment au sol.
 - Mise en scène de cinéma pour la victime et pour Alice : plans dédiés, ralentis, onomatopées, secousses, expressions du visage et bruitages dédiés. Les autres joueurs voient la scène dans le monde.
 - Conditions : Alice à 16 m maximum avec ligne de vue, et de la place autour. Sinon, c'est la mort normale.
-- Pendant la scène, la caméra est celle du film : la visée et la touche C sont ignorées, et la roue d'émotes se ferme.
+- Pendant la scène, la caméra est celle du film : la visée et la touche C sont ignorées, la roue d'émotes se ferme, et le filtre rouge de l'alerte de sortie s'efface (les lampes d'urgence restent allumées dans le décor).
 
 ## Chrono : +45 s par élimination
 - Chaque élimination définitive d'un survivant par Alice ajoute **45 secondes** au chrono, avec « +0:45 » au HUD. Les éliminations rapprochées se cumulent.
