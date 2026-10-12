@@ -262,6 +262,8 @@ func update_labels() -> void :
 		elif float(actor.effects.get("next_stun", 0)) > 0: status = "PROCHAIN STUN RENFORCÉ"
 		elif float(actor.effects.get("next_heal", 0)) > 1: status = "PROCHAIN SOIN RENFORCÉ"
 		elif bool(actor.effects.get("drone_bonus", false)): status = "RÉSERVE DRONE PRÊTE"
+		elif float(actor.effects.get("sprint_bonus", 0)) > 0: status = "PROCHAINE COURSE RENFORCÉE"
+		elif float(actor.effects.get("cooldown_discount", 0)) > 0: status = "PROCHAINE RECHARGE RÉDUITE"
 		elif float(actor.cooldowns.get(0, 0)) > 0: status = "CAPACITÉ 1 · %.1f s" % float(actor.cooldowns[0])
 		label.text = actor.character + " · MANNEQUIN\n" + ("PV ∞" if actor.killer else "%d / %d PV" % [ceili(actor.hp), int(actor.max_hp)]) + "\n" + status
 

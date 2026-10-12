@@ -572,7 +572,7 @@ func _survivor_defence(actor, state: Dictionary, threat: Dictionary, distance: f
 
 			if distance < 2.7 and _ready(actor, 1) and ( not _ready(actor, 0) or actor.hp < actor.max_hp * 0.55):
 				_try_skill(actor, state, 1, enemy_id)
-			elif distance < 9.0 and _ready(actor, 0):
+			elif distance < 9.0 and _ready(actor, 0) and (actor.hp > PaperSurvivorMechanics.OVERHEAT_HP_COST + 15.0 or distance < 3.0):
 				actor.aim = _flat_direction(actor.global_position, _predict(threat, distance / 15.0))
 				_try_skill(actor, state, 0, enemy_id)
 		"Ashura":
@@ -681,6 +681,7 @@ func _support(actor, state: Dictionary, danger_distance: float) -> bool:
 		"Lysia": return _lysia_support(actor, state, danger_distance)
 		"Elly": return _elly_support(actor, state, danger_distance)
 		"Bleuette": _bleuette_support(actor, state)
+		"Ashura": return _ashura_support(actor, state, danger_distance)
 	return false
 
 func _lysia_support(actor, state: Dictionary, danger_distance: float) -> bool:
@@ -747,6 +748,23 @@ func _elly_support(actor, state: Dictionary, danger_distance: float) -> bool:
 			_try_skill(actor, state, 0, int(best["id"]))
 		else:
 			_set_goal(state, best["position"])
+		return true
+	return false
+
+# Ashura rejoint Lysia branchée à une prise : à moins de 4 m, sa recharge va 1,5 fois plus vite.
+func _ashura_support(actor, state: Dictionary, danger_distance: float) -> bool:
+	if danger_distance < 14.0: return false
+	for friend in world.actors.values():
+		if friend == actor or friend.killer or friend.character != "Lysia" or not friend.active() or float(friend.effects.get("outlet_healing", 0)) <= 1.0: continue
+		var distance: float = _flat_distance(actor.global_position, friend.global_position)
+		if distance > 24.0: continue
+		state["mode"] = "assist";state["objective"] = -1
+		if distance <= PaperSurvivorMechanics.ASHURA_OUTLET_RANGE - 1.4 and absf(actor.global_position.y - friend.global_position.y) < 1.5 and world.visible(actor.global_position, friend.global_position):
+			state["has_goal"] = false
+			actor.aim = _flat_direction(actor.global_position, friend.global_position)
+		else:
+			var spot: Vector3 = friend.global_position + _flat_direction(friend.global_position, actor.global_position) * 1.8
+			_set_goal(state, spot if world.school.can_walk(spot) else friend.global_position)
 		return true
 	return false
 

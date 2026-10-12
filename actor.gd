@@ -40,6 +40,7 @@ const NET_EFFECT_RULES: Dictionary = {
 	"cooldown_discount": NET_RULE_VALUE, "heal_time": NET_RULE_VALUE, "heal_target": NET_RULE_ID, "overheat_target": NET_RULE_ID, 
 	"training_dummy": NET_RULE_VALUE, "dropkick_used": NET_RULE_VALUE, "shotgun_used": NET_RULE_VALUE, "aura_used": NET_RULE_VALUE, 
 	"kill_lock": NET_RULE_VALUE, 
+	"outlet_ashura": NET_RULE_ID, "sprint_bonus": NET_RULE_VALUE, "lms_hp_cap": NET_RULE_VALUE, 
 }
 
 

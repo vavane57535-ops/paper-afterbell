@@ -657,6 +657,10 @@ func apply_lms(actor):
 	actor.effects["lms_applied"] = true
 	actor.effects["lms_reveal"] = 6.0
 	world.event("lms", {"actor": actor.id, "position": actor.position, "character": actor.character})
+	var gained: float = PaperSurvivorMechanics.apply_lms_health(actor)
+	if gained > 0.0:
+		world.event("heal", {"actor": actor.id, "source": actor.id, "amount": gained, "position": actor.position})
+		_message(actor, "DERNIÈRE PRÉSENCE · +%d PV (maximum 150)" % int(round(gained)))
 	if not _om(actor) or _effect(actor, "aura_charge") >= 100.0 or bool(world.get("training")):
 		_unlock_lms(actor)
 	else:
@@ -1166,6 +1170,9 @@ func _bleuette(actor, slot: int, target_id: int) -> bool:
 				"Usayuko":
 					target.effects["next_stun"] = 1.5
 					line = "Heureusement que t'es là pour nous protéger, frangin !"
+				"Simon":
+					target.effects["sprint_bonus"] = PaperSurvivorMechanics.SIMON_SPRINT_BONUS
+					line = "Cours, Simon, on te suit ! Ta prochaine Course éclair durera 2 s de plus."
 				"Lysia":
 					target.effects["cooldown_discount"] = 0.25
 					line = "Allez, on va y arriver ensemble !"
@@ -1177,6 +1184,7 @@ func _bleuette(actor, slot: int, target_id: int) -> bool:
 					return false
 			_set_cd(actor, 0, 40.0)
 			_message(actor, line, {"target": target.id})
+			_message(target, "BLEUETTE T’ENCOURAGE · " + PaperSurvivorMechanics.boost_summary(str(target.character)))
 			_reward("boost", actor)
 			world.event("boost", {"actor": actor.id, "target": target.id, "position": target.position})
 			return true
@@ -1211,7 +1219,8 @@ func _bleuette(actor, slot: int, target_id: int) -> bool:
 				actor.max_stamina = float(actor.max_stamina) + 40.0
 				actor.stamina = minf(float(actor.max_stamina), float(actor.stamina) + 40.0)
 
-			_message(actor, "JE PEUX LE FAIRE ! +30 PV" if _om(actor) else "JE PEUX LE FAIRE ! +30 PV, +40 endurance")
+			if _om(actor) and float(actor.max_hp) > PaperSurvivorMechanics.LMS_HP_CAP: _message(actor, "JE PEUX LE FAIRE ! +30 PV · au-delà de 150")
+			else: _message(actor, "JE PEUX LE FAIRE ! +30 PV" if _om(actor) else "JE PEUX LE FAIRE ! +30 PV, +40 endurance")
 			return true
 	return false
 
@@ -1352,6 +1361,7 @@ func _tick_overheat(actor, delta: float):
 			actor.effects["overheat_charge"] = 0.0
 			actor.effects["overheat_time"] = 3.0
 			actor.effects["overheat_hold"] = 3.0
+			actor.effects["overheat_drained"] = 0.0
 			actor.effects["overheat_target"] = enemy.id
 			actor.velocity = Vector3.ZERO
 			world.event("overheat", {"actor": actor.id, "target": enemy.id, "duration": 3.0, "active": true})
@@ -1373,6 +1383,7 @@ func _tick_overheat(actor, delta: float):
 	actor.effects["overheat_time"] = maxf(0.0, left - delta)
 	actor.effects["overheat_hold"] = maxf(0.0, left - delta)
 	actor.effects["root"] = maxf(0.0, left - delta)
+	PaperSurvivorMechanics.overheat_drain(actor)
 	if left - delta <= 0.0: _release_overheat(actor, true)
 
 func _release_overheat(actor, completed: bool = false):
@@ -1967,6 +1978,7 @@ func _support_eligible(actor, slot: int, target) -> bool:
 		match str(target.character):
 			"Ashura": return not bool(target.effects.get("drone_bonus", false))
 			"Usayuko": return _effect(target, "next_stun") <= 0.0
+			"Simon": return _effect(target, "sprint_bonus") <= 0.0
 			"Lysia": return _effect(target, "cooldown_discount") <= 0.0
 			"Elly": return _effect(target, "next_heal") <= 1.0
 		return false
@@ -2011,7 +2023,7 @@ func support_target_preview(actor, slot: int) -> Dictionary:
 	return {"target": -1 if target == null else target.id, "ready": target != null, "reason": ("Vise un allié compatible à moins de 6 m" if slot == 0 else "Allié à moins de 6 m, près d’Alice, avec une recharge en cours") if target == null else ("Encourager " if slot == 0 else "Recharger ") + str(target.character)}
 
 func _support_failure(actor, slot: int, _target_id: int):
-	var line: String = "ENCOURAGER · vise un allié à moins de 6 m : Ashura, Usayuko, Lysia ou Elly. Un bonus déjà prêt ne se cumule pas."
+	var line: String = "ENCOURAGER · vise un allié à moins de 6 m : Ashura, Usayuko, Simon, Lysia ou Elly. Un bonus déjà prêt ne se cumule pas."
 	if slot == 1: line = "JE CROIS EN TOI · il faut un allié à moins de 6 m, à moins de 12 m d’Alice, avec une capacité en recharge."
 	_message(actor, line)
 
@@ -2436,6 +2448,9 @@ func release_charge(actor) -> bool:
 	if not _can_act(actor) or str(world.phase) != "playing" or _effect(actor, "stun") > 0 or charged < 1.0: return false
 	var level: int = 3 if charged >= 3.0 else 2 if charged >= 2.0 else 1
 	var duration: float = 6.0 if level == 3 else 4.0 if level == 2 else 3.0
+	if actor.character == "Simon" and _effect(actor, "sprint_bonus") > 0.0:
+		duration += _effect(actor, "sprint_bonus")
+		actor.effects["sprint_bonus"] = 0.0
 	actor.effects["boost_level"] = level
 	actor.effects["speed_boost"] = duration
 	_speed(actor, PaperRules.OM_BOOST_FACTOR, duration)
@@ -2537,6 +2552,7 @@ func _stop_outlet(actor, reason: String = "interrupted"):
 	var healed: float = _effect(actor, "outlet_healed")
 	actor.effects["outlet_healing"] = 0.0
 	actor.effects["outlet_index"] = -1
+	actor.effects["outlet_ashura"] = -1
 
 
 	if healed > 0.0: _set_cd(actor, 3, OUTLET_COOLDOWN)
@@ -2555,12 +2571,16 @@ func _tick_outlet(actor, delta: float):
 		_stop_outlet(actor, "cancelled")
 		return
 	var step: float = minf(left, delta)
-	actor.effects["outlet_pulse"] = _effect(actor, "outlet_pulse") + step
+	var partner = PaperSurvivorMechanics.outlet_partner(self, actor)
+	var rate: float = PaperSurvivorMechanics.ASHURA_OUTLET_FACTOR if partner != null else 1.0
+	actor.effects["outlet_ashura"] = -1 if partner == null else int(partner.id)
+	actor.effects["outlet_pulse"] = _effect(actor, "outlet_pulse") + step * rate
 	while _effect(actor, "outlet_pulse") >= 2.0:
 		actor.effects["outlet_pulse"] = _effect(actor, "outlet_pulse") - 2.0
 		var before: float = float(actor.hp)
 		_heal(actor, 10.0, actor)
 		actor.effects["outlet_healed"] = _effect(actor, "outlet_healed") + float(actor.hp) - before
+		if partner != null: _reward("heal", partner, (float(actor.hp) - before) * (1.0 - 1.0 / rate))
 	if float(actor.hp) >= float(actor.max_hp):
 		_stop_outlet(actor, "full")
 		return

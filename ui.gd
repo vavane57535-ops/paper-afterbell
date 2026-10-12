@@ -36,6 +36,7 @@ const TIPS: Array[String] = [
 	"Après chaque étourdissement, Alice résiste aux nouveaux stuns pendant 5 secondes : espacez vos attaques.", 
 	"15 étourdissements débloquent la True Form d’Alice : 30 secondes, chrono suspendu, sortie fermée.", 
 	"Le LMS dure le temps de la musique du dernier survivant. Une aura pleine garde la sortie ouverte.", 
+	"Début de LMS : +65 PV, jusqu’à 150 PV. Seul le courage de Bleuette (Je peux le faire) dépasse 150.", 
 	"Aidez l’équipe pour remplir votre aura : soins, boosts, protections et stuns comptent.", 
 	"Archives : maintenez E, puis appuyez sur la bonne touche J, K ou L. Une erreur déclenche l’alarme.", 
 	"Lysia se recharge aux prises murales et mange les épaves de drone pour 7 PV.", 
