@@ -26,6 +26,7 @@ var brain: PaperBrain
 var rewards: PaperMatchRewards
 var match_results: Array = []
 var emote_wheel: PaperEmoteWheel
+var emote_sync: PaperEmoteSync
 var bindings: PaperBindings
 var controls_menu: PaperControlsMenu
 var exit_flow: PaperEscapeFlow
@@ -201,6 +202,7 @@ func _ready() -> void :
 	_audio_hurt = audio.has_method("set_hurt")
 	ui = PaperUI.new();add_child(ui);ui.setup(self)
 	emote_wheel = PaperEmoteWheel.new();ui.root.add_child(emote_wheel);emote_wheel.setup(self)
+	emote_sync = PaperEmoteSync.new();add_child(emote_sync);emote_sync.setup(self)
 	controls_menu = PaperControlsMenu.new();ui.root.add_child(controls_menu);controls_menu.setup(self)
 	online_menu = PaperOnlineMenu.new();ui.root.add_child(online_menu);online_menu.setup(self)
 	presentation = PaperEffects.new();add_child(presentation);presentation.setup(self)
@@ -661,6 +663,7 @@ func start_multiplayer_round() -> void :
 
 func _clear_round() -> void :
 	if exit_flow: exit_flow.clear()
+	if emote_sync: emote_sync.clear()
 	if bindings: bindings.controller_sprint = false
 	teleport_warning = 0.0
 	_restore_warning_lamps()
@@ -712,7 +715,7 @@ func _spawn(actor_id: int, char_name: String, is_bot: bool, spawn: Vector3, play
 		if authoritative() and phase == "playing": event(kind, payload))
 	if rewards: rewards.register(a)
 
-	if not dedicated: a.visual.anim_fx.connect(presentation.visual_fx.bind(a.visual))
+	if not dedicated: a.visual.anim_fx.connect(presentation.visual_fx.bind(a.visual));a.visual.anim_fx.connect(emote_sync.on_cue.bind(a.visual))
 	return a
 
 func _start_round(killer_id: int) -> void :
@@ -808,6 +811,7 @@ func _physics_step(delta: float) -> void :
 		elif training: practice.tick(delta)
 		combat.tick(delta)
 		brain.tick(delta)
+	else: emote_sync.extrapolate(delta)
 	_collect_input(delta)
 	for a: PaperActor in actors.values():
 		if authoritative() and a.killer and clock < 5 and not training: a.move_input = Vector3.ZERO
@@ -2068,55 +2072,18 @@ func request_emote(id: String) -> void :
 	elif networked: command.rpc_id(1, "emote", {"id": id})
 
 func _start_emote(actor: PaperActor, id: String) -> void :
-	if not actor or not actor.active() or actor.killer or phase != "playing" or (id not in PaperEmoteWheel.IDS and PaperDances.info(id).is_empty()): return
-	if float(actor.effects.get("stun", 0)) > 0 or bool(actor.effects.get("drone_piloting", false)) or clock - float(actor.effects.get("last_emote", -10)) < 1: return
-	actor.effects["emote_id"] = id;actor.effects["emote_time"] = 0.0;actor.effects["last_emote"] = clock
-	if PaperDances.is_dance(id):
-
-		var epoch: float = clock
-		for other: PaperActor in actors.values():
-			if other != actor and str(other.effects.get("emote_id", "")) == id and other.position.distance_to(actor.position) < 30.0:
-				epoch = float(other.effects.get("dance_epoch", clock));break
-		actor.effects["dance_epoch"] = epoch
-		actor.effects["emote_time"] = clock - epoch
+	emote_sync.start(actor, id)
 
 func _cancel_emote(actor: PaperActor) -> void :
-	if actor: actor.effects.erase("emote_id");actor.effects.erase("emote_time");actor.effects.erase("dance_epoch")
+	emote_sync.cancel(actor)
 
 
 
 func _update_dance_music() -> void :
-	var groups: Dictionary = {}
-	if phase == "playing":
-		for actor: PaperActor in actors.values():
-			var id: String = str(actor.effects.get("emote_id", ""))
-			if not PaperDances.is_dance(id) or not actor.alive: continue
-			if not groups.has(id): groups[id] = [Vector3.ZERO, 0, float(actor.effects.get("emote_time", 0.0))]
-			groups[id][0] += actor.position;groups[id][1] += 1
-	for id: Variant in _dance_players.keys():
-		if not groups.has(id):
-			(_dance_players[id] as Node).queue_free();_dance_players.erase(id)
-	for id: Variant in groups:
-		var stream: AudioStream = PaperDances.music(str(id))
-		if stream == null: continue
-		var player: AudioStreamPlayer3D = _dance_players.get(id)
-		var length: float = maxf(stream.get_length(), 0.1)
-		var want: float = fposmod(float(groups[id][2]), length)
-		if player == null:
-			player = AudioStreamPlayer3D.new();player.stream = stream;player.bus = audio.MUSIC_BUS;player.unit_size = 9.0;player.max_distance = 45.0;player.volume_db = -2.0
-			add_child(player);_dance_players[id] = player
-			player.play(want)
-		player.global_position = groups[id][0] / float(groups[id][1]) + Vector3.UP * 1.2
-		if not player.playing: player.play(want)
-		elif absf(player.get_playback_position() - want) > 0.2 and absf(player.get_playback_position() - want) < length - 0.2: player.seek(want)
+	emote_sync.update_music()
 
 func _tick_emotes(delta: float) -> void :
-	for actor: PaperActor in actors.values():
-		if not actor.effects.has("emote_id"): continue
-		var dance: bool = PaperDances.is_dance(str(actor.effects.emote_id))
-		actor.effects["emote_time"] = clock - float(actor.effects.get("dance_epoch", clock)) if dance else float(actor.effects.get("emote_time", 0)) + delta
-		var limit: float = PaperDances.MAX_SECONDS if dance else 2.5
-		if not actor.active() or actor.move_input.length_squared() > 0.02 or float(actor.effects.get("stun", 0)) > 0 or float(actor.effects.get("last_emote", clock)) < clock - limit: _cancel_emote(actor)
+	emote_sync.tick(delta)
 
 func _build_accessibility() -> void :
 	accessibility_layer = CanvasLayer.new();accessibility_layer.layer = 100;add_child(accessibility_layer)

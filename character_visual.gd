@@ -22,7 +22,7 @@ const CharMaterials = preload("res://char_materials.gd")
 const CharProps = preload("res://char_props.gd")
 
 const CHARACTER_HEIGHTS: Dictionary = {"Usayuko": 1.87, "Simon": 1.75, "Ashura": 1.7, "Lysia": 1.75, "Elly": 1.9, "Bleuette": 1.65, "Alice": 1.75, "TrueForm": 3.0}
-const EMOTES: Array[String] = ["wave", "thumbsup", "cheer", "laugh", "point", "shrug", "sad", "fear"]
+const EMOTES: Array[String] = ["wave", "thumbsup", "cheer", "laugh", "point", "shrug", "sad", "fear", "clap", "facepalm", "sulk", "heart", "taunt", "salute", "selfie", "bow", "beg", "sit"]
 
 const MODEL_HEIGHT: float = 2.28
 
@@ -309,6 +309,8 @@ var _clip_chatter: float = 0.0
 var _clip_lid: float = 0.0
 var _action_clip_time: float = 0.0
 var _emote_clip_time: float = -1.0
+var _emote_seen: String = ""
+var _emote_seen_time: float = 0.0
 var _shoulder_rest: Dictionary = {-1: Vector3(-0.2, 0.6, 0.0), 1: Vector3(0.2, 0.6, 0.0)}
 var _arm_length: Dictionary = {-1: 0.55, 1: 0.55}
 var _dead_clip: String = "dead"
@@ -759,6 +761,7 @@ func animate(delta: float, velocity: Vector3, stunned: bool, phase: bool) -> voi
 	_run_blend = smoothstep(2.2, 5.2, _move_blend)
 	_update_glance(dt, speed)
 	_check_transition(stunned)
+	_check_emote_jump(dt)
 	_prop_wanted.clear()
 	_curl_override = -1.0
 	_curl_left_override = -1.0
@@ -1931,6 +1934,16 @@ func _apply_injury_pose(delta: float, speed: float) -> void :
 
 func _is_emote(id: String) -> bool:
 	return id in EMOTES or id.begins_with("dance_")
+
+# Changement d'émote ou saut de temps (synchronisation de groupe) : fondu depuis la pose actuelle.
+func _check_emote_jump(dt: float) -> void :
+	var id: String = _st_emote if _is_emote(_st_emote) else ""
+	var jumped: bool = id != _emote_seen or absf(_st_emote_time - (_emote_seen_time + dt)) > 0.3
+	# Nouveau départ : pas de repères sonores rejoués entre l'ancien temps et le nouveau.
+	if jumped: _emote_clip_time = -1.0
+	if jumped and not id.is_empty() and not _emote_seen.is_empty() and _transition_left <= 0.0 and _signature >= 0: _begin_transition()
+	_emote_seen = id
+	_emote_seen_time = _st_emote_time
 
 func _emote_pose(id: String, time: float) -> String:
 	var clip: Dictionary = _get_clip(id)
