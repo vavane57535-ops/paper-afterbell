@@ -512,7 +512,8 @@ func _paint_front(layer: Control) -> void :
 	# Touches (bas à droite).
 	var keys_p: float = _phase(0.3, 0.14)
 	if keys_p > 0.0 and not world.mobile_mode:
-		var specs: Array = [[ui.key_label("pause_game", "Échap"), "Reprendre"], [ui.key_label("ui_accept", "Entrée"), "Valider"], ["↑ ↓", "Choisir"]]
+		var pad: bool = bool(ui.get("pad_input"))
+		var specs: Array = [["B" if pad else ui.key_label("pause_game", "Échap"), "Reprendre"], ["A" if pad else ui.key_label("ui_accept", "Entrée"), "Valider"], ["↑ ↓", "Choisir"]]
 		var x: float = view.x - 40.0 * k
 		var yk: float = view.y - 34.0 * k + (1.0 - _out(keys_p)) * 80.0 * k
 		var label_font: Font = T.font("caps")

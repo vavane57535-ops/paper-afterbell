@@ -1136,16 +1136,35 @@ class MenuRow extends PanelContainer:
 	func set_row_lit(on: bool, reduced: bool) -> void :
 		_goal = 1.0 if on else 0.0
 		reduced_motion = reduced
+		_tint_labels(on)
 		if reduced:
 			_lit = _goal
 			queue_redraw()
 			return
 		set_process(true)
 
+	# Sur la bande rouge, les textes de la ligne passent en crème (comme le
+	# texte inversé des lignes choisies de Persona), puis reprennent leur
+	# couleur.
+	func _tint_labels(on: bool) -> void :
+		for node: Node in find_children("*", "Label", true, false):
+			var label: Label = node as Label
+			if on:
+				if label.has_meta("row_tint"): continue
+				label.set_meta("row_tint", [label.has_theme_color_override("font_color"), label.get_theme_color("font_color")])
+				var title: bool = label.get_theme_font_size("font_size") >= 17
+				label.add_theme_color_override("font_color", T.CREAM if title else Color(T.CREAM, 0.82))
+			elif label.has_meta("row_tint"):
+				var saved: Array = label.get_meta("row_tint")
+				label.remove_meta("row_tint")
+				if bool(saved[0]): label.add_theme_color_override("font_color", saved[1])
+				else: label.remove_theme_color_override("font_color")
+
 	func _notification(what: int) -> void :
 		if what == NOTIFICATION_VISIBILITY_CHANGED and not is_visible_in_tree():
 			_lit = 0.0
 			_goal = 0.0
+			_tint_labels(false)
 
 	func _process(delta: float) -> void :
 		_lit = move_toward(_lit, _goal, delta / (0.13 if _goal > 0.0 else 0.09))

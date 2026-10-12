@@ -150,6 +150,9 @@ var _page_rerender: bool = false
 var _page_focus: WeakRef = weakref(null)
 var _setup_dealt: String = ""
 var _pause_from: String = ""
+# Dernière commande reçue d'une manette (aides des menus : A / B au lieu
+# d'Entrée / Échap).
+var pad_input: bool = false
 var _decor_clock: float = -1.0
 const SETTINGS_TABS: Array = ["game", "display", "audio", "controls", "access"]
 
@@ -889,6 +892,11 @@ func _main_column(column: VBoxContainer, mobile: bool) -> Control:
 		item.hinted.connect(_on_nav_vignette.bind(str(entry[1])))
 		nav.add_child(item)
 		if first == null: first = item
+	# Liste circulaire (haut sur JOUER → QUITTER), comme les menus de Persona.
+	var last: Control = nav.get_child(nav.get_child_count() - 1) as Control
+	if first and last and last != first:
+		first.focus_neighbor_top = first.get_path_to(last)
+		last.focus_neighbor_bottom = last.get_path_to(first)
 	if not mobile:
 		_spacer(column, 10)
 		_nav_hint = _paragraph("", column, 16, T.INK_TEXT, "semibold")
@@ -3304,6 +3312,7 @@ func _input(event: InputEvent) -> void :
 			if not event.pressed: _drop_button_focus.call_deferred()
 		elif event is InputEventMouseMotion: _drop_button_focus()
 	elif event is InputEventKey or event is InputEventJoypadButton or (event is InputEventJoypadMotion and absf(event.axis_value) > 0.5):
+		pad_input = not (event is InputEventKey)
 		_set_pointer_mode(false)
 		if event.is_pressed() and not event.is_echo(): _restore_focus(event)
 
@@ -3378,6 +3387,14 @@ func _unhandled_input(event: InputEvent) -> void :
 
 	if _settings_tab_input(event): return
 	if not event.is_action_pressed("ui_cancel"): return
+	# Cinémathèque à la manette (le clavier passe par gallery.handle_input) :
+	# B revient à la liste, puis au menu.
+	if world.phase == "gallery" and event is InputEventJoypadButton and is_instance_valid(world.gallery):
+		if world.gallery.browsing: world.gallery.close()
+		else: world.gallery.browse()
+		Sound.play("back")
+		get_viewport().set_input_as_handled()
+		return
 	if world.phase not in ["menu", "lobby"] or not page.visible: return
 	if (world.online_menu and world.online_menu.visible) or (world.controls_menu and world.controls_menu.visible): return
 	var focus: Control = get_viewport().gui_get_focus_owner()
