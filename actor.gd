@@ -41,6 +41,7 @@ const NET_EFFECT_RULES: Dictionary = {
 	"training_dummy": NET_RULE_VALUE, "dropkick_used": NET_RULE_VALUE, "shotgun_used": NET_RULE_VALUE, "aura_used": NET_RULE_VALUE, 
 	"kill_lock": NET_RULE_VALUE, 
 	"outlet_ashura": NET_RULE_ID, "sprint_bonus": NET_RULE_VALUE, "lms_hp_cap": NET_RULE_VALUE, 
+	"cam_facing": NET_RULE_VALUE, 
 }
 
 
@@ -236,6 +237,7 @@ func tick(delta: float, authoritative: bool) -> void :
 	visual.visible = not bool(effects.get("shadow_hide", false)) or float(effects.get("shadow_time", 0.0)) > 0.85
 	var action_facing: bool = visual.is_performing_action()
 	var facing: Vector3 = aim if killer or action_facing or velocity.length() < 0.4 else Vector3(velocity.x, 0, velocity.z).normalized()
+	facing = _camera_facing(facing, action_facing)
 
 	var driven: bool = int(effects.get("grabbed_by", -1)) >= 0 or (float(effects.get("forced_time", 0.0)) > 0.0 and str(effects.get("force_name", "")) == "knock")
 	if driven and Vector2(velocity.x, velocity.z).length() > 0.4:
@@ -251,6 +253,22 @@ func tick(delta: float, authoritative: bool) -> void :
 	_track_teleport()
 
 
+
+# Orientation choisie par le mode de caméra du joueur (effet « cam_facing », synchronisé) :
+# 1 = Derrière : le perso regarde où regarde la caméra ; 2 = Libre 360° : il regarde où il va et garde
+# son orientation à l'arrêt (on peut tourner autour et voir son visage). 0 = bots / ancien comportement.
+func _camera_facing(facing: Vector3, action_facing: bool) -> Vector3:
+	var view_mode: int = int(effects.get("cam_facing", 0))
+	if view_mode == 0 or bot or action_facing or bool(effects.get("downed", false)): return facing
+	var aiming: bool = bool(effects.get("grenade_aiming", false)) or bool(effects.get("spike_aiming", false)) or bool(effects.get("boost_charging", false)) or bool(effects.get("drone_piloting", false))
+	var flat: Vector3 = Vector3(velocity.x, 0, velocity.z)
+	if view_mode == 1:
+		var emoting: bool = not str(effects.get("emote_id", "")).is_empty()
+		var rolling: bool = float(effects.get("land_roll_time", 0.0)) > 0.0 or float(effects.get("roll_dash_time", 0.0)) > 0.0 or bool(effects.get("grinding", false))
+		if rolling and flat.length() > 0.4: return flat.normalized()
+		return Vector3.ZERO if emoting and not aiming else Vector3(aim.x, 0, aim.z)
+	if aiming: return Vector3(aim.x, 0, aim.z)
+	return flat.normalized() if flat.length() > 0.4 else Vector3.ZERO
 
 func _track_teleport() -> void :
 	if global_position.distance_squared_to(_last_tick_position) > TELEPORT_DISTANCE * TELEPORT_DISTANCE:

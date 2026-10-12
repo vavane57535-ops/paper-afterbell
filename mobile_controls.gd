@@ -114,6 +114,7 @@ func setup(owner: Node) -> void :
 	_make_button("CancelAim", "ANNULER");_make_button("Pause", "MENU")
 	_make_button("Jump", "SAUTER");_make_button("Emotes", "ÉMOTES")
 	_make_button("Training", "ESSAIS");_make_button("Spectate", "SUIVRE")
+	_make_button("Camera", "CAMÉRA")
 	for key: String in ["J", "K", "L"]: _make_button("QTE" + key, key)
 	_qte_title = Label.new();_qte_title.name = "ArchiveQTELabel";_qte_title.text = "ARCHIVE · TOUCHE LA LETTRE";_qte_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER;_qte_title.mouse_filter = Control.MOUSE_FILTER_IGNORE;_button_root.add_child(_qte_title)
 	_qte_title.add_theme_font_size_override("font_size", 17);_qte_title.add_theme_color_override("font_color", Color("ede7dc"));_qte_title.add_theme_font_override("font", T.font("caps"))
@@ -162,6 +163,7 @@ func _layout() -> void :
 	_place("Training", Rect2(Vector2(right - 184 * s, safe.y + 15 * s), Vector2(88, 54) * s))
 	_place("Spectate", Rect2(Vector2(right - 130 * s, safe.y + 106 * s), Vector2(130, 56) * s))
 	_place("Emotes", Rect2(Vector2(right - 282 * s, safe.y + 15 * s), Vector2(88, 54) * s))
+	_place("Camera", Rect2(Vector2(right - 380 * s, safe.y + 15 * s), Vector2(88, 54) * s))
 	_place("Jump", Rect2(Vector2(right - 106 * s, bottom - 235 * s), Vector2(106, 76) * s))
 	var qte_origin: Vector2 = Vector2(size.x * 0.5 - 137 * s, bottom - 260 * s)
 	for index: int in range(3): _place("QTE" + ["J", "K", "L"][index], Rect2(qte_origin + Vector2(index * 96 * s, 0), Vector2(82, 76) * s))
@@ -274,6 +276,7 @@ func _activate(id: String) -> void :
 	elif id == "Pause": cancel_all();pause_requested.emit()
 	elif id == "Training": cancel_all();training_requested.emit()
 	elif id == "Spectate": spectate_requested.emit()
+	elif id == "Camera" and is_instance_valid(world) and world.camera_rig: world.camera_rig.toggle_mode()
 	elif id == "Jump": world.request_jump()
 
 func refresh(actor: Node) -> void :
@@ -341,6 +344,7 @@ func refresh(actor: Node) -> void :
 	_buttons.Jump.detail = "%.1f s" % float(effects.get("jump_cd", 0)) if float(effects.get("jump_cd", 0)) > 0 else "PRÊT";_buttons.Jump.queue_redraw()
 	_buttons.Training.visible = bool(world.get("training")) if is_instance_valid(world) else false
 	_buttons.Spectate.visible = actor == null or not bool(actor.get("alive"))
+	if is_instance_valid(world) and world.camera_rig: _buttons.Camera.detail = "DERRIÈRE" if world.camera_rig.is_behind() else "LIBRE 360°";_buttons.Camera.queue_redraw()
 	_joystick.visible = active or crawling
 	var remaining: float = float(effects.get("archive_qte_remaining", 0))
 	var qte: bool = active and remaining > 0 and int(effects.get("archive_qte_id", 0)) > 0

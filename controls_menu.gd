@@ -127,6 +127,9 @@ func _build() -> void :
 	_slider("Sensibilité", 0.5, 6, world.bindings.look_sensitivity, func(value: float) -> void :
 		world.bindings.look_sensitivity = value
 		world.bindings.save())
+	_slider("Accélération du stick (demi-tour rapide)", 0.0, 1.0, world.camera_rig.pad_acceleration, func(value: float) -> void :
+		world.camera_rig.pad_acceleration = value
+		world.save_preferences())
 	_slider("Zone morte des sticks", 0.05, 0.45, world.bindings.deadzone, _set_deadzone)
 	var rumble: CheckButton = CheckButton.new()
 	rumble.text = "Vibrations à l’impact"
