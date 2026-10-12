@@ -253,6 +253,26 @@ const TEXT: Dictionary = {
 	"ÉVADÉ · TU ES EN SÉCURITÉ": "ESCAPED · YOU ARE SAFE",
 	# Encourager de Bleuette : tous les alliés sont désormais concernés (plus d'allié « compatible »).
 	"Vise un allié à moins de 6 m": "Aim at an ally within 6 m",
+	# Vérification finale des menus (boutique, salon, réglages, toasts).
+	"APERÇU": "PREVIEW",
+	"✓ À TOI": "✓ YOURS",
+	"Boutique de danses": "Dance shop",
+	"Des danses à acheter avec tes tickets, à faire en partie : roue des émotes (G), puis Tab.": "Dances to buy with your tickets and perform in a match: emote wheel (G), then Tab.",
+	"Pas assez de tickets : joue une manche pour en gagner.": "Not enough tickets: play a round to earn some.",
+	"Pas de chrono": "No timer",
+	"Mannequins réinitialisables": "Resettable dummies",
+	"A · pause     ← → · 1 s     B · retour": "A · pause     ← → · 1 s     B · back",
+	"Sensibilité de la manette": "Controller sensitivity",
+	"Caméra au stick droit. Accélération et zone morte : Commandes.": "Right-stick camera. Acceleration and deadzone: Controls.",
+	"https://adresse-du-service": "https://service-address",
+	"VOUS ÊTES TOMBÉE": "YOU ARE DOWN",
+	"POURSUIVIE": "CHASED",
+	"ÉLIMINÉE": "ELIMINATED",
+	"ÉVADÉE": "ESCAPED",
+	"TOMBÉE": "FELL",
+	"ÉVADÉE · TU ES EN SÉCURITÉ": "ESCAPED · YOU ARE SAFE",
+	"Contrôle raté · archive bloquée 3 s · Alice t’a repérée !": "Check failed · archive jammed for 3 s · Alice has spotted you!",
+	"Lignes de vitesse, encre sur l’écran, halos selon l’état du personnage et filtre rouge de l’alerte de sortie.": "Speed lines, ink on the screen, glows for the state of your character and the red filter of the exit alarm.",
 }
 
 # Modèles avec valeurs (%d, %s, %.1f) : [français, anglais].
@@ -262,6 +282,12 @@ const TEMPLATES: Array = [
 	["BRANCHÉE · ASHURA ×1,5 · +10 PV / 1,3 s · %.1f s · BOUGER / INTERAGIR / 4 : DÉBRANCHER", "PLUGGED IN · ASHURA ×1.5 · +10 HP / 1.3 s · %.1f s · MOVE / INTERACT / 4: UNPLUG"],
 	["SURCHAUFFE · INVULNÉRABLE · ARMURE −%d PV · %.1f s", "OVERHEAT · INVULNERABLE · ARMOUR −%d HP · %.1f s"],
 	["PRISE · %d m", "OUTLET · %d m"],
+	["Alice · %s rattrapée", "Alice · %s caught"],
+	["%s a été éliminée.", "%s has been eliminated."],
+	["%s est au sol · 30 secondes pour la relever.", "%s is down · 30 seconds to revive them."],
+	["%s a été relevée · seconde vie.", "%s was revived · second life."],
+	["%s s’est échappée.", "%s escaped."],
+	["La dernière tentative de %s échoue. Alice la rattrape, frappe et l’achève au sol.", "%s's last attempt fails. Alice catches them, strikes and finishes them on the floor."],
 ]
 
 static var _compiled: Array = []

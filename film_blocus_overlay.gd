@@ -326,7 +326,9 @@ func _subtitles(t: float, view: Vector2) -> void :
 	_line.text = _t(str(active[3]))
 	var width: float = minf(view.x - 160.0, 1100.0)
 	_caption_box.size = Vector2(width, 0)
-	_caption_box.position = Vector2((view.x - width) * 0.5, view.y - 98.0 - _caption_box.get_combined_minimum_size().y + 30.0)
+	# Cinémathèque (hors partie) : la barre de transport couvre le bas de l'écran, les sous-titres passent au-dessus.
+	var lift: float = 0.0 if in_game else 70.0
+	_caption_box.position = Vector2((view.x - width) * 0.5, view.y - 98.0 - _caption_box.get_combined_minimum_size().y + 30.0 - lift)
 
 
 func _hash(value: int) -> float:

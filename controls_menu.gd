@@ -89,6 +89,8 @@ func _build() -> void :
 	var scroll: ScrollContainer = ScrollContainer.new()
 	panel.add_child(scroll)
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	# La liste suit la sélection clavier / manette (activé après le focus initial, une fois mise en page).
+	get_tree().create_timer(0.05).timeout.connect(scroll.set.bind("follow_focus", true))
 	list = VBoxContainer.new()
 	scroll.add_child(list)
 	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -104,7 +106,13 @@ func _build() -> void :
 	selector.add_item("Manette · Xbox / PlayStation / Switch / Steam Deck")
 	selector.select(1 if choosing_pad else 0)
 	selector.custom_minimum_size.y = 46
-	list.add_child(selector)
+	# Marge autour de la liste : sélectionnée au clavier ou à la manette, sa découpe rouge déborde
+	# d'une quinzaine de pixels et recouvrait les lignes de texte voisines.
+	var selector_box: MarginContainer = MarginContainer.new()
+	selector_box.add_theme_constant_override("margin_top", 10)
+	selector_box.add_theme_constant_override("margin_bottom", 14)
+	list.add_child(selector_box)
+	selector_box.add_child(selector)
 	selector.item_selected.connect( func(index: int) -> void :
 		choosing_pad = index == 1
 		_build())
@@ -128,7 +136,8 @@ func _build() -> void :
 		label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		row.add_child(label)
 		var button: Button = Button.new()
-		button.text = world.bindings.label(action, choosing_pad)
+		# Libellés de souris et de manette traduits (« Clic D », « Croix ↑ »…) ; les noms de touches restent tels quels.
+		button.text = PaperLanguage.t(world.bindings.label(action, choosing_pad))
 		button.custom_minimum_size = Vector2(330, 42)
 		button.set_meta("language_user_text", true)
 		row.add_child(button)
@@ -223,7 +232,8 @@ func _slider(title: String, low: float, high: float, value: float, callback: Cal
 func _input(event: InputEvent) -> void :
 	if not visible or _leaving: return
 	if capture_action.is_empty():
-		if event.is_action_pressed("pause_game"):
+		# Échap / Start, ou B à la manette (ui_cancel, comme dans les autres menus).
+		if event.is_action_pressed("pause_game") or (event is InputEventJoypadButton and event.is_action_pressed("ui_cancel")):
 			close()
 			get_viewport().set_input_as_handled()
 		return

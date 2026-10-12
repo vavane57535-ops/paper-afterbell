@@ -96,6 +96,9 @@ var gallery_count: Label
 var gallery_updating: bool = false
 var gallery_dragging: bool = false
 var gallery_resume: bool = false
+# Cinémathèque : la barre de transport s'efface pendant la lecture après un moment sans action
+# (comme un lecteur vidéo) ; elle cachait le bas des films (sous-titres, titre du prologue).
+var _gallery_idle: float = 0.0
 var language_clock: float = 0
 
 
@@ -559,12 +562,20 @@ func _form_panel(width: float = 620) -> VBoxContainer:
 	active_menu_panel = panel
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_follow_focus_later(scroll)
 	panel.add_child(scroll)
 	var v: VBoxContainer = _vbox(scroll, 12)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_intro(panel)
 	_cascade(v)
 	return v
+
+# La liste défile pour garder la sélection clavier / manette à l'écran. Activé après le focus
+# initial de la page : posé avant la mise en page, il la faisait défiler n'importe où.
+func _follow_focus_later(scroll: ScrollContainer) -> void :
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if is_instance_valid(scroll): scroll.follow_focus = true
 
 func _form_header(parent: Node, kicker: String, title: String, kicker_color: Color = T.TEAL) -> void :
 	parent.add_child(_kicker(kicker, kicker_color))
@@ -873,7 +884,7 @@ func _main_column(column: VBoxContainer, mobile: bool) -> Control:
 		["ENTRE AMIS", "friends", "Salon Internet par code, connexion directe, comptes et groupes."], 
 		["TERRAIN D’ESSAI", "training", "École ouverte sans chrono : teste chaque capacité, le LMS et la True Form."], 
 		["CINÉMATHÈQUE", "gallery", "Prologue, fins d’équipe et LMS."], 
-		["BOUTIQUE", "shop", "Des danses à acheter avec tes tickets, à faire en partie (roue des émotes, Tab)."], 
+		["BOUTIQUE", "shop", "Des danses à acheter avec tes tickets, à faire en partie : roue des émotes (G), puis Tab."], 
 		["RÉGLAGES", "settings", "Jeu, graphismes, audio, commandes et accessibilité."], 
 		["CRÉDITS", "credits", "Musiques, bruitages, polices et icônes."], 
 	]
@@ -1660,11 +1671,12 @@ func show_lobby() -> void :
 	v.add_child(choose)
 	_section(v, "MODE DE JEU")
 	if world.can_manage_lobby(): _option_row(v, "À quoi joue-t-on ?", ["Manche OM", "Terrain d’essai · École"], ["match", "training"], "mode")
+	# « Qui joue Alice ? » juste sous le mode, avant le résumé : visible sans faire défiler en 1280×800.
+	if world.can_manage_lobby() and world.room_options.mode == "match": _alice_row(v)
 	lobby_options = _paragraph("", v, 16, T.PAPER)
 	var launch: Button = null
 	if world.can_manage_lobby():
 		if world.room_options.mode == "match":
-			_alice_row(v)
 			_option_row(v, "Survivants (bots compris)", ["2", "3", "4", "5", "6"], [2, 3, 4, 5, 6], "survivors")
 			_option_row(v, "Durée de la manche", ["5 min 20", "6 min 20", "7 min 20", "9 min 20"], [320, 380, 440, 560], "round_seconds")
 			_paragraph("Le LMS dure exactement le temps de la musique du dernier survivant.", v, 14, T.MUTED)
@@ -1692,7 +1704,7 @@ func _option_row(parent: Node, title: String, labels: Array, values: Array, key:
 
 # Sélecteur « Qui joue Alice ? » de l'hôte : aléatoire, malice, chaque joueur du salon, ou l'IA.
 func _alice_row(parent: Node) -> void :
-	var row: HBoxContainer = _hbox(parent, 12)
+	var row: HBoxContainer = _list_row(parent, 12)
 	var label: Label = _label("Qui joue Alice ?", "medium", 16, T.PAPER_DIM)
 	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -1772,10 +1784,14 @@ func refresh_lobby() -> void :
 			host.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 			h.add_child(host)
 		if int(peer) == world.chosen_alice_peer():
+			# Étiquette de papier rouge déchiré, encre crème et ombre d'encre (style des menus 0.16).
 			var badge: PanelContainer = PanelContainer.new()
-			badge.add_theme_stylebox_override("panel", T.box(Color(T.RED, 0.22), T.RED, 1, 4, 8, 2))
+			var tag: StyleBox = T.strip(T.RED, 12, 3, 7.0, int(peer) % 11 + 3)
+			tag.set("shadow", Color(T.INK, 0.85))
+			tag.set("shadow_offset", Vector2(3, 3))
+			badge.add_theme_stylebox_override("panel", tag)
 			badge.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-			badge.add_child(_label(_t("ALICE"), "caps", 12, Color("ff8a9b")))
+			badge.add_child(_label(_t("ALICE"), "display", 16, T.CREAM))
 			badge.tooltip_text = _t("Cette personne jouera Alice à la prochaine manche.")
 			h.add_child(badge)
 	if is_instance_valid(lobby_names):
@@ -1844,6 +1860,7 @@ func show_settings() -> void :
 	v.add_child(rule)
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_follow_focus_later(scroll)
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	v.add_child(scroll)
 	var content: VBoxContainer = _vbox(scroll, 6)
@@ -1970,12 +1987,16 @@ func _settings_game(content: VBoxContainer) -> void :
 		_setting_row(content, "Sensibilité de la souris", "Vitesse de rotation de la caméra.", _slider(0.0006, 0.008, 0.0001, float(world.sensitivity), func(x: float) -> String: return "%d %%" % int(round(x / 0.0025 * 100.0)), func(x: float) -> void :
 			world.sensitivity = x
 			world.save_preferences()))
+		# Même réglage que « Sensibilité » du carnet de commandes (caméra au stick droit).
+		_setting_row(content, "Sensibilité de la manette", "Caméra au stick droit. Accélération et zone morte : Commandes.", _slider(0.5, 6.0, 0.1, float(world.bindings.look_sensitivity), func(x: float) -> String: return "%d %%" % int(round(x / 2.6 * 100.0)), func(x: float) -> void :
+			world.bindings.look_sensitivity = x
+			world.bindings.save()))
 	_setting_row(content, "Caméra souple", "Suivi amorti derrière le personnage.", _check(bool(world.options.get("camera_smooth", true)), func(on: bool) -> void : _set_option("camera_smooth", on)))
 	_setting_row(content, "Mode de caméra", "Derrière : le personnage tourne avec la caméra. Libre 360° : la caméra tourne autour de lui.", _options(["Derrière le personnage", "Libre 360°"], 0 if world.camera_rig.is_behind() else 1, func(index: int) -> void : world.camera_rig.set_mode("behind" if index == 0 else "free", false)), 300)
 	_setting_row(content, "Champ de vision", "Angle de la caméra en jeu. Une valeur haute montre plus de décor.", _slider(60, 95, 1, float(world.options.get("fov", 72)), func(x: float) -> String: return "%d°" % int(x), func(x: float) -> void : _set_option("fov", int(x))))
 	_setting_row(content, "Secousses de caméra", "Tremblement lors des coups et des impacts.", _check(bool(world.options.get("camera_shake", true)), func(on: bool) -> void : _set_option("camera_shake", on)))
 	_setting_row(content, "Onomatopées", "Les « BAM ! » et « SHLAK ! » qui jaillissent des coups.", _check(bool(world.options.get("fx_words", true)), func(on: bool) -> void : _set_option("fx_words", on)))
-	_setting_row(content, "Effets d’écran", "Lignes de vitesse, encre sur l’écran et halos selon l’état du personnage.", _check(bool(world.options.get("screen_fx", true)), func(on: bool) -> void : _set_option("screen_fx", on)))
+	_setting_row(content, "Effets d’écran", "Lignes de vitesse, encre sur l’écran, halos selon l’état du personnage et filtre rouge de l’alerte de sortie.", _check(bool(world.options.get("screen_fx", true)), func(on: bool) -> void : _set_option("screen_fx", on)))
 	_spacer(content, 6)
 	_paragraph("Objectif : atteindre la sortie lorsqu’elle s’ouvre à 01:20. Le dernier survivant a un LMS de la durée de sa musique. Alice ferme la sortie et suspend le chrono pendant sa True Form, une seule fois après 15 stuns. Simon et Ashura : maintenir la capacité 2 pour charger, puis relâcher. Le boost dure 3, 4 ou 6 s selon la charge.", content, 14, T.MUTED)
 
@@ -2038,7 +2059,10 @@ func _settings_controls(content: VBoxContainer) -> void :
 		_key_line(alice, spec[0], str(spec[1]))
 	_spacer(alice, 10)
 	alice.add_child(_kicker("PARTOUT", T.PAPER_DIM, 12))
-	for spec: Array in [[[_binding("pause_game", "Échap")], "Pause / retour"], [[_binding("training_menu", "F2")], "Terrain d’essai"], [[_binding("camera_mode", "C")], "Caméra derrière / libre 360°"], [["F11"], "Plein écran"]]:
+	# La bascule de caméra (0.16) affiche aussi sa touche manette (R3 par défaut).
+	var camera_pad: String = str(world.bindings.label("camera_mode", true)) if world.bindings else ""
+	if camera_pad == "—": camera_pad = ""
+	for spec: Array in [[[_binding("pause_game", "Échap")], "Pause / retour"], [[_binding("training_menu", "F2")], "Terrain d’essai"], [[_binding("camera_mode", "C"), camera_pad], "Caméra derrière / libre 360°"], [["F11"], "Plein écran"]]:
 		_key_line(alice, spec[0], str(spec[1]))
 	_spacer(content, 8)
 	var edit_row: HBoxContainer = _hbox(content, 14)
@@ -2135,7 +2159,7 @@ func show_gallery() -> void :
 	var v: VBoxContainer = _form_panel(680)
 	_form_header(v, "LES HISTOIRES APRÈS LA CLOCHE", "Cinémathèque")
 	_paragraph("Revois le prologue et choisis qui affronte Alice. Les fins d’équipe s’adaptent aux survivants présents.", v, 16)
-	var back: Button = _button("←  RETOUR AU JEU", func() -> void : world.gallery.close(), 0, "GhostButton")
+	var back: Button = _button("←  RETOUR", func() -> void : world.gallery.close(), 0, "GhostButton")
 	back.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	v.add_child(back)
 	var categories: Array = ["all", "intro", "lms_win", "lms_loss", "team", "fins"]
@@ -2197,7 +2221,8 @@ func _refresh_gallery_results() -> void :
 	if items.is_empty(): _paragraph("Aucune scène pour cette recherche. Essaie un nom de personnage ou efface la sélection.", gallery_results, 16)
 	for item: Dictionary in items:
 		var watch: Button = Button.new()
-		watch.text = "▶  " + str(item.title)
+		# Titre traduit avant le préfixe : « ▶  A · B » serait sinon coupé sur « · » par la traduction.
+		watch.text = "▶  " + _t(str(item.title))
 		watch.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		watch.custom_minimum_size.y = 50
 		watch.tooltip_text = str(item.description)
@@ -2213,6 +2238,7 @@ func _refresh_gallery_results() -> void :
 func show_gallery_transport(item: Dictionary) -> void :
 	gallery_dragging = false
 	gallery_resume = false
+	_gallery_idle = 0.0
 	if not is_instance_valid(gallery_controls):
 		gallery_controls = Control.new()
 		root.add_child(gallery_controls)
@@ -2220,6 +2246,7 @@ func show_gallery_transport(item: Dictionary) -> void :
 		gallery_controls.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_clear(gallery_controls)
 	gallery_controls.show()
+	gallery_controls.modulate.a = 1.0
 	var top: HBoxContainer = HBoxContainer.new()
 	gallery_controls.add_child(top)
 	top.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
@@ -2275,7 +2302,7 @@ func show_gallery_transport(item: Dictionary) -> void :
 	gallery_clock.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	gallery_clock.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(gallery_clock)
-	var keys: Label = _label("ESPACE · pause     ← → · 1 s     ÉCHAP · retour", "caps", 12, T.MUTED)
+	var keys: Label = _label("A · pause     ← → · 1 s     B · retour" if pad_input else "ESPACE · pause     ← → · 1 s     ÉCHAP · retour", "caps", 12, T.MUTED)
 	keys.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(keys)
 	if PaperLanguage.language == "en": PaperLanguage.apply_tree(gallery_controls)
@@ -2288,6 +2315,11 @@ func update_gallery_transport(seconds: float, total: float, playing: bool) -> vo
 	gallery_updating = false
 	gallery_pause.text = _t("PAUSE" if playing else "REJOUER" if seconds >= total else "LECTURE")
 	if not gallery_dragging: gallery_clock.text = "%.1f / %.1f s%s" % [seconds, total, _t(" · Scène terminée") if seconds >= total else ""]
+	var delta: float = get_process_delta_time()
+	_gallery_idle += delta
+	var tucked: bool = playing and not gallery_dragging and seconds < total and _gallery_idle > 2.5
+	var goal: float = 0.0 if tucked else 1.0
+	gallery_controls.modulate.a = goal if reduced_motion else move_toward(gallery_controls.modulate.a, goal, delta * (2.5 if tucked else 9.0))
 
 func hide_gallery_transport() -> void :
 	gallery_dragging = false
@@ -2666,6 +2698,7 @@ func show_ending(winner: String, was_lms: bool) -> void :
 	titles.add_child(_label("CLASSEMENT · CONTRIBUTION À LA PARTIE", "caps", 12, T.INK_MUTED))
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_follow_focus_later(scroll)
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	body.add_child(scroll)
 	var rows: VBoxContainer = _vbox(scroll, 4)
@@ -2698,7 +2731,10 @@ func show_ending(winner: String, was_lms: bool) -> void :
 	actions.offset_top = -30
 	actions.grow_horizontal = Control.GROW_DIRECTION_BEGIN
 	actions.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	var again: Button = _button("RETOUR AU SALON" if world.networked else "NOUVELLE MANCHE", func() -> void : world.return_to_lobby(), 280, "PrimaryButton")
+	var again: Button = _button("RETOUR AU SALON" if world.networked else "NOUVELLE MANCHE", func() -> void :
+		world.return_to_lobby()
+		# Solo : « Nouvelle manche » rouvre la préparation (rôle, élève, carte) au lieu du menu principal.
+		if not world.networked and world.phase == "menu": _show_setup(), 280, "PrimaryButton")
 	actions.add_child(_button("MENU PRINCIPAL", func() -> void : world.quit_to_menu(), 220))
 	actions.add_child(again)
 	if not world.match_results.is_empty(): _present_result(world.match_results[0])
@@ -2771,7 +2807,8 @@ func _result_row(row: Dictionary, rank: int) -> Button:
 	player.set_meta("language_user_text", true)
 	names.add_child(player)
 	if not fate.is_empty():
-		var tag: Label = _label({"escaped": "ÉVADÉ", "dead": "TOMBÉ", "alive": "EN VIE"}.get(fate, ""), "caps", 11, Color("2e6d68") if fate == "escaped" else T.INK_MUTED)
+		var she: bool = person in ["Lysia", "Elly", "Bleuette"]
+		var tag: Label = _label({"escaped": "ÉVADÉE" if she else "ÉVADÉ", "dead": "TOMBÉE" if she else "TOMBÉ", "alive": "EN VIE"}.get(fate, ""), "caps", 11, Color("2e6d68") if fate == "escaped" else T.INK_MUTED)
 		tag.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		h.add_child(tag)
 	var points: Label = _label("%d" % int(row.get("points", 0)), "digits", 30, T.INK_TEXT)
@@ -2904,6 +2941,7 @@ func show_training_panel(open: bool = true) -> void :
 	panel.offset_bottom = minf(panel.offset_bottom, view_height * 0.5 - 20)
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_follow_focus_later(scroll)
 	panel.add_child(scroll)
 	var v: VBoxContainer = _vbox(scroll, 10)
 	v.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -3384,6 +3422,8 @@ func _scroll_to_focused_field() -> void :
 	if focus and scroll and scroll.is_ancestor_of(focus): scroll.ensure_control_visible(focus)
 
 func _input(event: InputEvent) -> void :
+	# Toute action fait réapparaître la barre de transport de la cinémathèque.
+	if not (event is InputEventJoypadMotion and absf(event.axis_value) < 0.5): _gallery_idle = 0.0
 	if event is InputEventMouseMotion or event is InputEventMouseButton or event is InputEventScreenTouch or event is InputEventScreenDrag:
 		T.touch_mode = event is InputEventScreenTouch or event is InputEventScreenDrag or (event is InputEventMouse and event.device == InputEvent.DEVICE_ID_EMULATION)
 		_set_pointer_mode(true)

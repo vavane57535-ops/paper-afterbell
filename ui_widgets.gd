@@ -1114,7 +1114,7 @@ class CollageTitle extends Control:
 			# Marge au-dessus : la première lettre (plus grande) et les accents
 			# découpés ne mordent pas sur la ligne du dessus.
 			var base: Transform2D = Transform2D(tilt, Vector2.ONE, 0.0, Vector2(px * 0.12 + float(i) * px * 0.35, px * 1.12 + float(i) * px * 1.1))
-			Collage.draw_word(self, line, base, px, absi(line.hash()) % 997, 0.0, accent, 1.0, 0, false, T.CREAM, accent)
+			Collage.draw_word(self, line, base, px, absi(line.hash()) % 997, 0.0, accent, 1.0, 0, false, T.CREAM, accent, true)
 
 
 

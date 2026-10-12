@@ -135,6 +135,9 @@ func preview_dance(person: String, dance_id: String) -> void :
 	if _scenes.has("dance"):
 		(_scenes["dance"].root as Node).queue_free()
 		_scenes.erase("dance")
+	# La scène affichée (vignette « BOUTIQUE » du menu) doit disparaître, sinon
+	# son danseur reste superposé à celui de l'aperçu.
+	if _current != "" and _scenes.has(_current): (_scenes[_current].root as Node3D).hide()
 	_current = ""
 	_wanted = "dance" if not dance_id.is_empty() else ""
 	_wanted_since = _clock - 1.0

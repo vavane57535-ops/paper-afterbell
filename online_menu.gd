@@ -101,7 +101,7 @@ func _build() -> void :
 	var tabs: HBoxContainer = HBoxContainer.new();tabs.add_theme_constant_override("separation", 8);column.add_child(tabs)
 	_first_tab = _button("Compte", show_account);tabs.add_child(_first_tab);friends_button = _button("Amis", show_friends);tabs.add_child(friends_button);tabs.add_child(_button("Groupe", show_group));tabs.add_child(_button("Service", show_service))
 	heading = _label("", 25);column.add_child(heading)
-	scroll = ScrollContainer.new();scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL;scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED;column.add_child(scroll)
+	scroll = ScrollContainer.new();scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL;scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED;column.add_child(scroll);get_tree().create_timer(0.05).timeout.connect(scroll.set.bind("follow_focus", true))
 	content = VBoxContainer.new();content.size_flags_horizontal = Control.SIZE_EXPAND_FILL;content.add_theme_constant_override("separation", 12);scroll.add_child(content)
 	status_label = _label("", 17, MUTED);status_label.custom_minimum_size.y = 27;column.add_child(status_label)
 	_identity()

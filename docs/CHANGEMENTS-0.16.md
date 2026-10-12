@@ -14,6 +14,7 @@ Protocole réseau **16** : tous les joueurs doivent avoir la 0.16 pour jouer ens
 ## Cinémathèque
 - Les introductions des survivants et d'Alice sont retirées.
 - Catégories : Prologue, Victoires LMS, LMS · Alice gagne, Fuite en équipe, Fins (nouveau : le blocus).
+- Pendant un film, la barre de lecture s'efface après quelques secondes sans action (plein écran, sous-titres et titre du prologue visibles) ; souris, clavier ou manette la font revenir.
 
 ## Exécutions d'Alice (dernière vie)
 - Quand un survivant est dans sa **dernière vie** (déjà relevé, ou sans relevage comme Lysia), le coup fatal d'Alice déclenche son exécution propre :
@@ -68,7 +69,7 @@ Protocole réseau **16** : tous les joueurs doivent avoir la 0.16 pour jouer ens
 - **Courses refaites** pour les 6 survivants, avec un moteur de foulée commun : marche, footing, sprint et sur-sprint. Contact, poussée, repli du talon, rebond du bassin, contre-rotation des épaules, pieds qui suivent le sol, et une personnalité pour chacun.
 
 ## Caméra et déplacements
-- Caméra libre et immédiate : aucune inertie sur la rotation, plage verticale beaucoup plus large (-77° à +69°), sensibilité souris réglable, accélération réglable du stick, collisions sans saut.
+- Caméra libre et immédiate : aucune inertie sur la rotation, plage verticale beaucoup plus large (-77° à +69°), sensibilités souris et manette réglables dans Réglages → Jeu, accélération réglable du stick (Commandes), collisions sans saut.
 - **C** (ou clic du stick droit) bascule entre :
   - **Derrière** : la caméra se recolle dans le dos et le personnage tourne avec elle ;
   - **Libre 360°** : on tourne tout autour du personnage, on voit son visage, et il avance dans la direction de la caméra.
@@ -82,7 +83,8 @@ Protocole réseau **16** : tous les joueurs doivent avoir la 0.16 pour jouer ens
   - Feuilles de papier qui balayent l'écran aux transitions, avec le titre de la page suivante.
   - Décors animés en boucle et sons de curseur papier.
 - **Menu pause** : le jeu se fige en trame rouge, une feuille de cahier glisse, la silhouette du personnage arrive, puis les entrées s'ouvrent en éventail, avec une confirmation en volet.
-- Clavier, souris et manette : A valide, B revient, LB/RB changent d'onglet. Lisible en 1280×800 comme en 1920×1080.
+- Résultats en solo : « Nouvelle manche » rouvre la préparation (rôle, élève, carte) au lieu du menu principal.
+- Clavier, souris et manette : A valide, B revient (y compris depuis le carnet de commandes), LB/RB changent d'onglet, et les listes défilent pour garder la sélection à l'écran. Dans la cinémathèque, pendant un film : A met en pause, la croix avance ou recule d'une seconde. Lisible en 1280×800 comme en 1920×1080.
 
 ## Mécaniques des survivants
 - **Lysia** :
@@ -109,6 +111,7 @@ Protocole réseau **16** : tous les joueurs doivent avoir la 0.16 pour jouer ens
 
 ## Traductions
 - Tous les nouveaux textes ont leur version anglaise.
+- En français, les messages de partie s'accordent enfin au féminin pour Lysia, Elly et Bleuette (« éliminée », « s'est échappée », « ÉVADÉE », « TOMBÉE »…), dans les bulles, la liste des élèves et le bulletin.
 
 ## Limites connues
 - La musique et les sons ont été composés et réglés sans possibilité d'écoute, par mesures et analyses. Une écoute humaine reste conseillée.

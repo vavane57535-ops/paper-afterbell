@@ -120,7 +120,8 @@ static func catalogue() -> Array[Dictionary]:
 	rows.append(_entry("intro_yiero", "Prologue — Yiero", "intro", "intro_yiero", ["Simon", "Ashura", "Usayuko", "Elly", "Bleuette", "Lysia"], "Simon", "Le film du premier lancement : Simon et Ashura affrontent Yiero dans une dimension ténébreuse… puis Simon atterrit à l’école en plein combat."))
 	for person: String in PaperData.NAMES:
 		rows.append(_entry("lms_win_" + person, VictoryFilm.title_for(person), "lms_win", "ending_lms", [person], person, VictoryFilm.description_for(person)))
-		rows.append(_entry("lms_loss_" + person, "Alice · " + person + " rattrapé", "lms_loss", "ending_killer", [person], person, "La dernière tentative de " + person + " échoue. Alice le rattrape, frappe et l’achève au sol."))
+		var she: bool = person in ["Lysia", "Elly", "Bleuette"]
+		rows.append(_entry("lms_loss_" + person, "Alice · " + person + (" rattrapée" if she else " rattrapé"), "lms_loss", "ending_killer", [person], person, "La dernière tentative de " + person + " échoue. Alice " + ("la" if she else "le") + " rattrape, frappe et l’achève au sol."))
 	for mask: int in range(1, 64):
 		var team: Array = []
 		for i: int in range(PaperData.NAMES.size()):
