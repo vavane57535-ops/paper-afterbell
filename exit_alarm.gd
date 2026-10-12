@@ -267,7 +267,10 @@ func _on_open() -> void :
 	var serial: int = int(world.round_serial)
 	var first: bool = _round_seen != serial
 	_round_seen = serial
-	_final_done = final_stretch()
+	# _open n'est pas encore vrai ici (final_stretch() répondrait toujours non) : on teste le chrono directement.
+	# Réouverture après la True Form ou client qui arrive dans les dernières secondes : pas de second « dernier appel ».
+	if first: _final_done = false
+	_final_done = _final_done or float(world.time_left) <= RUSH_SPAN - RUSH_LEAD - FINAL_CALL
 	_play_alarm(0, -7.0 if bool(world.lms) or not first else -4.0)
 	if not calm():
 		world.add_camera_trauma(0.8)
