@@ -26,7 +26,7 @@ const FV = preload("res://anim_set_film_victory.gd")
 # coupés ; « grounded »: false coupe les pas que la démarche du jeu compterait
 # pendant un déplacement. Tout est rendu à l'arrêt du film.
 const FILM_STYLE: Dictionary = {"contra": 0.0, "shift_rate": 0.0, "idle_sway": 0.0, "idle_bounce": 0.0, "look_rate": 0.0}
-const AUTHORED: Array[String] = ["Usayuko"]
+const AUTHORED: Array[String] = ["Usayuko", "Simon"]
 
 const TV_Y: float = 70.0
 const INK_Y: float = 125.0
@@ -467,125 +467,128 @@ func _write_closing() -> void :
 
 
 # ---------------------------------------------------------------- SIMON ---
-# Vitesse : course éclair chargée, il dépasse Alice si vite qu'elle tourne sur
-# elle-même, repasse en tornade autour d'elle et disparaît dans la nuit.
+# Vitesse. Coincé face à Alice, il sautille, nerveux, puis se met en position de
+# départ. Elle fond sur lui et tranche une image rémanente : il est déjà passé
+# (5,32) et le souffle la fait tourner. Il dérape loin derrière, agite le doigt,
+# tourne autour d'elle jusqu'à ce qu'elle tombe sur les fesses, puis file dans
+# la nuit, buste couché, bras en arrière.
 func _write_simon() -> void :
 	var c: Node3D = cinema
 	var tint: Color = GLINT.Simon
+	var go: float = FV.S_GO
+	var center: Vector3 = _r(0.1, 1.4)
 	c._put(s, _r(0.0, 0.0))
 	c._face(s, 0.0, "dir", Vector3(0, 0, 1))
-	c._do(s, 0.0, "state", {"lms": true})
-	c._put(a, _r(0.15, 5.2))
-	c._face(a, 0.0, "at", s)
-	c._do(a, 0.0, "mood", "menace")
-	# A · feet in the puddle, the charge starts
-	c._do(s, 3.3, "state", {"boost_charging": true, "charging_boost": 0.0, "boost_level": 0})
-	c._ramp(s, 3.3, 5.18, "charging_boost", 0.0, 3.0)
-	c._do(s, 3.95, "state", {"boost_level": 1})
-	c._do(s, 4.6, "state", {"boost_level": 2})
-	c._cue(3.45, "event", "boost_charge", {"position": {"a": s}, "active": true})
-	c._shot(3.4, {"rel": {"a": s}, "eye": [Vector3(1.0, 0.24, 1.15), Vector3(0.75, 0.28, 0.95)], "look": {"a": s, "h": 0.28, "o": Vector3(0, 0, 0.1)}, "fov": [42, 38], "hand": 0.5})
-	for k: int in range(5): _later(3.45 + 0.13 * float(k), "bolts", {"at": {"a": s, "h": 0.15}, "color": Color("d9c8ff"), "count": 2, "radius": 0.45, "size": 0.55})
-	_later(3.5, "sparkles", {"at": {"a": s, "h": 0.3}, "color": tint, "count": 6, "radius": 0.5})
-	# B · eyes
-	c._do(s, 3.95, "mood", "determined")
-	_closeup(4.0, s, Vector3(0, 0, 1), 1.0, 1.05, 28.0)
+	c._put(a, _r(0.1, 3.2))
+	c._face(a, 0.0, "dir", Vector3(0, 0, -1))
+	_play(s, "fv_simon_rain")
+	_play(a, "fv_simon_alice_rain")
+	# A · par-dessus l'épaule d'Alice : il sautille, cherche une sortie
+	c._shot(3.32, {"rel": {"a": a}, "eye": [Vector3(0.58, 1.55, 1.3), Vector3(0.52, 1.5, 1.15)], "look": {"a": s, "h": 1.0}, "fov": [40, 37], "hand": 0.4})
+	# B · ses yeux se plantent dans les siens
+	_closeup(3.95, s, Vector3(0, 0, 1), 1.0, 1.0, 28.0)
 	_glint(4.05, 4.75, s, 1.1)
 	_bolt(4.35, 0.22, 0.9)
-	# C · Alice in the rain, over Simon's shoulder
-	c._move(a, 4.55, 5.25, _r(0.1, 3.6), "smooth")
-	c._shot(4.7, {"rel": {"a": s}, "eye": [Vector3(-0.55, 1.62, -1.5), Vector3(-0.45, 1.6, -1.25)], "look": {"a": a, "h": 1.35}, "fov": [36, 33], "hand": 0.35})
-	_glint(4.75, 5.3, a, 0.9)
-	# D · release: past her in a blink
-	var go: float = 5.32
-	c._do(s, go, "unset", ["boost_charging", "charging_boost", "boost_level"])
-	c._do(s, go, "state", {"speed_boost": 6.0})
+	# C · au ras du sol derrière lui : « à vos marques », elle avance, fond sur lui
+	c._shot(4.6, {"rel": {"a": s}, "eye": [Vector3(-1.05, 0.34, -1.05), Vector3(-0.95, 0.32, -0.95)], "look": {"mid": [s, a], "h": 0.75}, "fov": [48, 46], "hand": 0.4})
+	c._cue(4.62, "event", "boost_charge", {"position": {"a": s}, "active": true})
+	for k: int in range(5): _later(4.66 + 0.13 * float(k), "bolts", {"at": {"a": s, "h": 0.25}, "color": Color("d9c8ff"), "count": 2, "radius": 0.4, "size": 0.5})
+	c._move(a, 4.62, 5.1, _r(0.1, 2.24), "linear")
+	c._move(a, 5.12, 5.28, center, "out")
+	_glint(4.9, 5.3, a, 0.9)
+	# D · 5,32 · parti : la griffe tranche l'image rémanente
 	c._cue(go, "event", "boost_release", {"position": {"a": s}, "level": 3})
 	c._cue(go, "sound", "boost", {"a": s}, 1.0, 1.1)
 	c._cue(go, "rush", 1.0)
 	c._cue(go + 0.02, "shake", 0.35)
-	c._face(s, go, "move")
-	c._move(s, go, go + 0.26, _r(-0.95, _far(10.5)), "dash")
-	c._do(a, go + 0.02, "trigger", "slash")
-	c._cue(go + 0.14, "word", "miss", {"a": a, "h": 2.15}, PAPER, 0.9)
-	_spin(go + 0.08, go + 1.45, a, 3.0, "out")
-	c._stun(a, go + 0.3, 1.6)
-	c._cue(go + 0.35, "stars", {"a": a, "s": "over"}, 4)
-	_later(go + 0.02, "trail", {"who": s, "socket": "foot_r", "seconds": 0.5, "width": 0.22})
-	_later(go + 0.02, "trail", {"who": s, "socket": "hand_l", "seconds": 0.5, "width": 0.18})
-	_later(go + 0.05, "whoosh", {"at": {"a": a, "h": 1.0, "o": Vector3(-0.8, 0, 0)}, "dir": Vector3(0, 0, 1), "color": tint, "count": 7, "length": 2.4})
+	_later(go, "cue", {"who": s, "cue": "afterimage"})
 	_later(go + 0.06, "cue", {"who": s, "cue": "afterimage"})
 	_later(go + 0.12, "cue", {"who": s, "cue": "afterimage"})
-	_later(go + 0.2, "cue", {"who": a, "cue": "spin"})
-	_burst(go + 0.1, _r(-0.4, 5.2, 0.4), Vector3(0, 0.4, 1), 26, 5.5, {"spread": 0.9, "lift": 2.2, "swirl": 5.0, "radius": 0.9, "life": 1.9, "size": 0.11})
-	_rain_burst(go + 0.08, _r(-0.6, 5.0, 1.0), 0.7)
+	_later(go + 0.02, "trail", {"who": s, "socket": "foot_r", "seconds": 0.5, "width": 0.22})
+	_later(go + 0.02, "trail", {"who": s, "socket": "hand_l", "seconds": 0.5, "width": 0.18})
+	c._cue(go + 0.02, "sound", "slash", {"a": a}, 0.8, 1.0)
+	_later(go + 0.04, "whoosh", {"at": {"a": a, "h": 1.0, "o": Vector3(-0.8, 0, 0)}, "dir": Vector3(0, 0, 1), "color": tint, "count": 7, "length": 2.4})
+	_burst(go + 0.06, _r(-0.6, 1.2, 0.3), Vector3(0, 0.4, 1), 26, 5.5, {"spread": 0.9, "lift": 2.2, "swirl": 5.0, "radius": 0.9, "life": 1.9, "size": 0.11})
+	_rain_burst(go + 0.06, _r(-0.6, 1.2, 1.0), 0.7)
 	_smear(go - 0.02, go + 0.3, Vector2(0.075, 0.0))
-	c._shot(go - 0.08, {"rel": {"a": a}, "eye": [Vector3(4.6, 1.15, -0.6), Vector3(4.3, 1.2, -0.2)], "look": {"a": a, "h": 1.0, "o": Vector3(0, 0, -0.4)}, "fov": [48, 46], "hand": 0.6})
-	# E · Alice spinning
-	c._shot(go + 0.42, {"rel": {"a": a}, "eye": [Vector3(0.5, 1.45, -2.2), Vector3(0.35, 1.5, -1.9)], "look": {"a": a, "h": 1.35}, "fov": [34, 31], "hand": 0.4, "roll": [-4, 6]})
-	# F · Simon skids, turns back and grins
-	var skid: float = 6.45
-	c._face(s, go + 0.4, "dir", Vector3(0, 0, -1))
-	_later(go + 0.27, "cue", {"who": s, "cue": "skid"})
-	c._do(s, skid, "mood", "grin")
-	c._do(s, skid + 0.05, "emote", "point")
-	c._shot(skid, {"rel": {"a": s}, "eye": [Vector3(0.9, 1.35, -2.4), Vector3(0.7, 1.4, -2.0)], "look": {"a": s, "h": 1.3}, "fov": [34, 30], "hand": 0.3})
-	_glint(skid + 0.05, skid + 0.75, s, 1.0)
-	# G · tornado around her
-	var loop: float = 7.25
-	c._do(s, loop - 0.05, "emote", "")
-	c._face(s, loop, "move")
-	var center: Vector3 = _r(0.15, 3.6)
-	var points: Array[Vector3] = []
-	for k: int in range(7):
-		var angle: float = PI * 0.5 + float(k) * TAU / 6.0
-		points.append(center + Vector3(cos(angle) * 1.7, 0, sin(angle) * 1.7))
-	c._move(s, loop, loop + 0.12, points[0], "linear")
-	for k: int in range(1, points.size()):
-		c._move(s, loop + 0.12 + 0.075 * float(k - 1), loop + 0.12 + 0.075 * float(k), points[k], "linear")
-		_later(loop + 0.12 + 0.075 * float(k), "cue", {"who": s, "cue": "afterimage"})
-	var leave: float = loop + 0.12 + 0.075 * float(points.size() - 1)
-	c._move(s, leave, leave + 0.25, _r(0.6, _far(6.5)), "dash")
-	c._cue(loop, "sound", "boost", {"a": s}, 0.8, 1.25)
-	c._cue(loop + 0.1, "rush", 0.9)
-	_later(loop + 0.1, "cue", {"who": a, "cue": "spin"})
-	_later(loop + 0.3, "cue", {"who": a, "cue": "spin"})
-	_spin(loop + 0.05, loop + 1.4, a, 4.0, "out")
-	c._stun(a, loop, 2.6)
-	c._cue(loop + 0.7, "stars", {"a": a, "s": "over"}, 5)
-	_burst(loop + 0.05, center + Vector3(0, 0.2, 0), Vector3.UP, 34, 2.4, {"spread": 0.3, "lift": 3.2, "swirl": 7.5, "radius": 1.5, "gravity": 1.2, "drag": 0.6, "life": 2.2, "size": 0.12})
-	_rain_burst(loop + 0.1, center + Vector3(0, 1.0, 0), 0.9)
-	c._shot(loop - 0.05, {"rel": {"a": a}, "eye": [Vector3(1.4, 5.4, 1.9), Vector3(1.1, 4.9, 1.5)], "look": {"a": a, "h": 0.6}, "fov": [52, 48], "hand": 0.5, "roll": [3, -5]})
-	# H · gone: tracking sprint into the night
-	var run: float = 8.3
-	c._move(s, run, run + 1.1, _r(0.6, _far(24.0)), "linear")
-	c._cue(run, "rush", 1.0)
-	c._shot(run, {"rel": {"a": s}, "eye": [Vector3(1.0, 0.75, 2.1), Vector3(1.15, 0.8, 2.3)], "look": {"a": s, "h": 0.95}, "fov": [54, 58], "hand": 0.7})
-	_smear(run, run + 1.0, Vector2(0.0, 0.0))
-	_bolt(run + 0.55, 0.3, 1.2)
+	c._face(s, go, "dir", Vector3(-0.55, 0, 1))
+	c._move(s, go, go + 0.06, _r(-1.1, 1.3), "linear")
+	c._face(s, go + 0.06, "dir", Vector3(0.07, 0, 1))
+	var stop: float = _far(10.5)
+	c._move(s, go + 0.06, FV.S_SKID, _r(-0.9, minf(4.0, stop - 2.0)), "linear")
+	# le souffle la fait tourner sur elle-même (deux tours, et elle finit face à lui)
+	c._face(a, go + 0.04, "dir", Vector3(0, 0, 1))
+	_spin(go + 0.04, 6.2, a, 2.0, "out")
+	_later(go + 0.15, "cue", {"who": a, "cue": "spin"})
+	_later(go + 0.45, "cue", {"who": a, "cue": "spin"})
+	c._cue(5.7, "stars", {"a": a, "s": "over"}, 4)
+	c._shot(5.42, {"rel": {"a": a}, "eye": [Vector3(0.55, 1.2, -1.75), Vector3(0.45, 1.25, -1.5)], "look": {"a": a, "h": 1.25}, "fov": [40, 36], "hand": 0.4, "roll": [-4, 5]})
+	# E · le dérapage : il glisse de travers vers la caméra, gerbes d'eau
+	c._face(s, FV.S_SKID - 0.06, "dir", Vector3(-1, 0, 0))
+	c._move(s, FV.S_SKID, FV.S_STOP, _r(-0.5, stop), "out")
+	for k: int in range(7): _burst(FV.S_SKID + 0.1 * float(k), _r(-0.6 + 0.02 * float(k), lerpf(4.5, stop, 1.0 - pow(1.0 - float(k) / 7.0, 2.0)), 0.1), Vector3(0, 0.6, 1), 8, 2.6 - 0.25 * float(k), {"spread": 0.7, "lift": 1.6, "gravity": 7.0, "life": 0.7, "size": 0.05, "colors": [Color("cfdaea"), Color("9fb0c8")]})
+	c._cue(FV.S_SKID, "sound", "step", {"a": s}, 0.8, 0.6)
+	c._shot(5.95, {"eye": [_r(0.75, stop + 1.7, 0.42), _r(0.7, stop + 1.65, 0.45)], "look": {"a": s, "h": 0.65}, "fov": [44, 40], "hand": 0.3})
+	# F · il se retourne vers elle et agite le doigt
+	c._face(s, 6.3, "dir", Vector3(0, 0, -1))
+	c._shot(6.42, {"rel": {"a": s}, "eye": [Vector3(0.38, 1.32, -1.75), Vector3(0.34, 1.3, -1.55)], "look": {"a": s, "h": 1.28}, "fov": [36, 34], "hand": 0.3})
+	_glint(6.6, 7.1, s, 0.9)
+	# G · la tornade : un tour et trois quarts autour d'elle, vue de haut
+	var radius: float = 1.3
+	var spin_start: float = FV.S_TORNADO + 0.06
+	c._face(s, FV.S_TORNADO, "move")
+	c._move(s, FV.S_TORNADO, spin_start, center + Vector3(0.0, 0.0, radius), "linear")
+	var turns: int = 14
+	for k: int in range(1, turns + 1):
+		var angle: float = PI * 0.5 + 3.5 * PI * float(k) / float(turns)
+		var t: float = lerpf(spin_start, FV.S_EXIT, float(k) / float(turns))
+		c._move(s, t - (FV.S_EXIT - spin_start) / float(turns), t, center + Vector3(cos(angle) * radius, 0.0, sin(angle) * radius), "linear")
+		if k % 2 == 0: _later(t, "cue", {"who": s, "cue": "afterimage"})
+	c._cue(FV.S_TORNADO, "sound", "boost", {"a": s}, 0.8, 1.25)
+	c._cue(FV.S_TORNADO + 0.1, "rush", 0.9)
+	_spin(7.36, 8.0, a, 1.0, "in")
+	_later(7.5, "cue", {"who": a, "cue": "spin"})
+	_later(7.75, "cue", {"who": a, "cue": "spin"})
+	c._cue(8.0, "sound", "ground_impact", {"a": a}, 0.7, 1.1)
+	c._cue(8.0, "dust_ring", {"a": a}, 0.9)
+	c._cue(8.08, "stars", {"a": a, "s": "over"}, 5)
+	_burst(FV.S_TORNADO + 0.05, center + Vector3(0, 0.2, 0), Vector3.UP, 34, 2.4, {"spread": 0.3, "lift": 3.2, "swirl": 7.5, "radius": 1.4, "gravity": 1.2, "drag": 0.6, "life": 2.2, "size": 0.12})
+	_rain_burst(FV.S_TORNADO + 0.1, center + Vector3(0, 1.0, 0), 0.9)
+	c._shot(FV.S_TORNADO - 0.02, {"rel": {"a": a}, "eye": [Vector3(0.6, 4.6, 1.6), Vector3(0.45, 4.2, 1.3)], "look": {"a": a, "h": 0.4}, "fov": [54, 50], "hand": 0.5, "roll": [3, -5]})
+	# H · il file dans la nuit : la caméra recule devant lui, au ras du sol
+	var run_from: Vector3 = _r(0.15, 2.5)
+	var run_to: Vector3 = _r(-0.35, minf(10.9, room))
+	var run_end: float = FV.S_RUN + run_from.distance_to(run_to) / FV.S_RUN_SPEED
+	c._move(s, FV.S_EXIT, FV.S_RUN, run_from, "linear")
+	c._face(s, FV.S_EXIT + 0.05, "dir", Vector3(0, 0, 1))
+	c._move(s, FV.S_RUN, run_end, run_to, "linear")
+	c._cue(FV.S_RUN, "rush", 0.8)
+	c._shot(FV.S_RUN, {"rel": {"a": s}, "eye": [Vector3(1.2, 0.62, 1.75), Vector3(1.1, 0.6, 1.5)], "look": {"a": s, "h": 0.75}, "fov": [48, 46], "hand": 0.6})
+	_later(FV.S_RUN, "trail", {"who": s, "socket": "hand_l", "seconds": 1.0, "width": 0.14})
+	_later(FV.S_RUN, "trail", {"who": s, "socket": "hand_r", "seconds": 1.0, "width": 0.14})
+	_later(9.05, "cue", {"who": s, "cue": "afterimage"})
+	_later(9.05, "whoosh", {"at": {"a": s, "h": 1.0}, "dir": Vector3(0, 0, -1), "color": PAPER, "count": 6, "length": 2.0})
+	_smear(9.05, 9.35, Vector2(0.0, 0.04))
+	_bolt(8.85, 0.3, 1.2)
 	_flash(t_ink - 0.06, 0.14)
-	# INK · the camera keeps pace with Simon in profile: he blows past Alice, who
-	# spins and slides out of the frame behind him, scraps of paper streaming by
+	# PAPIER · une foulée suspendue au ralenti ; derrière, Alice assise, étourdie
 	var ink: float = t_ink
-	_jump(s, ink, _ink(1.0, 0, 0.0))
-	_jump(a, ink, _ink(-1.6, 0, -1.0))
-	c._face(s, ink, "move")
-	c._do(s, ink, "unset", ["speed_boost"])
-	c._do(s, ink, "state", {"speed_boost": 6.0})
-	c._move(s, ink + 0.01, ink + 2.55, _ink(-13.0, 0, 0.0), "linear")
-	c._do(a, ink, "stun", true)
-	_spin(ink, ink + 2.6, a, 3.0, "linear")
-	_later(ink + 0.4, "cue", {"who": a, "cue": "spin"})
-	_burst(ink + 0.4, _ink(-1.6, 0.3, -1.0), Vector3.UP, 26, 1.6, {"spread": 0.4, "lift": 1.6, "swirl": 4.0, "radius": 1.0, "gravity": 0.4, "drag": 0.5, "life": 2.6, "size": 0.1})
+	_jump(s, ink, _ink(-1.4, 0, 0.6))
+	_jump(a, ink, _ink(1.3, 0, -1.3))
+	c._face(s, ink, "dir", Vector3(1, 0, 0))
+	c._face(a, ink, "dir", Vector3(-0.6, 0, 0.8))
+	_play(s, "fv_simon_ink", ink)
+	_play(a, "fv_simon_alice_ink", ink)
+	c._move(s, ink + 0.05, ink + 2.65, _ink(-1.4 + 0.92 * 2.6, 0, 0.6), "linear")
+	_spin(ink, ink + 2.6, a, 0.75, "linear")
+	_tilt(ink, ink + 2.6, a, Vector3(0, 0, -0.12), Vector3(0, 0, -0.3))
+	_later(ink + 0.3, "cue", {"who": a, "cue": "spin"})
+	c._cue(ink + 0.2, "stars", {"a": a, "s": "over"}, 5)
 	for k: int in range(6):
-		var x: float = -3.2 - 2.2 * float(k)
-		_burst(ink + 0.04, _ink(x, 0.6, -1.6), Vector3(0.2, 1.0, 0.0), 7, 0.35, {"spread": 1.0, "lift": 0.3, "gravity": 0.05, "drag": 0.6, "life": 2.6, "size": 0.09 + 0.02 * float(k % 3)})
-		# grit kicked up behind his heels, where he is at that moment
-		var kick: float = 0.15 + 0.4 * float(k)
-		_burst(ink + kick, _ink(1.3 - 14.0 / 2.55 * kick, 0.15, 0.0), Vector3(1.0, 0.5, 0.0), 6, 3.0, {"spread": 0.5, "lift": 0.8, "gravity": 2.0, "drag": 1.2, "life": 1.4, "size": 0.07})
-	for k: int in range(8): _later(ink + 0.1 + 0.28 * float(k), "cue", {"who": s, "cue": "afterimage"})
-	for k: int in range(4): _later(ink + 0.15 + 0.6 * float(k), "whoosh", {"at": {"a": s, "h": 1.0, "o": Vector3(1.2, 0, 0)}, "dir": Vector3(1, 0, 0), "color": PAPER, "count": 6, "length": 2.2})
-	c._shot(ink, {"rel": {"a": s}, "eye": [Vector3(0.6, 1.0, 4.8), Vector3(0.45, 1.0, 4.6)], "look": {"a": s, "h": 0.95, "o": Vector3(-0.5, 0, 0)}, "fov": 42, "hand": 0.1, "safe": false})
+		var x: float = 3.2 - 1.6 * float(k)
+		_burst(ink + 0.04, _ink(x, 0.6, -0.4), Vector3(-1.0, 0.4, 0.0), 7, 0.6, {"spread": 1.0, "lift": 0.3, "gravity": 0.05, "drag": 0.4, "life": 2.6, "size": 0.09 + 0.02 * float(k % 3)})
+	for k: int in range(5): _later(ink + 0.2 + 0.5 * float(k), "cue", {"who": s, "cue": "afterimage"})
+	c._shot(ink, {"rel": {"a": s}, "eye": [Vector3(0.55, 1.0, 4.4), Vector3(0.45, 1.0, 4.2)], "look": {"a": s, "h": 0.9, "o": Vector3(0.6, 0, 0)}, "fov": 42, "hand": 0.1, "safe": false})
 
 
 

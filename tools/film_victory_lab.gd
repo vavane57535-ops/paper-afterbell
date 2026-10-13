@@ -111,6 +111,11 @@ func _report(t: float) -> void :
 			var p: Vector3 = visual.socket_position(socket)
 			feet.append("%s(%.3f,%.3f,%.3f)" % [socket, p.x, p.y, p.z])
 		line.append("%s root(%.3f,%.3f,%.3f) %s hand_r%s" % [take.person, visual.global_position.x, visual.global_position.y, visual.global_position.z, " ".join(PackedStringArray(feet)), str(visual.socket_position("hand_r").snappedf(0.001))])
+	if "--lab-state" in OS.get_cmdline_user_args():
+		for take: Variant in film.takes:
+			var v: PaperVisual = take.visual
+			line.append("%s action=%s left=%.2f stunned=%s body=%s chest=%s life=%s state=%s" % [take.person, str(v.get("_action")), float(v.get("_action_time")), str(take.stunned), str((v.get("_body") as Node3D).rotation.snappedf(0.01)), str((v.get("_chest") as Node3D).rotation.snappedf(0.01)), str(v.get("_life_state")), str(take.state)])
+			line.append("%s hips_y=%.3f root_y=%.3f clip=%s" % [take.person, (v.get("_body") as Node3D).global_position.y, v.global_position.y, str(v.get("_action"))])
 	var camera: Camera3D = world.camera
 	line.append("cam(%.2f,%.2f,%.2f) focus(%.2f,%.2f,%.2f) shot=%d" % [camera.global_position.x, camera.global_position.y, camera.global_position.z, film.camera_focus.x, film.camera_focus.y, film.camera_focus.z, int(film.last_shot)])
 	print("LAB t=%.2f %s" % [t, " | ".join(line)])
