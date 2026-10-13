@@ -108,7 +108,7 @@ func _k() -> float:
 
 func _build_entries() -> void :
 	var specs: Array = [
-		["REPRENDRE", "resume", "Les amis jouent encore : la manche continue pendant ta pause." if networked else "Retourner dans la manche, là où la cloche t’attend."],
+		["REPRENDRE", "resume", "Les amis jouent encore : la manche continue pendant ta pause." if networked else "Retour à la partie."],
 		["RÉGLAGES", "settings", "Jeu, graphismes, audio et accessibilité."],
 		["COMMANDES", "controls", "Personnaliser le clavier et la manette."],
 		["QUITTER LA PARTIE", "quit", "Quitter le salon de tes amis." if networked else "Abandonner la manche et retourner au menu principal."],
@@ -445,7 +445,7 @@ func _paint_back(layer: Control) -> void :
 	var ribbon_p: float = _phase(0.1, 0.3)
 	var ribbon_from: Vector2 = Vector2(-40.0, 96.0 * k)
 	var ribbon_to: Vector2 = Vector2(view.x + 40.0, - 20.0 * k)
-	C.draw_ribbon(layer, ribbon_from, ribbon_from.lerp(ribbon_to, _out(ribbon_p)), 34.0 * k, T.tr_text("LA CLOCHE ATTEND") + "   ·   PAUSE", t * 60.0 * motion, Color(T.INK, 0.85), Color(T.CREAM, 0.85), 5)
+	C.draw_ribbon(layer, ribbon_from, ribbon_from.lerp(ribbon_to, _out(ribbon_p)), 34.0 * k, T.tr_text("ON SOUFFLE UN COUP") + "   ·   PAUSE", t * 60.0 * motion, Color(T.INK, 0.85), Color(T.CREAM, 0.85), 5)
 	# Bouts de papier qui volent lentement.
 	if not reduced:
 		for i: int in range(_scraps.size()):

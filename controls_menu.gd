@@ -119,7 +119,7 @@ func _build() -> void :
 	var names: Array[String] = []
 	for device: int in Input.get_connected_joypads(): names.append(Input.get_joy_name(device))
 	_text("Manettes détectées : " + (", ".join(names) if not names.is_empty() else "aucune pour le moment"), 15, T.MUTED)
-	prompt = _text("Choisis une commande à modifier. Échap annule la capture.", 17, T.GOLD)
+	prompt = _text("Choisis une commande, puis appuie sur la nouvelle touche. Échap pour annuler.", 17, T.GOLD)
 	for action: String in PaperBindings.LABELS:
 		var holder: W.MenuRow = W.MenuRow.new()
 		list.add_child(holder)

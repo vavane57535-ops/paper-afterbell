@@ -122,13 +122,12 @@ static func duration_for(film: String, names: Array = []) -> float:
 
 static func catalogue() -> Array[Dictionary]:
 	var rows: Array[Dictionary] = []
-	rows.append(_entry("intro_yiero", "Prologue — Yiero", "intro", "intro_yiero", ["Simon", "Ashura", "Usayuko", "Elly", "Bleuette", "Lysia"], "Simon", "Le film du premier lancement : Simon et Ashura affrontent Yiero dans une dimension ténébreuse… puis Simon atterrit à l’école en plein combat."))
+	rows.append(_entry("intro_yiero", "Prologue — Yiero", "intro", "intro_yiero", ["Simon", "Ashura", "Usayuko", "Elly", "Bleuette", "Lysia"], "Simon", "Le film du premier lancement. Simon et Ashura tombent sur Yiero, un démon géant, au milieu d’une mer d’encre. Simon finit par atterrir à l’école, en pleine bagarre contre Alice."))
 	for person: String in PaperData.NAMES:
 		rows.append(_entry("lms_win_" + person, VictoryFilm.title_for(person), "lms_win", "ending_lms", [person], person, VictoryFilm.description_for(person)))
-		# accord au féminin pour les élèves (Lysia, Elly, Bleuette) et élision (d’Ashura) dans le titre et la description
+		# accord au féminin pour les élèves (Lysia, Elly, Bleuette) dans le titre et la description
 		var she: bool = person in ["Lysia", "Elly", "Bleuette"]
-		var of: String = "d’" if person.left(1) in ["A", "E", "I", "O", "U", "Y"] else "de "
-		rows.append(_entry("lms_loss_" + person, "Alice · " + person + (" rattrapée" if she else " rattrapé"), "lms_loss", "ending_killer", [person], person, "La dernière tentative " + of + person + " échoue. Alice " + ("la" if she else "le") + " rattrape, frappe et l’achève au sol."))
+		rows.append(_entry("lms_loss_" + person, "Alice · " + person + (" rattrapée" if she else " rattrapé"), "lms_loss", "ending_killer", [person], person, person + (" est la dernière encore debout. Alice finit par la rattraper." if she else " est le dernier encore debout. Alice finit par le rattraper.")))
 	for mask: int in range(1, 64):
 		var team: Array = []
 		for i: int in range(PaperData.NAMES.size()):

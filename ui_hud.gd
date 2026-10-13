@@ -429,9 +429,9 @@ func _build_archive() -> void :
 	box.add_theme_constant_override("separation", 10)
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	archive_panel.add_child(box)
-	var title: Label = _label(_t("ARCHIVE · CONTRÔLE D’INTÉGRITÉ"), "caps", 14, T.TEAL)
+	var title: Label = _label(_t("ARCHIVE · APPUIE SUR LA BONNE TOUCHE"), "caps", 14, T.TEAL)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.set_meta("fr", "ARCHIVE · CONTRÔLE D’INTÉGRITÉ")
+	title.set_meta("fr", "ARCHIVE · APPUIE SUR LA BONNE TOUCHE")
 	box.add_child(title)
 	var keys: HBoxContainer = HBoxContainer.new()
 	keys.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -642,8 +642,8 @@ func update(delta: float) -> void :
 	if drone_frame.visible: _write(drone_label, _t("● DRONE PRÉCIS · BATTERIE %.1f s · CORPS IMMOBILE") % float(a.effects.get("drone_battery", 0)))
 	reticle.visible = a != null and a.active() and not piloting
 	if intro:
-		_write(title_label, _t("L'ÉCOLE SE REFERME"))
-		var line: String = _t("ALICE · Éliminez tous les survivants.") if a and a.killer else _t("SURVIVANTS · Tenez jusqu’à 01:20, puis rejoignez la sortie.")
+		_write(title_label, _t("LES GRILLES SONT FERMÉES"))
+		var line: String = _t("ALICE · Attrape-les avant qu’ils sortent.") if a and a.killer else _t("SURVIVANTS · Tenez jusqu’à 01:20, puis rejoignez la sortie.")
 		_write(subtitle_label, line + "\n" + str(maxi(1, int(ceil(world.INTRO_DURATION - world.cinema)))))
 	_update_top(a)
 	room_row.visible = a != null
@@ -934,21 +934,21 @@ func _prompt_text(a: PaperActor) -> String:
 	if float(a.effects.get("outlet_healing", 0)) > 0: return _t("BRANCHÉE · +10 PV / 2 s · %.1f s · BOUGER / INTERAGIR / 4 : DÉBRANCHER") % float(a.effects.outlet_healing)
 	if a.character == "Simon" and float(a.effects.get("speed_boost", 0)) > 0: return _t("INTERAGIR · DÉPOSER TON ALLIÉ") if int(a.effects.get("carrying_id", -1)) >= 0 else _t("INTERAGIR PRÈS D’UN ALLIÉ · L’EMPORTER (SAUF LYSIA)")
 	if not a.alive: return ""
-	if bool(a.effects.get("dying", false)): return _t("LA DERNIÈRE BLESSURE…")
+	if bool(a.effects.get("dying", false)): return _t("TU T’ÉCROULES…")
 	if bool(a.effects.get("downed", false)):
 		return (_t("À TERRE · RAMPE VERS UN ALLIÉ · %d s") if world.ruleset == "om" else _t("À TERRE · UN ALLIÉ PEUT TE RELEVER · %d s")) % int(ceil(float(a.effects.get("bleedout", 30))))
 	if float(a.effects.get("stun", 0)) > 0: return _t("ÉTOURDI  ·  %.1f s") % float(a.effects.stun)
 	if bool(a.effects.get("spike_aiming", false)): return _t("VISE AVEC LA SOURIS · CLIC OU 3 : PIQUES · CLIC DROIT : ANNULER")
 	if float(a.effects.get("grab_time", 0)) > 0: return _t("CHARGE · ATTRAPE ALICE AU CONTACT ET VISE UN MUR")
-	if float(a.effects.get("shadow_mark", 0)) > 0: return _t("ALICE EST DANS TON OMBRE ! ELLE ARRIVE DERRIÈRE TOI")
-	if bool(a.effects.get("shadow_hide", false)): return _t("OMBRE PORTÉE · ÉMERGENCE DERRIÈRE LA CIBLE…")
+	if float(a.effects.get("shadow_mark", 0)) > 0: return _t("ALICE ARRIVE DERRIÈRE TOI ! BOUGE !")
+	if bool(a.effects.get("shadow_hide", false)): return _t("OMBRES · TU VAS SURGIR DERRIÈRE UN ÉLÈVE AU HASARD")
 	if float(a.effects.get("phase6", 0)) > 0: return _t("TRUE FORM · %.0f s · COMPÉTENCE 4 : BONDIR") % float(a.effects.phase6)
 	if float(a.effects.get("counter", 0)) > 0: return _t("2  ·  CONTRE DISPONIBLE !")
 	if float(a.effects.get("overheat_time", 0)) > 0: return _t("SURCHAUFFE · INVULNÉRABLE · ARMURE −%d PV · %.1f s") % [int(floor(PaperSurvivorMechanics.OVERHEAT_HP_COST * clampf(1.0 - float(a.effects.overheat_time) / PaperSurvivorMechanics.OVERHEAT_SECONDS, 0.0, 1.0))), float(a.effects.overheat_time)]
 	if float(a.effects.get("heal_time", 0)) > 0: return _t("SOIN EN COURS · %.1f s") % float(a.effects.heal_time)
 	if bool(a.effects.get("drone_piloting", false)): return _t("JOYSTICK + REGARD POUR PILOTER · ANNULER POUR QUITTER") if world.mobile_mode else _t("ZQSD / WASD + SOURIS : PILOTER · CLIC DROIT : QUITTER")
 	if bool(a.effects.get("drone_active", false)): return _t("DRONE EN VOL · BATTERIE %.1f / 10 s") % float(a.effects.get("drone_battery", 0))
-	if a.killer and world.clock < 5 and not world.training: return _t("Les élèves prennent de l'avance…")
+	if a.killer and world.clock < 5 and not world.training: return _t("Les élèves ont quelques secondes d’avance.")
 	if not a.killer:
 		var rescue: Dictionary = world.combat.revive_preview(a)
 		if int(rescue.get("target", -1)) >= 0: return _t(str(rescue.get("label", "MAINTENIR E · RELEVER")))

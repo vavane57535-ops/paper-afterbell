@@ -26,19 +26,19 @@ const PAPER = Color("ece5d5")
 const MUTED = Color("a9acac")
 const RED = Color("d6455d")
 const TEAL = Color("87c9c4")
-const MAP_LINES: Dictionary = {"school": "L'école de Miss Circle sur deux étages : un atrium et ses deux escaliers, un couloir de casiers en boucle, des classes à deux portes. Les portes offrent à Alice des occasions de condamner un passage.", "forest": "Les bois derrière l'école : la fosse et son pont cassé, la serre de Miss Bloomie, la cabane perchée et les haies. La sortie est au portail du bus.", "snow": "La classe de neige : un chalet sur deux étages relié à la crête par une passerelle, des chalets à deux portes, un étang gelé à découvert. On s'échappe par le téléphérique."}
+const MAP_LINES: Dictionary = {"school": "L’école de Miss Circle, sur deux étages : l’atrium et ses deux escaliers, un couloir de casiers qui fait le tour, des classes à deux portes. Alice peut condamner une porte à la fois.", "forest": "Les bois derrière l'école : la fosse et son pont cassé, la serre de Miss Bloomie, la cabane perchée et les haies. La sortie est au portail du bus.", "snow": "La classe de neige : un chalet sur deux étages relié à la crête par une passerelle, des chalets à deux portes, un étang gelé à découvert. On s'échappe par le téléphérique."}
 const MAP_SHORT: Dictionary = {"school": "Atrium, classes, bibliothèque, gymnase.", "forest": "Fosse, pont cassé, serre, cabane perchée.", "snow": "Chalet, passerelle, étang gelé, téléphérique."}
-const MAP_TAGLINES: Dictionary = {"school": "Les couloirs gardent leurs secrets.", "forest": "Dans les bois, chaque bruit compte.", "snow": "La neige étouffe les pas. Pas la peur."}
+const MAP_TAGLINES: Dictionary = {"school": "Interdit de courir dans les couloirs. Sauf ce soir.", "forest": "Le bus ne partira pas sans toi. Normalement.", "snow": "Bonnet, gants, écharpe. Et cours !"}
 const TIPS: Array[String] = [
 	"La sortie s’ouvre à 01:20 : il faut l’atteindre pour gagner, attendre ne suffit pas.", 
 	"Un allié au sol se relève immédiatement avec E. Lysia, elle, ne peut pas être réanimée.", 
-	"Simon et Ashura : maintenez la capacité 2 pour charger. Trois secondes de charge donnent six secondes de boost.", 
-	"Après chaque étourdissement, Alice résiste aux nouveaux stuns pendant 5 secondes : espacez vos attaques.", 
+	"Simon et Ashura : maintiens la capacité 2 pour charger. 3 s de charge, 6 s de boost.", 
+	"Après un stun, Alice ne peut plus être étourdie pendant 5 s. Ne balancez pas tout en même temps.", 
 	"15 étourdissements débloquent la True Form d’Alice : 30 secondes, chrono suspendu, sortie fermée.", 
 	"Le LMS dure le temps de la musique du dernier survivant. Une aura pleine garde la sortie ouverte.", 
-	"Début de LMS : +65 PV, jusqu’à 150 PV. Seul le courage de Bleuette (Je peux le faire) dépasse 150.", 
-	"Aidez l’équipe pour remplir votre aura : soins, boosts, protections et stuns comptent.", 
-	"Archives : maintenez E, puis appuyez sur la bonne touche J, K ou L. Une erreur déclenche l’alarme.", 
+	"En LMS, tu gagnes 65 PV (150 max). Seule Bleuette peut dépasser 150, avec « Je peux le faire ».", 
+	"Soins, boosts, protections, stuns : tout ce qui aide l’équipe remplit ton aura.", 
+	"Archives : maintiens E, puis appuie sur la bonne touche (J, K ou L). Une erreur, et l’alarme sonne.", 
 	"Lysia se recharge aux prises murales et mange les épaves de drone pour 7 PV.", 
 	"Elly entend les capacités d’Alice partout dans l’école.", 
 ]
@@ -862,7 +862,7 @@ func _main_decor() -> void :
 	decor.band_alpha = 0.85
 	decor.band_fill = Color(0.012, 0.013, 0.022, 0.84)
 	decor.accent = T.RED
-	decor.ribbon_text = "DOSSIER 013  ·  LA SONNERIE NE VOUS SAUVERA PAS"
+	decor.ribbon_text = "DOSSIER 013  ·  FERMETURE DES GRILLES À 16 H 30"
 	_place_decor(decor)
 
 
@@ -873,21 +873,21 @@ func _main_column(column: VBoxContainer, mobile: bool) -> Control:
 
 	var logo: Control = MenuLogo.new()
 	column.add_child(logo)
-	logo.configure("La sonnerie ne vous sauvera pas.", mobile, reduced_motion)
+	logo.configure("Ne reste pas après les cours.", mobile, reduced_motion)
 	_spacer(column, 14 if mobile else 30)
 	var nav: VBoxContainer = _vbox(column, 0)
 	var entries: Array = [
-		["JOUER", "play", "Préparer une manche solo contre les bots : rôle, personnage et carte."], 
-		["ENTRE AMIS", "friends", "Salon Internet par code, connexion directe, comptes et groupes."], 
-		["TERRAIN D’ESSAI", "training", "École ouverte sans chrono : teste chaque capacité, le LMS et la True Form."], 
-		["CINÉMATHÈQUE", "gallery", "Prologue, fins d’équipe et LMS."], 
-		["BOUTIQUE", "shop", "Des danses à acheter avec tes tickets, à faire en partie : roue des émotes (G), puis Tab."], 
+		["JOUER", "play", "Une partie contre des bots. Choisis ton camp, ton perso et la carte."], 
+		["ENTRE AMIS", "friends", "Joue avec tes potes : salon par code, connexion directe ou compte."], 
+		["TERRAIN D’ESSAI", "training", "L’école sans chrono, pour tester toutes les capacités, le LMS et la True Form."], 
+		["CINÉMATHÈQUE", "gallery", "Revois le prologue et toutes les fins."], 
+		["BOUTIQUE", "shop", "Des danses à acheter avec tes tickets. En partie : G, puis Tab."], 
 		["RÉGLAGES", "settings", "Jeu, graphismes, audio, commandes et accessibilité."], 
 		["CRÉDITS", "credits", "Musiques, bruitages, polices et icônes."], 
 	]
 	if not mobile:
 
-		entries = [entries[0], entries[2], entries[1], entries[4], entries[3], entries[5], entries[6], ["QUITTER", "quit", "Fermer Paper Afterbell."]]
+		entries = [entries[0], entries[2], entries[1], entries[4], entries[3], entries[5], entries[6], ["QUITTER", "quit", "Fermer le jeu. À demain !"]]
 	var first: Control = null
 	for entry: Array in entries:
 		var item: W.NavItem = W.NavItem.new()
@@ -948,7 +948,7 @@ func show_shop() -> void :
 	var v: VBoxContainer = _form_panel(600)
 	_form_header(v, "DANSES  ·  ÉMOTES", "Boutique")
 	v.add_child(_label("TICKETS  :  %d" % world.tickets, "title", 26, T.TEAL))
-	_paragraph("Chaque manche rapporte des tickets (+30, plus ton score, plus un bonus si ton camp gagne). En partie, les danses sont dans la roue des émotes (G), pages DANSES (Tab). Les survivants proches qui font la même émote ou la même danse se synchronisent, musique et sons compris.", v, 15, T.PAPER_DIM)
+	_paragraph("Chaque manche rapporte des tickets : 30, plus ton score, plus un bonus si ton camp gagne. En partie, G ouvre la roue des émotes et Tab passe aux danses. Des survivants proches qui font la même émote ou la même danse se synchronisent, musique et sons compris.", v, 15, T.PAPER_DIM)
 	var first: Control = null
 	var fresh: Array = PaperDances.LIST.filter( func(entry: Dictionary) -> bool: return bool(entry.get("new", false)))
 	var classics: Array = PaperDances.LIST.filter( func(entry: Dictionary) -> bool: return not bool(entry.get("new", false)))
@@ -1184,7 +1184,7 @@ func _show_setup(role: String = "", index: int = -1) -> void :
 	if not world.networked:
 		var tabs: HBoxContainer = _hbox(column, 12)
 		var group: ButtonGroup = ButtonGroup.new()
-		for spec: Array in [["survivor", "SURVIVANT", "6 élèves · atteindre la sortie", "student", T.TEAL], ["alice", "ALICE", "L’ombre · empêcher la fuite", "slash", T.RED]]:
+		for spec: Array in [["survivor", "SURVIVANT", "6 élèves · atteindre la sortie", "student", T.TEAL], ["alice", "ALICE", "La tueuse · empêcher la fuite", "slash", T.RED]]:
 			var tab: W.RoleTab = W.RoleTab.new()
 			tab.text = str(spec[1])
 			tab.subtitle = str(spec[2])
@@ -1379,7 +1379,7 @@ func _setup_confirm() -> void :
 		show_lobby()
 		return
 	Sound.play("confirm")
-	transition(func() -> void : world.start_solo(world.solo_killer), "LA CLOCHE SONNE")
+	transition(func() -> void : world.start_solo(world.solo_killer), "C’EST PARTI")
 
 func _update_setup_texts() -> void :
 	if not is_instance_valid(setup_cta): return
@@ -1418,7 +1418,7 @@ func _alice_dossier(column: VBoxContainer, compact: bool = false) -> Control:
 	frame.add_child(photo)
 	var text: VBoxContainer = _vbox(row, 6)
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	text.add_child(_kicker("DOSSIER  ·  L’OMBRE DE L’ÉCOLE", T.RED_INK, 11))
+	text.add_child(_kicker("DOSSIER  ·  LA TUEUSE", T.RED_INK, 11))
 	text.add_child(_label("ALICE", "display", 44 if compact else 60, T.INK_TEXT))
 	text.add_child(_label("Qui veut rester après les cours ?", "hand", 22 if compact else 26, T.RED_INK))
 	_spacer(text, 4)
@@ -1521,7 +1521,7 @@ func _fill_info(person: String) -> void :
 	passive_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	passive_body.custom_minimum_size.x = 230
 	passive_text.add_child(passive_body)
-	if person == "Lysia": _paragraph("Prix prévu : 700. Accessible pour tester cette alpha.", setup_info, 12, T.INK_MUTED)
+	if person == "Lysia": _paragraph("Prix prévu : 700. Gratuite pendant l’alpha, pour que tu puisses l’essayer.", setup_info, 12, T.INK_MUTED)
 	if PaperLanguage.language == "en": PaperLanguage.apply_tree(setup_info)
 	var scroll: ScrollContainer = setup_info.get_parent() as ScrollContainer
 	if scroll: _fit_dossier.call_deferred(scroll)
@@ -1533,15 +1533,15 @@ func show_network() -> void :
 	_begin_page("network", "", 0.66)
 	_backdrop(0.6, 0.9)
 	var v: VBoxContainer = _form_panel(640)
-	_form_header(v, "LES OMBRES VOUS ATTENDENT", "En ligne, entre amis")
+	_form_header(v, "JOUER EN LIGNE", "Entre amis")
 	var account: Button = _button("COMPTE, AMIS ET SERVEURS RÉGIONAUX", func() -> void : world.online_menu.open(), 0, "TealButton")
 	account.icon = Icons.icon("friends")
 	account.expand_icon = false
 	account.add_theme_constant_override("icon_max_width", 22)
 	v.add_child(account)
-	_paragraph("Retrouve tes amis et tes groupes privés sur le service configuré. Aucun serveur régional public n'est encore hébergé pour cette version.", v, 15, T.MUTED)
+	_paragraph("Pour retrouver tes amis et tes groupes. Il n’y a pas encore de serveur régional public pour cette version.", v, 15, T.MUTED)
 	_section(v, "CONNEXION ENTRE JOUEURS (SANS COMPTE)")
-	_paragraph("Crée un salon Internet et partage son code. Dans ce mode, un joueur héberge la partie. Tes amis peuvent jouer depuis une autre connexion.", v, 16)
+	_paragraph("Crée un salon et envoie le code à tes amis. C’est toi qui héberges la partie ; eux peuvent jouer de chez eux.", v, 16)
 	v.add_child(_kicker("TON NOM", T.PAPER_DIM, 11))
 	var name_input: LineEdit = _field("", str(world.nickname), 18)
 	v.add_child(name_input)
@@ -1558,7 +1558,7 @@ func show_network() -> void :
 	code.text_submitted.connect( func(value: String) -> void : world.join_room(value))
 	if world.mobile_mode: code_row.add_child(_button("COLLER", func() -> void : code.text = DisplayServer.clipboard_get().strip_edges(), 130))
 	v.add_child(_button("REJOINDRE LE SALON  →", func() -> void : world.join_room(code.text), 0))
-	_paragraph("Connexion automatique avec relais de secours. Le service de salons public de cette alpha est expérimental ; sa disponibilité peut varier.", v, 14, T.MUTED)
+	_paragraph("Si la connexion directe ne passe pas, le jeu prend un relais. Le service de salons est encore expérimental : il peut lâcher de temps en temps.", v, 14, T.MUTED)
 	_spacer(v, 4)
 	var bottom: HBoxContainer = _hbox(v, 10)
 	var back: Button = _button("←  RETOUR", show_main, 150, "GhostButton")
@@ -1580,7 +1580,7 @@ func show_connecting() -> void :
 	connection_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	connection_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(connection_label)
-	_paragraph("Le jeu établit une connexion entre les participants. Cela peut prendre quelques secondes.", v, 16)
+	_paragraph("Connexion aux autres joueurs. Ça peut prendre quelques secondes.", v, 16)
 	var cancel: Button = _button("ANNULER", func() -> void :
 		world.leave_network()
 		show_network(), 0, "DangerButton")
@@ -1595,7 +1595,7 @@ func show_network_advanced() -> void :
 	_backdrop(0.6, 0.9)
 	var v: VBoxContainer = _form_panel(640)
 	_form_header(v, "CONNEXION DIRECTE", "Réglages réseau")
-	_paragraph("Le mode Internet utilise normalement le service public. Un groupe disposant de son propre serveur Noray peut le renseigner ici.", v, 16)
+	_paragraph("Par défaut, le mode Internet passe par le service public. Si ton groupe a son propre serveur Noray, mets son adresse ici.", v, 16)
 	var relay: LineEdit = _field("", str(world.internet.relay_host))
 	v.add_child(relay)
 	relay.text_changed.connect( func(value: String) -> void : world.internet.relay_host = value.strip_edges())
@@ -1605,7 +1605,7 @@ func show_network_advanced() -> void :
 	v.add_child(force)
 	force.toggled.connect( func(value: bool) -> void : world.internet.force_relay = value)
 	_section(v, "CONNEXION DIRECTE")
-	_paragraph("Connexion directe facultative : utile sur le même réseau ou avec un serveur déjà accessible. Le salon Internet n'en a pas besoin.", v, 16)
+	_paragraph("Pas obligatoire : utile sur le même réseau, ou si l’hôte est déjà joignable. Le salon Internet n’en a pas besoin.", v, 16)
 	v.add_child(_button("HÉBERGER EN CONNEXION DIRECTE", func() -> void : world.host_lan_room(), 0, "TealButton"))
 	var address: LineEdit = _field("Adresse IP de l'hôte")
 	v.add_child(address)
@@ -1619,7 +1619,7 @@ func show_lobby() -> void :
 	_backdrop(0.64, 0.92)
 	var v: VBoxContainer = _form_panel(720)
 	var kind: String = "RÉGIONAL" if world.service and world.service.regional else "INTERNET" if world.online_room else "DIRECT"
-	_form_header(v, "SALON PRIVÉ  /  " + kind, "Avant la cloche")
+	_form_header(v, "SALON PRIVÉ  /  " + kind, "En attendant les autres")
 	if world.online_room:
 		var row: HBoxContainer = _hbox(v, 10)
 		var code: LineEdit = _field("", str(world.internet.code))
@@ -1677,8 +1677,8 @@ func show_lobby() -> void :
 			_option_row(v, "Survivants (bots compris)", ["2", "3", "4", "5", "6"], [2, 3, 4, 5, 6], "survivors")
 			_option_row(v, "Durée de la manche", ["5 min 20", "6 min 20", "7 min 20", "9 min 20"], [320, 380, 440, 560], "round_seconds")
 			_paragraph("Le LMS dure exactement le temps de la musique du dernier survivant.", v, 14, T.MUTED)
-			_paragraph("Les places restantes sont complétées par des bots. Les amis présents gardent leur place si leur nombre dépasse ce réglage.", v, 14, T.MUTED)
-		else: _paragraph("École ouverte sans chrono. F2 permet de changer de personnage, préparer un LMS et réinitialiser. L’hôte règle les mannequins ; chaque ami contrôle ses propres essais.", v, 16)
+			_paragraph("Des bots prennent les places libres. Si vous êtes plus nombreux que ce réglage, personne ne perd sa place.", v, 14, T.MUTED)
+		else: _paragraph("L’école sans chrono. F2 pour changer de perso, lancer un LMS ou tout remettre à zéro. L’hôte règle les mannequins, chacun gère ses propres essais.", v, 16)
 		launch = _button("OUVRIR LE TERRAIN D’ESSAI  →" if world.room_options.mode == "training" else "LANCER LA MANCHE  →", func() -> void : world.start_multiplayer_round(), 0, "PrimaryButton")
 		v.add_child(launch)
 	else: _paragraph("L'hôte choisit les règles et lance la manche.", v, 16)
@@ -1988,14 +1988,14 @@ func _settings_game(content: VBoxContainer) -> void :
 		_setting_row(content, "Sensibilité de la manette", "Caméra au stick droit. Accélération et zone morte : Commandes.", _slider(0.5, 6.0, 0.1, float(world.bindings.look_sensitivity), func(x: float) -> String: return "%d %%" % int(round(x / 2.6 * 100.0)), func(x: float) -> void :
 			world.bindings.look_sensitivity = x
 			world.bindings.save()))
-	_setting_row(content, "Caméra souple", "Suivi amorti derrière le personnage.", _check(bool(world.options.get("camera_smooth", true)), func(on: bool) -> void : _set_option("camera_smooth", on)))
+	_setting_row(content, "Caméra souple", "La caméra suit ton perso en douceur.", _check(bool(world.options.get("camera_smooth", true)), func(on: bool) -> void : _set_option("camera_smooth", on)))
 	_setting_row(content, "Mode de caméra", "Derrière : le personnage tourne avec la caméra. Libre 360° : la caméra tourne autour de lui.", _options(["Derrière le personnage", "Libre 360°"], 0 if world.camera_rig.is_behind() else 1, func(index: int) -> void : world.camera_rig.set_mode("behind" if index == 0 else "free", false)), 300)
 	_setting_row(content, "Champ de vision", "Angle de la caméra en jeu. Une valeur haute montre plus de décor.", _slider(60, 95, 1, float(world.options.get("fov", 72)), func(x: float) -> String: return "%d°" % int(x), func(x: float) -> void : _set_option("fov", int(x))))
-	_setting_row(content, "Secousses de caméra", "Tremblement lors des coups et des impacts.", _check(bool(world.options.get("camera_shake", true)), func(on: bool) -> void : _set_option("camera_shake", on)))
+	_setting_row(content, "Secousses de caméra", "L’écran tremble quand ça cogne.", _check(bool(world.options.get("camera_shake", true)), func(on: bool) -> void : _set_option("camera_shake", on)))
 	_setting_row(content, "Onomatopées", "Les « BAM ! » et « SHLAK ! » qui jaillissent des coups.", _check(bool(world.options.get("fx_words", true)), func(on: bool) -> void : _set_option("fx_words", on)))
 	_setting_row(content, "Effets d’écran", "Lignes de vitesse, encre sur l’écran, halos selon l’état du personnage et filtre rouge de l’alerte de sortie.", _check(bool(world.options.get("screen_fx", true)), func(on: bool) -> void : _set_option("screen_fx", on)))
 	_spacer(content, 6)
-	_paragraph("Objectif : atteindre la sortie lorsqu’elle s’ouvre à 01:20. Le dernier survivant a un LMS de la durée de sa musique. Alice ferme la sortie et suspend le chrono pendant sa True Form, une seule fois après 15 stuns. Simon et Ashura : maintenir la capacité 2 pour charger, puis relâcher. Le boost dure 3, 4 ou 6 s selon la charge.", content, 14, T.MUTED)
+	_paragraph("Le but : atteindre la sortie quand elle s’ouvre, à 01:20. Le dernier survivant a droit à un LMS qui dure le temps de sa musique. Après 15 stuns, Alice peut passer en True Form, une seule fois : sortie fermée et chrono en pause. Simon et Ashura chargent leur capacité 2 en la maintenant ; selon la charge, le boost dure 3, 4 ou 6 s.", content, 14, T.MUTED)
 
 func _settings_display(content: VBoxContainer) -> void :
 	if world.mobile_mode:
@@ -2089,7 +2089,7 @@ func _settings_access(content: VBoxContainer) -> void :
 		reduced_motion = on))
 	_setting_row(content, "Daltonisme", "Palette orange / bleu pour distinguer alliés, danger et objectifs.", _check(bool(world.options.get("colorblind", false)), func(on: bool) -> void : _set_option("colorblind", on)))
 	_spacer(content, 6)
-	_paragraph("G · roue d’émotes. Simon OM : 3 alterne lancer et coup éclair. L’aura récompense les actions utiles ; 100 points débloquent les bonus pendant le LMS.", content, 14, T.MUTED)
+	_paragraph("G ouvre la roue d’émotes. Avec Simon, 3 passe du lancer au coup éclair. Ton aura se remplit quand tu aides ; à 100, tes bonus de LMS se débloquent.", content, 14, T.MUTED)
 
 func _settings_back() -> void :
 	if world.phase == "playing":
@@ -2154,8 +2154,8 @@ func show_gallery() -> void :
 	hide_gallery_transport()
 	_backdrop(0.62, 0.9)
 	var v: VBoxContainer = _form_panel(680)
-	_form_header(v, "LES HISTOIRES APRÈS LA CLOCHE", "Cinémathèque")
-	_paragraph("Revois le prologue et choisis qui affronte Alice. Les fins d’équipe s’adaptent aux survivants présents.", v, 16)
+	_form_header(v, "TOUS LES FILMS DU JEU", "Cinémathèque")
+	_paragraph("Revois le prologue et toutes les fins. Pour les fuites en équipe, choisis qui s’en sort : la scène change avec.", v, 16)
 	var back: Button = _button("←  RETOUR", func() -> void : world.gallery.close(), 0, "GhostButton")
 	back.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	v.add_child(back)
@@ -2177,7 +2177,7 @@ func show_gallery() -> void :
 		world.gallery.search = value
 		_refresh_gallery_results())
 	if world.gallery.category == "team":
-		_paragraph("Coche les personnages qui ont survécu pour voir leur fin exacte. Sans sélection, les 63 compositions sont affichées.", v, 15)
+		_paragraph("Coche les survivants pour voir leur fin. Sans rien cocher, les 63 combinaisons s’affichent.", v, 15)
 		var grid: GridContainer = GridContainer.new()
 		grid.columns = 3
 		v.add_child(grid)
@@ -2498,7 +2498,7 @@ func show_pause(open: bool) -> void :
 	card.resized.connect( func() -> void : card.pivot_offset = card.size * 0.5)
 	var v: VBoxContainer = _vbox(card, 12)
 	v.add_child(_kicker("PAUSE" if not world.networked else "LA MANCHE CONTINUE"))
-	v.add_child(_label("La cloche attend" if not world.networked else "Les amis jouent encore", "title", 36, T.PAPER))
+	v.add_child(_label("Souffle un coup" if not world.networked else "Les amis jouent encore", "title", 36, T.PAPER))
 	var rule: W.Rule = W.Rule.new()
 	v.add_child(rule)
 	var actions: VBoxContainer = _vbox(v, 10)
@@ -2625,7 +2625,7 @@ func show_ending(winner: String, was_lms: bool) -> void :
 	decor.band_b = Vector2(0.62, -0.1)
 	decor.band_width = 300.0
 	decor.giant_alpha = 0.07
-	decor.ribbon_text = "LE BULLETIN DE LA NUIT"
+	decor.ribbon_text = "FIN DE LA MANCHE"
 	overlay.add_child(decor)
 	var header: VBoxContainer = VBoxContainer.new()
 	header.add_theme_constant_override("separation", 0)
@@ -2635,7 +2635,7 @@ func show_ending(winner: String, was_lms: bool) -> void :
 	header.offset_left = 56
 	header.offset_right = -12
 	header.offset_top = 34
-	header.add_child(_kicker("LE BULLETIN DE LA NUIT"))
+	header.add_child(_kicker("FIN DE LA MANCHE"))
 	var forfeit: bool = not killer_won and str(world.ending_kind) == PaperAliceForfeit.KIND
 	var verdict: Control = _display_title("VICTOIRE D’ALICE" if killer_won else "VICTOIRE PAR FORFAIT" if forfeit else "LES ÉLÈVES S’ÉCHAPPENT", 70, accent.darkened(0.15), 500.0)
 	header.add_child(verdict)
@@ -2685,7 +2685,7 @@ func show_ending(winner: String, was_lms: bool) -> void :
 	var sheet_head: HBoxContainer = _hbox(body, 10)
 	var titles: VBoxContainer = _vbox(sheet_head, 0)
 	titles.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	titles.add_child(_label("Bulletin de la nuit", "hand", 34, T.RED_INK))
+	titles.add_child(_label("Bulletin de notes", "hand", 34, T.RED_INK))
 	titles.add_child(_label("CLASSEMENT · CONTRIBUTION À LA PARTIE", "caps", 12, T.INK_MUTED))
 	var scroll: ScrollContainer = ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -2708,7 +2708,7 @@ func show_ending(winner: String, was_lms: bool) -> void :
 	result_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	result_detail.set_meta("language_user_text", true)
 	body.add_child(result_detail)
-	_paragraph("Les soins effectifs, stuns, boosts, protections et le temps passé en danger comptent. Choisis un élève pour voir sa réaction.", body, 13, T.INK_MUTED)
+	_paragraph("Ce qui compte : soins, stuns, boosts, protections et temps passé en danger. Choisis un élève pour voir sa réaction.", body, 13, T.INK_MUTED)
 	var actions: HBoxContainer = HBoxContainer.new()
 	actions.add_theme_constant_override("separation", 14)
 	overlay.add_child(actions)
@@ -3133,7 +3133,7 @@ func show_loading(map_id: String, characters: Array = []) -> void :
 	cast_box.offset_bottom = -78
 	cast_box.offset_top = -78
 	cast_box.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	cast_box.add_child(_kicker("LES PRÉSENCES DE CETTE MANCHE", T.PAPER_DIM, 12))
+	cast_box.add_child(_kicker("DANS CETTE MANCHE", T.PAPER_DIM, 12))
 	var cast: HBoxContainer = _hbox(cast_box, 14)
 	var killer_present: bool = false
 	for person: Variant in characters:

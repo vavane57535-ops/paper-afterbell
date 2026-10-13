@@ -610,8 +610,8 @@ func _run_i18n() -> void :
 		print("FF_I18N %s | %s | %s | %s" % [title_fr, title_en, str(entry.description), text_en])
 		_check(title_fr.ends_with("rattrapée" if she else "rattrapé"), "accord du titre (%s)" % title_fr)
 		_check(title_en == "Alice · %s caught" % person, "titre anglais (%s)" % title_en)
-		_check(text_en == "%s's last attempt fails. Alice catches %s, strikes and finishes %s on the floor." % [person, "her" if she else "him", "her" if she else "him"], "description anglaise (%s)" % text_en)
-		_check(str(entry.description).begins_with("La dernière tentative " + ("d’" if person.left(1) in ["A", "E", "U"] else "de ")), "élision (%s)" % str(entry.description))
+		_check(text_en == "%s is the last one still standing. Alice catches up with %s in the end." % [person, "her" if she else "him"], "description anglaise (%s)" % text_en)
+		_check(str(entry.description).begins_with(person + (" est la dernière" if she else " est le dernier")), "accord de la description (%s)" % str(entry.description))
 	PaperLanguage.language = previous
 
 

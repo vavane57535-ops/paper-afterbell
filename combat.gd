@@ -660,7 +660,7 @@ func apply_lms(actor):
 	var gained: float = PaperSurvivorMechanics.apply_lms_health(actor)
 	if gained > 0.0:
 		world.event("heal", {"actor": actor.id, "source": actor.id, "amount": gained, "position": actor.position})
-		_message(actor, "DERNIÈRE PRÉSENCE · +%d PV (maximum 150)" % int(round(gained)))
+		_message(actor, "LMS · +%d PV (150 max)" % int(round(gained)))
 	if not _om(actor) or _effect(actor, "aura_charge") >= 100.0 or bool(world.get("training")):
 		_unlock_lms(actor)
 	else:
@@ -676,11 +676,11 @@ func _unlock_lms(actor):
 	if actor.character == "Lysia":
 		actor.effects["lms_qte_next"] = float(world.clock) + 2.0
 		actor.effects["lms_qte_ready"] = false
-	var instruction: String = "AURA ÉVEILLÉE · Dernière chance : tiens jusqu'à la sonnerie !"
-	if actor.character == "Usayuko": instruction = "AURA ÉVEILLÉE · 4 : Dropkick unique (5 s de stun)"
-	elif actor.character == "Elly": instruction = "AURA ÉVEILLÉE · 4 : Shotgun unique (3 s de stun)"
-	elif actor.character == "Bleuette": instruction = "AURA ÉVEILLÉE · 4 : Je peux le faire !"
-	elif actor.character == "Lysia": instruction = "AURA ÉVEILLÉE · un allié éliminé peut réparer ton armure (150 PV max)."
+	var instruction: String = "AURA PLEINE · Tiens jusqu’à la fin de ta musique !"
+	if actor.character == "Usayuko": instruction = "AURA PLEINE · 4 : un Dropkick (5 s de stun)"
+	elif actor.character == "Elly": instruction = "AURA PLEINE · 4 : un tir de Shotgun (3 s de stun)"
+	elif actor.character == "Bleuette": instruction = "AURA PLEINE · 4 : Je peux le faire !"
+	elif actor.character == "Lysia": instruction = "AURA PLEINE · un allié éliminé peut réparer ton armure (150 PV max)."
 	_message(actor, instruction)
 	world.event("aura_unlock", {"actor": actor.id, "position": actor.position, "character": actor.character})
 
@@ -782,7 +782,7 @@ func _alice(actor, slot: int) -> bool:
 			actor.velocity = Vector3.ZERO
 			_set_cd(actor, 3, 32.0)
 			world.event("shadow", {"actor": actor.id, "target": target.id, "position": target.position, "active": true, "duration": 1.2})
-			_message(target, "ALICE DANS TON OMBRE ! Elle émerge dans 1,2 s : déplace-toi !")
+			_message(target, "ALICE ARRIVE DERRIÈRE TOI ! Dans 1,2 s. Bouge !")
 			return true
 		4:
 			_spawn_minions(actor)
@@ -797,7 +797,7 @@ func _alice(actor, slot: int) -> bool:
 			actor.max_stamina = -1.0 if _om(actor) else 600.0
 			actor.stamina = actor.max_stamina
 			world.event("phase6", {"actor": actor.id, "active": true, "true_form": true, "duration": PaperRules.TRUE_FORM_SECONDS, "position": actor.position})
-			_message(actor, "TRUE FORM · bond meurtrier · chronomètre suspendu")
+			_message(actor, "TRUE FORM · bond mortel · chrono en pause")
 			return true
 	return false
 
@@ -1167,19 +1167,19 @@ func _bleuette(actor, slot: int, target_id: int) -> bool:
 			match str(target.character):
 				"Ashura":
 					target.effects["drone_bonus"] = true
-					line = "Ton drone nous protège ! Sa prochaine recharge sera 25 % plus rapide."
+					line = "A-Ashura, ton drone, il gère… Sa prochaine recharge ira 25 % plus vite."
 				"Usayuko":
 					target.effects["next_stun"] = 1.5
-					line = "Heureusement que t'es là pour nous protéger, frangin !"
+					line = "M-merci d’être là, Usayuko… Ton prochain stun dure 1,5 s de plus."
 				"Simon":
 					target.effects["sprint_bonus"] = PaperSurvivorMechanics.SIMON_SPRINT_BONUS
-					line = "Cours, Simon, on te suit ! Ta prochaine Course éclair durera 2 s de plus."
+					line = "C-cours, Simon, on te suit ! Ta prochaine Course éclair durera 2 s de plus."
 				"Lysia":
 					target.effects["cooldown_discount"] = 0.25
-					line = "Allez, on va y arriver ensemble !"
+					line = "On… on va y arriver, Lysia ! Ta prochaine recharge sera 25 % plus courte."
 				"Elly":
 					target.effects["next_heal"] = 2.0
-					line = "C'est si soulageant de vous avoir à nos côtés, monsieur !"
+					line = "Elly, t-tu nous sauves la vie… Ton prochain soin comptera double."
 				_:
 					_message(actor, "Ce personnage n'a pas de bonus Boost défini. Utilise Je crois en toi.")
 					return false
@@ -1209,7 +1209,7 @@ func _bleuette(actor, slot: int, target_id: int) -> bool:
 			target.cooldowns[chosen] = 0.0
 			_reward("recharge", actor)
 			_set_cd(actor, 1, 45.0)
-			_message(actor, "Je crois en toi ! Capacité rechargée.", {"target": target.id})
+			_message(actor, "J-je crois en toi ! Capacité rechargée.", {"target": target.id})
 			return true
 		3:
 			if not lms_available(actor) or bool(actor.effects.get("aura_used", false)): return false
@@ -2345,7 +2345,7 @@ func _alice_decoys(actor) -> bool:
 		if not point.is_finite(): continue
 		decoys.append({"target": target.id, "position": point, "aim": _flat(target.position - point).normalized()})
 	if decoys.is_empty():
-		_message(actor, "Aucun espace libre derrière les élèves pour émerger.")
+		_message(actor, "Pas de place derrière les élèves pour surgir.")
 		return false
 	cancel_aim(actor)
 	var chosen: Dictionary = decoys[randi_range(0, decoys.size() - 1)]
@@ -2360,7 +2360,7 @@ func _alice_decoys(actor) -> bool:
 	for decoy in decoys:
 		var target = _actor(int(decoy.target))
 		target.effects["shadow_mark"] = 1.2
-		_message(target, "UNE OMBRE DERRIÈRE TOI · Alice émerge dans 1,2 s !")
+		_message(target, "UNE OMBRE DERRIÈRE TOI · Alice arrive dans 1,2 s !")
 	world.event("shadow_decoys", {"actor": actor.id, "position": actor.position, "decoys": decoys, "destination": chosen.position, "true_target": chosen.target, "duration": 1.2})
 	return true
 

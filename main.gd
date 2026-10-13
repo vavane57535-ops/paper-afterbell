@@ -169,7 +169,7 @@ var _ping_timer: float = 0.0
 var _ping_sequence: int = 0
 var _ping_pending: Dictionary = {}
 var _ping_last_reply: int = 0
-const MAP_NAMES: Dictionary = {"school": "L'école après la cloche", "forest": "La forêt des murmures", "snow": "Le silence de l'hiver"}
+const MAP_NAMES: Dictionary = {"school": "L’école de Miss Circle", "forest": "Les bois", "snow": "La classe de neige"}
 
 func _ready() -> void :
 
@@ -1217,10 +1217,10 @@ func _event_local(kind: String, data: Dictionary) -> void :
 	elif kind == "message":
 		if actor_id < 0 or actor_id == local_id(): ui.toast(str(data.get("text", "")), 3)
 	elif kind == "aura_unlock":
-		if actor_id == local_id(): ui.announcement("AURA ÉVEILLÉE", "Les bonus de LMS sont disponibles.", 3)
+		if actor_id == local_id(): ui.announcement("AURA PLEINE", "Tes bonus de LMS sont débloqués.", 3)
 	elif kind == "lms":
 		if training: return
-		lms = true;ui.announcement("DERNIÈRE PRÉSENCE", str(data.get("character", "")) + " · duel final", 4)
+		lms = true;ui.announcement("DERNIÈRE SURVIVANTE" if str(data.get("character", "")) in ["Lysia", "Elly", "Bleuette"] else "DERNIER SURVIVANT", str(data.get("character", "")) + " contre Alice", 4)
 		audio.set_lms_character(str(data.get("character", "Ashura")));audio.set_mode("lms");audio.sfx("bell", Vector3.ZERO, Vector3.ZERO)
 	elif kind == "eliminated":
 		if training: return
@@ -1230,7 +1230,7 @@ func _event_local(kind: String, data: Dictionary) -> void :
 		# Accord au féminin pour Lysia, Elly et Bleuette.
 		var she: bool = str(data.get("character", "")) in ["Lysia", "Elly", "Bleuette"]
 		ui.toast(str(data.get("character", "Un élève")) + (" a été éliminée." if she else " a été éliminé."), 3)
-		if actor_id == local_id(): ui.announcement("VOUS ÊTES TOMBÉE" if she else "VOUS ÊTES TOMBÉ", "TAB · suivre un allié", 3)
+		if actor_id == local_id(): ui.announcement("TU ES ÉLIMINÉE" if she else "TU ES ÉLIMINÉ", "TAB · suivre un allié", 3)
 	elif kind == "downed":
 		if a: a.visual.set_life_state("downed")
 		var downed_name: String = str(data.get("character", a.character if a else "Un élève"))
@@ -1258,7 +1258,7 @@ func _event_local(kind: String, data: Dictionary) -> void :
 	elif kind == "archive_qte" and not bool(data.get("ready", false)) and actor_id == local_id():
 		ui.toast("Contrôle réussi" if bool(data.get("success", false)) else "Contrôle raté · archive bloquée 3 s · Alice t’a repérée !" if a and a.character in ["Lysia", "Elly", "Bleuette"] else "Contrôle raté · archive bloquée 3 s · Alice t’a repéré !", 2.5)
 	elif kind == "archive_alarm":
-		if loc and loc.killer: ui.toast("ALERTE ARCHIVE · UNE PRÉSENCE A ÉTÉ RÉVÉLÉE", 3)
+		if loc and loc.killer: ui.toast("ALERTE ARCHIVE · UN ÉLÈVE S’EST FAIT REPÉRER", 3)
 	elif kind == "objective":
 		ui.toast(str(data.get("text", "Archive scellée")));audio.sfx("heal", Vector3.ZERO, Vector3.ZERO)
 	elif kind == "ending":
@@ -1928,7 +1928,7 @@ func receive_loading_ready(count: int, serial: int) -> void :
 func begin_play(serial: int) -> void :
 	if serial != round_serial or phase != "loading" or round_preparing or actors.is_empty(): return
 	phase = "playing";cinema = 0;ui.show_hud();capture_gameplay_mouse()
-	if authoritative(): event("message", {"text": "La cloche a sonné. Rejoignez la sortie lorsqu’elle s’ouvrira à 1:20."})
+	if authoritative(): event("message", {"text": "La cloche a sonné. La sortie s’ouvre à 01:20."})
 
 func active_survivors() -> Array[PaperActor]:
 	var result: Array[PaperActor] = []

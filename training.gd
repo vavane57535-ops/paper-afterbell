@@ -165,7 +165,7 @@ func command(peer: int, action: String, value: String) -> void :
 		"down_self":
 			if actor.killer: _notice(peer, "Choisis un survivant pour tester la réanimation.");return
 			actor.hp = 0;world.combat._fatal_damage(actor, -1, "slash")
-			_notice(peer, "Blessure fatale appliquée : première chute, ou mort définitive après une réanimation. Lysia ne peut pas être relevée.")
+			_notice(peer, "Tu tombes : la première fois, un allié peut te relever ; la deuxième, c’est fini. Lysia, elle, ne se relève jamais.")
 		"archive_test":
 			world.combat.reset_archives_for_training()
 			_notice(peer, "Archives réinitialisées. Approche une archive et maintiens E : réponds avec J, K ou L. Échec = panne 3 s + alarme.")

@@ -135,7 +135,7 @@ func _require_account() -> bool:
 		_card("Le service en ligne n’est pas configuré", "Aucun serveur régional public n’est fourni pour l’instant. Le solo reste disponible. L’administrateur devra fournir l’adresse HTTPS du service.")
 		content.add_child(_button("Configurer l’adresse du service", show_service, true));return false
 	if client.token.is_empty():
-		_card("Ton compte est nécessaire", "Connecte-toi pour rejoindre un groupe privé, recevoir des invitations et retrouver tes statistiques.")
+		_card("Il te faut un compte", "Connecte-toi pour rejoindre un groupe privé, recevoir des invitations et retrouver tes statistiques.")
 		content.add_child(_button("Se connecter", show_account, true));return false
 	return true
 
@@ -175,7 +175,7 @@ func show_account() -> void :
 	box.add_child(_button("Changer mon pseudo", func():
 		var reply: Dictionary = await client.api("/v1/profile", {"nickname": name_field.text}, HTTPClient.METHOD_POST)
 		if reply.get("user") is Dictionary: client.profile = reply.user;_identity();show_account()))
-	content.add_child(_label("Ces statistiques proviennent des parties validées par les serveurs dédiés. Le solo et les essais du bac à sable ne les modifient pas.", 17, MUTED))
+	content.add_child(_label("Seules les parties sur serveur dédié comptent ici. Le solo et le bac à sable ne changent rien.", 17, MUTED))
 	content.add_child(_button("Se déconnecter", func(): await client.logout();show_account()))
 	_status("")
 
@@ -223,14 +223,14 @@ func show_friends() -> void :
 		if peer.get("party_id") != null: box.add_child(_button("Rejoindre son groupe", func(): join_party(str(peer.party_id)), true))
 		box.add_child(_button("Retirer de mes amis", func(): _post("/v1/friends/remove", {"user_id": peer.id}, "friends")))
 	for person: Dictionary in friends.get("outgoing", []): content.add_child(_label("Demande en attente : " + str(person.nickname), 17, MUTED))
-	if friends.get("friends", []).is_empty(): _card("Le couloir est encore calme", "Les amis apparaîtront ici après acceptation de leur demande.")
+	if friends.get("friends", []).is_empty(): _card("Personne pour l’instant", "Tes amis s’affichent ici une fois leur demande acceptée.")
 	content.add_child(_button("Actualiser les invitations", show_friends));_status("")
 
 func join_party(party_id: String) -> void :
 	await _post("/v1/parties/" + party_id + "/join", {}, "group")
 
 func show_group() -> void :
-	var epoch: int = _clear("group", "Votre groupe privé")
+	var epoch: int = _clear("group", "Ton groupe privé")
 	if not _require_account(): return
 	_status("Lecture du groupe…")
 	var current: Dictionary = await client.api("/v1/parties/current")
@@ -238,7 +238,7 @@ func show_group() -> void :
 	if current.has("error"): return
 	if current.get("party") is Dictionary:
 		var party: Dictionary = current.party
-		var box: VBoxContainer = _card("Ensemble, jusqu’à la sortie", "Région : " + str(party.region) + "  ·  Carte : " + _map_name(str(party.config.map_id)))
+		var box: VBoxContainer = _card("On joue ensemble", "Région : " + str(party.region) + "  ·  Carte : " + _map_name(str(party.config.map_id)))
 		for member: Dictionary in party.members:
 			var person_label: Label = _label(("★ " if str(member.id) == str(party.leader_id) else "• ") + str(member.nickname), 21);person_label.set_meta("language_user_text", true);box.add_child(person_label)
 		content.add_child(_button("Inviter des amis", show_friends))
@@ -256,7 +256,7 @@ func show_group() -> void :
 	if response.has("error"): content.add_child(_button("Réessayer", show_group));return
 	_show_rules({}, response.get("regions", []));_status("")
 
-func _map_name(id: String) -> String: return {"school": "École", "forest": "Forêt", "snow": "Forêt enneigée"}.get(id, id)
+func _map_name(id: String) -> String: return {"school": "École", "forest": "Bois", "snow": "Classe de neige"}.get(id, id)
 
 func _option(labels: Array) -> OptionButton:
 	var option: OptionButton = OptionButton.new()
@@ -266,7 +266,7 @@ func _option(labels: Array) -> OptionButton:
 
 func _show_rules(party: Dictionary, regions: Array = []) -> void :
 	if not party.is_empty(): _clear("group_edit", "Les règles du groupe")
-	var box: VBoxContainer = _card("Créer votre partie" if party.is_empty() else "Personnaliser la partie", "Un serveur dédié exécute la simulation. Les bots complètent l’équipe. Ordinateurs et Android rejoignent le même groupe.")
+	var box: VBoxContainer = _card("Créer ta partie" if party.is_empty() else "Personnaliser la partie", "La partie tourne sur un serveur dédié. Des bots complètent l’équipe, et PC et Android peuvent jouer dans le même groupe.")
 	var region: OptionButton = _option([]); var available: bool = not party.is_empty()
 	if party.is_empty():
 		for item: Dictionary in regions:
@@ -275,7 +275,7 @@ func _show_rules(party: Dictionary, regions: Array = []) -> void :
 		box.add_child(_label("Région du serveur", 17));box.add_child(region)
 		if not available: box.add_child(_label("Aucune région n’est hébergée pour l’instant. Les parties régionales deviendront disponibles quand un administrateur déploiera le serveur.", 18, RED))
 	var existing: Dictionary = party.get("config", {}); var options: Dictionary = existing.get("options", {})
-	var maps: OptionButton = _option(["École", "Forêt", "Forêt enneigée"]);maps.select(maxi(0, ["school", "forest", "snow"].find(str(existing.get("map_id", "school")))));box.add_child(_label("Carte", 17));box.add_child(maps)
+	var maps: OptionButton = _option(["École", "Bois", "Classe de neige"]);maps.select(maxi(0, ["school", "forest", "snow"].find(str(existing.get("map_id", "school")))));box.add_child(_label("Carte", 17));box.add_child(maps)
 	var alice: OptionButton = _option(["Alice est un bot", "Alice : chef du groupe", "Alice : joueur au hasard", "Alice : malice"]);alice.select(maxi(0, ["bot", "host", "random", "malice"].find(str(options.get("killer_mode", "bot")))));box.add_child(_label("Rôle d’Alice", 17));box.add_child(alice)
 	var count: OptionButton = _option(["2 survivants", "3 survivants", "4 survivants", "5 survivants", "6 survivants"]);count.select(clampi(int(options.get("survivors", 6)), 2, 6) - 2);box.add_child(count)
 	var practice: CheckBox = CheckBox.new();practice.text = "Bac à sable / entraînement";practice.button_pressed = options.get("mode", "match") == "training";practice.custom_minimum_size.y = 50;practice.add_theme_color_override("font_color", INK);box.add_child(practice)

@@ -5,10 +5,14 @@ extends RefCounted
 # seuls les textes qui n'avaient pas d'entrée arrivent ici. Consulté avant les autres dictionnaires.
 
 const TEXT: Dictionary = {
+	"DERNIÈRE SURVIVANTE": "LAST ONE STANDING",
 }
 
 # Modèles avec valeurs (%d, %s, %.1f) : [français, anglais].
 const TEMPLATES: Array = [
+	["%s est la dernière encore debout. Alice finit par la rattraper.", "%s is the last one still standing. Alice catches up with her in the end."],
+	["%s est le dernier encore debout. Alice finit par le rattraper.", "%s is the last one still standing. Alice catches up with him in the end."],
+	["%s contre Alice", "%s vs Alice"],
 ]
 
 static var _compiled: Array = []
