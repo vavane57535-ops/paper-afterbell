@@ -69,7 +69,7 @@ AJOUTS 0.13 — MUSIQUES, AMBIANCES ET BRUITAGES
 ========================================================================
 
 MUSIQUES ORIGINALES (composées pour le jeu, synthèse procédurale)
-music_menu.ogg « La dernière sonnerie » (menu), music_forest.ogg « Sous les pins d'encre »
+music_menu.ogg « Fin des cours » (menu), music_forest.ogg « Sous les pins d'encre »
 (forêt), music_snow.ogg « Craie et givre » (neige), music_defeat.ogg « Retenue » (victoire d'Alice).
 Motif : le carillon de Westminster (1793, domaine public) en ré mineur, joué par une boîte à musique.
 Générées par audio/music_src/music_build.py (numpy), sans échantillon externe. Niveau −18 LUFS.

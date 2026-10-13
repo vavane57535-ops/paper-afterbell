@@ -78,7 +78,7 @@ Sources CC0/CC-BY vérifiées le 7 septembre 2026 ; intégration des OST fournie
 
 ## Ajouts de la 0.13
 
-**Nouvelles musiques** : « La dernière sonnerie » (menu), « Sous les pins d'encre » (forêt), « Craie et givre » (neige), « Retenue » (défaite). Compositions originales créées pour le jeu, construites sur le carillon d'école de Westminster (domaine public).
+**Nouvelles musiques** : « Fin des cours » (menu), « Sous les pins d'encre » (forêt), « Craie et givre » (neige), « Retenue » (défaite). Compositions originales créées pour le jeu, construites sur le carillon d'école de Westminster (domaine public).
 
 **Ambiances et bruitages** : enregistrements issus de https://github.com/Fris0uman/CDDA-Soundpacks (dossier CC-Sounds). Seuls des fichiers sous licence CC0 ou CC BY ont été utilisés, crédités à leurs auteurs d'origine sur freesound.org :
 - intérieur — blouhond (CC BY 3.0, freesound 163604)

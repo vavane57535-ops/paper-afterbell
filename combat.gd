@@ -1103,7 +1103,7 @@ func _elly(actor, slot: int, target_id: int) -> bool:
 	match slot:
 		0:
 			if not actor.is_on_floor():
-				_message(actor, "SOIN · pose-toi au sol pour soigner.")
+				_message(actor, "SOIN · pas en plein saut : attends d’atterrir.")
 				return false
 			var target = _heal_target(actor, target_id)
 			if target == null or target.character == "Lysia":
@@ -1337,7 +1337,7 @@ func overheat_target(actor) -> Dictionary:
 	elif _effect(target, "stun_immunity") > 0 or _effect(target, "stun") > 0:
 		result.reason = "attends la fin de l’aura rouge"
 	elif _flat(target.position - actor.position).normalized().dot(_aim(actor)) < 0.65:
-		result.reason = "oriente ton regard vers Alice"
+		result.reason = "tourne-toi vers Alice"
 	elif int(target.effects.get("grabbed_by", -1)) >= 0:
 		result.reason = "Alice est déjà portée par Usayuko"
 	else:

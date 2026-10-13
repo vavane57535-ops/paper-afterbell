@@ -139,7 +139,7 @@ func command(peer: int, action: String, value: String) -> void :
 		"lms":
 			if actor.killer:
 				actor.effects["rage"] = 100;actor.effects["stun_count"] = 15;actor.effects["true_form_used"] = false
-				_notice(peer, "True Form prête · ferme le panneau et active la compétence 6.")
+				_notice(peer, "True Form prête · ferme le panneau et lance la capacité 6.")
 			else:
 				_reset(actor, false);actor.lms = true;world.combat.apply_lms(actor)
 				_notice(peer, "LMS de " + actor.character + " activé, avec sa musique.")

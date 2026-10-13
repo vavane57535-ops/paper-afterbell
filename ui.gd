@@ -2990,7 +2990,7 @@ func show_training_panel(open: bool = true) -> void :
 		world.training_action("archive_test")
 		_resume_training(), 0)
 	archive_test.disabled = not world.can_manage_lobby() or actor.killer
-	archive_test.tooltip_text = "L’hôte réinitialise les archives communes. Approche une archive pour y travailler."
+	archive_test.tooltip_text = "Les archives sont communes : seul l’hôte peut les remettre à zéro. Approche-toi d’une archive pour t’entraîner."
 	archive_test.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	life_tests.add_child(archive_test)
 	if world.can_manage_lobby():
