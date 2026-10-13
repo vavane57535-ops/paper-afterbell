@@ -58,7 +58,7 @@ func tick() -> void :
 		world.combat.apply_lms(living[0])
 		if opened and not lms_keeps_exit:
 			opened = false;world.school.set_cinematic_exit_open(false)
-		world.event("exit_state", {"state": pack(), "position": world.school.escape_position, "text": "LMS · AURA COMPLÈTE, SORTIE MAINTENUE" if lms_keeps_exit else "LMS · LA SORTIE S’OUVRIRA AUX 80 DERNIÈRES SECONDES"})
+		world.event("exit_state", {"state": pack(), "position": world.school.escape_position, "text": "LMS · AURA PLEINE : LA SORTIE RESTE OUVERTE" if lms_keeps_exit else "LMS · LA SORTIE S’OUVRIRA AUX 80 DERNIÈRES SECONDES"})
 	if world.time_left <= 0:
 		world._finish("survivors" if not escaped.is_empty() else "killer")
 

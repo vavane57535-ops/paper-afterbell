@@ -24,7 +24,7 @@ const SOURCES: Array[String] = [
 	"TRUE FORM · %.1f s · CHRONO SUSPENDU", "TRUE FORM · %.0f s · CAPACITÉ 4 : BONDIR",
 	"DERNIER SURVIVANT", "DERNIÈRE SURVIVANTE", "TU ES ÉLIMINÉ", "TU ES ÉLIMINÉE", "TAB · suivre un allié", "AURA PLEINE", "Tes bonus de LMS sont débloqués.",
 	"TU T’ÉCROULES…", "ÉTOURDI  ·  %.1f s", "AURA · %d / 100", "PRÊTE",
-	"LMS · AURA COMPLÈTE, SORTIE MAINTENUE", "LMS · LA SORTIE S’OUVRIRA AUX 80 DERNIÈRES SECONDES",
+	"LMS · AURA PLEINE : LA SORTIE RESTE OUVERTE", "LMS · LA SORTIE S’OUVRIRA AUX 80 DERNIÈRES SECONDES",
 	"TRUE FORM · LA SORTIE SE REFERME", "LMS · LA SORTIE SE REFERME",
 	"Vise un allié à moins de 6 m", "Allié à moins de 6 m, près d’Alice, avec une recharge en cours",
 	"LMS · +%d PV (150 max)", "PV",
