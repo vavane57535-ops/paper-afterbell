@@ -5,6 +5,7 @@ extends Node
 #   xvfb-run -a -s "-screen 0 1280x800x24" godot --rendering-driver opengl3 -- --tool test_carry --carry-out DIR
 # Options :
 #   --carry-mode lineup|run|carry|loop   (défaut : run)
+#   --carry-cell 480x400 --carry-grid 4x3 --carry-zoom 0.8   (taille des vignettes, grille, distance caméra)
 #   --carry-ally Bleuette               (allié porté en mode carry / loop ; « all » = Ashura, Bleuette, Elly, Usayuko)
 #   --carry-views side,three,back,front,top,close
 #   --carry-step 0.1                    (pas des vignettes, en secondes)
@@ -14,9 +15,10 @@ extends Node
 const DT: float = 1.0 / 60.0
 const SIMON_ID: int = 1
 const ALLY_ID: int = 2
-const CELL: Vector2i = Vector2i(320, 300)
-const COLUMNS: int = 6
-const ROWS: int = 4
+var CELL: Vector2i = Vector2i(320, 300)
+var COLUMNS: int = 6
+var ROWS: int = 4
+var zoom: float = 1.0
 
 var out_dir: String = "user://carry"
 var mode: String = "run"
@@ -45,6 +47,14 @@ func setup(_world: Node) -> void :
 			"--carry-views": views.assign(Array(next.split(",", false)))
 			"--carry-step": step = maxf(0.02, float(next))
 			"--carry-metrics": metrics = true
+			"--carry-cell":
+				var size: PackedStringArray = next.split("x")
+				CELL = Vector2i(int(size[0]), int(size[1]))
+			"--carry-grid":
+				var grid: PackedStringArray = next.split("x")
+				COLUMNS = int(grid[0])
+				ROWS = int(grid[1])
+			"--carry-zoom": zoom = maxf(0.2, float(next))
 	DirAccess.make_dir_recursive_absolute(out_dir)
 	_run.call_deferred()
 
@@ -58,8 +68,67 @@ func _run() -> void :
 			for view: String in views:
 				await _sequence("start", _plan_start(), view)
 				await _sequence("relay", _plan_relay(), view)
+		"carry":
+			for ally: String in allies:
+				for view: String in views:
+					await _carry_run(ally, view)
 	print("CARRY_DONE")
 	get_tree().quit()
+
+
+const CARRY_START_GAP: float = 1.6
+const CARRY_HOLD: float = 3.6
+
+# Simon en course éclair passe près de l'allié, l'attrape, le porte CARRY_HOLD s, le dépose puis s'arrête.
+# Comme main.gd : Simon joue son pas avant le porté, puis carry_finalize() pose le porté et recolle les mains.
+func _carry_run(ally: String, view: String) -> void :
+	var simon: PaperVisual = _spawn(SIMON_ID, "Simon", Vector3.ZERO)
+	var mate: PaperVisual = _spawn(ALLY_ID, ally, Vector3(-0.85, 0.0, -9.0))
+	var simon_host: Node3D = hosts[SIMON_ID]
+	var mate_host: Node3D = hosts[ALLY_ID]
+	_frame_camera(simon_host.position, view, true)
+	for i in range(4): await RenderingServer.frame_post_draw
+	var factor: float = 0.85 if ally == "Usayuko" else 1.0
+	var shots: Array[Image] = []
+	var clock: float = 0.0
+	var next_shot: float = 0.0
+	var carry_from: float = -1.0
+	var released: float = -1.0
+	var desired: Vector3 = (load("res://carry_rig.gd") as GDScript).call("desired_offset", ally)
+	while true:
+		var simon_state: Dictionary = _base_state()
+		var mate_state: Dictionary = _base_state()
+		var speed: float = 20.4
+		if carry_from < 0.0 and simon_host.position.distance_to(mate_host.position) < CARRY_START_GAP: carry_from = clock
+		var carrying: bool = carry_from >= 0.0 and clock - carry_from < CARRY_HOLD
+		if carry_from >= 0.0 and not carrying and released < 0.0: released = clock
+		if released >= 0.0 and clock - released > 0.7: speed = 0.0
+		if released >= 0.0 and clock - released > 1.6: break
+		simon_state.merge({"speed_boost": 4.0, "sprinting": speed > 0.0}, true)
+		if carrying:
+			speed *= factor
+			simon_state["carrying_id"] = ALLY_ID
+			simon_state["carry_speed_factor"] = factor
+			mate_state["carried_by"] = SIMON_ID
+		var velocity: Vector3 = Vector3(0.0, 0.0, - speed)
+		simon_host.position += velocity * DT
+		simon.set_combat_state(simon_state)
+		simon.animate(DT, velocity, false, false)
+		var mate_velocity: Vector3 = Vector3.ZERO
+		if carrying:
+			var goal: Vector3 = simon_host.position + simon.global_basis.orthonormalized() * desired
+			mate_velocity = (goal - mate_host.position) / DT
+			mate_host.position = goal
+		mate.set_combat_state(mate_state)
+		mate.animate(DT, mate_velocity, false, false)
+		if carrying: mate.carry_finalize()
+		clock += DT
+		if clock + 0.0001 >= next_shot:
+			next_shot += step
+			_frame_camera(simon_host.position, view, true)
+			shots.append(await _snap())
+	_save_sheets("carry_%s_%s" % [ally.to_lower(), view], shots)
+	_clear()
 
 
 # Départ en starting-blocks → course éclair → arrêt net (dérapage).
@@ -119,18 +188,21 @@ func _sequence(label: String, plan: Array, view: String) -> void :
 	_clear()
 
 
-func _frame_camera(at: Vector3, view: String) -> void :
-	var focus: Vector3 = at + Vector3(0.0, 0.8, 0.0)
+func _frame_camera(at: Vector3, view: String, wide: bool = false) -> void :
+	var focus: Vector3 = at + Vector3(0.0, 0.8, 0.4 if wide else 0.0)
 	camera.projection = Camera3D.PROJECTION_PERSPECTIVE
 	camera.fov = 34.0
 	var offset: Vector3 = Vector3(3.3, 0.3, 0.0)
 	match view:
-		"three": offset = Vector3(2.9, 1.0, -3.0)
-		"back": offset = Vector3(1.4, 1.5, 3.6)
-		"front": offset = Vector3(0.0, 0.5, -4.4)
-		"top": offset = Vector3(0.6, 4.6, 0.8)
-		"close": offset = Vector3(2.2, 0.55, -1.2)
-	camera.position = focus + offset
+		"left": offset = Vector3(-3.3, 0.3, 0.0)
+		"three": offset = Vector3(2.3, 0.8, -2.4)
+		"threeleft": offset = Vector3(-2.3, 0.8, -2.4)
+		"back": offset = Vector3(1.2, 1.4, 3.2)
+		"front": offset = Vector3(0.0, 0.5, -3.8)
+		"top": offset = Vector3(0.5, 4.2, 0.6)
+		"close": offset = Vector3(2.0, 0.5, -1.1)
+	if wide: offset *= 1.25
+	camera.position = focus + offset * zoom
 	camera.look_at(focus)
 	sun.rotation = Vector3(deg_to_rad(-48.0), deg_to_rad(120.0 if view != "back" else 30.0), 0.0)
 

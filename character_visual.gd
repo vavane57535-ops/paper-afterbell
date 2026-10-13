@@ -21,6 +21,8 @@ signal anim_fx(cue: String)
 const CharMaterials = preload("res://char_materials.gd")
 const CharProps = preload("res://char_props.gd")
 const AnimSetSimon = preload("res://anim_set_simon.gd")
+const CarryRig = preload("res://carry_rig.gd")
+const CARRY_RELEASE: float = 0.3
 
 const CHARACTER_HEIGHTS: Dictionary = {"Usayuko": 1.87, "Simon": 1.75, "Ashura": 1.7, "Lysia": 1.75, "Elly": 1.9, "Bleuette": 1.65, "Alice": 1.75, "TrueForm": 3.0}
 const EMOTES: Array[String] = ["wave", "thumbsup", "cheer", "laugh", "point", "shrug", "sad", "fear", "clap", "facepalm", "sulk", "heart", "taunt", "salute", "selfie", "bow", "beg", "sit"]
@@ -298,6 +300,21 @@ var _boost_face: String = ""
 var _sonic: float = 0.0
 var _style_base: Dictionary = {}
 var _speed_now: float = 0.0
+# Portage de Simon (0.17, carry_rig.gd) : le porté est posé sur le visuel de Simon (racine en top_level),
+# les deux jouent le clip de leur variante sur la même horloge, les mains se rejoignent dans carry_finalize().
+var _carry_partner: PaperVisual = null
+var _carry_partner_id: int = -1
+var _carry_rig: Dictionary = {}
+var _carry_time: float = -1.0
+var _carry_stamp: int = -1
+var _carry_clip_time: float = -1.0
+var _carry_mood: String = ""
+var _carry_pinned: bool = false
+var _carry_from: Transform3D = Transform3D.IDENTITY
+var _carry_queued: bool = false
+var _carry_floor: float = 0.0
+var _carry_floor_ok: bool = false
+var _carry_release: float = 0.0
 var _death_hold: float = 0.0
 var _transition_time: float = TRANSITION_TIME
 var _stun_snap: bool = false
@@ -397,6 +414,11 @@ func _reset_motion_state() -> void :
 	_state_clocks.clear();_boost_blend = 0.0;_alert_blend = 0.0;_gait_previous = -1.0;_death_hold = 0.0
 	_g_pocket = 0.0;_g_lift_off.clear();_boost_face = ""
 	_sonic = 0.0;_style.merge(_style_base, true)
+	if _carry_pinned or _carry_release > 0.0:
+		top_level = false
+		position = Vector3.ZERO;rotation.x = 0.0;rotation.z = 0.0
+	_carry_pinned = false;_carry_queued = false;_carry_release = 0.0;_carry_partner = null;_carry_partner_id = -1
+	_carry_rig = {};_carry_time = -1.0;_carry_clip_time = -1.0;_carry_mood = ""
 	_hit_rot = Vector3.ZERO;_hit_vel = Vector3.ZERO;_hit_head = Vector3.ZERO;_hit_head_vel = Vector3.ZERO
 	_hit_arm = 0.0;_hit_arm_vel = 0.0;_hit_drop = 0.0;_hit_drop_vel = 0.0
 	_look = Vector2.ZERO;_look_speed = Vector2.ZERO;_glance_back = 0.0;_fatigue = 0.0
@@ -740,6 +762,7 @@ func animate(delta: float, velocity: Vector3, stunned: bool, phase: bool) -> voi
 	else: _action_time = maxf(0, _action_time - delta)
 	_lod_counter += 1
 	if _calm and (velocity.length_squared() > 0.01 or stunned or _action_time > 0.0): _calm = false
+	if _carry_pinned: _carry_queue()
 	var detail: int = _lod_detail()
 	if detail < 0:
 
@@ -763,6 +786,12 @@ func animate(delta: float, velocity: Vector3, stunned: bool, phase: bool) -> voi
 	_tick_dt = dt
 	_read_motion(dt, velocity)
 	_read_state(velocity)
+	_carry_update(dt)
+	if _carry_pinned:
+		# Porté : ses jambes ne courent pas (c'est Simon qui avance), il ne « décolle » ni n'atterrit.
+		speed = 0.0
+		_st_grounded = true
+		_st_vertical = 0.0
 	_speed_now = speed
 	_check_skid(speed, stunned)
 	_crawl_cycle += dt * TAU * 0.56 * clampf(speed / 0.7, 0.0, 1.0)
@@ -798,8 +827,9 @@ func animate(delta: float, velocity: Vector3, stunned: bool, phase: bool) -> voi
 	if _st_chased and _action_time <= 0 and _life_state == "alive" and not _is_alice: mood = "panic" if speed > 4.0 else "fear"
 	if not _boost_face.is_empty() and _action_time <= 0 and not stunned and _life_state == "alive": mood = _boost_face
 	if _st_lms and _action_time <= 0 and not stunned: mood = "determined"
+	if not _carry_mood.is_empty() and not stunned and _life_state == "alive": mood = _carry_mood
 	if character_name == "TrueForm" and not stunned: mood = "angry"
-	if not _st_emote.is_empty() and _is_emote(_st_emote) and _life_state == "alive" and not stunned and speed < 0.35 and _action_time <= 0:
+	if not _st_emote.is_empty() and _is_emote(_st_emote) and _life_state == "alive" and not stunned and speed < 0.35 and _action_time <= 0 and not _carry_pinned:
 		mood = _emote_pose(_st_emote, _st_emote_time)
 		_fidget_time = -1.0
 	else:
@@ -812,12 +842,13 @@ func animate(delta: float, velocity: Vector3, stunned: bool, phase: bool) -> voi
 		var relaxed: float = float(_style.idle_curl) + sin(_clock * 0.8 + _temperament) * 0.04
 		_curl_override = lerpf(relaxed, float(_style.fist), _g_run * _g_move)
 	_finish_tick(dt, mood)
+	if _carry_release > 0.0: _carry_settle(dt)
 	_calm = speed < 0.05 and _move_blend < 0.05 and _action_time <= 0.0 and _life_state == "alive" and _st_grounded and _air_blend < 0.01 and _stun_blend < 0.01 and _transition_left <= 0.0 and _fidget_time < 0.0 and _st_emote.is_empty() and absf(_land_offset) < 0.001 and _hit_rot.length_squared() + _hit_head.length_squared() + _hit_arm * _hit_arm < 0.0001 and not _st_heal and not _st_view and _st_eating <= 0.0 and _overlay_name.is_empty() and _speak_left <= 0.0 and not _st_block and not _st_blind and _alert_blend < 0.01
 
 
 
 func _idle_fidget(dt: float, speed: float, stunned: bool, mood: String) -> String:
-	var calm: bool = _life_state == "alive" and not stunned and speed < 0.2 and _action_time <= 0.0 and _st_grounded and not _st_chased and not _st_lms and _combat_state.get("emote_id", "") == "" and not _st_grab and not _st_heal and not _st_view and _st_eating <= 0.0 and _st_charge <= 0.0
+	var calm: bool = _life_state == "alive" and not stunned and speed < 0.2 and _action_time <= 0.0 and _st_grounded and not _st_chased and not _st_lms and _combat_state.get("emote_id", "") == "" and not _st_grab and not _st_heal and not _st_view and _st_eating <= 0.0 and _st_charge <= 0.0 and not _st_carried and not _st_carrying
 	if _fidget_time < 0.0:
 		_fidget_weight = 0.0
 		if not calm or lightweight or not fidgets:
@@ -1922,8 +1953,8 @@ func _state_poses(mood: String) -> String:
 	if _st_charge > 0.0: mood = _state_clip("charge", mood)
 	elif _st_grinding: mood = _state_clip("grind", mood)
 	elif _st_boost_time: mood = _state_clip("skate", mood, smoothstep(0.6, 3.0, _move_blend))
-	if _st_carrying: mood = _state_clip("carry", mood)
-	if _st_carried: mood = _state_clip("carried", mood)
+	_carry_mood = ""
+	if _st_carrying or _st_carried: mood = _carry_pose(mood)
 	if _st_eating > 0.0: mood = _state_clip("eat", mood)
 	if _st_outlet: mood = _state_clip("plugged", mood)
 	if is_instance_valid(_plug_tail): _plug_tail.rotation.x = -0.4 if _st_outlet else 0.0
@@ -1949,6 +1980,224 @@ func _state_clip(clip_name: String, mood: String, weight: float = 1.0) -> String
 		_state_clocks[clip_name] = [0.0, _tick_stamp]
 	var clip_mood: String = _apply_clip(clip, elapsed, weight, previous)
 	return clip_mood if not clip_mood.is_empty() and weight > 0.5 else mood
+
+
+
+# ---------------------------------------------------------------------------------------------------------
+# Portage de Simon (0.17). La variante se déduit du perso porté (carry_rig.gd) : chez l'hôte comme chez les
+# clients, carrying_id / carried_by suffisent (déjà synchronisés par NET_EFFECT_RULES). Le porté lit l'horloge
+# de Simon, se pose sur lui (racine en top_level) et les mains se rejoignent dans carry_finalize(), appelé en
+# différé à la fin du pas physique, quand les deux visuels ont fini leur pose (l'ordre des acteurs n'importe pas).
+
+func _carry_find(id: int) -> PaperVisual:
+	if id < 0: return null
+	if is_instance_valid(_carry_partner) and _carry_partner_id == id: return _carry_partner
+	var actor: Node = get_parent()
+	var world: Node = actor.get_parent() if actor != null else null
+	if world == null: return null
+	var node: Node = world.get_node_or_null("Actor_%d" % id)
+	if node == null: return null
+	for child: Node in node.get_children():
+		if child is PaperVisual and child != self: return child
+	return null
+
+
+func _carry_update(dt: float) -> void :
+	if _st_carrying:
+		var target_id: int = int(_combat_state.get("carrying_id", -1))
+		var partner: PaperVisual = _carry_find(target_id)
+		if partner != _carry_partner or target_id != _carry_partner_id: _carry_time = -1.0
+		_carry_partner = partner
+		_carry_partner_id = target_id
+		_carry_rig = CarryRig.variant(partner.character_name) if partner != null and character_name == CarryRig.CARRIER else {}
+		_carry_time = 0.0 if _carry_time < 0.0 else _carry_time + dt
+		_carry_stamp = Engine.get_physics_frames()
+		return
+	if _st_carried:
+		var carrier_id: int = int(_combat_state.get("carried_by", -1))
+		var carrier: PaperVisual = _carry_find(carrier_id)
+		var rig: Dictionary = CarryRig.variant(character_name) if carrier != null and carrier.character_name == CarryRig.CARRIER else {}
+		if rig.is_empty():
+			if _carry_pinned: _carry_unpin()
+			_carry_partner = carrier
+			_carry_partner_id = carrier_id
+			_carry_rig = {}
+			_carry_time = -1.0
+			return
+		_carry_partner = carrier
+		_carry_partner_id = carrier_id
+		_carry_rig = rig
+		# Même horloge que Simon ; s'il n'a pas encore joué ce pas physique, on anticipe d'un pas.
+		var time: float = maxf(carrier._carry_time, 0.0)
+		if carrier._carry_stamp != Engine.get_physics_frames(): time += dt
+		_carry_time = time
+		if not _carry_pinned: _carry_pin_start()
+		_carry_queue()
+		return
+	if _carry_pinned: _carry_unpin()
+	_carry_partner = null
+	_carry_partner_id = -1
+	_carry_rig = {}
+	_carry_time = -1.0
+	_carry_clip_time = -1.0
+
+
+func _carry_pose(mood: String) -> String:
+	if _carry_rig.is_empty():
+		# Porteur ou porté inconnu (film, outil) : clips génériques d'origine.
+		if _st_carrying: mood = _state_clip("carry", mood)
+		if _st_carried: mood = _state_clip("carried", mood)
+		return mood
+	var clip: Dictionary = _get_clip(("carry_" if _st_carrying else "carried_") + str(_carry_rig.key))
+	if clip.is_empty(): return mood
+	var t: float = maxf(_carry_time, 0.0)
+	var previous: float = _carry_clip_time if _carry_clip_time >= 0.0 and _carry_clip_time <= t else -1.0
+	_carry_clip_time = t
+	_carry_mood = _apply_clip(clip, t, 1.0, previous)
+	return _carry_mood if not _carry_mood.is_empty() else mood
+
+
+# Repère de Simon sur lequel le porté s'appuie (sans échelle).
+func _carry_anchor() -> Transform3D:
+	var carrier: PaperVisual = _carry_partner
+	var root: Transform3D = carrier.global_transform
+	var basis: Basis = root.basis.orthonormalized()
+	match str(_carry_rig.get("anchor", "root")):
+		"chest": return Transform3D(basis, carrier._chest.global_position)
+		"back": return Transform3D(carrier._chest.global_basis.orthonormalized(), carrier._chest.global_position)
+	return Transform3D(basis, root.origin)
+
+
+func _carry_pin_start() -> void :
+	_carry_pinned = true
+	_carry_release = 0.0
+	var anchor: Transform3D = _carry_anchor()
+	_carry_from = anchor.affine_inverse() * Transform3D(global_basis.orthonormalized(), global_position)
+	_carry_floor_ok = false
+	top_level = true
+	reset_physics_interpolation()
+
+
+func _carry_unpin() -> void :
+	_carry_pinned = false
+	_carry_queued = false
+	top_level = false
+	reset_physics_interpolation()
+	_carry_release = CARRY_RELEASE
+	_land_speed -= 0.9
+
+
+# Après la dépose, la racine revient doucement sur l'acteur (position, roulis et tangage à zéro).
+func _carry_settle(dt: float) -> void :
+	_carry_release = maxf(0.0, _carry_release - dt)
+	var k: float = 1.0 - exp( - dt * 16.0)
+	if _carry_release <= 0.0: k = 1.0
+	position = position.lerp(Vector3.ZERO, k)
+	rotation.x = lerp_angle(rotation.x, 0.0, k)
+	rotation.z = lerp_angle(rotation.z, 0.0, k)
+
+
+func _carry_queue() -> void :
+	if _carry_queued: return
+	_carry_queued = true
+	carry_finalize.call_deferred()
+
+
+# Racine du porté : place de la variante dans le repère d'appui ; pendant la prise, il glisse (en arc) depuis
+# l'endroit où il était, exprimé dans ce même repère (il est « happé » à la vitesse de Simon).
+func _carry_root() -> Transform3D:
+	var anchor: Transform3D = _carry_anchor()
+	var place: Transform3D = Transform3D(Basis(Vector3.UP, float(_carry_rig.yaw)), _carry_rig.offset)
+	var grab: float = float(_carry_rig.grab)
+	if _carry_time < grab:
+		var u: float = clampf(_carry_time / maxf(grab, 0.001), 0.0, 1.0)
+		var e: float = 1.0 - pow(1.0 - u, 3.0)
+		var lift: float = 0.0 if bool(_carry_rig.ground) else 0.16 * sin(PI * e)
+		var rotation_q: Quaternion = _carry_from.basis.get_rotation_quaternion().slerp(place.basis.get_rotation_quaternion(), e)
+		place = Transform3D(Basis(rotation_q), _carry_from.origin.lerp(place.origin, e) + Vector3.UP * lift)
+	var result: Transform3D = anchor * place
+	if bool(_carry_rig.ground): result.origin.y = _carry_ground(result.origin, anchor.origin.y)
+	return result
+
+
+# Hauteur du sol sous le porté (roulettes, talons), lissée ; sans sol trouvé, celle des pieds de Simon.
+func _carry_ground(at: Vector3, carrier_floor: float) -> float:
+	if not is_inside_tree(): return carrier_floor
+	var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(Vector3(at.x, carrier_floor + 0.7, at.z), Vector3(at.x, carrier_floor - 0.9, at.z), 1)
+	var hit: Dictionary = get_world_3d().direct_space_state.intersect_ray(query)
+	var floor_y: float = carrier_floor if hit.is_empty() else float(hit.position.y)
+	_carry_floor = floor_y if not _carry_floor_ok else lerpf(_carry_floor, floor_y, 0.5)
+	_carry_floor_ok = true
+	return _carry_floor
+
+
+# Point d'accroche sur ce visuel (mètres dans le repère de l'articulation).
+func _carry_point(node_name: String, at: Vector3) -> Vector3:
+	var node: Node3D = _chest
+	match node_name:
+		"palm_l", "palm_r":
+			var hand: Node3D = _left_hand if node_name == "palm_l" else _right_hand
+			var basis: Basis = hand.global_basis.orthonormalized()
+			return hand.global_position + basis * (hand.position.normalized() * 0.07) + basis * at
+		"root": return global_position + global_basis.orthonormalized() * at
+		"neck": node = _neck
+		"head": node = _head
+		"body": node = _body
+		"knee_l": node = _left_knee
+		"knee_r": node = _right_knee
+		"arm_l": node = _left_arm
+		"arm_r": node = _right_arm
+	return node.global_position + node.global_basis.orthonormalized() * at
+
+
+func _carry_reach(hand: String, point: Vector3, weight: float, wrist: Vector3, flare: float = 0.0) -> void :
+	var side: int = -1 if hand == "l" else 1
+	var target: Vector3 = _body.global_transform.affine_inverse() * point
+	_clip_flare[side] = flare
+	_hand_target_weighted(side, target, weight, Quaternion.from_euler(wrist), 1.0)
+	_clip_flare[side] = 0.0
+
+
+# Oriente la main pour que ce qu'elle tient (le fusil d'Elly : canon sur -Z de la main) vise une direction du monde.
+func _carry_aim(hand: String, direction: Vector3, weight: float) -> void :
+	if direction.length_squared() < 0.0001: return
+	var node: Node3D = _left_hand if hand == "l" else _right_hand
+	var parent: Node3D = node.get_parent()
+	var desired: Quaternion = Basis.looking_at(direction.normalized(), Vector3.UP).get_rotation_quaternion()
+	var local: Quaternion = parent.global_basis.orthonormalized().get_rotation_quaternion().inverse() * desired
+	node.quaternion = node.quaternion.slerp(local, clampf(weight, 0.0, 1.0))
+
+
+func _carry_resync() -> void :
+	if not is_instance_valid(_imported): return
+	_imported.set_forearm_twist(_twist_of(_left_hand), _twist_of(_right_hand))
+	_imported.sync(_clock, _move_blend)
+
+
+# Passe finale (porté) : racine posée sur Simon, puis les mains qui tiennent quelque chose, des deux côtés.
+func carry_finalize() -> void :
+	_carry_queued = false
+	if not _carry_pinned or not is_instance_valid(_carry_partner) or not is_inside_tree() or _carry_rig.is_empty(): return
+	var carrier: PaperVisual = _carry_partner
+	var size: Vector3 = scale
+	var root: Transform3D = _carry_root()
+	global_transform = Transform3D(root.basis * Basis.from_scale(size), root.origin)
+	var mine: bool = false
+	var theirs: bool = false
+	for contact: Dictionary in _carry_rig.get("contacts", []):
+		var weight: float = CarryRig.contact_weight(contact, _carry_time)
+		if weight <= 0.001: continue
+		var flare: float = float(contact.get("flare", 0.0))
+		if str(contact.who) == "carried":
+			_carry_reach(str(contact.hand), carrier._carry_point(str(contact.node), contact.at), weight, contact.wrist, flare)
+			if contact.has("aim"): _carry_aim(str(contact.hand), carrier.global_basis.orthonormalized() * (contact.aim as Vector3), weight)
+			mine = true
+		else:
+			carrier._carry_reach(str(contact.hand), _carry_point(str(contact.node), contact.at), weight, contact.wrist, flare)
+			theirs = true
+	if mine: _carry_resync()
+	if theirs: carrier._carry_resync()
+	_update_blob(0.0)
 
 
 
