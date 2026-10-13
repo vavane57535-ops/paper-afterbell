@@ -662,7 +662,7 @@ const TEXT: Dictionary = {
 	"RETOUR AU SALON": "RETURN TO LOBBY", 
 	"NOUVELLE MANCHE": "NEW ROUND", 
 	"Commandes": "Controls", 
-	"PRÊT POUR LA RENTRÉE": "READY FOR AFTERBELL", 
+	"PRÊT POUR LA RENTRÉE": "BACK TO SCHOOL", 
 	"MUSIQUE": "MUSIC", 
 	"Couper les sons": "Mute audio", 
 	"SENSIBILITÉ DE LA SOURIS": "MOUSE SENSITIVITY", 

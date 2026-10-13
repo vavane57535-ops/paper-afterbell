@@ -6,6 +6,8 @@
 
 **Nouveau dans la 0.16 :** prologue « Yiero » au premier lancement, exécutions d'Alice propres à chaque survivant (+45 s au chrono par élimination), victoires LMS façon Outcome Memories, alerte spectaculaire à l'ouverture de la sortie, musiques moins fortes et normalisées, courses refaites, caméra libre avec mode Derrière / Libre 360° (touche C), menus façon Persona en papier, nouvelles mécaniques de Lysia, Ashura et Bleuette, PV du LMS, 10 émotes et 10 danses TikTok synchronisées, choix d'Alice par l'hôte et blocus si Alice quitte. Tout le détail est dans `CHANGEMENTS-0.16.md`.
 
+**Textes (0.17) :** menus, HUD, messages de partie, fiches des persos et aides réécrits pour sonner comme une vraie personne, en français comme en anglais. Chaque perso a sa réplique (« Qui veut rester après les cours ? » pour Alice) et les cartes s'appellent maintenant **L'école de Miss Circle**, **Les bois** et **La classe de neige**. Les règles et les chiffres n'ont pas bougé. Détail : `TEXTES-0.17.md`.
+
 **Rappel des versions précédentes :** danses, tickets et menu vivant (0.15) ; animations et effets BD refaits (0.14) ; voix retirées (0.13.1) ; nouvelles musiques, menu illustré et cartes façon Outcome Memories (0.13). Voir les fichiers `CHANGEMENTS-0.1x.md`.
 
 **Réglages conseillés :** tout est dans **Réglages → Graphismes** : qualité (Élevée / Équilibrée / Performance), plein écran (ou F11), synchronisation verticale, limite d'images par seconde et échelle de rendu 3D. Sur un petit PC, commence par « Équilibrée ».
