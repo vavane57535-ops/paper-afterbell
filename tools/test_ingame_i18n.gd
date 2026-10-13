@@ -36,9 +36,9 @@ const SOURCES: Array[String] = [
 	"UNE OMBRE DERRIÈRE TOI · Alice arrive dans 1,2 s !", "Pas de place derrière les élèves pour surgir.", "LMS · +65 PV (150 max)",
 	"AURA PLEINE · Tiens jusqu’à la fin de ta musique !", "AURA PLEINE · 4 : un Dropkick (5 s de stun)", "AURA PLEINE · 4 : un tir de Shotgun (3 s de stun)",
 	"AURA PLEINE · 4 : Je peux le faire !", "AURA PLEINE · un allié éliminé peut réparer ton armure (150 PV max).",
-	"A-Ashura, ton drone, il gère… Sa prochaine recharge ira 25 % plus vite.", "M-merci d’être là, Usayuko… Ton prochain stun dure 1,5 s de plus.",
+	"A-Ashura, ton drone, il gère ! Sa prochaine recharge ira 25 % plus vite.", "M-merci d’être là, Usayuko… Ton prochain stun dure 1,5 s de plus.",
 	"C-cours, Simon, on te suit ! Ta prochaine Course éclair durera 2 s de plus.", "On… on va y arriver, Lysia ! Ta prochaine recharge sera 25 % plus courte.",
-	"Elly, t-tu nous sauves la vie… Ton prochain soin comptera double.", "J-je crois en toi ! Capacité rechargée.",
+	"Elly, t-tu nous sauves la vie ! Ton prochain soin comptera double.", "J-je crois en toi ! Capacité rechargée.",
 	"Tu tombes : la première fois, un allié peut te relever ; la deuxième, c’est fini. Lysia, elle, ne se relève jamais.",
 ]
 

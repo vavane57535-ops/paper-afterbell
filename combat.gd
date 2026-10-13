@@ -1167,7 +1167,7 @@ func _bleuette(actor, slot: int, target_id: int) -> bool:
 			match str(target.character):
 				"Ashura":
 					target.effects["drone_bonus"] = true
-					line = "A-Ashura, ton drone, il gère… Sa prochaine recharge ira 25 % plus vite."
+					line = "A-Ashura, ton drone, il gère ! Sa prochaine recharge ira 25 % plus vite."
 				"Usayuko":
 					target.effects["next_stun"] = 1.5
 					line = "M-merci d’être là, Usayuko… Ton prochain stun dure 1,5 s de plus."
@@ -1179,7 +1179,7 @@ func _bleuette(actor, slot: int, target_id: int) -> bool:
 					line = "On… on va y arriver, Lysia ! Ta prochaine recharge sera 25 % plus courte."
 				"Elly":
 					target.effects["next_heal"] = 2.0
-					line = "Elly, t-tu nous sauves la vie… Ton prochain soin comptera double."
+					line = "Elly, t-tu nous sauves la vie ! Ton prochain soin comptera double."
 				_:
 					_message(actor, "Ce personnage n'a pas de bonus Boost défini. Utilise Je crois en toi.")
 					return false
