@@ -332,6 +332,12 @@ Toutes les entrées, par fichier (« Après » = texte affiché en français, «
 | Le film du premier lancement : Simon et Ashura affrontent Yiero dans une dimension ténébreuse… puis Simon atterrit à l’école en plein combat. | Le film du premier lancement. Simon et Ashura tombent sur Yiero, un démon géant, au milieu d’une mer d’encre. Simon finit par atterrir à l’école, en pleine bagarre contre Alice. | The film from the very first launch. Simon and Ashura run into Yiero, a giant demon, in the middle of a sea of ink. Simon ends up crash-landing at school, right in a fight with Alice. |
 | La dernière tentative de/d’ X échoue. Alice le/la rattrape, frappe et l’achève au sol. | X est le dernier / la dernière encore debout. Alice finit par le / la rattraper. | X is the last one still standing. Alice catches up with him / her in the end. |
 
+### `escape_flow.gd` (1)
+
+| Avant | Après | Anglais |
+|---|---|---|
+| LMS · AURA COMPLÈTE, SORTIE MAINTENUE | LMS · AURA PLEINE : LA SORTIE RESTE OUVERTE | LMS · AURA FULL: THE EXIT STAYS OPEN |
+
 ### `audio/CREDITS.txt` (1)
 
 | Avant | Après | Anglais |
