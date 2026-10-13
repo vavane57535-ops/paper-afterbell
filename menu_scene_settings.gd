@@ -13,18 +13,17 @@ var _zapped: int = -1
 var _time: float = 0.0
 
 func build_steps() -> Array:
-	layered = false
+	styled = false
 	masked = false
 	grade = {"vignette": 0.0, "grain": 0.0}
 	return [_lights, _decor, _cast]
 
 func _lights() -> void :
-	env_fg = Environment.new()
-	env_fg.background_mode = Environment.BG_CLEAR_COLOR
-	env_fg.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env_fg.ambient_light_color = Color("3a3550")
-	env_fg.ambient_light_energy = 0.9
-	env_bg = env_fg
+	env = Environment.new()
+	env.background_mode = Environment.BG_CLEAR_COLOR
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = Color("3a3550")
+	env.ambient_light_energy = 0.9
 	_key = DirectionalLight3D.new()
 	_key.rotation = Vector3(-0.75, 2.6, 0.0)
 	_key.light_energy = 1.1
@@ -77,7 +76,7 @@ func _cast() -> void :
 	var lysia: PaperVisual = _old_actor("lysia", "Lysia", Vector3(0.55, 0, 0.45), Vector3(-0.55, 0.0, -1.0))
 	lysia.set_combat_state({"outlet_healing": 99.0})
 	_old_actor("ash", "Ashura", Vector3(-0.35, 0, 0.1), Vector3(1.0, 0.0, 0.2))
-	beats = [{"id": "repair", "len": 1.0e9, "cam": [[0.0, Vector3(0.3, 1.55, -4.4), Vector3(0.1, 0.65, 0.2), 34.0, {"x": 0.5, "shake": 0.0, "bg": 0.0}]]}]
+	beats = [{"id": "repair", "len": 1.0e9, "cam": [[0.0, Vector3(0.3, 1.55, -4.4), Vector3(0.1, 0.65, 0.2), 34.0, {"x": 0.5, "shake": 0.0, "blur": 0.0}]]}]
 
 func reset_state() -> void :
 	_time = 0.0

@@ -8,26 +8,26 @@ extends Node3D
 # terminent par un fondu au noir qui cache le retour.
 #
 # Piste de caméra : [t, œil, cible, fov, options] ; options : "cut" (nouveau plan),
-# "stop" (arrêt net sur la clé), "bg" / "fg" (flou du décor / des personnages, en pixels),
-# "shake" (caméra à l'épaule), "x" (place de la cible dans l'image, 0.5 = centre).
+# "stop" (arrêt net sur la clé), "linear", "shake" (caméra à l'épaule), "x" (place de la
+# cible dans l'image, 0.5 = centre), "roll", et la mise au point : "focus" (point ou prise
+# d'acteur net, la cible par défaut), "blur" (flou maximal hors du net, en pixels), "frad"
+# (rayon de la zone nette), "btop" (flou en plus vers le haut de l'image).
 # Œil ou cible peuvent être "acteur:prise" (prises de PaperVisual.socket_position)
 # + décalage : ["simon:head", Vector3(0, 0, 0.1)].
 
 const MenuKit = preload("res://menu_scene_kit.gd")
 
-const BG_LAYER: int = 1 << 10
 
 var engine: Node
 var id: String = ""
 var accent: Color = Color.WHITE
-var layered: bool = true
+var styled: bool = true
 var masked: bool = true
 var actors: Dictionary = {}
 var homes: Dictionary = {}
 var beats: Array = []
 var grade: Dictionary = {}
-var env_fg: Environment
-var env_bg: Environment
+var env: Environment
 var built: bool = false
 var beat: Dictionary = {}
 var beat_time: float = 0.0
@@ -187,6 +187,8 @@ func camera() -> Dictionary:
 	if keys.is_empty(): return {}
 	return sample_camera(keys, beat_time)
 
+const NUMERIC: Dictionary = {"shake": 0.25, "x": 0.56, "roll": 0.0, "blur": 2.2, "frad": 0.3, "btop": 0.8}
+
 func _resolve(value: Variant) -> Vector3:
 	if value is Vector3: return value
 	if value is Array:
@@ -227,7 +229,9 @@ func sample_camera(keys: Array, t: float) -> Dictionary:
 	if count == 1 or t <= float(times[0]) or seg >= count - 1:
 		var index: int = 0 if count == 1 or t <= float(times[0]) else count - 1
 		var key: Array = keys[start + index]
-		out = {"eye": eyes[index], "target": targets[index], "fov": float(key[3]), "bg": float(_opt(key, "bg", 1.6)), "fg": float(_opt(key, "fg", 0.0)), "shake": float(_opt(key, "shake", 0.25)), "x": float(_opt(key, "x", 0.56)), "roll": float(_opt(key, "roll", 0.0))}
+		out = {"eye": eyes[index], "target": targets[index], "fov": float(key[3])}
+		for name: String in NUMERIC: out[name] = float(_opt(key, name, NUMERIC[name]))
+		out["focus"] = _resolve(_opt(key, "focus", key[2]))
 		return out
 	var a: int = seg
 	var b: int = seg + 1
@@ -242,9 +246,10 @@ func sample_camera(keys: Array, t: float) -> Dictionary:
 	out["target"] = _hermite(targets, times, a, u, ka, kb, linear)
 	var w: float = u if linear else u * u * (3.0 - 2.0 * u)
 	out["fov"] = lerpf(float(ka[3]), float(kb[3]), w)
-	for name: String in ["bg", "fg", "shake", "x", "roll"]:
-		var fallback: float = {"bg": 1.6, "fg": 0.0, "shake": 0.25, "x": 0.56, "roll": 0.0}[name]
+	for name: String in NUMERIC:
+		var fallback: float = NUMERIC[name]
 		out[name] = lerpf(float(_opt(ka, name, fallback)), float(_opt(kb, name, _opt(ka, name, fallback))), w)
+	out["focus"] = _resolve(_opt(ka, "focus", ka[2])).lerp(_resolve(_opt(kb, "focus", kb[2])), w)
 	return out
 
 func _hermite(values: Array, times: Array, a: int, u: float, ka: Array, kb: Array, linear: bool) -> Vector3:

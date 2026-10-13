@@ -3,8 +3,8 @@ extends Control
 # Scènes 3D de survol de l'écran titre (à droite du menu principal et de la boutique).
 # Chaque bouton a sa petite scène mise en scène (menu_scene_<id>.gd) : décor, acteurs
 # animés par des clips écrits pour elle (anim_set_menu.gd), caméra qui bouge, temps
-# forts tirés au hasard. Le décor est rendu dans une vue à part puis flouté (faux flou
-# de profondeur) et les personnages passent nets par-dessus (menu_vignette.gdshader).
+# forts tirés au hasard. La vue 3D passe par menu_vignette.gdshader : mise au point
+# simulée, étalonnage, fondus et bord adouci contre la bande d'encre du menu.
 # Les scènes se construisent une étape par image, en tâche de fond, puis chacune est
 # rendue une fois en invisible pour compiler ses shaders avant le premier survol.
 
@@ -28,12 +28,9 @@ const PREPARE_ORDER: Array[String] = ["play", "training", "friends", "shop", "ga
 var ui: Node
 var _view: ColorRect
 var _composite: ShaderMaterial
-var _fg: SubViewport
-var _bg: SubViewport
-var _world: World3D
+var _viewport: SubViewport
 var _stage: Node3D
-var _cam_fg: Camera3D
-var _cam_bg: Camera3D
+var _camera: Camera3D
 var _scenes: Dictionary = {}
 var _current: String = ""
 var _wanted: String = ""
@@ -45,11 +42,9 @@ var _preview_person: String = "Bleuette"
 var _preview_dance: String = ""
 var _lineup_hidden: bool = false
 var _menu_held: bool = false
-var _prepare_queue: Array[String] = []
 var _warming: String = ""
 var _warm_frames: int = 0
 var _shake_seed: float = 0.0
-var _cam_state: Dictionary = {}
 # Débogage et captures : caméra imposée ({eye, target, fov}) et temps fort forcé.
 var debug_camera: Dictionary = {}
 var debug_beat: String = ""
@@ -72,52 +67,38 @@ func setup(owner_ui: Node) -> void :
 	_view.anchor_right = 1.0
 	_view.anchor_top = 0.04
 	_view.anchor_bottom = 1.0
-	_world = World3D.new()
-	_fg = _make_viewport(true)
-	_bg = _make_viewport(false)
+	_viewport = SubViewport.new()
+	_viewport.own_world_3d = true
+	_viewport.transparent_bg = true
+	_viewport.msaa_3d = Viewport.MSAA_2X
+	_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	_viewport.size = Vector2i(64, 64)
+	add_child(_viewport)
 	_stage = Node3D.new()
 	_stage.name = "MenuStage"
-	_fg.add_child(_stage)
-	_cam_fg = Camera3D.new()
-	_cam_fg.cull_mask = 0xFFFFF & ~MenuScene.BG_LAYER
-	_fg.add_child(_cam_fg)
-	_cam_fg.current = true
-	_cam_bg = Camera3D.new()
-	_cam_bg.cull_mask = MenuScene.BG_LAYER
-	_bg.add_child(_cam_bg)
-	_cam_bg.current = true
+	_viewport.add_child(_stage)
+	_camera = Camera3D.new()
+	_camera.far = 120.0
+	_viewport.add_child(_camera)
+	_camera.current = true
 	_composite = ShaderMaterial.new()
 	_composite.shader = COMPOSITE
-	_composite.set_shader_parameter("fg_tex", _fg.get_texture())
-	_composite.set_shader_parameter("bg_tex", _bg.get_texture())
+	_composite.set_shader_parameter("scene_tex", _viewport.get_texture())
 	_view.material = _composite
 	_view.resized.connect(_on_resized)
 	_music = AudioStreamPlayer.new()
 	_music.bus = &"PaperMusic"
 	_music.volume_db = PREVIEW_DB
 	add_child(_music)
-	_prepare_queue = PREPARE_ORDER.duplicate()
-	modulate.a = 1.0
 	hide()
 	_on_resized.call_deferred()
-
-func _make_viewport(front: bool) -> SubViewport:
-	var viewport: SubViewport = SubViewport.new()
-	viewport.world_3d = _world
-	viewport.transparent_bg = front
-	viewport.msaa_3d = Viewport.MSAA_2X if front else Viewport.MSAA_DISABLED
-	viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
-	viewport.size = Vector2i(64, 64)
-	add_child(viewport)
-	return viewport
 
 func _on_resized() -> void :
 	var size: Vector2 = _view.size
 	if size.x < 8.0 or size.y < 8.0: return
-	_fg.size = Vector2i(roundi(size.x), roundi(size.y))
-	_bg.size = Vector2i(maxi(8, roundi(size.x * 0.5)), maxi(8, roundi(size.y * 0.5)))
-	_composite.set_shader_parameter("fg_px", Vector2(1.0 / size.x, 1.0 / size.y))
-	_composite.set_shader_parameter("bg_px", Vector2(2.0 / size.x, 2.0 / size.y))
+	_viewport.size = Vector2i(roundi(size.x), roundi(size.y))
+	_composite.set_shader_parameter("px", Vector2(1.0 / size.x, 1.0 / size.y))
+	_composite.set_shader_parameter("aspect", size.x / size.y)
 	_update_edge()
 
 # Bord gauche du masque calé sur le liseré rouge de la bande d'encre du menu principal
@@ -132,10 +113,8 @@ func _update_edge() -> void :
 	var edge: Vector2 = from - dir.orthogonal() * (640.0 * k * 0.5 + 26.0 * k)
 	var rect: Rect2 = _view.get_global_rect()
 	if rect.size.x < 8.0: return
-	var top_y: float = rect.position.y
-	var bottom_y: float = rect.end.y
-	var x_top: float = edge.x + dir.x * (top_y - edge.y) / dir.y
-	var x_bottom: float = edge.x + dir.x * (bottom_y - edge.y) / dir.y
+	var x_top: float = edge.x + dir.x * (rect.position.y - edge.y) / dir.y
+	var x_bottom: float = edge.x + dir.x * (rect.end.y - edge.y) / dir.y
 	_composite.set_shader_parameter("edge_u", Vector2((x_top - rect.position.x) / rect.size.x, (x_bottom - rect.position.x) / rect.size.x))
 
 func hover(action: String) -> void :
@@ -199,8 +178,7 @@ func _process(delta: float) -> void :
 		_current = ""
 		if ready: _show_scene(target)
 	var show: bool = target != "" and _current == target
-	var speed: float = 3.2 if show else 6.5
-	_alpha = move_toward(_alpha, 1.0 if show else 0.0, delta * speed)
+	_alpha = move_toward(_alpha, 1.0 if show else 0.0, delta * (3.2 if show else 6.5))
 	visible = _alpha > 0.001
 	_set_lineup(show or (_current != "" and _alpha > 0.02))
 	if not show and _music.playing and _alpha <= 0.01: _music.stop()
@@ -218,16 +196,11 @@ func _process(delta: float) -> void :
 			warmed.leave()
 			warmed.set_meta("warmed", true)
 			_warming = ""
-	var mode: int = SubViewport.UPDATE_ALWAYS if rendering or _warming != "" else SubViewport.UPDATE_DISABLED
-	_fg.render_target_update_mode = mode
-	var scene: MenuScene = _scenes.get(_current) if _current != "" else null
-	_bg.render_target_update_mode = mode if (scene == null or scene.layered) else SubViewport.UPDATE_DISABLED
-	if not rendering:
-		if _warming == "": return
-		_apply_look(_scenes[_warming], 0.0)
-		return
+	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS if rendering or _warming != "" else SubViewport.UPDATE_DISABLED
+	if not rendering: return
+	var scene: MenuScene = _scenes[_current]
 	scene.tick(delta)
-	_apply_camera(scene, delta)
+	_apply_camera(scene)
 	_apply_look(scene, _alpha)
 
 func _show_scene(id: String) -> void :
@@ -237,11 +210,11 @@ func _show_scene(id: String) -> void :
 	for other: String in _scenes:
 		if other != id: (_scenes[other] as Node3D).visible = false
 	scene.visible = true
+	scene.set_meta("warmed", true)
 	scene.forced_beat = debug_beat
 	scene.enter()
 	# Un pas d'animation hors champ : la première image montrée est déjà la bonne pose.
 	scene.tick(1.0 / 60.0)
-	_cam_state = {}
 	_shake_seed = randf() * 100.0
 	if id == "dance" and not _preview_dance.is_empty():
 		_music.stream = Dances.music(_preview_dance)
@@ -254,27 +227,27 @@ func _hide_scene(id: String) -> void :
 	scene.leave()
 	scene.visible = false
 
-# Préparation en tâche de fond : une étape de construction par image, puis un rendu
-# invisible de la scène finie pour compiler ses shaders avant le premier survol.
+# Préparation en tâche de fond : une étape de construction par image, puis (seulement quand
+# aucune scène n'est affichée) un rendu invisible pour compiler les shaders de la scène.
 func _prepare_step(can_warm: bool) -> void :
-	for id: String in _prepare_queue:
+	for id: String in PREPARE_ORDER:
 		var scene: MenuScene = _scene(id)
 		if scene == null: continue
 		if not scene.built:
 			scene.build_next()
 			return
-		if scene.has_meta("warmed"): continue
-		if not can_warm: continue
+		if scene.has_meta("warmed") or not can_warm: continue
 		_warming = id
 		_warm_frames = 2
 		scene.visible = true
 		scene.forced_beat = ""
 		scene.enter()
 		scene.tick(1.0 / 60.0)
-		_apply_camera(scene, 0.0)
+		_apply_camera(scene)
+		_apply_look(scene, 0.0)
 		return
 
-func _apply_camera(scene: MenuScene, delta: float) -> void :
+func _apply_camera(scene: MenuScene) -> void :
 	var shot: Dictionary = debug_camera if not debug_camera.is_empty() else scene.camera()
 	if shot.is_empty(): return
 	var eye: Vector3 = shot.eye
@@ -285,28 +258,30 @@ func _apply_camera(scene: MenuScene, delta: float) -> void :
 	# Caméra à l'épaule : quelques sinusoïdes lentes, jamais en phase.
 	var wobble: Vector3 = Vector3(sin(t * 0.71) + 0.6 * sin(t * 1.93 + 1.7), sin(t * 0.53 + 0.4) + 0.5 * sin(t * 1.37 + 2.1), sin(t * 0.37 + 2.9)) * 0.012 * shake
 	var aim: Vector3 = Vector3(sin(t * 0.61 + 0.9) + 0.4 * sin(t * 2.3), sin(t * 0.83 + 2.2) + 0.4 * sin(t * 1.7 + 0.5), 0.0) * 0.006 * shake
-	var basis_look: Basis = Basis.looking_at(target - eye, Vector3.UP)
+	var look: Basis = Basis.looking_at(target - eye, Vector3.UP)
 	# Cadrage : la cible tombe à la place « x » de l'image (le masque mange la gauche).
 	var place: float = float(shot.get("x", 0.56))
-	var aspect: float = float(_fg.size.x) / maxf(1.0, float(_fg.size.y))
+	var aspect: float = float(_viewport.size.x) / maxf(1.0, float(_viewport.size.y))
 	var half_width: float = tan(deg_to_rad(fov) * 0.5) * aspect
-	var yaw_shift: float = atan((place - 0.5) * 2.0 * half_width)
-	basis_look = basis_look * Basis(Vector3.UP, yaw_shift)
-	basis_look = basis_look * Basis(Vector3(1, 0, 0), aim.y) * Basis(Vector3.UP, aim.x)
+	look = look * Basis(Vector3.UP, atan((place - 0.5) * 2.0 * half_width))
+	look = look * Basis(Vector3(1, 0, 0), aim.y) * Basis(Vector3.UP, aim.x)
 	var roll: float = float(shot.get("roll", 0.0))
-	if absf(roll) > 0.0001: basis_look = basis_look * Basis(Vector3(0, 0, 1), roll)
-	var xform: Transform3D = Transform3D(basis_look, eye + basis_look * wobble)
-	xform = scene.global_transform * xform
-	for camera: Camera3D in [_cam_fg, _cam_bg]:
-		camera.global_transform = xform
-		camera.fov = fov
-		camera.environment = scene.env_fg if camera == _cam_fg else scene.env_bg
-	_composite.set_shader_parameter("bg_blur", float(shot.get("bg", 1.6)))
-	_composite.set_shader_parameter("fg_blur", float(shot.get("fg", 0.0)))
+	if absf(roll) > 0.0001: look = look * Basis(Vector3(0, 0, 1), roll)
+	_camera.global_transform = scene.global_transform * Transform3D(look, eye + look * wobble)
+	_camera.fov = fov
+	_camera.environment = scene.env
+	var focus: Vector3 = scene.global_transform * (shot.get("focus", target) as Vector3)
+	var focus_uv: Vector2 = Vector2(place, 0.45)
+	if not _camera.is_position_behind(focus):
+		focus_uv = _camera.unproject_position(focus) / Vector2(_viewport.size)
+	_composite.set_shader_parameter("focus_uv", focus_uv)
+	_composite.set_shader_parameter("focus_radius", float(shot.get("frad", 0.3)))
+	_composite.set_shader_parameter("blur_max", float(shot.get("blur", 2.2)) if debug_camera.is_empty() else 0.0)
+	_composite.set_shader_parameter("blur_top", float(shot.get("btop", 0.8)))
 
 func _apply_look(scene: MenuScene, alpha: float) -> void :
 	var look: Dictionary = scene.grade
-	_composite.set_shader_parameter("has_bg", scene.layered)
+	_composite.set_shader_parameter("styled", scene.styled)
 	_composite.set_shader_parameter("masked", scene.masked)
 	_composite.set_shader_parameter("fade", alpha)
 	_composite.set_shader_parameter("dip", float(look.get("dip", 0.0)))
@@ -340,9 +315,6 @@ func _set_lineup(hidden: bool) -> void :
 		_lineup_hidden = false
 
 # --- Outils de capture ----------------------------------------------------------
-
-func debug_scene(id: String) -> MenuScene:
-	return _scene(id)
 
 func current_scene() -> MenuScene:
 	return _scenes.get(_current) if _current != "" else null

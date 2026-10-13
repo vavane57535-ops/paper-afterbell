@@ -15,18 +15,7 @@ func build_steps() -> Array:
 	return [_lights, _stage_set, _cast]
 
 func _lights() -> void :
-	env_fg = Environment.new()
-	env_fg.background_mode = Environment.BG_CLEAR_COLOR
-	env_fg.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env_fg.ambient_light_color = Color("5a4f78")
-	env_fg.ambient_light_energy = 0.75
-	env_fg.tonemap_mode = Environment.TONE_MAPPER_FILMIC
-	env_bg = env_fg.duplicate()
-	env_bg.background_mode = Environment.BG_COLOR
-	env_bg.background_color = Color("120f1c")
-	env_bg.glow_enabled = true
-	env_bg.glow_intensity = 0.8
-	env_bg.glow_bloom = 0.0
+	env = MenuKit.night_environment(Color("5a4f78"), 0.75, Color("120f1c"), 0.02)
 	_spot = MenuKit.spot(self, Vector3(0.4, 4.2, -1.2), Vector3(0, 0.9, 0), Color("ffe6f4"), 5.5, 9.0, 24.0, true)
 	_rim = MenuKit.omni(self, Vector3(-1.6, 2.0, 1.6), accent, 2.4, 6.0)
 	MenuKit.omni(self, Vector3(1.8, 1.2, -1.8), Color("8fa8ff"), 0.8, 6.0)
@@ -46,7 +35,7 @@ func _cast() -> void :
 		var angle: float = deg_to_rad(-38.0 + 76.0 * float(i % 2))
 		var radius: float = 4.6 - 0.35 * float(i % 3)
 		var eye: Vector3 = Vector3(sin(angle) * radius, 1.35 + 0.15 * float((i + 1) % 2), - cos(angle) * radius)
-		keys.append([8.0 * i, eye if i > 0 else eye_a, Vector3(0, 0.95, 0), 32.0, {"x": 0.55, "shake": 0.15, "bg": 1.4}])
+		keys.append([8.0 * i, eye if i > 0 else eye_a, Vector3(0, 0.95, 0), 32.0, {"x": 0.55, "shake": 0.15, "blur": 1.6, "frad": 0.35}])
 	beats = [{"id": "dance", "len": 1.0e9, "cam": keys}]
 
 func update(_beat_id: String, t: float, _dt: float) -> void :

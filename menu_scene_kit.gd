@@ -3,12 +3,11 @@ extends RefCounted
 # Décors et accessoires des scènes de survol de l'écran titre. Les murs et meubles
 # prennent le même shader « papier » que l'école du jeu (PaperToon, map_toon.gdshader),
 # les accessoires tenus en main le style des personnages (CharMaterials.flat, liseré).
-# Tout ce qui est décor va sur la couche BG (rendu à part puis flouté).
+# Le flou de mise au point est fait à l'écran (menu_vignette.gdshader) : tout est rendu ensemble.
 
 const G = preload("res://model_geometry.gd")
 const CharMaterials = preload("res://char_materials.gd")
-const BG: int = 1 << 10
-const FG: int = 1
+const BG: int = 1
 
 static var _mats: Dictionary = {}
 static var _noise: Dictionary = {}
@@ -68,6 +67,26 @@ static func _texture(kind: String) -> NoiseTexture2D:
 	texture.color_ramp = ramp
 	_noise[kind] = texture
 	return texture
+
+# Nuit à l'école, comme les cartes du jeu (map_atmosphere.gd) : ambiance bleu-violet,
+# brouillard, tonemap filmique, légère désaturation. Fond transparent (masque de la vignette).
+static func night_environment(ambient: Color, ambient_energy: float, fog: Color, fog_density: float) -> Environment:
+	var env: Environment = Environment.new()
+	env.background_mode = Environment.BG_CLEAR_COLOR
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = ambient
+	env.ambient_light_energy = ambient_energy
+	env.fog_enabled = fog_density > 0.0
+	env.fog_mode = Environment.FOG_MODE_EXPONENTIAL
+	env.fog_light_color = fog
+	env.fog_density = fog_density
+	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	env.tonemap_exposure = 1.1
+	env.adjustment_enabled = true
+	env.adjustment_brightness = 0.97
+	env.adjustment_contrast = 1.1
+	env.adjustment_saturation = 0.88
+	return env
 
 # --- Primitives -----------------------------------------------------------------
 

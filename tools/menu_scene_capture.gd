@@ -22,6 +22,7 @@ var window_size: Vector2i = Vector2i(1280, 800)
 var beat: String = ""
 var camera: Dictionary = {}
 var scout: Array = []
+var fg_only: bool = false
 
 func _vec(text: String) -> Vector3:
 	var p: PackedStringArray = text.split(",")
@@ -52,6 +53,7 @@ func setup(game_world: Node) -> void :
 				for item: String in value.split(";"):
 					var bits: PackedStringArray = item.split(">")
 					scout.append({"eye": _vec(bits[0]), "target": _vec(bits[1]), "fov": float(bits[2]) if bits.size() > 2 else 40.0, "x": 0.5, "bg": 0.0})
+			"--fg-only": fg_only = true
 			"--slow": fast = false
 			"--size":
 				var parts: PackedStringArray = value.split("x")
@@ -104,6 +106,7 @@ func _run() -> void :
 		var started: float = _clock
 		var t: float = start_at
 		if t > 0.0: await _wait(t)
+		if fg_only and vignettes.call("current_scene") != null: vignettes.call("current_scene").set("styled", false)
 		if not scout.is_empty():
 			for i: int in range(scout.size()):
 				vignettes.set("debug_camera", scout[i])

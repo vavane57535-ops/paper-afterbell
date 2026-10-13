@@ -6,6 +6,7 @@ extends Node
 
 var world: Node
 var out_dir: String = "/tmp/menu_render_probe"
+var layer_bits: int = 1
 
 func setup(game_world: Node) -> void :
 	world = game_world
@@ -28,6 +29,7 @@ func _box(root: Node3D, size: Vector3, at: Vector3, color: Color, glow: float = 
 		mat.emission_energy_multiplier = glow
 	mesh.material_override = mat
 	mesh.position = at
+	mesh.layers = layer_bits
 	root.add_child(mesh)
 
 func _run() -> void :
@@ -64,7 +66,25 @@ func _run() -> void :
 	spot.light_energy = 6.0
 	spot.shadow_enabled = true
 	root.add_child(spot)
+	if "--layer" in OS.get_cmdline_user_args():
+		layer_bits = 1 << 10
+		for child: Node in root.get_children():
+			if child is VisualInstance3D: (child as VisualInstance3D).layers = layer_bits
+		camera.cull_mask = layer_bits
+	var omni: OmniLight3D = OmniLight3D.new()
+	omni.position = Vector3(-2.0, 1.5, 1.5)
+	omni.light_color = Color(1, 0.3, 0.3)
+	omni.light_energy = 3.0
+	omni.omni_range = 4.0
+	root.add_child(omni)
+	var sun: DirectionalLight3D = DirectionalLight3D.new()
+	sun.light_color = Color(0.3, 1.0, 0.3)
+	sun.light_energy = 0.6
+	root.add_child(sun)
+	sun.look_at_from_position(Vector3.ZERO, Vector3(0.5, -0.6, -0.3), Vector3.UP)
 	await _shot(viewport, "0_base")
+	spot.shadow_enabled = false
+	await _shot(viewport, "0b_noshadow")
 	env.glow_enabled = true
 	env.glow_intensity = 1.2
 	env.glow_bloom = 0.2
