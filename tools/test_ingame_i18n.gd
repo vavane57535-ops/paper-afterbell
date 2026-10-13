@@ -22,12 +22,24 @@ const SOURCES: Array[String] = [
 	"SURCHAUFFE · INVULNÉRABLE · ARMURE −%d PV · %.1f s",
 	"INTERAGIR / 4 · SE BRANCHER · 15 s DE SOIN",
 	"TRUE FORM · %.1f s · CHRONO SUSPENDU", "TRUE FORM · %.0f s · COMPÉTENCE 4 : BONDIR",
-	"DERNIÈRE PRÉSENCE", "VOUS ÊTES TOMBÉ", "TAB · suivre un allié", "AURA ÉVEILLÉE", "Les bonus de LMS sont disponibles.",
-	"LA DERNIÈRE BLESSURE…", "ÉTOURDI  ·  %.1f s", "AURA · %d / 100", "PRÊTE",
+	"DERNIER SURVIVANT", "DERNIÈRE SURVIVANTE", "TU ES ÉLIMINÉ", "TU ES ÉLIMINÉE", "TAB · suivre un allié", "AURA PLEINE", "Tes bonus de LMS sont débloqués.",
+	"TU T’ÉCROULES…", "ÉTOURDI  ·  %.1f s", "AURA · %d / 100", "PRÊTE",
 	"LMS · AURA COMPLÈTE, SORTIE MAINTENUE", "LMS · LA SORTIE S’OUVRIRA AUX 80 DERNIÈRES SECONDES",
 	"TRUE FORM · LA SORTIE SE REFERME", "LMS · LA SORTIE SE REFERME",
 	"Vise un allié à moins de 6 m", "Allié à moins de 6 m, près d’Alice, avec une recharge en cours",
-	"DERNIÈRE PRÉSENCE · +%d PV (maximum 150)", "PV",
+	"LMS · +%d PV (150 max)", "PV",
+	# Textes de partie réécrits en 0.17 (lot textes).
+	"LES GRILLES SONT FERMÉES", "ALICE · Attrape-les avant qu’ils sortent.", "SURVIVANTS · Tenez jusqu’à 01:20, puis rejoignez la sortie.",
+	"La cloche a sonné. La sortie s’ouvre à 01:20.", "Simon contre Alice", "Bleuette contre Alice", "ALERTE ARCHIVE · UN ÉLÈVE S’EST FAIT REPÉRER",
+	"ARCHIVE · APPUIE SUR LA BONNE TOUCHE", "ALICE ARRIVE DERRIÈRE TOI ! BOUGE !", "OMBRES · TU VAS SURGIR DERRIÈRE UN ÉLÈVE AU HASARD",
+	"Les élèves ont quelques secondes d’avance.", "ALICE ARRIVE DERRIÈRE TOI ! Dans 1,2 s. Bouge !", "TRUE FORM · bond mortel · chrono en pause",
+	"UNE OMBRE DERRIÈRE TOI · Alice arrive dans 1,2 s !", "Pas de place derrière les élèves pour surgir.", "LMS · +65 PV (150 max)",
+	"AURA PLEINE · Tiens jusqu’à la fin de ta musique !", "AURA PLEINE · 4 : un Dropkick (5 s de stun)", "AURA PLEINE · 4 : un tir de Shotgun (3 s de stun)",
+	"AURA PLEINE · 4 : Je peux le faire !", "AURA PLEINE · un allié éliminé peut réparer ton armure (150 PV max).",
+	"A-Ashura, ton drone, il gère… Sa prochaine recharge ira 25 % plus vite.", "M-merci d’être là, Usayuko… Ton prochain stun dure 1,5 s de plus.",
+	"C-cours, Simon, on te suit ! Ta prochaine Course éclair durera 2 s de plus.", "On… on va y arriver, Lysia ! Ta prochaine recharge sera 25 % plus courte.",
+	"Elly, t-tu nous sauves la vie… Ton prochain soin comptera double.", "J-je crois en toi ! Capacité rechargée.",
+	"Tu tombes : la première fois, un allié peut te relever ; la deuxième, c’est fini. Lysia, elle, ne se relève jamais.",
 ]
 
 func setup(_world: Node) -> void :
