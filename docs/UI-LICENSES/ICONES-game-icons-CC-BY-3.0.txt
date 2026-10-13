@@ -1,0 +1,92 @@
+PAPER AFTERBELL — ICÔNES D'INTERFACE / UI ICONS
+
+Icônes de game-icons.net, licence Creative Commons Attribution 3.0 (CC BY 3.0).
+Icons from game-icons.net, licensed under CC BY 3.0: https://creativecommons.org/licenses/by/3.0/
+Modification : fond retiré, forme blanche unique teintée dans le jeu, taille 96 px.
+Change: background removed, single white shape tinted in game, 96 px size.
+
+Delapouite — https://game-icons.net
+  adrenaline.svg  <-  running-shoe.svg
+  archive.svg  <-  archive-register.svg
+  believe.svg  <-  heart-battery.svg
+  can_do.svg  <-  biceps.svg
+  check.svg  <-  check-mark.svg
+  drone.svg  <-  delivery-drone.svg
+  dropkick.svg  <-  high-kick.svg
+  emote.svg  <-  chat-bubble.svg
+  encourage.svg  <-  megaphone.svg
+  exit.svg  <-  exit-door.svg
+  eye.svg  <-  eye-target.svg
+  film.svg  <-  film-strip.svg
+  friends.svg  <-  three-friends.svg
+  gamepad.svg  <-  gamepad.svg
+  hand_ok.svg  <-  hand-ok.svg
+  heal.svg  <-  healing.svg
+  invisible.svg  <-  invisible.svg
+  jump.svg  <-  jump-across.svg
+  keyboard.svg  <-  keyboard.svg
+  lock.svg  <-  plain-padlock.svg
+  music.svg  <-  musical-notes.svg
+  notebook.svg  <-  notebook.svg
+  pencil.svg  <-  pencil.svg
+  protect.svg  <-  heart-shield.svg
+  roller.svg  <-  roller-skate.svg
+  scroll.svg  <-  scroll-quill.svg
+  shotgun.svg  <-  sawed-off-shotgun.svg
+  sparkles.svg  <-  sparkles.svg
+  speaker.svg  <-  speaker.svg
+  speaker_off.svg  <-  speaker-off.svg
+  student.svg  <-  graduate-cap.svg
+  stunned.svg  <-  knocked-out-stars.svg
+  switch_weapon.svg  <-  switch-weapon.svg
+  tv.svg  <-  tv.svg
+  xray.svg  <-  cyber-eye.svg
+
+Guard13007 — https://game-icons.net
+  play.svg  <-  play-button.svg
+
+Lorc — https://game-icons.net
+  aura.svg  <-  aura.svg
+  automaton.svg  <-  robot-golem.svg
+  bell.svg  <-  ringing-bell.svg
+  block.svg  <-  shield-reflect.svg
+  cog.svg  <-  cog.svg
+  consume.svg  <-  wave-strike.svg
+  cross.svg  <-  cross-mark.svg
+  dummy.svg  <-  target-dummy.svg
+  flash_sprint.svg  <-  sprint.svg
+  flashbang.svg  <-  flash-grenade.svg
+  ghost_ally.svg  <-  ghost-ally.svg
+  grab.svg  <-  grab.svg
+  hourglass.svg  <-  hourglass.svg
+  interact.svg  <-  pointing.svg
+  map.svg  <-  treasure-map.svg
+  mode_cycle.svg  <-  cycle.svg
+  overheat.svg  <-  fire-dash.svg
+  punch.svg  <-  punch.svg
+  shadow_doubles.svg  <-  two-shadows.svg
+  shadow_grasp.svg  <-  shadow-grasp.svg
+  shadow_step.svg  <-  shadow-follower.svg
+  slash.svg  <-  claw-slashes.svg
+  spikes.svg  <-  spears.svg
+  sprint.svg  <-  run.svg
+  tombstone.svg  <-  tombstone.svg
+  trophy.svg  <-  trophy.svg
+  true_form.svg  <-  daemon-skull.svg
+
+Lord Berandas — https://game-icons.net
+  power.svg  <-  power-button.svg
+
+Priorblue — https://game-icons.net
+  outlet.svg  <-  battery-plus.svg
+
+Rihlsul — https://game-icons.net
+  chocolate.svg  <-  chocolate-bar.svg
+
+Sbed — https://game-icons.net
+  heal_zone.svg  <-  health-increase.svg
+
+Skoll — https://game-icons.net
+  heart.svg  <-  hearts.svg
+  listen.svg  <-  sound-waves.svg
+  reveal.svg  <-  evil-eyes.svg

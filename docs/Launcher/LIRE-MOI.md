@@ -1,0 +1,1 @@
+Lancer PaperAfterbellLauncher.exe puis Jouer. Le jeu se trouve juste au-dessus, dans PaperAfterbell.exe (version 0.14). Voir ../LISEZ-MOI.md pour les comptes, amis et mises à jour, et ../CHANGEMENTS-0.14.md pour les nouveautés. Aucun service public n’est encore hébergé. Polices du launcher : licences OFL dans ../UI-LICENSES.

@@ -1,0 +1,51 @@
+extends Node
+
+
+
+const FILES: Dictionary = {"hover": "res://ui/sfx/ui_cursor.wav", "click": "res://ui/sfx/ui_click.wav", "back": "res://ui/sfx/ui_back.wav", "confirm": "res://ui/sfx/ui_confirm.wav", "page": "res://ui/sfx/ui_page.wav", "tear": "res://ui/sfx/ui_tear.wav", "swoosh": "res://ui/sfx/ui_swoosh.wav", "open": "res://ui/sfx/ui_open.wav", "close": "res://ui/sfx/ui_close.wav"}
+const GAINS: Dictionary = {"hover": -15.0, "click": -11.0, "back": -12.0, "confirm": -13.0, "page": -15.0, "tear": -16.0, "swoosh": -18.0, "open": -17.0, "close": -19.0}
+
+static var instance: Node
+
+var world: Node
+var _players: Dictionary = {}
+var _last_played: Dictionary = {}
+
+func setup(owner_world: Node) -> void :
+	world = owner_world
+	name = "UISound"
+	instance = self
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	for kind: String in FILES:
+		var stream: AudioStream = load(FILES[kind]) as AudioStream if ResourceLoader.exists(FILES[kind]) else null
+		if stream == null: continue
+		var player: AudioStreamPlayer = AudioStreamPlayer.new()
+		player.stream = stream
+		player.max_polyphony = 2
+		player.bus = &"PaperMix" if AudioServer.get_bus_index(&"PaperMix") >= 0 else &"Master"
+		add_child(player)
+		_players[kind] = player
+
+
+static func play(kind: String) -> void :
+	if is_instance_valid(instance): instance._play(kind)
+
+func _play(kind: String) -> void :
+	if world == null or bool(world.get("dedicated")): return
+	var player: AudioStreamPlayer = _players.get(kind)
+	if player == null: return
+	var audio: Node = world.get("audio")
+	var volume: float = 1.0
+	if audio:
+		if bool(audio.get("muted")): return
+		volume = float(audio.get("effects_volume"))
+	if volume <= 0.01: return
+
+	var now: int = Time.get_ticks_msec()
+	if kind == "hover" and now - int(_last_played.get(kind, -1000)) < 55: return
+	_last_played[kind] = now
+	# Curseur « Effets » : même courbe que les bruitages du jeu (PaperAudio.volume_to_db).
+	player.volume_db = float(GAINS.get(kind, -12.0)) + (float(audio.call("volume_to_db", volume)) if audio and audio.has_method("volume_to_db") else linear_to_db(volume))
+	# Curseur : hauteur qui varie un peu, agréable même répété vite.
+	if kind == "hover": player.pitch_scale = randf_range(0.95, 1.06)
+	player.play()

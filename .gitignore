@@ -1,0 +1,11 @@
+# Cache d'import Godot (régénéré par l'éditeur)
+.godot/
+*.translation
+# Exports
+/build/
+/export/
+*.exe
+*.pck
+*.apk
+# Copies de travail temporaires des agents
+.claude/worktrees/
