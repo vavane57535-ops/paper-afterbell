@@ -54,6 +54,40 @@ static func _stance_keys() -> Array:
 	keys.sort_custom( func(a: Array, b: Array) -> bool: return float(a[0]) < float(b[0]))
 	return keys
 
+# Allure de la course éclair (lue par character_visual.gd, fondue avec l'allure normale de Simon) :
+# buste plus plongé, cadence plus vive, genoux et talons plus hauts, épaules qui ne contre-tournent presque plus.
+const SONIC_GAIT: Dictionary = {"cadence": 1.3, "lean": 1.56, "knee_lift": 1.18, "heel_kick": 1.22, "twist": 0.35,
+	"bob": 0.85, "sway": 0.55, "press": 0.9, "hop": 0.15, "cross": 0.0, "arm_swing": 0.4}
+
+
+# Bras tendus vers l'arrière et un peu écartés, dans le repère du sol : ils traînent dans le vent à ~22° sous
+# l'horizontale, bien décollés du dos, mains derrière les fesses. side = -1 gauche, 1 droite ;
+# drop = les bras encaissent l'appui (ils plongent un peu), drop < 0 = ils remontent en suspension.
+static func _sonic_arm(side: float, drop: float, spread: float) -> Dictionary:
+	var out: float = 0.25 + spread
+	var up: float = -0.38 - 0.12 * drop
+	var fwd: float = -0.93 + 0.06 * drop
+	var arm: Dictionary = L(out, up, fwd, 0.0) if side < 0.0 else R(out, up, fwd, 0.0)
+	return M([arm, WL(0.25 + 0.3 * drop, 0.35, 0.0) if side < 0.0 else WR(0.25 + 0.3 * drop, -0.35, 0.0)])
+
+
+# Une foulée complète (deux appuis). Le dos reste droit (le bassin porte l'inclinaison, la poitrine se redresse
+# un peu), la tête se relève pour regarder loin devant. Après chaque pose de pied, les bras plongent un peu et
+# le buste « tape » ; en suspension ils remontent. Les deux appuis diffèrent (Simon tire un peu à droite).
+static func _sonic_keys() -> Array:
+	var keys: Array = []
+	var strikes: Array = [[0.0, -1.0, 1.0], [0.5, 1.0, 0.82]]
+	for strike: Array in strikes:
+		var t: float = strike[0]
+		var lead: float = strike[1]
+		var force: float = strike[2]
+		keys.append([t, M([B(0.38, 0.0, 0.02 * lead), C(-0.3, 0.03 * lead, 0.0), HD(0.3, -0.03 * lead, 0.0), _sonic_arm(-1.0, 0.0, 0.02), _sonic_arm(1.0, 0.0, 0.02)])])
+		keys.append([t + 0.07, M([B(0.41 * force + 0.38 * (1.0 - force), 0.0, 0.03 * lead), C(-0.28, 0.03 * lead, 0.0), HD(0.27, -0.02 * lead, 0.0), _sonic_arm(-1.0, force, 0.03 + 0.02 * lead), _sonic_arm(1.0, force, 0.03 - 0.02 * lead)])])
+		keys.append([t + 0.27, M([B(0.36, 0.0, 0.0), C(-0.31, -0.02 * lead, 0.0), HD(0.32, 0.03 * lead, 0.0), _sonic_arm(-1.0, -0.4, 0.0), _sonic_arm(1.0, -0.4, 0.0)])])
+	keys[0][1].merge({"curl": 0.18, "curl_l": 0.18}, true)
+	return keys
+
+
 static func _carriage(c: Dictionary) -> void :
 	c["stance@Simon"] = {"len": 3.6, "loop": true, "add": true, "keys": _stance_keys()}
 
@@ -87,14 +121,10 @@ static func _carriage(c: Dictionary) -> void :
 	]}
 
 
-	# Boost de vitesse : sur-sprint façon anime. Le buste plonge vers l'avant (allure « boost » de anim_gait.gd),
-	# les genoux montent haut, les talons claquent sous les fesses, les poings pompent ; la tête reste levée vers l'avant.
-	c["boost@Simon"] = {"len": 1.0, "loop": true, "add": true, "face": "determined", "keys": [
-		[0.0, M([C(0.08, 0.0, 0.0), HD(0.24, -0.04, 0.0), {"curl": 1.0}])],
-		[0.25, M([C(0.1, 0.0, 0.0), HD(0.21, 0.0, 0.0)])],
-		[0.5, M([C(0.08, 0.0, 0.0), HD(0.24, 0.04, 0.0)])],
-		[0.75, M([C(0.1, 0.0, 0.0), HD(0.21, 0.0, 0.0)])],
-	]}
+	# Course éclair (0.17) : position « Sonic ». Buste plongé (~50° avec l'allure SONIC_GAIT), tête relevée qui
+	# regarde loin devant, bras tendus en arrière le long du corps, mains ouvertes. Le clip suit la phase de foulée
+	# (0 = pose du pied gauche, 0,5 = pose du pied droit) : les bras encaissent chaque appui puis flottent.
+	c["boost@Simon"] = {"len": 1.0, "loop": true, "add": true, "face": "grin", "keys": _sonic_keys()}
 
 
 
@@ -207,6 +237,22 @@ static func _charge_keys() -> Array:
 
 static func _dash(c: Dictionary) -> void :
 	c["charge@Simon"] = {"len": 3.6, "loop": true, "loop_from": 3.0, "in": 0.05, "face": "determined", "keys": _charge_keys()}
+
+	# Arrêt net en pleine course éclair (joué par character_visual.gd quand la vitesse tombe d'un coup) :
+	# talon droit planté devant, pied gauche qui racle derrière, bassin qui recule ; le buste, lui, continue
+	# sur sa lancée et plonge (tête et bras en retard), puis tout se redresse avec un petit rebond.
+	c["skid@Simon"] = {"len": 0.66, "in": 0.03, "out": 0.2, "face": "surprise", "keys": [
+		[0.0, M([{"gait": 0.0, "plant": 1.0}, FR(0.13, 0.5, 0.0), FL(0.11, -0.36, 0.04), H(0.0, -0.3, -0.2), B(0.42, 0.05, 0.0), C(0.08), HD(0.5, 0.0, 0.0),
+			L(0.3, -0.45, -0.8, 0.0), R(0.3, -0.42, -0.82, 0.0), WL(0.3), WR(0.3), {"fp_r": 0.6, "fp_l": -0.7, "curl": 0.2, "curl_l": 0.2, "sq": 0.95, "fx": "skid dust"}])],
+		[0.09, M([FR(0.13, 0.46, 0.0), FL(0.11, -0.3, 0.02), H(0.0, -0.36, -0.24), B(0.12, 0.05, 0.03), C(0.42, 0.0, 0.0), HD(-0.05, 0.1, 0.05),
+			L(0.82, 0.25, 0.3, 0.6), R(0.78, 0.4, 0.2, 0.6), WL(-0.45), WR(-0.45), {"fp_r": 0.5, "fp_l": -0.55, "curl": 0.0, "curl_l": 0.0, "sq": 0.9, "fx": "dust"}]), "s"],
+		[0.2, M([FR(0.13, 0.38, 0.0), FL(0.11, -0.22, 0.0), H(0.0, -0.26, -0.12), B(0.0, 0.0, 0.02), C(0.2, -0.05, 0.0), HD(0.2, 0.05, 0.0),
+			L(0.8, 0.0, 0.25, 0.5), R(0.72, -0.2, 0.3, 0.4), WL(-0.2), WR(-0.1), {"fp_r": 0.25, "fp_l": -0.3, "sq": 1.03}])],
+		[0.33, M([FR(0.12, 0.24, 0.0), FL(0.1, -0.12, 0.0), H(0.0, -0.1, -0.02), B(-0.08, 0.0, 0.0), C(-0.04, 0.0, 0.0), HD(0.08, 0.0, -0.06),
+			L(0.45, -0.55, 0.2, 0.3), R(0.42, -0.6, 0.18, 0.3), WL(0.0), WR(0.0), {"fp_r": 0.0, "fp_l": 0.0, "curl": 0.5, "curl_l": 0.4, "sq": 0.97, "face": "grin"}]), "s"],
+		[0.46, M([FR(0.12, 0.2, 0.0), FL(0.1, -0.1, 0.0), H(0.0, -0.14, 0.0), B(0.04, 0.0, 0.0), C(0.03, 0.0, 0.0), HD(0.0, -0.08, 0.04), LR(0.36, -0.8, 0.12, 0.15), {"sq": 1.0}])],
+		[0.66, M([rest(), _loose()])],
+	]}
 
 
 	c["carry"] = {"len": 0.56, "loop": true, "in": 0.1, "face": "determined", "keys": [

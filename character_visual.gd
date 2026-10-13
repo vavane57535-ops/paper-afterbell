@@ -20,6 +20,7 @@ signal anim_cue(cue: String, strength: float)
 signal anim_fx(cue: String)
 const CharMaterials = preload("res://char_materials.gd")
 const CharProps = preload("res://char_props.gd")
+const AnimSetSimon = preload("res://anim_set_simon.gd")
 
 const CHARACTER_HEIGHTS: Dictionary = {"Usayuko": 1.87, "Simon": 1.75, "Ashura": 1.7, "Lysia": 1.75, "Elly": 1.9, "Bleuette": 1.65, "Alice": 1.75, "TrueForm": 3.0}
 const EMOTES: Array[String] = ["wave", "thumbsup", "cheer", "laugh", "point", "shrug", "sad", "fear", "clap", "facepalm", "sulk", "heart", "taunt", "salute", "selfie", "bow", "beg", "sit"]
@@ -293,6 +294,10 @@ var _st_blind: bool = false
 var _st_shadow_hide: bool = false
 var _boost_blend: float = 0.0
 var _boost_face: String = ""
+# Course éclair de Simon (0.17) : poids de l'allure « Sonic » et allure de base à laquelle on revient.
+var _sonic: float = 0.0
+var _style_base: Dictionary = {}
+var _speed_now: float = 0.0
 var _death_hold: float = 0.0
 var _transition_time: float = TRANSITION_TIME
 var _stun_snap: bool = false
@@ -354,6 +359,7 @@ func setup(person_name: String) -> void :
 	_arm_weight = 0.74 if _is_alice else (0.82 if person_name == "Ashura" else 1.0)
 	_injury_side = -1.0 if person_name in ["Ashura", "Elly", "Bleuette"] else 1.0
 	_style = AnimStyle.for_character(person_name)
+	_style_base = _style.duplicate()
 	_rng.seed = absi(person_name.hash()) + int(get_instance_id() % 997)
 	_face_ctrl = AnimFace.new()
 	_face_ctrl.setup(int(_rng.randi()))
@@ -390,6 +396,7 @@ func _reset_motion_state() -> void :
 	_overlay_name = "";_speak_left = 0.0;_fidget_time = -1.0;_hold_left = 0.0;_clip_turn = 0.0;_clip_squash = 1.0
 	_state_clocks.clear();_boost_blend = 0.0;_alert_blend = 0.0;_gait_previous = -1.0;_death_hold = 0.0
 	_g_pocket = 0.0;_g_lift_off.clear();_boost_face = ""
+	_sonic = 0.0;_style.merge(_style_base, true)
 	_hit_rot = Vector3.ZERO;_hit_vel = Vector3.ZERO;_hit_head = Vector3.ZERO;_hit_head_vel = Vector3.ZERO
 	_hit_arm = 0.0;_hit_arm_vel = 0.0;_hit_drop = 0.0;_hit_drop_vel = 0.0
 	_look = Vector2.ZERO;_look_speed = Vector2.ZERO;_glance_back = 0.0;_fatigue = 0.0
@@ -756,6 +763,8 @@ func animate(delta: float, velocity: Vector3, stunned: bool, phase: bool) -> voi
 	_tick_dt = dt
 	_read_motion(dt, velocity)
 	_read_state(velocity)
+	_speed_now = speed
+	_check_skid(speed, stunned)
 	_crawl_cycle += dt * TAU * 0.56 * clampf(speed / 0.7, 0.0, 1.0)
 	_update_air_contact()
 	_step_land_spring(dt)
@@ -1378,6 +1387,7 @@ func _update_gait(speed: float) -> void :
 	_g_lift = float(_style.knee_lift)
 
 func _locomotion(dt: float) -> void :
+	_update_sonic(dt)
 	_update_gait(_move_blend)
 	_gait_phase = fposmod(_gait_phase + dt * _g_cadence, 1.0)
 	_gait = _gait_phase * TAU
@@ -1386,6 +1396,22 @@ func _locomotion(dt: float) -> void :
 	_idle_pose(dt)
 	_gait_pose(_gait_phase, direction.normalized())
 	_style_overlays(dt)
+
+
+# Course éclair : arrêt net (la vitesse retombe d'un coup alors que Simon fonçait) → dérapage (skid@Simon).
+func _check_skid(speed: float, stunned: bool) -> void :
+	if character_name != "Simon" or _sonic < 0.4 or speed > 1.5 or _move_blend < 9.0: return
+	if stunned or not _st_grounded or _life_state != "alive" or _action_time > 0.0: return
+	play("skid")
+
+
+# Course éclair de Simon : l'allure glisse vers SONIC_GAIT (anim_set_simon.gd) avec le boost et la vitesse.
+func _update_sonic(dt: float) -> void :
+	if character_name != "Simon" or _style_base.is_empty(): return
+	var want: float = (1.0 if _st_speed_boost and _life_state == "alive" else 0.0) * smoothstep(7.0, 13.0, maxf(_move_blend, _speed_now))
+	_sonic = move_toward(_sonic, want, dt * (5.0 if want > _sonic else 3.0))
+	for key: String in AnimSetSimon.SONIC_GAIT:
+		_style[key] = lerpf(float(_style_base[key]), float(AnimSetSimon.SONIC_GAIT[key]), _sonic)
 
 
 
@@ -1421,8 +1447,8 @@ func _style_overlays(dt: float) -> void :
 	var running: float = _g_run * _g_move
 	_boost_face = ""
 	if running > 0.01:
-		var boost: Dictionary = _get_clip("boost") if _boost_blend > 0.01 else {}
-		var boost_weight: float = _boost_blend if not boost.is_empty() else 0.0
+		var boost: Dictionary = _get_clip("boost") if _boost_blend > 0.01 or _sonic > 0.01 else {}
+		var boost_weight: float = (_sonic if character_name == "Simon" else _boost_blend) if not boost.is_empty() else 0.0
 		var sprint: Dictionary = _get_clip("sprint")
 		var sprint_weight: float = (_g_sprint if not sprint.is_empty() else 0.0) * (1.0 - boost_weight)
 		var run: Dictionary = _get_clip("run")
