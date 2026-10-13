@@ -19,6 +19,13 @@ var switch_after: float = -1.0
 var dance: String = ""
 var fast: bool = true
 var window_size: Vector2i = Vector2i(1280, 800)
+var beat: String = ""
+var camera: Dictionary = {}
+var scout: Array = []
+
+func _vec(text: String) -> Vector3:
+	var p: PackedStringArray = text.split(",")
+	return Vector3(float(p[0]), float(p[1]), float(p[2]))
 var _clock: float = 0.0
 
 func setup(game_world: Node) -> void :
@@ -35,6 +42,16 @@ func setup(game_world: Node) -> void :
 			"--crop": crop = true
 			"--switch": switch_after = float(value)
 			"--dance": dance = value
+			"--beat": beat = value
+			"--cam":
+				# "x,y,z>x,y,z>fov" : caméra imposée (repérage du décor).
+				var parts: PackedStringArray = value.split(">")
+				camera = {"eye": _vec(parts[0]), "target": _vec(parts[1]), "fov": float(parts[2]) if parts.size() > 2 else 40.0, "x": 0.5, "bg": 0.0}
+			"--cams":
+				# Repérage : plusieurs caméras « œil>cible>fov » séparées par « ; », une image chacune.
+				for item: String in value.split(";"):
+					var bits: PackedStringArray = item.split(">")
+					scout.append({"eye": _vec(bits[0]), "target": _vec(bits[1]), "fov": float(bits[2]) if bits.size() > 2 else 40.0, "x": 0.5, "bg": 0.0})
 			"--slow": fast = false
 			"--size":
 				var parts: PackedStringArray = value.split("x")
@@ -75,6 +92,8 @@ func _run() -> void :
 		return
 	# La souris loin des boutons : seul le survol forcé compte.
 	Input.warp_mouse(Vector2(4, 4))
+	vignettes.set("debug_beat", beat)
+	vignettes.set("debug_camera", camera)
 	if not dance.is_empty():
 		ui.shop_selected = dance
 		ui.show_shop()
@@ -85,6 +104,14 @@ func _run() -> void :
 		var started: float = _clock
 		var t: float = start_at
 		if t > 0.0: await _wait(t)
+		if not scout.is_empty():
+			for i: int in range(scout.size()):
+				vignettes.set("debug_camera", scout[i])
+				await _wait(0.07)
+				await _save("%s_cam%02d" % [scene, i])
+			vignettes.set("debug_camera", camera)
+			index += 1
+			continue
 		while t <= end_at + 0.0001:
 			if switch_after > 0.0 and t >= switch_after and index + 1 < scenes.size(): break
 			await _wait(started + t - _clock)

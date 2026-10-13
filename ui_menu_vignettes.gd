@@ -1,27 +1,43 @@
 extends Control
 
-
-
-
-
-
-
+# Scènes 3D de survol de l'écran titre (à droite du menu principal et de la boutique).
+# Chaque bouton a sa petite scène mise en scène (menu_scene_<id>.gd) : décor, acteurs
+# animés par des clips écrits pour elle (anim_set_menu.gd), caméra qui bouge, temps
+# forts tirés au hasard. Le décor est rendu dans une vue à part puis flouté (faux flou
+# de profondeur) et les personnages passent nets par-dessus (menu_vignette.gdshader).
+# Les scènes se construisent une étape par image, en tâche de fond, puis chacune est
+# rendue une fois en invisible pour compiler ses shaders avant le premier survol.
 
 const Dances = preload("res://dances.gd")
+const MenuScene = preload("res://menu_scene.gd")
+const COMPOSITE: Shader = preload("res://menu_vignette.gdshader")
+const SCENE_SCRIPTS: Dictionary = {
+	"play": preload("res://menu_scene_play.gd"),
+	"training": preload("res://menu_scene_training.gd"),
+	"friends": preload("res://menu_scene_friends.gd"),
+	"gallery": preload("res://menu_scene_gallery.gd"),
+	"settings": preload("res://menu_scene_settings.gd"),
+	"credits": preload("res://menu_scene_credits.gd"),
+	"quit": preload("res://menu_scene_quit.gd"),
+	"shop": preload("res://menu_scene_shop.gd"),
+	"dance": preload("res://menu_scene_dance.gd"),
+}
+# Ordre de préparation en tâche de fond : JOUER (focus par défaut) d'abord.
+const PREPARE_ORDER: Array[String] = ["play", "training", "friends", "shop", "gallery", "settings", "credits", "quit"]
 
 var ui: Node
-var _container: SubViewportContainer
-var _viewport: SubViewport
+var _view: ColorRect
+var _composite: ShaderMaterial
+var _fg: SubViewport
+var _bg: SubViewport
+var _world: World3D
 var _stage: Node3D
-var _camera: Camera3D
-var _key: DirectionalLight3D
-var _accent: OmniLight3D
-var _flash: OmniLight3D
+var _cam_fg: Camera3D
+var _cam_bg: Camera3D
 var _scenes: Dictionary = {}
 var _current: String = ""
 var _wanted: String = ""
 var _wanted_since: float = 0.0
-var _time: float = 0.0
 var _alpha: float = 0.0
 var _clock: float = 0.0
 var _music: AudioStreamPlayer
@@ -29,116 +45,117 @@ var _preview_person: String = "Bleuette"
 var _preview_dance: String = ""
 var _lineup_hidden: bool = false
 var _menu_held: bool = false
+var _prepare_queue: Array[String] = []
+var _warming: String = ""
+var _warm_frames: int = 0
+var _shake_seed: float = 0.0
+var _cam_state: Dictionary = {}
+# Débogage et captures : caméra imposée ({eye, target, fov}) et temps fort forcé.
+var debug_camera: Dictionary = {}
+var debug_beat: String = ""
 
 # Aperçu de danse : même niveau que sa propre danse en partie (≈ -32 LUFS, bus PaperMusic) ; il
 # remplace la musique du menu le temps de l'aperçu au lieu de s'y superposer.
 const PREVIEW_DB: float = -1.5
 
-const CAMERAS: Dictionary = {
-	"play": [Vector3(0.6, 1.45, -4.6), Vector3(0.1, 0.95, 0.0)], 
-	"training": [Vector3(0.2, 1.5, -4.8), Vector3(0.2, 0.9, 0.0)], 
-	"friends": [Vector3(-0.6, 1.6, -4.9), Vector3(0.35, 0.85, 0.3)], 
-	"gallery": [Vector3(0.0, 1.5, -4.7), Vector3(0.0, 0.9, 0.0)], 
-	"settings": [Vector3(0.3, 1.55, -4.4), Vector3(0.1, 0.65, 0.2)], 
-	"credits": [Vector3(0.0, 1.6, -5.6), Vector3(0.0, 0.95, 0.0)], 
-	"quit": [Vector3(0.0, 1.5, -5.0), Vector3(0.0, 1.2, 0.0)], 
-	"shop": [Vector3(0.0, 1.45, -4.6), Vector3(0.0, 0.95, 0.0)], 
-	"dance": [Vector3(0.0, 1.45, -4.6), Vector3(0.0, 0.95, 0.0)], 
-}
 const ACCENTS: Dictionary = {"play": Color("ff7a59"), "training": Color("ffb347"), "friends": Color("6fa8ff"), "gallery": Color("b08cff"), "settings": Color("7fe0ff"), "credits": Color("ffd27f"), "quit": Color("ff2a3c"), "shop": Color("ff6fd0"), "dance": Color("ff6fd0")}
 
 func setup(owner_ui: Node) -> void :
 	ui = owner_ui
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_container = SubViewportContainer.new()
-	_container.stretch = true
-	_container.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_container)
-	_container.anchor_left = 0.36
-	_container.anchor_right = 1.0
-	_container.anchor_top = 0.04
-	_container.anchor_bottom = 1.0
-	_viewport = SubViewport.new()
-	_viewport.own_world_3d = true
-	_viewport.transparent_bg = true
-	_viewport.msaa_3d = Viewport.MSAA_2X
-	_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
-	_container.add_child(_viewport)
+	_view = ColorRect.new()
+	_view.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_view.color = Color.WHITE
+	add_child(_view)
+	_view.anchor_left = 0.36
+	_view.anchor_right = 1.0
+	_view.anchor_top = 0.04
+	_view.anchor_bottom = 1.0
+	_world = World3D.new()
+	_fg = _make_viewport(true)
+	_bg = _make_viewport(false)
 	_stage = Node3D.new()
-	_viewport.add_child(_stage)
-	_camera = Camera3D.new()
-	_camera.fov = 34.0
-	_stage.add_child(_camera)
-	_camera.current = true
-	var env: WorldEnvironment = WorldEnvironment.new()
-	var e: Environment = Environment.new()
-	e.background_mode = Environment.BG_CLEAR_COLOR
-	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	e.ambient_light_color = Color("3a3550")
-	e.ambient_light_energy = 0.9
-	env.environment = e
-	_stage.add_child(env)
-	_key = DirectionalLight3D.new()
-	_key.rotation = Vector3(-0.75, 2.6, 0.0)
-	_key.light_energy = 1.1
-	_key.light_color = Color("ffe6cf")
-	_key.shadow_enabled = true
-	_stage.add_child(_key)
-	_accent = OmniLight3D.new()
-	_accent.position = Vector3(1.8, 2.2, 1.2)
-	_accent.omni_range = 7.0
-	_accent.light_energy = 1.6
-	_stage.add_child(_accent)
-	_flash = OmniLight3D.new()
-	_flash.omni_range = 4.0
-	_flash.light_energy = 0.0
-	_flash.light_color = Color("bfe9ff")
-	_stage.add_child(_flash)
-
-	var pool: MeshInstance3D = MeshInstance3D.new()
-	var plane: PlaneMesh = PlaneMesh.new()
-	plane.size = Vector2(7.0, 7.0)
-	pool.mesh = plane
-	var gradient: GradientTexture2D = GradientTexture2D.new()
-	gradient.fill = GradientTexture2D.FILL_RADIAL
-	gradient.fill_from = Vector2(0.5, 0.5)
-	gradient.fill_to = Vector2(1.0, 0.5)
-	var g: Gradient = Gradient.new()
-	g.set_color(0, Color(0.09, 0.08, 0.13, 0.95))
-	g.set_color(1, Color(0.05, 0.05, 0.08, 0.0))
-	gradient.gradient = g
-	var pool_mat: StandardMaterial3D = StandardMaterial3D.new()
-	pool_mat.albedo_texture = gradient
-	pool_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	pool_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	pool.material_override = pool_mat
-	pool.position.y = 0.01
-	_stage.add_child(pool)
+	_stage.name = "MenuStage"
+	_fg.add_child(_stage)
+	_cam_fg = Camera3D.new()
+	_cam_fg.cull_mask = 0xFFFFF & ~MenuScene.BG_LAYER
+	_fg.add_child(_cam_fg)
+	_cam_fg.current = true
+	_cam_bg = Camera3D.new()
+	_cam_bg.cull_mask = MenuScene.BG_LAYER
+	_bg.add_child(_cam_bg)
+	_cam_bg.current = true
+	_composite = ShaderMaterial.new()
+	_composite.shader = COMPOSITE
+	_composite.set_shader_parameter("fg_tex", _fg.get_texture())
+	_composite.set_shader_parameter("bg_tex", _bg.get_texture())
+	_view.material = _composite
+	_view.resized.connect(_on_resized)
 	_music = AudioStreamPlayer.new()
 	_music.bus = &"PaperMusic"
 	_music.volume_db = PREVIEW_DB
 	add_child(_music)
-	modulate.a = 0.0
+	_prepare_queue = PREPARE_ORDER.duplicate()
+	modulate.a = 1.0
 	hide()
+	_on_resized.call_deferred()
 
+func _make_viewport(front: bool) -> SubViewport:
+	var viewport: SubViewport = SubViewport.new()
+	viewport.world_3d = _world
+	viewport.transparent_bg = front
+	viewport.msaa_3d = Viewport.MSAA_2X if front else Viewport.MSAA_DISABLED
+	viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	viewport.size = Vector2i(64, 64)
+	add_child(viewport)
+	return viewport
+
+func _on_resized() -> void :
+	var size: Vector2 = _view.size
+	if size.x < 8.0 or size.y < 8.0: return
+	_fg.size = Vector2i(roundi(size.x), roundi(size.y))
+	_bg.size = Vector2i(maxi(8, roundi(size.x * 0.5)), maxi(8, roundi(size.y * 0.5)))
+	_composite.set_shader_parameter("fg_px", Vector2(1.0 / size.x, 1.0 / size.y))
+	_composite.set_shader_parameter("bg_px", Vector2(2.0 / size.x, 2.0 / size.y))
+	_update_edge()
+
+# Bord gauche du masque calé sur le liseré rouge de la bande d'encre du menu principal
+# (ui.gd, _main_decor : bande de (0.05, 1.12) à (0.3, -0.12), largeur 640 × hauteur / 900).
+func _update_edge() -> void :
+	var screen: Vector2 = get_viewport_rect().size
+	if screen.x < 8.0: return
+	var k: float = screen.y / 900.0
+	var from: Vector2 = Vector2(0.05, 1.12) * screen
+	var to: Vector2 = Vector2(0.3, -0.12) * screen
+	var dir: Vector2 = (to - from).normalized()
+	var edge: Vector2 = from - dir.orthogonal() * (640.0 * k * 0.5 + 26.0 * k)
+	var rect: Rect2 = _view.get_global_rect()
+	if rect.size.x < 8.0: return
+	var top_y: float = rect.position.y
+	var bottom_y: float = rect.end.y
+	var x_top: float = edge.x + dir.x * (top_y - edge.y) / dir.y
+	var x_bottom: float = edge.x + dir.x * (bottom_y - edge.y) / dir.y
+	_composite.set_shader_parameter("edge_u", Vector2((x_top - rect.position.x) / rect.size.x, (x_bottom - rect.position.x) / rect.size.x))
 
 func hover(action: String) -> void :
 	if action == _wanted: return
 	_wanted = action
 	_wanted_since = _clock
 
-
 func preview_dance(person: String, dance_id: String) -> void :
 	_preview_person = person
 	_preview_dance = dance_id
 	if _scenes.has("dance"):
-		(_scenes["dance"].root as Node).queue_free()
+		var old: Node = _scenes["dance"]
+		if _current == "dance": _current = ""
+		old.queue_free()
 		_scenes.erase("dance")
 	# La scène affichée (vignette « BOUTIQUE » du menu) doit disparaître, sinon
 	# son danseur reste superposé à celui de l'aperçu.
-	if _current != "" and _scenes.has(_current): (_scenes[_current].root as Node3D).hide()
+	if _current != "" and _scenes.has(_current): _hide_scene(_current)
 	_current = ""
+	_alpha = 0.0
 	_wanted = "dance" if not dance_id.is_empty() else ""
 	_wanted_since = _clock - 1.0
 
@@ -146,26 +163,161 @@ func _active_page() -> bool:
 	if ui == null or not ui.page.visible or not (ui.world.phase in ["menu", "lobby"]): return false
 	return ui.current_page == "main" or ui.current_page == "shop"
 
+func _scene(id: String) -> MenuScene:
+	if _scenes.has(id): return _scenes[id]
+	if not SCENE_SCRIPTS.has(id): return null
+	var scene: MenuScene = (SCENE_SCRIPTS[id] as GDScript).new()
+	scene.name = "Scene_" + id
+	scene.id = id
+	scene.accent = ACCENTS.get(id, Color.WHITE)
+	if id == "dance":
+		scene.set("person", _preview_person)
+		scene.set("dance", _preview_dance)
+	_stage.add_child(scene)
+	scene.setup(self)
+	_scenes[id] = scene
+	return scene
+
 func _process(delta: float) -> void :
 	_clock += delta
 	var page_ok: bool = _active_page()
 	if not page_ok and _wanted != "" and ui and ui.current_page != "shop": _wanted = ""
-
 	var target: String = _wanted if page_ok and (_wanted != "" or _clock - _wanted_since > 0.35) else ""
 	if not page_ok: target = ""
-	if target != _current and target != "":
-		_switch(target)
+	# Construction progressive : la scène voulue d'abord, puis les autres en tâche de fond.
+	var building: bool = false
+	if target != "":
+		var wanted_scene: MenuScene = _scene(target)
+		if wanted_scene and not wanted_scene.built:
+			wanted_scene.build_next()
+			building = true
+	if not building and page_ok and _warming == "": _prepare_step(_current == "" and _alpha <= 0.001 and target == "")
+	# Fondu : la scène affichée s'efface avant que la suivante n'apparaisse.
+	var ready: bool = target != "" and _scenes.has(target) and (_scenes[target] as MenuScene).built
+	if _current != target and _alpha <= 0.02:
+		if _current != "": _hide_scene(_current)
+		_current = ""
+		if ready: _show_scene(target)
 	var show: bool = target != "" and _current == target
-	_alpha = move_toward(_alpha, 1.0 if show else 0.0, delta * (4.0 if show else 5.0))
-	modulate.a = _alpha
+	var speed: float = 3.2 if show else 6.5
+	_alpha = move_toward(_alpha, 1.0 if show else 0.0, delta * speed)
 	visible = _alpha > 0.001
-	_viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS if visible else SubViewport.UPDATE_DISABLED
-	_set_lineup(show)
+	_set_lineup(show or (_current != "" and _alpha > 0.02))
 	if not show and _music.playing and _alpha <= 0.01: _music.stop()
 	_hold_menu_music(_music.playing)
-	if not visible or _current == "": return
-	_time += delta
-	_tick(_current, _time, delta)
+	var rendering: bool = visible and _current != ""
+	if _warming != "" and (_current != "" or target != ""):
+		# Survol pendant le préchauffage : on l'abandonne, la scène voulue passe d'abord.
+		if _warming != _current: (_scenes[_warming] as Node3D).visible = false
+		_warming = ""
+	if _warming != "":
+		_warm_frames -= 1
+		if _warm_frames <= 0:
+			var warmed: MenuScene = _scenes[_warming]
+			warmed.visible = false
+			warmed.leave()
+			warmed.set_meta("warmed", true)
+			_warming = ""
+	var mode: int = SubViewport.UPDATE_ALWAYS if rendering or _warming != "" else SubViewport.UPDATE_DISABLED
+	_fg.render_target_update_mode = mode
+	var scene: MenuScene = _scenes.get(_current) if _current != "" else null
+	_bg.render_target_update_mode = mode if (scene == null or scene.layered) else SubViewport.UPDATE_DISABLED
+	if not rendering:
+		if _warming == "": return
+		_apply_look(_scenes[_warming], 0.0)
+		return
+	scene.tick(delta)
+	_apply_camera(scene, delta)
+	_apply_look(scene, _alpha)
+
+func _show_scene(id: String) -> void :
+	var scene: MenuScene = _scenes[id]
+	_current = id
+	_warming = ""
+	for other: String in _scenes:
+		if other != id: (_scenes[other] as Node3D).visible = false
+	scene.visible = true
+	scene.forced_beat = debug_beat
+	scene.enter()
+	# Un pas d'animation hors champ : la première image montrée est déjà la bonne pose.
+	scene.tick(1.0 / 60.0)
+	_cam_state = {}
+	_shake_seed = randf() * 100.0
+	if id == "dance" and not _preview_dance.is_empty():
+		_music.stream = Dances.music(_preview_dance)
+		if _music.stream: _music.play(0.0)
+	elif _music.playing: _music.stop()
+
+func _hide_scene(id: String) -> void :
+	var scene: MenuScene = _scenes.get(id)
+	if scene == null: return
+	scene.leave()
+	scene.visible = false
+
+# Préparation en tâche de fond : une étape de construction par image, puis un rendu
+# invisible de la scène finie pour compiler ses shaders avant le premier survol.
+func _prepare_step(can_warm: bool) -> void :
+	for id: String in _prepare_queue:
+		var scene: MenuScene = _scene(id)
+		if scene == null: continue
+		if not scene.built:
+			scene.build_next()
+			return
+		if scene.has_meta("warmed"): continue
+		if not can_warm: continue
+		_warming = id
+		_warm_frames = 2
+		scene.visible = true
+		scene.forced_beat = ""
+		scene.enter()
+		scene.tick(1.0 / 60.0)
+		_apply_camera(scene, 0.0)
+		return
+
+func _apply_camera(scene: MenuScene, delta: float) -> void :
+	var shot: Dictionary = debug_camera if not debug_camera.is_empty() else scene.camera()
+	if shot.is_empty(): return
+	var eye: Vector3 = shot.eye
+	var target: Vector3 = shot.target
+	var fov: float = float(shot.get("fov", 34.0))
+	var shake: float = float(shot.get("shake", 0.0)) if debug_camera.is_empty() else 0.0
+	var t: float = _clock + _shake_seed
+	# Caméra à l'épaule : quelques sinusoïdes lentes, jamais en phase.
+	var wobble: Vector3 = Vector3(sin(t * 0.71) + 0.6 * sin(t * 1.93 + 1.7), sin(t * 0.53 + 0.4) + 0.5 * sin(t * 1.37 + 2.1), sin(t * 0.37 + 2.9)) * 0.012 * shake
+	var aim: Vector3 = Vector3(sin(t * 0.61 + 0.9) + 0.4 * sin(t * 2.3), sin(t * 0.83 + 2.2) + 0.4 * sin(t * 1.7 + 0.5), 0.0) * 0.006 * shake
+	var basis_look: Basis = Basis.looking_at(target - eye, Vector3.UP)
+	# Cadrage : la cible tombe à la place « x » de l'image (le masque mange la gauche).
+	var place: float = float(shot.get("x", 0.56))
+	var aspect: float = float(_fg.size.x) / maxf(1.0, float(_fg.size.y))
+	var half_width: float = tan(deg_to_rad(fov) * 0.5) * aspect
+	var yaw_shift: float = atan((place - 0.5) * 2.0 * half_width)
+	basis_look = basis_look * Basis(Vector3.UP, yaw_shift)
+	basis_look = basis_look * Basis(Vector3(1, 0, 0), aim.y) * Basis(Vector3.UP, aim.x)
+	var roll: float = float(shot.get("roll", 0.0))
+	if absf(roll) > 0.0001: basis_look = basis_look * Basis(Vector3(0, 0, 1), roll)
+	var xform: Transform3D = Transform3D(basis_look, eye + basis_look * wobble)
+	xform = scene.global_transform * xform
+	for camera: Camera3D in [_cam_fg, _cam_bg]:
+		camera.global_transform = xform
+		camera.fov = fov
+		camera.environment = scene.env_fg if camera == _cam_fg else scene.env_bg
+	_composite.set_shader_parameter("bg_blur", float(shot.get("bg", 1.6)))
+	_composite.set_shader_parameter("fg_blur", float(shot.get("fg", 0.0)))
+
+func _apply_look(scene: MenuScene, alpha: float) -> void :
+	var look: Dictionary = scene.grade
+	_composite.set_shader_parameter("has_bg", scene.layered)
+	_composite.set_shader_parameter("masked", scene.masked)
+	_composite.set_shader_parameter("fade", alpha)
+	_composite.set_shader_parameter("dip", float(look.get("dip", 0.0)))
+	_composite.set_shader_parameter("flash", float(look.get("flash", 0.0)) * (0.35 if ui and bool(ui.get("reduced_motion")) else 1.0))
+	_composite.set_shader_parameter("lift", look.get("lift", Vector3.ZERO))
+	_composite.set_shader_parameter("gain", look.get("gain", Vector3.ONE))
+	_composite.set_shader_parameter("saturation", float(look.get("saturation", 1.0)))
+	_composite.set_shader_parameter("contrast", float(look.get("contrast", 1.0)))
+	_composite.set_shader_parameter("vignette_amount", float(look.get("vignette", 0.35)))
+	_composite.set_shader_parameter("grain", float(look.get("grain", 0.025)))
+	_composite.set_shader_parameter("time", _clock)
 
 func _hold_menu_music(on: bool) -> void :
 	if on == _menu_held or not is_instance_valid(ui) or not is_instance_valid(ui.world): return
@@ -187,240 +339,10 @@ func _set_lineup(hidden: bool) -> void :
 		backdrop.set("_lineup_alpha_goal", float(backdrop.call("lineup_goal_for_mode")) if backdrop.has_method("lineup_goal_for_mode") else 1.0)
 		_lineup_hidden = false
 
-func _switch(id: String) -> void :
-	if _current != "" and _scenes.has(_current): (_scenes[_current].root as Node3D).hide()
-	_current = id
-	_time = 0.0
-	if not _scenes.has(id): _scenes[id] = _build(id)
-	var scene: Dictionary = _scenes[id]
-	(scene.root as Node3D).show()
-	var cam: Array = CAMERAS.get(id, CAMERAS["play"])
-	_camera.position = cam[0]
-	_camera.look_at(cam[1], Vector3.UP)
-	_accent.light_color = ACCENTS.get(id, Color.WHITE)
-	_flash.light_energy = 0.0
-	if id == "dance" and not _preview_dance.is_empty():
-		_music.stream = Dances.music(_preview_dance)
-		if _music.stream: _music.play(0.0)
-	elif _music.playing: _music.stop()
+# --- Outils de capture ----------------------------------------------------------
 
+func debug_scene(id: String) -> MenuScene:
+	return _scene(id)
 
-
-func _actor(root: Node3D, person: String, at: Vector3, facing: Vector3 = Vector3(0, 0, -1)) -> PaperVisual:
-	var visual: PaperVisual = PaperVisual.new()
-	visual.lod_enabled = false
-	root.add_child(visual)
-	visual.setup(person)
-	visual.position = at
-	visual.rotation.y = atan2( - facing.x, - facing.z)
-	return visual
-
-func _box(root: Node3D, size: Vector3, at: Vector3, color: Color, glow: float = 0.0) -> MeshInstance3D:
-	var mesh: MeshInstance3D = MeshInstance3D.new()
-	var box: BoxMesh = BoxMesh.new()
-	box.size = size
-	mesh.mesh = box
-	var mat: StandardMaterial3D = StandardMaterial3D.new()
-	mat.albedo_color = color
-	mat.roughness = 0.8
-	if glow > 0.0:
-		mat.emission_enabled = true
-		mat.emission = color
-		mat.emission_energy_multiplier = glow
-	mesh.material_override = mat
-	mesh.position = at
-	root.add_child(mesh)
-	return mesh
-
-func _sparks(root: Node3D, at: Vector3) -> CPUParticles3D:
-	var p: CPUParticles3D = CPUParticles3D.new()
-	p.emitting = false
-	p.one_shot = true
-	p.amount = 46
-	p.lifetime = 0.55
-	p.explosiveness = 0.92
-	p.direction = Vector3(0, 1, 0)
-	p.spread = 80.0
-	p.initial_velocity_min = 1.8
-	p.initial_velocity_max = 4.2
-	p.gravity = Vector3(0, -7.0, 0)
-	p.scale_amount_min = 0.5
-	p.scale_amount_max = 1.2
-	var mesh: SphereMesh = SphereMesh.new()
-	mesh.radius = 0.018
-	mesh.height = 0.036
-	var mat: StandardMaterial3D = StandardMaterial3D.new()
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.albedo_color = Color(1.0, 0.95, 0.6)
-	mesh.material = mat
-	p.mesh = mesh
-	p.position = at
-	root.add_child(p)
-	return p
-
-func _build(id: String) -> Dictionary:
-	var root: Node3D = Node3D.new()
-	_stage.add_child(root)
-	var s: Dictionary = {"root": root, "actors": {}, "props": {}, "step": -1}
-	match id:
-		"play":
-			s.actors["simon"] = _actor(root, "Simon", Vector3(0.0, 0, 0.0))
-		"training":
-			s.actors["usa"] = _actor(root, "Usayuko", Vector3(-0.55, 0, 0.0), Vector3(1.0, 0.0, -0.35))
-			var dummy: Node3D = Node3D.new()
-			dummy.position = Vector3(0.75, 0, 0.35)
-			root.add_child(dummy)
-			_box(dummy, Vector3(0.6, 0.1, 0.6), Vector3(0, 0.05, 0), Color("4a3b2f"))
-			var body: Node3D = Node3D.new()
-			dummy.add_child(body)
-			_box(body, Vector3(0.12, 0.9, 0.12), Vector3(0, 0.5, 0), Color("6b5843"))
-			_box(body, Vector3(0.5, 0.75, 0.38), Vector3(0, 1.25, 0), Color("b49a6a"))
-			_box(body, Vector3(0.34, 0.34, 0.34), Vector3(0, 1.82, 0), Color("c2a878"))
-			s.props["dummy"] = body
-			s["wobble"] = 0.0
-			s["wobble_v"] = 0.0
-		"friends":
-			s.actors["simon"] = _actor(root, "Simon", Vector3(-0.55, 0, 0.0), Vector3(1.0, 0.0, -0.75))
-			s.actors["usa"] = _actor(root, "Usayuko", Vector3(0.25, 0, 0.45), Vector3(1.0, 0.0, -0.6))
-			var tv: Node3D = Node3D.new()
-			tv.position = Vector3(1.85, 0, 0.9)
-			tv.rotation.y = -1.9
-			root.add_child(tv)
-			_box(tv, Vector3(1.5, 0.5, 0.45), Vector3(0, 0.25, 0), Color("2b2733"))
-			_box(tv, Vector3(1.35, 0.82, 0.08), Vector3(0, 0.98, 0), Color("15141a"))
-			s.props["screen"] = _box(tv, Vector3(1.22, 0.7, 0.02), Vector3(0, 0.98, -0.05), Color("4aa3ff"), 2.4)
-			_box(tv, Vector3(0.36, 0.08, 0.26), Vector3(-0.4, 0.54, 0), Color("dddde6"))
-			var glow: OmniLight3D = OmniLight3D.new()
-			glow.position = Vector3(0, 1.0, -0.6)
-			glow.omni_range = 3.5
-			glow.light_energy = 1.2
-			tv.add_child(glow)
-			s.props["glow"] = glow
-		"gallery":
-			s.actors["bleu"] = _actor(root, "Bleuette", Vector3(-0.45, 0, 0.0), Vector3(0.15, 0.0, -1.0))
-			s.actors["elly"] = _actor(root, "Elly", Vector3(0.55, 0, 0.15), Vector3(-0.15, 0.0, -1.0))
-			var beam: SpotLight3D = SpotLight3D.new()
-			beam.position = Vector3(0.0, 2.2, -3.0)
-			beam.look_at_from_position(beam.position, Vector3(0, 1.0, 0.0), Vector3.UP)
-			beam.spot_range = 7.0
-			beam.spot_angle = 30.0
-			beam.light_energy = 2.0
-			beam.light_color = Color("a9c4ff")
-			root.add_child(beam)
-			s.props["beam"] = beam
-		"settings":
-			var lysia: PaperVisual = _actor(root, "Lysia", Vector3(0.55, 0, 0.45), Vector3(-0.55, 0.0, -1.0))
-			lysia.set_combat_state({"outlet_healing": 99.0})
-			s.actors["lysia"] = lysia
-			s.actors["ash"] = _actor(root, "Ashura", Vector3(-0.35, 0, 0.1), Vector3(1.0, 0.0, 0.2))
-			_box(root, Vector3(0.45, 0.24, 0.26), Vector3(-0.75, 0.12, 0.65), Color("b3312f"))
-			_box(root, Vector3(0.47, 0.04, 0.28), Vector3(-0.75, 0.26, 0.65), Color("7a1f1e"))
-			s.props["sparks"] = _sparks(root, Vector3(0.3, 0.9, 0.35))
-			_flash.position = Vector3(0.3, 1.1, 0.2)
-		"credits":
-			s.actors["lysia"] = _actor(root, "Lysia", Vector3(-0.85, 0, 0.2), Vector3(0.2, 0.0, -1.0))
-			s.actors["bleu"] = _actor(root, "Bleuette", Vector3(0.0, 0, 0.0))
-			s.actors["elly"] = _actor(root, "Elly", Vector3(0.85, 0, 0.2), Vector3(-0.2, 0.0, -1.0))
-		"quit":
-			s.actors["alice"] = _actor(root, "Alice", Vector3(0.0, 0, 1.4))
-		"shop":
-			s.actors["bleu"] = _actor(root, "Bleuette", Vector3(0.0, 0, 0.0))
-			s["dance"] = "dance_hedgehog"
-		"dance":
-			s.actors["dancer"] = _actor(root, _preview_person, Vector3(0.0, 0, 0.0))
-			s["dance"] = _preview_dance
-	return s
-
-
-
-func _emote(v: PaperVisual, id: String, t: float) -> void :
-	v.set_combat_state({"emote_id": id, "emote_time": t})
-
-func _tick(id: String, t: float, dt: float) -> void :
-	var s: Dictionary = _scenes[id]
-	var a: Dictionary = s.actors
-	_flash.light_energy = move_toward(_flash.light_energy, 0.0, dt * 9.0)
-	match id:
-		"play":
-			var v: PaperVisual = a.simon
-			var step: int = int(t / 4.2)
-			if step != int(s.step):
-				s.step = step
-				v.play("warmup")
-		"training":
-			var v2: PaperVisual = a.usa
-			var step2: int = int(t / 1.25)
-			if step2 != int(s.step):
-				s.step = step2
-				v2.play("punch")
-				s["hit_at"] = t + 0.12
-			if t >= float(s.get("hit_at", INF)):
-				s["hit_at"] = INF
-				s.wobble_v = float(s.wobble_v) + 3.2
-			s.wobble_v = float(s.wobble_v) - (float(s.wobble) * 60.0 + float(s.wobble_v) * 4.0) * dt
-			s.wobble = float(s.wobble) + float(s.wobble_v) * dt
-			(s.props.dummy as Node3D).rotation.z = - float(s.wobble) * 0.35
-		"friends":
-			var cycle: float = fmod(t, 9.0)
-			var screen: MeshInstance3D = s.props.screen
-			var hue: float = fmod(t * 0.37, 1.0)
-			var c: Color = Color.from_hsv(hue, 0.55, 1.0)
-			(screen.material_override as StandardMaterial3D).emission = c
-			(s.props.glow as OmniLight3D).light_color = c
-			(s.props.glow as OmniLight3D).light_energy = 1.0 + 0.4 * sin(t * 11.0)
-			if cycle < 6.0:
-				for key: String in ["simon", "usa"]:
-					var v3: PaperVisual = a[key]
-					if v3.get("_action") != "console" or float(v3.get("_action_time")) < 0.05: v3.play("console")
-					v3.set_combat_state({})
-			else:
-				_emote(a.usa, "cheer", cycle - 6.0)
-				_emote(a.simon, "sad", cycle - 6.0)
-		"gallery":
-			var cycle2: float = fmod(t, 6.0)
-			var step3: int = int(t / 1.6)
-			if step3 != int(s.step):
-				s.step = step3
-				a.bleu.play("eat")
-			if cycle2 > 3.0 and cycle2 < 5.3: _emote(a.elly, "laugh", cycle2 - 3.0)
-			else: a.elly.set_combat_state({})
-			(s.props.beam as SpotLight3D).light_energy = 1.6 + 0.5 * sin(t * 23.0) * sin(t * 3.1)
-		"settings":
-			var cycle3: float = fmod(t, 7.0)
-			var ash: PaperVisual = a.ash
-			var zap_step: int = int(t / 7.0)
-			if cycle3 >= 4.2 and int(s.get("zapped", -1)) != zap_step:
-				s["zapped"] = zap_step
-				ash.play("zap")
-				(s.props.sparks as CPUParticles3D).restart()
-				(s.props.sparks as CPUParticles3D).emitting = true
-				_flash.light_energy = 6.0
-			elif cycle3 < 4.2 or cycle3 > 5.85:
-				if ash.get("_action") != "repair" or float(ash.get("_action_time")) < 0.05: ash.play("repair")
-			if cycle3 >= 4.2 and cycle3 < 4.7 and fmod(t, 0.12) < 0.06: _flash.light_energy = 5.0
-		"credits":
-			var cycle4: float = fmod(t, 7.5)
-			_emote(a.lysia, "wave", fmod(t, 2.5))
-			_emote(a.bleu, "cheer", fmod(t + 0.8, 2.5))
-			_emote(a.elly, "thumbsup", fmod(t + 1.6, 2.5))
-		"quit":
-			var cycle5: float = fmod(t, 7.0)
-			var alice: PaperVisual = a.alice
-			var z: float = lerpf(1.4, -0.6, clampf(cycle5 / 5.0, 0.0, 1.0))
-			var speed: float = 0.4 if cycle5 < 5.0 else 0.0
-			alice.position.z = z
-			alice.animate(dt, Vector3(0, 0, - speed), false, false)
-			_accent.light_energy = 1.4 + 1.2 * absf(sin(t * 2.2))
-			if cycle5 > 6.6: modulate.a = minf(modulate.a, (7.0 - cycle5) / 0.4)
-			return
-		"shop", "dance":
-			var dancer: PaperVisual = a.values()[0]
-			var dance: String = str(s.get("dance", ""))
-			var info: Dictionary = Dances.info(dance)
-			var dance_t: float = t
-			if id == "dance" and _music.playing and _music.stream:
-				dance_t = _music.get_playback_position()
-			_emote(dancer, dance, dance_t)
-	for key: Variant in a:
-		var visual: PaperVisual = a[key]
-		visual.animate(dt, Vector3.ZERO, false, false)
+func current_scene() -> MenuScene:
+	return _scenes.get(_current) if _current != "" else null
