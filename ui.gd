@@ -1420,7 +1420,7 @@ func _alice_dossier(column: VBoxContainer, compact: bool = false) -> Control:
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	text.add_child(_kicker("DOSSIER  ·  L’OMBRE DE L’ÉCOLE", T.RED_INK, 11))
 	text.add_child(_label("ALICE", "display", 44 if compact else 60, T.INK_TEXT))
-	text.add_child(_label("Elle connaît la dernière sonnerie.", "hand", 22 if compact else 26, T.RED_INK))
+	text.add_child(_label("Qui veut rester après les cours ?", "hand", 22 if compact else 26, T.RED_INK))
 	_spacer(text, 4)
 	for line: String in ["∞ PV  ·  invulnérable", "True Form après 15 stuns, une fois par partie", "Les six élèves sont joués par des bots."]:
 		var item: HBoxContainer = _hbox(text, 8)
