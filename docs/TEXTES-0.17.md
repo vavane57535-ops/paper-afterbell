@@ -273,7 +273,7 @@ Toutes les entrées, par fichier (« Après » = texte affiché en français, «
 | SOIN · pose-toi au sol pour soigner. | SOIN · pas en plein saut : attends d’atterrir. | HEAL · not mid-jump: wait until you land. |
 | oriente ton regard vers Alice | tourne-toi vers Alice | turn to face Alice |
 
-### `ui_hud.gd` (7)
+### `ui_hud.gd` (8)
 
 | Avant | Après | Anglais |
 |---|---|---|
@@ -284,6 +284,7 @@ Toutes les entrées, par fichier (« Après » = texte affiché en français, «
 | ALICE EST DANS TON OMBRE ! ELLE ARRIVE DERRIÈRE TOI | ALICE ARRIVE DERRIÈRE TOI ! BOUGE ! | ALICE IS RIGHT BEHIND YOU! MOVE! |
 | OMBRE PORTÉE · ÉMERGENCE DERRIÈRE LA CIBLE… | OMBRES · TU VAS SURGIR DERRIÈRE UN ÉLÈVE AU HASARD | SHADOWS · YOU'LL POP UP BEHIND A RANDOM STUDENT |
 | Les élèves prennent de l'avance… | Les élèves ont quelques secondes d’avance. | The students get a few seconds' head start. |
+| TRUE FORM · %.0f s · COMPÉTENCE 4 : BONDIR | TRUE FORM · %.0f s · CAPACITÉ 4 : BONDIR | TRUE FORM · %.0f s · ABILITY 4: POUNCE |
 
 ### `online_menu.gd` (10)
 

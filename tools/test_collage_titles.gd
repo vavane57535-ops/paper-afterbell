@@ -38,7 +38,7 @@ func setup(game_world: Node) -> void :
 # Mots à l'écran : [texte source, taille px, graine (-1 : hash % 997, -2 : hash % 9973), état, largeur max (titres)].
 func _specs() -> Array:
 	var rows: Array = []
-	for title: Array in [["Réglages", 48], ["Boutique", 50], ["En ligne, entre amis", 50], ["Ouverture du salon", 50], ["Réglages réseau", 50], ["Avant la cloche", 50], ["Crédits", 50], ["Cinémathèque", 50], ["Choisis ton personnage", 46], ["Incarne Alice", 46], ["Choisis ton élève", 46], ["Le terrain d’essai", 40]]:
+	for title: Array in [["Réglages", 48], ["Boutique", 50], ["Entre amis", 50], ["Ouverture du salon", 50], ["Réglages réseau", 50], ["En attendant les autres", 50], ["Crédits", 50], ["Cinémathèque", 50], ["Choisis ton personnage", 46], ["Incarne Alice", 46], ["Choisis ton élève", 46], ["Le terrain d’essai", 40]]:
 		rows.append({"text": title[0], "px": float(title[1]) * 0.92, "seed": -1, "lit": 0.0, "width": 560.0, "kind": "titre"})
 	rows.append({"text": "Choisis ton élève", "px": 36.0 * 0.92, "seed": -1, "lit": 0.0, "width": 560.0, "kind": "titre"})
 	for verdict: String in ["VICTOIRE D’ALICE", "VICTOIRE PAR FORFAIT", "LES ÉLÈVES S’ÉCHAPPENT"]:
