@@ -611,7 +611,6 @@ func _write_usayuko() -> void :
 	_flash(block, 0.06, Color(1.0, 0.9, 0.6))
 	_later(block, "pop", {"at": {"mid": [s, a], "h": 1.32}, "color": GOLD, "scale": 0.8})
 	_burst(block, _r(0.04, 0.4, 1.32), Vector3(0.7, 0.5, 0.1), 16, 3.4, {"spread": 0.7, "lift": 1.0, "gravity": 5.0, "drag": 1.5, "life": 0.7, "size": 0.05, "colors": [GOLD, Color("fff2a8"), Color.WHITE]})
-	for k: int in range(4): _later(block + 0.12 + 0.28 * float(k), "sparkles", {"at": {"mid": [s, a], "h": 1.3}, "color": Color("ffe9a0"), "count": 2, "radius": 0.15})
 	# B · nez à nez, de profil : elle le force vers le bas, il lève les yeux vers
 	# elle, serre les dents… et sourit ; les deux regards brillent
 	c._shot(3.95, {"rel": {"mid": [s, a]}, "eye": [Vector3(1.25, 1.38, -0.1), Vector3(1.12, 1.38, -0.08)], "look": {"mid": [s, a], "h": 1.34, "o": Vector3(0, 0, -0.1)}, "fov": [31, 29], "hand": 0.25})
@@ -632,7 +631,6 @@ func _write_usayuko() -> void :
 	c._cue(5.4, "shake", 0.15)
 	c._cue(5.58, "shake", 0.2)
 	_burst(5.3, _r(0.0, 0.0, 0.05), Vector3.UP, 16, 1.1, {"spread": 1.0, "lift": 2.0, "gravity": 1.6, "life": 1.0, "size": 0.06, "colors": [Color("7a7268"), Color("5a544c")]})
-	_later(5.36, "sparkles", {"at": {"a": s, "s": "hand_l"}, "color": GOLD, "count": 5, "radius": 0.25})
 	# E · l'impact, serré, de profil : arrêt sur image
 	c._shot(hit - 0.03, {"rel": {"mid": [s, a]}, "eye": [Vector3(2.45, 0.85, 0.1), Vector3(2.4, 0.86, 0.1)], "look": {"mid": [s, a], "h": 1.08}, "fov": [34, 33], "hand": 0.2})
 	c._cue(hit, "pop", {"mid": [s, a], "h": 1.12}, Vector3(0, 0, 1), GOLD, 1.5)
@@ -660,17 +658,18 @@ func _write_usayuko() -> void :
 	_rain_burst(crash, _r(0.0, land, 0.4), 0.7)
 	_burst(crash, _r(0.0, land, 0.2), Vector3(0, 1, 0.4), 22, 4.2, {"spread": 1.0, "lift": 2.0, "gravity": 8.0, "life": 1.3, "size": 0.1})
 	_smear(fly, fly + 0.35, Vector2(0.05, 0.0))
-	c._shot(fly, {"rel": {"a": a}, "eye": [Vector3(1.6, 1.15, -2.2), Vector3(1.25, 2.3, -1.5)], "look": {"a": a, "h": 0.55}, "fov": [48, 44], "hand": 0.5})
+	# dans le couloir libre mesuré devant la sortie : au-dessus d'elle, un peu en arrière
+	c._shot(fly, {"rel": {"a": a}, "eye": [Vector3(0.7, 1.95, -1.75), Vector3(0.6, 2.05, -1.05)], "look": {"a": a, "h": 0.5}, "fov": [50, 48], "hand": 0.5})
 	# le corps entier bascule en arrière pendant le vol (la robe suit), puis le
 	# clip la pose sur le dos à l'atterrissage
 	_tilt(fly, 6.4, a, Vector3.ZERO, Vector3(1.3, 0.0, 0.15), "out")
 	_tilt(6.4, crash, a, Vector3(1.3, 0.0, 0.15), Vector3.ZERO, "smooth")
 	# G · la vapeur sur les phalanges : il souffle, secoue la main, sourit
 	c._shot(6.95, {"rel": {"a": s}, "eye": [Vector3(-0.55, 1.12, 1.25), Vector3(-0.5, 1.14, 1.12)], "look": {"a": s, "h": 1.42}, "fov": [34, 32], "hand": 0.3})
-	for k: int in range(3): _later(7.1 + 0.23 * float(k), "smoke_hand", {"who": s, "socket": "hand_l"})
+	for k: int in range(3): _later(7.08 + 0.18 * float(k), "smoke_hand", {"who": s, "socket": "hand_l"})
 	_glint(7.6, 7.85, s, 0.9)
 	# H · héros en contre-plongée sous l'éclair
-	c._shot(7.85, {"rel": {"a": s}, "eye": [Vector3(0.5, 0.62, 1.5), Vector3(0.42, 0.66, 1.32)], "look": {"a": s, "h": 1.3}, "fov": [42, 40], "hand": 0.4})
+	c._shot(7.85, {"rel": {"a": s}, "eye": [Vector3(-0.55, 0.6, 1.5), Vector3(-0.46, 0.64, 1.32)], "look": {"a": s, "h": 1.3}, "fov": [42, 40], "hand": 0.4})
 	_bolt(8.2, 0.3, 1.3)
 	_flash(t_ink - 0.06, 0.12)
 	# PAPIER · le coup de poing en silhouette : pliée autour du poing, elle part
@@ -1415,7 +1414,7 @@ func _fire(kind: String, data: Dictionary) -> void :
 			var visual: PaperVisual = cinema.takes[int(data.who)].visual
 			var hand: Vector3 = visual.socket_position(str(data.get("socket", "hand_r")))
 			for k: int in range(2):
-				comic.mark(6, hand + Vector3(randf_range(-0.04, 0.04), 0.06, randf_range(-0.04, 0.04)), Color("e4e0d8", 0.6), 0.1, 0.4, 0.7, {"vel": Vector3.UP * randf_range(0.5, 0.8), "drag": 1.4, "fade": 0.35, "ink": Color("8a857e"), "delay": 0.06 * float(k)})
+				comic.mark(6, hand + Vector3(randf_range(-0.03, 0.03), 0.05, randf_range(-0.03, 0.03)), Color("e4e0d8", 0.55), 0.06, 0.22, 0.5, {"vel": Vector3.UP * randf_range(0.45, 0.7), "drag": 1.6, "fade": 0.4, "ink": Color("8a857e"), "delay": 0.05 * float(k)})
 		"smoke":
 			var visual: Node3D = cinema.takes[int(data.who)].visual
 			var muzzle: Vector3 = visual.attachment_position("shotgun_muzzle")

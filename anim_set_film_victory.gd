@@ -121,7 +121,7 @@ static func _usayuko(c: Dictionary) -> void :
 	# vrille, le poids passe sur la jambe arrière ; la main droite ouverte vise
 	k.append(K(5.12, M([H(0, -0.24, 0.02), B(0.08, 0.5), C(0.02, 0.38), HD(0.04, -0.62), L(0.5, -0.1, 0.1, 0.5), WL(0.0, 0.6), {"sq": 1.0}])))
 	k.append(K(5.3, M([H(0, -0.32, -0.16), B(0.16, 0.8), C(0.12, 0.5), HD(0.02, -1.05), L(0.22, -0.42, -0.42, 0.25), WL(-0.4, 0.4),
-		Rt(-0.18, 0.1, 0.6, 0.35), WR(0.0, -0.3), SH(0.1, 0.0, -0.3, 0.0), {"fp_l": -0.15, "curl": 0.35, "curl_l": 1.0, "shake": 0.25, "face": "determined", "fx": "flex"}])))
+		Rt(-0.18, 0.1, 0.6, 0.35), WR(0.0, -0.3), SH(0.1, 0.0, -0.3, 0.0), {"fp_l": -0.15, "curl": 0.35, "curl_l": 1.0, "shake": 0.25, "face": "determined"}])))
 	k.append(K(5.52, M([FL(0.06, 0.44, 0.12), H(0, -0.33, -0.18), B(0.18, 0.88), C(0.14, 0.54), HD(0.0, -1.12), L(0.24, -0.45, -0.46, 0.25), {"shake": 0.6, "fp_l": 0.3}])))
 	# la fente : le pied gauche se pose loin devant, la hanche part, le poing suit
 	k.append(K(5.64, M([FL(0.03, 0.74), H(0, -0.32, 0.26), B(0.24, 0.3), C(0.1, 0.2), HD(-0.06, -0.5), L(0.3, -0.12, 0.0, 0.5), {"fp_l": 0.0, "fp_r": -0.3, "shake": 0.2}])))
