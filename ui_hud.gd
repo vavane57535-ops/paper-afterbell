@@ -942,7 +942,7 @@ func _prompt_text(a: PaperActor) -> String:
 	if float(a.effects.get("grab_time", 0)) > 0: return _t("CHARGE · ATTRAPE ALICE AU CONTACT ET VISE UN MUR")
 	if float(a.effects.get("shadow_mark", 0)) > 0: return _t("ALICE ARRIVE DERRIÈRE TOI ! BOUGE !")
 	if bool(a.effects.get("shadow_hide", false)): return _t("OMBRES · TU VAS SURGIR DERRIÈRE UN ÉLÈVE AU HASARD")
-	if float(a.effects.get("phase6", 0)) > 0: return _t("TRUE FORM · %.0f s · COMPÉTENCE 4 : BONDIR") % float(a.effects.phase6)
+	if float(a.effects.get("phase6", 0)) > 0: return _t("TRUE FORM · %.0f s · CAPACITÉ 4 : BONDIR") % float(a.effects.phase6)
 	if float(a.effects.get("counter", 0)) > 0: return _t("2  ·  CONTRE DISPONIBLE !")
 	if float(a.effects.get("overheat_time", 0)) > 0: return _t("SURCHAUFFE · INVULNÉRABLE · ARMURE −%d PV · %.1f s") % [int(floor(PaperSurvivorMechanics.OVERHEAT_HP_COST * clampf(1.0 - float(a.effects.overheat_time) / PaperSurvivorMechanics.OVERHEAT_SECONDS, 0.0, 1.0))), float(a.effects.overheat_time)]
 	if float(a.effects.get("heal_time", 0)) > 0: return _t("SOIN EN COURS · %.1f s") % float(a.effects.heal_time)

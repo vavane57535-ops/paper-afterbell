@@ -9,6 +9,8 @@ extends Node
 #          settings controls online loading game pause confirm emotes training alice_game verdicts
 # Journal : « TX_SHOT <fichier> », « TX_CUT <écran> | <texte> | <détail> » pour chaque texte coupé
 # ou hors de l'écran, puis « TX_RESULT cuts=<n> ».
+# Traductions seules (sans rendu) : godot --headless -- --tool test_textes --tx-l10n <liste.json>
+#   (tableau JSON de textes français) : « TX_L10N_MISSING <texte> » pour chaque texte sans anglais.
 
 const ALL: Array[String] = ["main", "hints", "setup", "alice", "shop", "gallery", "credits", "network", "advanced", "connecting", "lobby", "settings", "controls", "online", "loading", "game", "pause", "confirm", "emotes", "training", "alice_game", "verdicts"]
 
@@ -221,8 +223,31 @@ func _key(code: Key, settle: float = 0.3) -> void :
 		await get_tree().process_frame
 	await _wait(settle)
 
+# --tx-l10n FICHIER.json : liste de textes français (tableau JSON) dont la traduction anglaise doit exister.
+# Imprime « TX_L10N_MISSING <texte> » pour chaque texte rendu tel quel, puis « TX_L10N_RESULT ».
+func _check_l10n(path: String) -> void :
+	var data: Variant = JSON.parse_string(FileAccess.get_file_as_string(path))
+	var missing: int = 0
+	var previous: String = PaperLanguage.language
+	PaperLanguage.language = "en"
+	for value: Variant in (data if data is Array else []):
+		var source: String = str(value)
+		var shown: String = PaperLanguage.t(source)
+		if shown == source:
+			missing += 1
+			_note("TX_L10N_MISSING " + source)
+		else: _note("TX_L10N_OK " + source + " -> " + shown)
+	PaperLanguage.language = previous
+	_note("TX_L10N_RESULT %s" % ("OK" if missing == 0 else "MISSING %d" % missing))
+
 func _run() -> void :
 	await _wait(0.5)
+	var args: PackedStringArray = OS.get_cmdline_user_args()
+	var l10n_at: int = args.find("--tx-l10n")
+	if l10n_at >= 0 and l10n_at + 1 < args.size():
+		_check_l10n(args[l10n_at + 1])
+		get_tree().quit()
+		return
 	var ui: Node = world.ui
 	_note("TX viewport %s langue %s" % [get_viewport().get_visible_rect().size, PaperLanguage.language])
 	if "main" in screens: await _menu("main", func() -> void : ui.show_main(), 2.0)
