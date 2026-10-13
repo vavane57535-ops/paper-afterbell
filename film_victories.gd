@@ -604,7 +604,7 @@ func _write_usayuko() -> void :
 	_play(s, "fv_usayuko_rain")
 	_play(a, "fv_usayuko_alice_rain")
 	# A · profil, contre-plongée : la griffe tombe sur l'avant-bras
-	c._shot(3.3, {"rel": {"mid": [s, a]}, "eye": [Vector3(2.45, 0.95, 0.2), Vector3(2.25, 1.0, 0.1)], "look": {"mid": [s, a], "h": 1.22}, "fov": [40, 37], "hand": 0.5})
+	c._shot(3.32, {"rel": {"mid": [s, a]}, "eye": [Vector3(3.0, 0.95, 0.25), Vector3(2.8, 1.0, 0.15)], "look": {"mid": [s, a], "h": 1.22}, "fov": [36, 34], "hand": 0.5})
 	var block: float = 3.62
 	c._cue(block, "sound", "block", {"mid": [s, a], "h": 1.3})
 	c._cue(block, "shake", 0.45)
@@ -612,12 +612,14 @@ func _write_usayuko() -> void :
 	_later(block, "pop", {"at": {"mid": [s, a], "h": 1.32}, "color": GOLD, "scale": 0.8})
 	_burst(block, _r(0.04, 0.4, 1.32), Vector3(0.7, 0.5, 0.1), 16, 3.4, {"spread": 0.7, "lift": 1.0, "gravity": 5.0, "drag": 1.5, "life": 0.7, "size": 0.05, "colors": [GOLD, Color("fff2a8"), Color.WHITE]})
 	for k: int in range(4): _later(block + 0.12 + 0.28 * float(k), "sparkles", {"at": {"mid": [s, a], "h": 1.3}, "color": Color("ffe9a0"), "count": 2, "radius": 0.15})
-	# B · ses yeux par-dessus l'avant-bras : l'effort, puis le sourire
-	_closeup(3.95, s, Vector3(0, 0, 1), 1.0, 1.0, 28.0, -0.06)
+	# B · nez à nez, de profil : elle le force vers le bas, il lève les yeux vers
+	# elle, serre les dents… et sourit ; les deux regards brillent
+	c._shot(3.95, {"rel": {"mid": [s, a]}, "eye": [Vector3(1.25, 1.38, -0.1), Vector3(1.12, 1.38, -0.08)], "look": {"mid": [s, a], "h": 1.34, "o": Vector3(0, 0, -0.1)}, "fov": [31, 29], "hand": 0.25})
 	_glint(4.15, 4.85, s, 1.15)
+	_glint(4.25, 4.75, a, 0.85)
 	_bolt(4.5, 0.25, 1.0)
 	# C · par-dessus son épaule droite : il la repousse (4,98)
-	c._shot(4.62, {"rel": {"a": s}, "eye": [Vector3(-0.6, 1.62, -1.15), Vector3(-0.55, 1.58, -0.98)], "look": {"a": a, "h": 1.35}, "fov": [38, 34], "hand": 0.4})
+	c._shot(4.62, {"rel": {"a": s}, "eye": [Vector3(1.45, 1.45, -1.55), Vector3(1.35, 1.42, -1.42)], "look": {"mid": [s, a], "h": 1.3}, "fov": [40, 37], "hand": 0.4})
 	var shove: float = 4.98
 	c._cue(shove, "sound", "punch", {"a": a}, 0.7, 1.15)
 	c._cue(shove, "shake", 0.4)
@@ -625,14 +627,14 @@ func _write_usayuko() -> void :
 	_later(shove + 0.02, "whoosh", {"at": {"a": a, "h": 1.3}, "dir": Vector3(0, 0, 1), "color": PAPER, "count": 5, "length": 1.6})
 	_rain_burst(shove, _r(0.05, 0.6, 1.4), 0.6)
 	# D · il arme : le poing recule, l'air se met à trembler ; elle revient à la charge
-	c._shot(5.28, {"rel": {"a": s}, "eye": [Vector3(-1.75, 0.6, 1.25), Vector3(-1.6, 0.62, 1.12)], "look": {"mid": [s, a], "h": 1.05}, "fov": [42, 39], "hand": 0.5})
+	c._shot(5.28, {"rel": {"a": s}, "eye": [Vector3(0.66, 1.0, -1.05), Vector3(0.6, 0.98, -0.95)], "look": {"a": a, "h": 1.15}, "fov": [50, 47], "hand": 0.5})
 	c._cue(5.32, "pulse", Color(1.0, 0.8, 0.35, 0.3), 0.8)
 	c._cue(5.4, "shake", 0.15)
 	c._cue(5.58, "shake", 0.2)
 	_burst(5.3, _r(0.0, 0.0, 0.05), Vector3.UP, 16, 1.1, {"spread": 1.0, "lift": 2.0, "gravity": 1.6, "life": 1.0, "size": 0.06, "colors": [Color("7a7268"), Color("5a544c")]})
-	_later(5.36, "sparkles", {"at": {"a": s, "s": "hand_r"}, "color": GOLD, "count": 5, "radius": 0.25})
+	_later(5.36, "sparkles", {"at": {"a": s, "s": "hand_l"}, "color": GOLD, "count": 5, "radius": 0.25})
 	# E · l'impact, serré, de profil : arrêt sur image
-	c._shot(hit - 0.03, {"rel": {"mid": [s, a]}, "eye": [Vector3(1.55, 1.05, -0.1), Vector3(1.5, 1.05, -0.08)], "look": {"mid": [s, a], "h": 1.1}, "fov": [30, 29], "hand": 0.2})
+	c._shot(hit - 0.03, {"rel": {"mid": [s, a]}, "eye": [Vector3(2.45, 0.85, 0.1), Vector3(2.4, 0.86, 0.1)], "look": {"mid": [s, a], "h": 1.08}, "fov": [34, 33], "hand": 0.2})
 	c._cue(hit, "pop", {"mid": [s, a], "h": 1.12}, Vector3(0, 0, 1), GOLD, 1.5)
 	c._cue(hit, "impact", 0.9, true)
 	c._cue(hit, "sound", "punch", {"a": a}, 1.0, 0.75)
@@ -658,13 +660,17 @@ func _write_usayuko() -> void :
 	_rain_burst(crash, _r(0.0, land, 0.4), 0.7)
 	_burst(crash, _r(0.0, land, 0.2), Vector3(0, 1, 0.4), 22, 4.2, {"spread": 1.0, "lift": 2.0, "gravity": 8.0, "life": 1.3, "size": 0.1})
 	_smear(fly, fly + 0.35, Vector2(0.05, 0.0))
-	c._shot(fly, {"rel": {"a": s}, "eye": [Vector3(1.15, 1.45, -1.4), Vector3(1.05, 1.35, -1.25)], "look": {"a": a, "h": 0.9}, "fov": [50, 40], "hand": 0.5})
+	c._shot(fly, {"rel": {"a": a}, "eye": [Vector3(1.6, 1.15, -2.2), Vector3(1.25, 2.3, -1.5)], "look": {"a": a, "h": 0.55}, "fov": [48, 44], "hand": 0.5})
+	# le corps entier bascule en arrière pendant le vol (la robe suit), puis le
+	# clip la pose sur le dos à l'atterrissage
+	_tilt(fly, 6.4, a, Vector3.ZERO, Vector3(1.3, 0.0, 0.15), "out")
+	_tilt(6.4, crash, a, Vector3(1.3, 0.0, 0.15), Vector3.ZERO, "smooth")
 	# G · la vapeur sur les phalanges : il souffle, secoue la main, sourit
-	c._shot(6.95, {"rel": {"a": s}, "eye": [Vector3(-0.75, 1.42, 1.2), Vector3(-0.68, 1.44, 1.08)], "look": {"a": s, "h": 1.4}, "fov": [34, 32], "hand": 0.3})
-	for k: int in range(3): _later(7.1 + 0.23 * float(k), "smoke_hand", {"who": s})
+	c._shot(6.95, {"rel": {"a": s}, "eye": [Vector3(-0.55, 1.12, 1.25), Vector3(-0.5, 1.14, 1.12)], "look": {"a": s, "h": 1.42}, "fov": [34, 32], "hand": 0.3})
+	for k: int in range(3): _later(7.1 + 0.23 * float(k), "smoke_hand", {"who": s, "socket": "hand_l"})
 	_glint(7.6, 7.85, s, 0.9)
 	# H · héros en contre-plongée sous l'éclair
-	c._shot(7.85, {"rel": {"a": s}, "eye": [Vector3(0.95, 0.38, 2.45), Vector3(0.8, 0.42, 2.15)], "look": {"a": s, "h": 1.45}, "fov": [44, 40], "hand": 0.4})
+	c._shot(7.85, {"rel": {"a": s}, "eye": [Vector3(0.5, 0.62, 1.5), Vector3(0.42, 0.66, 1.32)], "look": {"a": s, "h": 1.3}, "fov": [42, 40], "hand": 0.4})
 	_bolt(8.2, 0.3, 1.3)
 	_flash(t_ink - 0.06, 0.12)
 	# PAPIER · le coup de poing en silhouette : pliée autour du poing, elle part
@@ -676,10 +682,10 @@ func _write_usayuko() -> void :
 	_play(s, "fv_usayuko_ink", ink)
 	_play(a, "fv_usayuko_alice_ink", ink)
 	c._move(a, ink + 0.01, ink + 2.5, _ink(1.25, 0.65, -0.2), "out")
-	_tilt(ink, ink + 2.6, a, Vector3(0, 0, 0.0), Vector3(0, 0, -0.35))
+	_tilt(ink, ink + 2.6, a, Vector3(0, 0, 0.25), Vector3(0, 0, 1.15))
 	_burst(ink, _ink(-0.15, 1.1, 0.0), Vector3(1, 0.25, 0), 36, 3.6, {"spread": 0.6, "lift": 0.6, "gravity": 0.9, "drag": 0.9, "life": 2.6, "size": 0.13})
 	_burst(ink + 0.02, _ink(-0.2, 1.15, 0.0), Vector3(1, 0.6, 0.1), 12, 2.4, {"spread": 0.5, "lift": 0.8, "gravity": 0.6, "drag": 0.7, "life": 2.6, "size": 0.26})
-	c._shot(ink, {"eye": [_ink(0.1, 1.1, 6.0), _ink(0.15, 1.1, 5.6)], "look": [_ink(0.1, 1.0, 0.0), _ink(0.2, 1.0, 0.0)], "fov": 42, "hand": 0.1, "safe": false})
+	c._shot(ink, {"eye": [_ink(0.0, 1.05, 4.7), _ink(0.1, 1.05, 4.4)], "look": [_ink(0.0, 1.0, 0.0), _ink(0.15, 1.0, 0.0)], "fov": 42, "hand": 0.1, "safe": false})
 
 
 
