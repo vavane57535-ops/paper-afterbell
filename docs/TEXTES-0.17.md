@@ -16,6 +16,28 @@ Accessibilité, le passif d’Elly (elle entend aussi les pas d’Alice, et sur 
 toute la cinémathèque), `--tx-data` (fiches des persos telles que les montre la préparation) et les pages
 défilées des crédits.
 
+## Troisième passe (reprise 2)
+
+Relecture de tout ce qui s'affiche (extraction automatique des chaînes de tous les fichiers d'interface, puis captures
+FR et EN), avec un œil sur la place que prennent les textes :
+
+- **Fiches de la préparation.** La fiche défile quand le texte est trop long, et le relevé automatique ne le voyait
+  pas. Mesuré avec le nouveau mode `test_textes --tx-fiches` (hauteur du texte contre la zone visible, et, avec
+  `--tx-old-data`, les textes de la 0.16 remis dans les mêmes libellés) : la réécriture avait fait déborder la fiche
+  d'**Ashura** (la dernière ligne du passif cachée, alors qu'elle tenait en 0.16), et la dernière ligne d'**Alice**
+  était à moitié coupée (déjà en 0.16). Le drone, « Rapide / précis » et « Doubles d'ombre » sont resserrés, sans
+  rien enlever des règles : les deux fiches tiennent maintenant entières, en français comme en anglais.
+  **Lysia** reste la seule fiche qui défile : 89 px cachés en français et 53 en anglais, contre 159 en 0.16. La
+  faire tenir obligerait à retirer des règles.
+- **Salon.** « Au-delà de l'école » (titre du choix de la carte, alors que l'école en fait partie) devient
+  « On joue où ? », et « À quoi joue-t-on ? » devient « On joue à quoi ? ».
+- **Cinémathèque.** Quand Usayuko et Lysia s'en sortent ensemble, la description ne dit plus « Usayuko frappe
+  Alice, Lysia repousse Alice » mais « Usayuko frappe Alice, Lysia la repousse » (16 fuites sur 63).
+- **Chargement.** La ligne d'état (« Entrée dans la partie… ») passait sous les baskets du perso, en bas à droite :
+  elle est maintenant à gauche, au-dessus du début de la barre.
+- **Petites retouches** : « Armure déjà pleine : garde l’épave pour plus tard. », prix de Lysia sans la fin de
+  phrase qui ne servait à rien (« pour que tu puisses l’essayer »).
+
 ## La règle suivie
 
 - **Dire ce que ça fait**, en phrases courtes. Vocabulaire d'école quand ça colle (grilles, cours, bulletin de
@@ -155,9 +177,9 @@ Toutes les entrées, par fichier (« Après » = texte affiché en français, «
 | Personne ne reste en arrière. | Bouge pas, je te soigne. | Hold still, I'll patch you up. |
 | Je crois en toi. | J-je crois en toi. Vraiment ! | I-I believe in you. Really! |
 | Elle connaît la dernière sonnerie. | Qui veut rester après les cours ? | Who wants to stay after school? |
-| 3 change de mode ; 1 lance. Rapide : stun 2 s, recharge 25 s. Précis : contrôle en vue drone, Ashura immobile, stun 4 s, recharge 35 s. Batterie 10 s ; face à l’aura rouge d’Alice, le drone attend qu’elle s’éteigne. Épave 15 s, Lysia la mange pour 7 PV. | 1 lance le drone, 3 change de mode. Rapide : stun 2 s, recharge 25 s. Précis : tu le pilotes en vue drone pendant qu’Ashura reste planté là ; stun 4 s, recharge 35 s. 10 s de batterie. Si Alice a son aura rouge, le drone attend qu’elle s’éteigne. L’épave reste 15 s, et Lysia peut la manger (+7 PV). | 1 launches the drone, 3 switches mode. Quick: 2 s stun, 25 s cooldown. Precise: you fly it in drone view while Ashura stands still; 4 s stun, 35 s cooldown. 10 s of battery. If Alice has her red aura, the drone waits for it to fade. The wreck stays for 15 s, and Lysia can eat it (+7 HP). |
+| 3 change de mode ; 1 lance. Rapide : stun 2 s, recharge 25 s. Précis : contrôle en vue drone, Ashura immobile, stun 4 s, recharge 35 s. Batterie 10 s ; face à l’aura rouge d’Alice, le drone attend qu’elle s’éteigne. Épave 15 s, Lysia la mange pour 7 PV. | 1 lance le drone, 3 change de mode. Rapide : stun 2 s, recharge 25 s. Précis : tu le pilotes en vue drone, Ashura reste planté là ; stun 4 s, recharge 35 s. 10 s de batterie. Si Alice a son aura rouge, le drone attend qu’elle s’éteigne. L’épave reste 15 s : Lysia peut la manger (+7 PV). | 1 launches the drone, 3 switches mode. Quick: 2 s stun, 25 s cooldown. Precise: you fly it in drone view while Ashura stands still; 4 s stun, 35 s cooldown. 10 s of battery. If Alice has her red aura, the drone waits for it to fade. The wreck stays for 15 s: Lysia can eat it (+7 HP). |
 | Maintiens pour charger sans bouger, relâche pour partir. 1–2 s : boost 3 s ; 2–3 s : 4 s ; 3 s et plus : 6 s. Vitesse identique à Simon. Permet de glisser sur les rails. | Maintiens sans bouger pour charger, relâche pour partir. 1–2 s de charge : 3 s de boost ; 2–3 s : 4 s ; 3 s ou plus : 6 s. Aussi rapide que Simon, et tu peux glisser sur les rails. | Hold still to charge, release to go. 1–2 s of charge: 3 s boost; 2–3 s: 4 s; 3 s or more: 6 s. As fast as Simon, and you can grind on rails. |
-| Change le mode du drone ; recharge partagée, conservée en changeant de mode. | Passe le drone de rapide à précis, et inversement. Les deux modes partagent la même recharge : changer ne la remet pas à zéro. | Switches the drone between quick and precise. Both modes share one cooldown, so switching doesn't reset it. |
+| Change le mode du drone ; recharge partagée, conservée en changeant de mode. | Passe le drone de rapide à précis (ou l’inverse), sans toucher à sa recharge. | Switches the drone between quick and precise without touching its cooldown. |
 | Charge 4 s vers ton viseur, attrape Alice au contact et emporte-la. Impact contre un mur : stun 3 s. | Tu fonces 4 s là où tu vises. Si tu touches Alice, tu l’embarques ; écrase-la contre un mur et elle est stun 3 s. | You charge for 4 s wherever you're aiming. Hit Alice and you carry her off; slam her into a wall for a 3 s stun. |
 | Bloque 1,5 s. En cas d'impact, réappuie pour un contre de 4 s. Recharge réussie : 20 s. | Garde de 1,5 s. Si Alice tape dedans, réappuie vite pour contrer : stun 4 s. Après un blocage réussi, la recharge n’est que de 20 s. | Guard for 1.5 s. If Alice hits it, press again quickly to counter: 4 s stun. After a successful block, the cooldown is only 20 s. |
 | Coup de poing : 2 s d'étourdissement. | Un bon coup de poing : Alice est étourdie 2 s. | A solid punch: Alice is stunned for 2 s. |
@@ -165,10 +187,10 @@ Toutes les entrées, par fichier (« Après » = texte affiché en français, «
 | 3 change de mode. Lancer : active 1 pour viser, puis 1 ou clic pour lancer ; clic droit annule. Grenade : stun 2–4 s. Poing : stun 2,5 s et aveuglement 4 s. | 3 change de mode. En lancer : 1 pour viser, puis 1 ou clic pour lancer (clic droit annule). La grenade étourdit 2 à 4 s. En poing : stun 2,5 s et Alice aveuglée 4 s. | 3 switches mode. Throw: 1 to aim, then 1 or click to throw (right-click cancels). The grenade stuns for 2 to 4 s. Punch: 2.5 s stun and Alice blinded for 4 s. |
 | Maintiens en restant immobile. Charge 1–2 s : boost 3 s ; 2–3 s : 4 s ; ≥3 s : 6 s, même vitesse. E pendant le boost pour emporter un allié proche, sauf Lysia. Usayuko réduit la vitesse de 15 %. | Maintiens sans bouger pour charger. 1–2 s : 3 s de boost ; 2–3 s : 4 s ; 3 s ou plus : 6 s, toujours à la même vitesse. E pendant le boost pour embarquer un allié proche (pas Lysia, trop lourde). Avec Usayuko, tu perds 15 % de vitesse. | Hold still to charge. 1–2 s: 3 s boost; 2–3 s: 4 s; 3 s or more: 6 s, always at the same speed. E during the boost to grab a nearby ally (not Lysia, she's too heavy). Carrying Usayuko slows you down by 15%. |
 | Change le mode de la Flashbang, sans réinitialiser sa recharge. | Passe la Flashbang du lancer au poing, sans toucher à sa recharge. | Switches the Flashbang between throw and punch without touching its cooldown. |
-| Charge en avant. Au contact : Alice immobilisée 3 s, puis stun 2 s supplémentaires. Lysia invincible pendant la charge et la surchauffe, mais la chaleur use doucement son armure : −40 PV sur les 3 s (au prorata si elle est interrompue), jamais sous 1 PV. | Tu charges là où tu vises. Au contact, Alice est bloquée 3 s, puis étourdie 2 s de plus. Tu es invincible pendant la charge et la surchauffe, mais la chaleur grignote ton armure : −40 PV sur les 3 s (au prorata si elle est coupée), sans jamais descendre sous 1 PV. | You charge wherever you're aiming. On contact, Alice is pinned for 3 s, then stunned for 2 s more. You're invincible during the charge and the overheat, but the heat eats into your armour: −40 HP over the 3 s (pro rata if it's cut short), never below 1 HP. |
+| Charge en avant. Au contact : Alice immobilisée 3 s, puis stun 2 s supplémentaires. Lysia invincible pendant la charge et la surchauffe, mais la chaleur use doucement son armure : −40 PV sur les 3 s (au prorata si elle est interrompue), jamais sous 1 PV. | Tu charges là où tu vises. Au contact, Alice est bloquée 3 s, puis étourdie 2 s. Tu es invincible pendant la charge et la surchauffe, mais tu perds 40 PV d’armure sur 3 s (moins si ça s’arrête avant), jamais sous 1 PV. | You charge wherever you're aiming. On contact, Alice is pinned for 3 s, then stunned for 2 s. You're invincible during the charge and the overheat, but you lose 40 armour HP over 3 s (less if it stops early), never below 1 HP. |
 | Repousse Alice sur 20 m, jusqu’au premier obstacle. | Envoie valser Alice jusqu’à 20 m, ou jusqu’au premier obstacle. | Sends Alice flying up to 20 m, or until she hits something. |
 | Voit Alice et les prises électriques à travers les murs pendant 3 s. | Pendant 3 s, tu vois Alice et les prises électriques à travers les murs. | For 3 s, you see Alice and the power outlets through walls. |
-| Près d’une prise, branche-toi jusqu’à 15 s : +10 PV toutes les 2 s sans bouger, arrêt à armure pleine. Ashura à moins de 4 m : soin 1,5 fois plus rapide. Bouger, INTERAGIR ou 4 te débranche. Recharge 30 s après la fin du soin. Être frappée interrompt le branchement. | Près d’une prise, branche-toi jusqu’à 15 s : +10 PV toutes les 2 s tant que tu ne bouges pas, jusqu’à l’armure pleine. Si Ashura est à moins de 4 m, ça va 1,5 fois plus vite. Bouger, INTERAGIR ou 4 te débranche, un coup aussi. Recharge de 30 s une fois le soin fini. | Next to an outlet, plug in for up to 15 s: +10 HP every 2 s as long as you don't move, until your armour is full. With Ashura within 4 m, it goes 1.5 times faster. Moving, INTERACT or 4 unplugs you, and so does getting hit. 30 s cooldown once the healing ends. |
+| Près d’une prise, branche-toi jusqu’à 15 s : +10 PV toutes les 2 s sans bouger, arrêt à armure pleine. Ashura à moins de 4 m : soin 1,5 fois plus rapide. Bouger, INTERAGIR ou 4 te débranche. Recharge 30 s après la fin du soin. Être frappée interrompt le branchement. | Près d’une prise, branche-toi jusqu’à 15 s : +10 PV toutes les 2 s sans bouger, jusqu’à l’armure pleine. Avec Ashura à moins de 4 m, ça va 1,5 fois plus vite. Bouger, INTERAGIR, 4 ou un coup te débranche. Recharge : 30 s après le soin. | Next to an outlet, plug in for up to 15 s: +10 HP every 2 s while you stand still, until your armour is full. With Ashura within 4 m, it goes 1.5 times faster. Moving, INTERACT, 4 or a hit unplugs you. Cooldown: 30 s after the healing. |
 | Soigne de 50 PV l’allié visé (sinon le plus proche) en 3 s, tous deux immobiles. | Rend 50 PV à l’allié visé (ou au plus proche) en 3 s. Vous restez immobiles tous les deux. | Gives 50 HP back to the targeted ally (or the closest one) over 3 s. You both stay still. |
 | 2 PV/s dans la zone pendant 20 s. | Une zone qui rend 2 PV/s pendant 20 s. | A zone that heals 2 HP/s for 20 s. |
 | Un tir unique : 203 dégâts, aveuglement et stun 3 s. Alice reste immortelle. | Une seule cartouche : 203 dégâts, Alice aveuglée et stun 3 s. Elle ne meurt pas pour autant. | One shell: 203 damage, Alice blinded and stunned for 3 s. She still doesn't die. |
@@ -180,7 +202,7 @@ Toutes les entrées, par fichier (« Après » = texte affiché en français, «
 | Révèle tous les survivants sauf Simon. | Montre où sont tous les survivants, sauf Simon. | Shows where every survivor is, except Simon. |
 | Prépare, vise, confirme : les piques avancent rapidement sur 15 m. 20 dégâts par cible, lenteur 15 %. Clic droit annule. | Prépare, vise, confirme : les piques filent sur 15 m. 20 dégâts par cible et 15 % de lenteur. Clic droit pour annuler. | Ready, aim, confirm: the spikes shoot out over 15 m. 20 damage per target and 15% slow. Right-click to cancel. |
 | Ombres derrière chaque élève, vraie Alice derrière un élève au hasard après 1,2 s. En True Form : bond frontal infligeant 40 dégâts, recharge 6 s. | Une ombre apparaît derrière chaque élève ; 1,2 s plus tard, tu surgis derrière l’un d’eux, au hasard. En True Form : un bond en avant à 40 dégâts, recharge 6 s. | A shadow appears behind every student; 1.2 s later you pop up behind one of them at random. In True Form: a forward pounce for 40 damage, 6 s cooldown. |
-| Deux ombres poursuivent en marchant pendant 25 s : 10 dégâts au contact. Les capacités de survivants les dispersent. | Deux ombres traquent les élèves en marchant pendant 25 s : 10 dégâts au contact. Une capacité de survivant lancée près d’elles les dissipe. | Two shadows stalk the students at walking pace for 25 s: 10 damage on contact. A survivor ability used near them breaks them up. |
+| Deux ombres poursuivent en marchant pendant 25 s : 10 dégâts au contact. Les capacités de survivants les dispersent. | Deux ombres traquent les élèves au pas pendant 25 s : 10 dégâts au contact. Une capacité d’élève lancée près d’elles les dissipe. | Two shadows stalk the students at walking pace for 25 s: 10 damage on contact. A student ability used near them breaks them up. |
 | 15 stuns subis débloquent une unique transformation de 30 s : vitesse +70 %, bond meurtrier, chronomètre suspendu et sortie fermée. | Après 15 stuns subis, tu peux te transformer une fois, pendant 30 s : +70 % de vitesse, bond mortel, chrono en pause et sortie fermée. | After taking 15 stuns, you can transform once, for 30 s: +70% speed, deadly pounce, timer paused and exit closed. |
 | Quand tu es frappé, tes alliés voient ta silhouette à travers les murs. Près de Lysia branchée à une prise (4 m), sa recharge est 1,5 fois plus rapide. | Quand tu prends un coup, tes alliés voient ta silhouette à travers les murs. À moins de 4 m de Lysia branchée à une prise, tu accélères sa recharge (×1,5). | When you get hit, your allies see your outline through walls. Within 4 m of Lysia while she's plugged in, you speed up her recharge (×1.5). |
 | 115 PV + 50 surPV soignables. Protège les alliés collés à lui (1,5 m) : la griffe d’Alice ne touche que lui. Peut bloquer ou contrer. Chaque protection remplit l’aura. | 115 PV + 50 surPV soignables. Les alliés collés à toi (1,5 m) sont à l’abri : la griffe d’Alice ne touche que toi. Tu peux bloquer ou contrer, et chaque protection remplit ton aura. | 115 HP + 50 healable bonus HP. Allies right next to you (1.5 m) are safe: Alice's claw only hits you. You can block or counter, and every save fills your aura. |
@@ -190,7 +212,7 @@ Toutes les entrées, par fichier (« Après » = texte affiché en français, «
 | Après un coup : vitesse ×2 pendant 3 s. LMS : hausse des ressources. | Après un coup : vitesse ×2 pendant 3 s. En LMS : « Je peux le faire » se débloque. | After a hit: speed ×2 for 3 s. In LMS: “I can do it” unlocks. |
 | Une seule porte condamnée à la fois. Traverse ses propres piques. Après chaque stun : aura rouge et protection contre les stuns pendant 5 s. | Une seule porte condamnée à la fois. Tu traverses tes propres piques. Après chaque stun : aura rouge, et plus aucun stun pendant 5 s. | Only one door sealed at a time. You pass through your own spikes. After each stun: red aura, and no more stuns for 5 s. |
 
-### `ui.gd` (48)
+### `ui.gd` (50)
 
 | Avant | Après | Anglais |
 |---|---|---|
@@ -215,7 +237,7 @@ Toutes les entrées, par fichier (« Après » = texte affiché en français, «
 | L’ombre · empêcher la fuite | La tueuse · empêcher la fuite | The killer · stop the escape |
 | LA CLOCHE SONNE | C’EST PARTI | HERE WE GO |
 | DOSSIER  ·  L’OMBRE DE L’ÉCOLE | DOSSIER  ·  LA TUEUSE | FILE  ·  THE KILLER |
-| Prix prévu : 700. Accessible pour tester cette alpha. | Prix prévu : 700. Gratuite pendant l’alpha, pour que tu puisses l’essayer. | Planned price: 700. Free during the alpha so you can try her. |
+| Prix prévu : 700. Accessible pour tester cette alpha. | Prix prévu : 700. Gratuite pendant l’alpha. | Planned price: 700. Free during the alpha. |
 | LES OMBRES VOUS ATTENDENT | JOUER EN LIGNE | PLAY ONLINE |
 | En ligne, entre amis | Entre amis | With friends |
 | Retrouve tes amis et tes groupes privés sur le service configuré. Aucun serveur régional public n'est encore hébergé pour cette version. | Pour retrouver tes amis et tes groupes. Il n’y a pas encore de serveur régional public pour cette version. | To find your friends and parties. There's no public regional server for this version yet. |
@@ -242,6 +264,8 @@ Toutes les entrées, par fichier (« Après » = texte affiché en français, «
 | Les soins effectifs, stuns, boosts, protections et le temps passé en danger comptent. Choisis un élève pour voir sa réaction. | Ce qui compte : soins, stuns, boosts, protections et temps passé en danger. Choisis un élève pour voir sa réaction. | What counts: heals, stuns, boosts, saves and time spent in danger. Pick a student to see their reaction. |
 | LES PRÉSENCES DE CETTE MANCHE | DANS CETTE MANCHE | IN THIS ROUND |
 | L’hôte réinitialise les archives communes. Approche une archive pour y travailler. | Les archives sont communes : seul l’hôte peut les remettre à zéro. Approche-toi d’une archive pour t’entraîner. | Archives are shared: only the host can reset them. Walk up to one to practise. |
+| Au-delà de l'école (choix de la carte, au salon) | On joue où ? | Where are we playing? |
+| À quoi joue-t-on ? (mode de jeu, au salon) | On joue à quoi ? | What are we playing? |
 
 ### `localization.gd` (1)
 
@@ -274,7 +298,7 @@ Toutes les entrées, par fichier (« Après » = texte affiché en français, «
 | %s · duel final | %s contre Alice | %s vs Alice |
 | DERNIÈRE PRÉSENCE / « X · duel final » | DERNIER SURVIVANT ou DERNIÈRE SURVIVANTE / « X contre Alice » | LAST ONE STANDING / "X vs Alice" |
 
-### `combat.gd` (19)
+### `combat.gd` (20)
 
 | Avant | Après | Anglais |
 |---|---|---|
@@ -297,6 +321,7 @@ Toutes les entrées, par fichier (« Après » = texte affiché en français, «
 | UNE OMBRE DERRIÈRE TOI · Alice émerge dans 1,2 s ! | UNE OMBRE DERRIÈRE TOI · Alice arrive dans 1,2 s ! | A SHADOW BEHIND YOU · Alice arrives in 1.2 s! |
 | SOIN · pose-toi au sol pour soigner. | SOIN · pas en plein saut : attends d’atterrir. | HEAL · not mid-jump: wait until you land. |
 | oriente ton regard vers Alice | tourne-toi vers Alice | turn to face Alice |
+| Armure déjà complète : conserve cette épave pour plus tard. | Armure déjà pleine : garde l’épave pour plus tard. | Armour already full: save the wreck for later. |
 
 ### `ui_hud.gd` (10)
 
@@ -355,13 +380,14 @@ Toutes les entrées, par fichier (« Après » = texte affiché en français, «
 | Blessure fatale appliquée : première chute, ou mort définitive après une réanimation. Lysia ne peut pas être relevée. | Tu tombes : la première fois, un allié peut te relever ; la deuxième, c’est fini. Lysia, elle, ne se relève jamais. | You go down: the first time, an ally can revive you; the second time, you're out. Lysia never gets back up. |
 | True Form prête · ferme le panneau et active la compétence 6. | True Form prête · ferme le panneau et lance la capacité 6. | True Form ready · close the panel and use ability 6. |
 
-### `cinematics.gd` (3)
+### `cinematics.gd` (4)
 
 | Avant | Après | Anglais |
 |---|---|---|
 | Le film du premier lancement : Simon et Ashura affrontent Yiero dans une dimension ténébreuse… puis Simon atterrit à l’école en plein combat. | Le film du premier lancement. Simon et Ashura tombent sur Yiero, un démon géant, au milieu d’une mer d’encre. Simon finit par atterrir à l’école, en pleine bagarre contre Alice. | The film from the very first launch. Simon and Ashura run into Yiero, a giant demon, in the middle of a sea of ink. Simon ends up crash-landing at school, right in a fight with Alice. |
 | La dernière tentative de/d’ X échoue. Alice le/la rattrape, frappe et l’achève au sol. | X est le dernier / la dernière encore debout. Alice finit par le / la rattraper. | X is the last one still standing. Alice catches up with him / her in the end. |
 | 63 fuites en équipe : « A ; B ; C. Puis l’équipe s’échappe. » (même pour un survivant seul) | Seul : « A, puis se sauve. » À deux : « A et B. Puis les deux se sauvent. » À trois et plus : « A, B et C. Puis tout le monde se sauve. » Elly en groupe : « soigne ceux qui en ont besoin », Bleuette en groupe : « encourage l’équipe ». | Solo: “A, then makes a run for it.” Two: “A and B. Then they both make a run for it.” Three or more: “A, B and C. Then everyone makes a run for it.” |
+| « Usayuko frappe Alice, Lysia repousse Alice » (16 fuites avec les deux) | « Usayuko frappe Alice, Lysia la repousse » | “Usayuko hits Alice, Lysia shoves her back” |
 
 ### `escape_flow.gd` (1)
 
