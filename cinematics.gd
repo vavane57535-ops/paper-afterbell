@@ -115,7 +115,7 @@ static func duration_for(film: String, names: Array = []) -> float:
 		"intro_alice": return 5.6
 		"intro_survivors": return 7.6
 		"ending_lms": return VictoryFilm.duration_for(str(names[0]) if not names.is_empty() else "Ashura")
-		"ending_killer": return 10.6
+		"ending_killer": return PaperFilmAliceKill.duration_for(str(names[0]) if not names.is_empty() else "Ashura")
 		PaperFilmExecutionEnd.KIND: return PaperFilmExecutionEnd.DURATION
 		PaperFilmBlocus.KIND: return PaperFilmBlocus.DURATION
 		_: return float(_team_schedule(names).duration)
@@ -1259,104 +1259,9 @@ func _write_last_stand() -> void :
 
 
 
+# Films « Alice · X rattrapé(e) » (0.17) : écrits dans film_alice_kill.gd, clips dans anim_set_film_alice.gd.
 func _write_kill() -> void :
-	var s: int = 0
-	var a: int = alice_index
-	var person: String = people[0]
-
-	_put(s, Vector3(0, 0, -0.4))
-	_face(s, 0.0, "at", a)
-	_do(s, 0.0, "state", {"chased": 3.0, "second_life": true})
-	_do(s, 0.0, "mood", "fear")
-	_move(s, 0.0, 1.5, Vector3(0, 0, 0.7))
-	_put(a, Vector3(0.2, 0, -5.6))
-	_face(a, 0.0, "at", s)
-	_move(a, 0.0, 1.7, Vector3(0.1, 0, -2.2))
-	_shot(0.0, {"rel": {"mid": [s, a]}, "eye": [Vector3(4.3, 1.9, 1.4), Vector3(3.6, 1.6, 1.0)], "look": {"mid": [s, a], "h": 1.2}, "fov": [46, 42], "hand": 0.4})
-
-	var attempt: float = 1.55
-	match person:
-		"Usayuko":
-			_move(s, 1.3, 1.6, Vector3(0, 0, -0.75), "dash")
-			_do(s, 1.62, "trigger", "punch")
-		"Simon":
-			_do(s, 1.2, "state", {"grenade_aiming": true})
-			_do(s, 1.5, "unset", ["grenade_aiming"])
-			_do(s, 1.5, "trigger", "flashbang")
-			_flights.append([1.85, 2.35, "grenade", {"a": s, "s": "hand_r"}, Vector3(0.2, 0.15, -2.0), 1.1, 0.0])
-			_cue(2.45, "event", "grenade", {"action": "explode", "id": -7, "position": Vector3(0.2, 0, -2.0)})
-			_cue(2.45, "sound", "flash", Vector3(0.2, 0, -2.0))
-		"Ashura":
-			_do(s, 1.4, "trigger", "drone")
-			_flights.append([1.54, 2.1, "drone", {"a": s, "s": "hand_r"}, Vector3(0.1, 1.5, -2.2), 0.3, 0.7])
-		"Lysia":
-			_move(s, 1.3, 1.6, Vector3(0, 0, -0.75), "dash")
-			_do(s, 1.62, "trigger", "consommation")
-		"Elly":
-			_do(s, 1.6, "trigger", "shotgun")
-			_cue(1.62, "event", "tracer", {"from": {"a": s, "h": 1.3, "o": Vector3(0, 0, -0.7)}, "to": Vector3(0.1, 1.2, -9.0), "duration": 0.2})
-		_:
-			_do(s, 1.2, "emote", "fear")
-	_shot(1.25, {"rel": {"a": s}, "eye": [Vector3(1.3, 1.1, -2.2), Vector3(1.0, 1.2, -1.8)], "look": {"a": s, "h": 1.2}, "fov": [42, 38], "hand": 0.5})
-
-	_do(a, attempt, "trigger", "ombres / bond")
-	_do(a, attempt, "state", {"shadow_hide": true})
-	_do(a, attempt + 0.4, "show", false)
-	_cue(attempt + 0.2, "word", "miss", {"a": s, "h": 2.1, "o": Vector3(0, 0, -0.8)}, PAPER, 0.9)
-	_cue(attempt + 0.05, "sound", "shadow", {"a": a})
-	_shot(attempt + 0.1, {"rel": {"mid": [s, a]}, "eye": [Vector3(-3.2, 1.3, 0.6), Vector3(-2.8, 1.2, 0.4)], "look": {"mid": [s, a], "h": 1.0}, "fov": [44, 41], "hand": 0.5})
-
-	_face(s, attempt + 0.3, "dir", Vector3(0, 0, -1))
-	_face(s, attempt + 0.8, "dir", Vector3(-0.6, 0, -1))
-	_face(s, attempt + 1.12, "dir", Vector3(0.5, 0, -1))
-
-	var rise: float = 2.95
-	_move(a, attempt + 0.45, attempt + 0.5, Vector3(-0.4, 0, _spots[s].z + 1.7), "jump")
-	_cue(rise - 0.5, "mark", 16, {"a": a, "h": 0.03}, Color("1c0f24", 0.85), [0.6, 2.2, 1.0, {"normal": Vector3.UP, "fade": 0.8}])
-	_do(a, rise, "show", true)
-	_do(a, rise, "unset", ["shadow_hide"])
-	_face(a, rise - 0.1, "at", s)
-	_cue(rise, "sound", "shadow", {"a": a}, 1.0, 0.85)
-	_do(s, rise + 0.25, "emote", "")
-	_do(s, rise + 0.25, "play", "startle")
-	_face(s, rise + 0.3, "at", a)
-	_shot(rise - 0.15, {"rel": {"a": s}, "eye": [Vector3(-1.5, 1.3, -2.5), Vector3(-1.3, 1.35, -2.15)], "look": [{"a": s, "h": 1.3}, {"mid": [s, a], "h": 1.4}], "fov": [40, 36], "hand": 0.5})
-
-	var strike: float = 3.75
-	_do(a, strike, "trigger", "slash")
-	_blow(strike + 0.1, s, a, "slash", CRIMSON, 1.4)
-	_cue(strike + 0.1, "splash", 1.4)
-	_cue(strike + 0.1, "frame", Color(0.6, 0.0, 0.1, 0.2), 0.09)
-	_do(s, strike + 0.1, "unset", ["chased"])
-	_do(s, strike + 0.12, "life", "downed")
-	_cue(strike + 0.12, "event", "downed", {"position": {"a": s}})
-	_shot(strike - 0.1, {"rel": {"mid": [s, a]}, "eye": [Vector3(3.1, 0.7, 0.9), Vector3(2.7, 0.6, 0.6)], "look": {"mid": [s, a], "h": 1.0}, "fov": [44, 40], "hand": 0.7})
-
-	_face(s, strike + 0.9, "dir", Vector3(0.1, 0, -1))
-	_move(s, strike + 1.0, strike + 3.3, _spots[s] + Vector3(0.2, 0, -1.5), "linear")
-	_move(a, strike + 1.5, strike + 3.1, _spots[s] + Vector3(-0.2, 0, 0.3), "linear")
-	_face(a, strike + 1.0, "at", s)
-	_shot(strike + 0.95, {"rel": {"a": s}, "eye": [Vector3(0.9, 0.3, -2.3), Vector3(0.6, 0.35, -1.9)], "look": [{"a": s, "h": 0.4}, {"a": a, "h": 1.2}], "fov": [44, 40], "hand": 0.5})
-
-	var finish_time: float = strike + 3.35
-	_do(a, finish_time, "trigger", "execution_spike", false)
-	_cue(finish_time + 0.3, "spikes", {"a": s, "o": Vector3(0, 0, 0.9)}, {"a": s, "o": Vector3(0, 0, -0.9)})
-	_cue(finish_time + 0.3, "sound", "spike", {"a": s})
-	_cue(finish_time + 0.32, "event", "death_start", {"position": {"a": s}, "death_kind": "spike", "attack": "spike", "execution": true})
-	_cue(finish_time + 0.32, "shake", 0.6)
-	_cue(finish_time + 0.32, "impact", 0.9, true)
-	_cue(finish_time + 0.32, "word", "spike", {"a": s, "h": 1.15, "o": Vector3(0.5, 0, 0.3)}, Color("e58ad0"), 1.05)
-	_do(s, finish_time + 0.32, "trigger", "death_spike", false)
-	_do(s, finish_time + 1.7, "life", "dead")
-	_blackouts.append([finish_time + 0.3, finish_time + 0.36])
-	_shot(finish_time - 0.25, {"rel": {"a": s}, "eye": [Vector3(-2.3, 0.45, -1.7), Vector3(-2.0, 0.5, -1.4)], "look": {"a": a, "h": 1.1}, "fov": [46, 42], "hand": 0.6})
-
-	var gloat: float = finish_time + 1.75
-	_do(a, gloat, "trigger", "gloat", false)
-	_do(a, gloat, "mood", "menace")
-	_cue(gloat + 0.9, "event", "reveal", {"position": {"a": a}})
-	_cue(gloat + 0.9, "pulse", Color(0.7, 0.05, 0.2, 0.35), 1.4)
-	_shot(gloat - 0.05, {"rel": {"a": a}, "eye": [Vector3(1.4, 0.55, -2.6), Vector3(0.9, 0.9, -1.7)], "look": {"a": a, "h": 1.45}, "fov": [42, 33], "hand": 0.3, "roll": [0, -4]})
+	PaperFilmAliceKill.write(self)
 
 
 
