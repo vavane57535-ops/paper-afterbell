@@ -98,6 +98,11 @@ func _ensure_sfx() -> void :
 		(bank as Dictionary)[kind] = variants
 
 
+# Programme d'orientation écrit (anim_set_film_alice.gd, facing_at) donné tel quel au film.
+func facing(i: int, schedule: Array) -> void :
+	for entry: Array in schedule: film._face(i, float(entry[0]), "dir", entry[1])
+
+
 # Un trajet écrit (anim_set_film_alice.gd) donné tel quel au corps : segments linéaires.
 func path(i: int, points: Array) -> void :
 	film._put(i, points[0][1])
@@ -109,7 +114,9 @@ func path(i: int, points: Array) -> void :
 # Piste d'un objet : [t, "off"] caché ; [t, "floor", Vector3 (film), lacet] posé au
 # sol ; [t, "fly", de, vers, durée, hauteur d'arc, tours] lancé (de / vers : Vector3
 # du film ou {"a": acteur, "s": prise}) ; [t, "fall", Vector3 sol, durée] tombe de
-# la dernière position jusqu'au sol ; [t, "slide", de, vers, durée, lacet] glisse au sol.
+# la dernière position jusqu'au sol ; [t, "slide", de, vers, durée, lacet] glisse au sol ;
+# [t, "hold", acteur, "r"|"l", décalage, rotation] dans une main ; [t, "grip", acteur, main
+# arrière, main avant, recul] à deux mains ; [t, "point", acteur, main, cible, recul] pointé.
 
 func item(node: Node3D, track: Array) -> void :
 	add_child(node)
@@ -215,6 +222,26 @@ func _place(entry: Dictionary, t: float) -> void :
 				return
 			var frame: Transform3D = (hand as Node3D).global_transform.orthonormalized()
 			node.global_transform = frame * Transform3D(Basis.from_euler(step[5] if step.size() > 5 else Vector3.ZERO), step[4] if step.size() > 4 else Vector3.ZERO)
+			node.visible = visual.visible
+		"grip":
+			# tenu à deux mains : [t, "grip", acteur, main arrière, main avant, recul (m)] ; l'objet
+			# (axe -z vers l'avant) va de la main arrière vers la main avant
+			var visual: PaperVisual = film.takes[clampi(int(step[2]), 0, film.takes.size() - 1)].visual
+			var rear: Vector3 = visual.socket_position("hand_r" if str(step[3]) == "r" else "hand_l")
+			var front: Vector3 = visual.socket_position("hand_r" if str(step[4]) == "r" else "hand_l")
+			var axis: Vector3 = front - rear
+			if axis.length_squared() < 0.0004: axis = film.forward
+			var basis: Basis = Basis.looking_at(axis.normalized(), Vector3.UP if absf(axis.normalized().y) < 0.95 else film.forward)
+			node.global_transform = Transform3D(basis, rear - axis.normalized() * float(step[5] if step.size() > 5 else 0.0))
+			node.visible = visual.visible
+		"point":
+			# tenu d'une main et pointé : [t, "point", acteur, main, cible (spot du film), recul (m)]
+			var visual: PaperVisual = film.takes[clampi(int(step[2]), 0, film.takes.size() - 1)].visual
+			var at: Vector3 = visual.socket_position("hand_r" if str(step[3]) == "r" else "hand_l")
+			var axis: Vector3 = film._spot(step[4]) - at
+			if axis.length_squared() < 0.0004: axis = film.forward
+			var basis: Basis = Basis.looking_at(axis.normalized(), Vector3.UP if absf(axis.normalized().y) < 0.95 else film.forward)
+			node.global_transform = Transform3D(basis, at - axis.normalized() * float(step[5] if step.size() > 5 else 0.0))
 			node.visible = visual.visible
 	if str(step[1]) != "fall": entry["last"] = node.global_position
 

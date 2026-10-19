@@ -125,6 +125,44 @@ static func side_of(dir: Vector3) -> Vector3:
 static func rot_y(v: Vector3, angle: float) -> Vector3:
 	return Vector3(v.x * cos(angle) + v.z * sin(angle), v.y, - v.x * sin(angle) + v.z * cos(angle))
 
+# Orientation de la racine : le film lisse le lacet vers chaque nouvelle cible donnée par
+# _face(i, t, "dir", d) (lerp_angle à 11/s, soit exp(-11 Δt) quelle que soit la cadence).
+# Un programme d'orientation [[t, direction (film)], ...] est donné tel quel au film
+# (film_alice_kill.gd) ; les pieds posés s'en servent pour rester fixes quand le corps tourne.
+const YAW_RATE: float = 11.0
+
+static func yaw_of(dir: Vector3) -> float:
+	return atan2(dir.x, dir.z)
+
+static func dir_of(yaw: float) -> Vector3:
+	return Vector3(sin(yaw), 0.0, cos(yaw))
+
+static func facing_at(schedule: Array, t: float) -> Vector3:
+	if schedule.is_empty(): return Vector3(0, 0, 1)
+	var yaw: float = yaw_of(schedule[0][1])
+	var target: float = yaw
+	var since: float = float(schedule[0][0])
+	for entry: Array in schedule:
+		if float(entry[0]) > t: break
+		yaw = target - angle_difference(yaw, target) * exp( - YAW_RATE * (float(entry[0]) - since))
+		since = float(entry[0])
+		target = yaw_of(entry[1])
+	yaw = target - angle_difference(yaw, target) * exp( - YAW_RATE * maxf(0.0, t - since))
+	return dir_of(yaw)
+
+# canal du pied posé sur `spot` à l'instant t, racine sur `path`, orientée selon `schedule`
+static func foot_at(person: String, side: int, spot: Vector3, path: Array, schedule: Array, t: float, lift: float = 0.0, turn: float = 0.0) -> Vector3:
+	return foot_on(person, side, spot, at(path, t), facing_at(schedule, t), lift, turn)
+
+# Pied posé et tenu pendant [t0, t1] (racine qui bouge ou tourne) : clés linéaires serrées.
+static func hold_foot(k: Array, person: String, side: int, spot: Vector3, path: Array, schedule: Array, t0: float, t1: float, step: float = 0.05) -> void :
+	var channel: String = "foot_l" if side < 0 else "foot_r"
+	var t: float = t0
+	while t < t1 - 0.0001:
+		k.append([t, {channel: foot_at(person, side, spot, path, schedule, t)}, "l"])
+		t += step
+	k.append([t1, {channel: foot_at(person, side, spot, path, schedule, t1)}, "l"])
+
 # point du sol (repère du film) sous le pied `side` posé `ahead` m devant la racine, `width` m plus au dehors
 static func plant_at(person: String, path: Array, dir: Vector3, t: float, side: int, ahead: float, width: float = 0.0) -> Vector3:
 	var base: Vector3 = RIG[person].feet[0 if side < 0 else 1]
