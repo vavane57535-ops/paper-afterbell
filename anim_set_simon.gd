@@ -273,20 +273,24 @@ static func _charge_keys() -> Array:
 static func _dash(c: Dictionary) -> void :
 	c["charge@Simon"] = {"len": 3.6, "loop": true, "loop_from": 3.0, "in": 0.05, "face": "determined", "keys": _charge_keys()}
 
-	# Arrêt net en pleine course éclair (joué par character_visual.gd quand la vitesse tombe d'un coup) :
-	# talon droit planté devant, pied gauche qui racle derrière, bassin qui recule ; le buste, lui, continue
-	# sur sa lancée et plonge (tête et bras en retard), puis tout se redresse avec un petit rebond.
-	c["skid@Simon"] = {"len": 0.66, "in": 0.03, "out": 0.2, "face": "surprise", "keys": [
-		[0.0, M([{"gait": 0.0, "plant": 1.0}, FR(0.13, 0.5, 0.0), FL(0.11, -0.36, 0.04), H(0.0, -0.3, -0.2), B(0.42, 0.05, 0.0), C(0.08), HD(0.5, 0.0, 0.0),
-			L(0.3, -0.45, -0.8, 0.0), R(0.3, -0.42, -0.82, 0.0), WL(0.3), WR(0.3), {"fp_r": 0.6, "fp_l": -0.7, "curl": 0.2, "curl_l": 0.2, "sq": 0.95, "fx": "skid dust"}])],
-		[0.09, M([FR(0.13, 0.46, 0.0), FL(0.11, -0.3, 0.02), H(0.0, -0.36, -0.24), B(0.12, 0.05, 0.03), C(0.42, 0.0, 0.0), HD(-0.05, 0.1, 0.05),
-			L(0.82, 0.25, 0.3, 0.6), R(0.78, 0.4, 0.2, 0.6), WL(-0.45), WR(-0.45), {"fp_r": 0.5, "fp_l": -0.55, "curl": 0.0, "curl_l": 0.0, "sq": 0.9, "fx": "dust"}]), "s"],
-		[0.2, M([FR(0.13, 0.38, 0.0), FL(0.11, -0.22, 0.0), H(0.0, -0.26, -0.12), B(0.0, 0.0, 0.02), C(0.2, -0.05, 0.0), HD(0.2, 0.05, 0.0),
-			L(0.8, 0.0, 0.25, 0.5), R(0.72, -0.2, 0.3, 0.4), WL(-0.2), WR(-0.1), {"fp_r": 0.25, "fp_l": -0.3, "sq": 1.03}])],
-		[0.33, M([FR(0.12, 0.24, 0.0), FL(0.1, -0.12, 0.0), H(0.0, -0.1, -0.02), B(-0.08, 0.0, 0.0), C(-0.04, 0.0, 0.0), HD(0.08, 0.0, -0.06),
-			L(0.45, -0.55, 0.2, 0.3), R(0.42, -0.6, 0.18, 0.3), WL(0.0), WR(0.0), {"fp_r": 0.0, "fp_l": 0.0, "curl": 0.5, "curl_l": 0.4, "sq": 0.97, "face": "grin"}]), "s"],
-		[0.46, M([FR(0.12, 0.2, 0.0), FL(0.1, -0.1, 0.0), H(0.0, -0.14, 0.0), B(0.04, 0.0, 0.0), C(0.03, 0.0, 0.0), HD(0.0, -0.08, 0.04), LR(0.36, -0.8, 0.12, 0.15), {"sq": 1.0}])],
-		[0.66, M([rest(), _loose()])],
+	# Arrêt net en pleine course éclair (joué par character_visual.gd quand la vitesse tombe d'un coup).
+	# Il part EXACTEMENT de la pose « Sonic » (bassin ~52°, poitrine ~26°, tête relevée, bras en arrière) :
+	# talon droit planté loin devant, pied gauche qui racle derrière sur la pointe, bassin qui s'écrase et recule ;
+	# le buste, lui, continue sur sa lancée et plonge encore (tête en retard, bras qui partent vers l'avant), puis
+	# il rebondit, passe un peu en arrière (« ouh là »), moulinet des bras, et retombe en appui, content de lui.
+	c["skid@Simon"] = {"len": 0.8, "in": 0.04, "out": 0.22, "face": "surprise", "keys": [
+		[0.0, M([{"gait": 0.0, "plant": 1.0}, FR(0.13, 0.52, 0.0), FL(0.11, -0.42, 0.03), H(0.0, -0.18, -0.08), B(0.88, 0.0, 0.0), C(0.44, 0.0, 0.0), HD(1.2, 0.0, 0.0),
+			L(0.52, -0.46, -0.72, 0.0), R(0.52, -0.46, -0.72, 0.0), WL(0.25, 0.35, 0.0), WR(0.25, -0.35, 0.0), {"fp_r": 0.62, "fp_l": -0.75, "curl": 0.18, "curl_l": 0.18, "sq": 0.96, "jaw": 0.2, "fx": "skid dust"}])],
+		[0.08, M([FR(0.13, 0.5, 0.0), FL(0.11, -0.4, 0.02), H(0.0, -0.33, -0.26), B(1.02, 0.03, 0.02), C(0.52, 0.0, 0.0), HD(1.32, 0.05, 0.0),
+			L(0.45, -0.85, -0.2, 0.1), R(0.42, -0.88, -0.16, 0.1), WL(0.1, 0.2, 0.0), WR(0.1, -0.2, 0.0), {"fp_r": 0.58, "fp_l": -0.68, "sq": 0.9, "jaw": 0.5, "fx": "dust"}]), "s"],
+		[0.19, M([FR(0.13, 0.46, 0.0), FL(0.11, -0.34, 0.0), H(0.0, -0.24, -0.14), B(0.42, 0.02, 0.03), C(0.22, 0.0, 0.0), HD(0.5, 0.06, 0.03),
+			L(0.55, 0.05, 0.72, 0.5), R(0.5, 0.18, 0.66, 0.5), WL(-0.4), WR(-0.45), {"fp_r": 0.4, "fp_l": -0.45, "curl": 0.0, "curl_l": 0.0, "sq": 1.04, "jaw": 0.35}])],
+		[0.31, M([FR(0.12, 0.34, 0.0), FL(0.11, -0.2, 0.0), H(0.0, -0.1, -0.03), B(-0.12, -0.03, -0.04), C(-0.06, 0.02, 0.0), HD(0.1, -0.05, -0.08),
+			L(0.86, 0.38, 0.1, 0.6), R(0.82, 0.2, 0.3, 0.6), WL(-0.2), WR(0.1), {"fp_r": 0.1, "fp_l": -0.15, "sq": 1.0, "jaw": 0.0, "face": "fear"}]), "s"],
+		[0.44, M([FR(0.12, 0.26, 0.0), FL(0.1, -0.14, 0.0), H(0.0, -0.13, 0.0), B(0.1, 0.0, 0.02), C(0.05, 0.0, 0.0), HD(-0.04, 0.06, 0.04),
+			L(0.6, -0.4, 0.3, 0.3), R(0.66, -0.25, 0.18, 0.35), WL(0.0), WR(0.0), {"fp_r": 0.0, "fp_l": 0.0, "curl": 0.4, "curl_l": 0.45, "sq": 0.98}])],
+		[0.58, M([FR(0.12, 0.2, 0.0), FL(0.1, -0.1, 0.0), H(0.0, -0.07, 0.0), B(0.02, 0.0, 0.0), C(0.0, 0.0, 0.0), HD(0.04, -0.12, 0.05), LR(0.36, -0.82, 0.1, 0.15), {"sq": 1.0, "face": "grin"}])],
+		[0.8, M([rest(), _loose()])],
 	]}
 
 

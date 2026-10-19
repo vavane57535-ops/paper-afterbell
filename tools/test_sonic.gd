@@ -78,6 +78,8 @@ func _plan() -> Array:
 			return [[0.6, 10.2, {"sprinting": true}], [1.6, 20.4, {"sprinting": true, "speed_boost": 4.0}], [1.2, 0.0, {"speed_boost": 4.0}]]
 		"idle":
 			return [[1.0, 0.0, {}]]
+		"start":
+			return [[0.4, 0.0, {}], [1.4, 0.0, {"boost_charging": true, "charge": true}], [1.2, 20.4, {"sprinting": true, "speed_boost": 4.0}]]
 		"carry":
 			return [[0.5, 20.4, {"sprinting": true, "speed_boost": 6.0}], [4.0, 20.4, {"sprinting": true, "speed_boost": 6.0, "carry": true}], [0.6, 20.4, {"sprinting": true, "speed_boost": 6.0}], [1.0, 0.0, {"speed_boost": 6.0}]]
 	return [[0.8, 10.2, {"sprinting": true}], [2.4, 20.4, {"sprinting": true, "speed_boost": 4.0}]]
@@ -112,7 +114,10 @@ func _play(view: String) -> void :
 			var state: Dictionary = {"grounded": true, "vertical_speed": 0.0, "ruleset_om": true}
 			var extra: Dictionary = segment[2]
 			for key: String in extra:
-				if key != "carry": state[key] = extra[key]
+				if key != "carry" and key != "charge": state[key] = extra[key]
+			if bool(extra.get("charge", false)):
+				state["charging_boost"] = elapsed + 0.001
+				state["boost_charge"] = elapsed
 			var carrying: bool = bool(extra.get("carry", false))
 			var goal_speed: float = float(segment[1]) * (factor if carrying else 1.0)
 			speed = move_toward(speed, goal_speed, DT * 2000.0)
