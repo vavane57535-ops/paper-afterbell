@@ -837,7 +837,7 @@ func _physics_step(delta: float) -> void :
 		exit_flow.tick()
 		snapshot_clock += delta
 		world_state_clock += delta
-		if networked and snapshot_clock >= PaperNetSync.SNAPSHOT_INTERVAL - 0.0005:
+		if networked and (snapshot_clock >= PaperNetSync.SNAPSHOT_INTERVAL - 0.0005 or net_sync.wants_snapshot()):
 			snapshot_clock = 0
 			_send_snapshot()
 		if networked and world_state_clock >= 0.25:

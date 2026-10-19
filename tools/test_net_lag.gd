@@ -62,6 +62,7 @@ var frames_dir: String = ""
 var _frame_clock: float = -1.0
 var _frame_index: int = 0
 var _capturing: bool = false
+var _shots: Dictionary = {}
 var _stun_index: int = -1
 var _stun: Dictionary = {}
 var _run: Dictionary = {}
@@ -255,7 +256,7 @@ func _host_process() -> void :
 			_trial["dodge_wall"] = _wall() + 0.45
 			_trial["swing_wall"] = float(_trial.dodge_wall) + float(_trial.delay)
 			_trial["index"] = _trial_index
-			rpc_client.rpc_id(other, "trial", {"index": _trial_index, "dodge_wall": _trial.dodge_wall, "dodge": _trial.dodge, "cheat": bool(_trial.get("cheat", false))})
+			rpc_client.rpc_id(other, "trial", {"index": _trial_index, "dodge_wall": _trial.dodge_wall, "dodge": _trial.dodge, "cheat": bool(_trial.get("cheat", false)), "delay_hint": float(_trial.delay)})
 			_go("trial_wait_swing")
 		"trial_wait_swing":
 			if _wall() < float(_trial.swing_wall): return
@@ -559,12 +560,21 @@ func _client_process(delta: float) -> void :
 	if sync != null and sync.has_method("view_time"): t_view = float(sync.view_time())
 	var acting: bool = alice.visual.is_performing_action()
 	client_frames.append([now, shown.x, shown.y, shown.z, alice_shown.x, alice_shown.z, 1 if acting else 0, t_view, float(world.clock), 1 if bool(me.get("net_predicted")) else 0])
-	# Captures rendues pendant le suivi (une image tous les 0,1 s), pour juger à l'œil.
-	if not frames_dir.is_empty() and _script_t >= 0.0 and not _capturing:
+	# Captures rendues (--lag-frames DIR), pour juger à l'œil : le zigzag (une image tous les 0,15 s),
+	# puis chaque image autour du premier étourdissement et de la première esquive à δ = 0,14 s.
+	if not frames_dir.is_empty() and not _capturing:
 		_frame_clock += delta
-		if _frame_clock >= 0.1 and _frame_index < 60:
-			_frame_clock = 0.0
-			_capture_frame()
+		var stunned: bool = float(me.effects.get("stun", 0.0)) > 0.0
+		if stunned and not _shots.has("stun"): _shots["stun"] = now
+		if _script_t >= 0.0 and _frame_clock >= 0.15 and int(_shots.get("track_count", 0)) < 24:
+			_frame_clock = 0.0;_shots["track_count"] = int(_shots.get("track_count", 0)) + 1
+			_capture_frame("track")
+		elif _shots.has("stun") and now - float(_shots.stun) < 0.6:
+			_capture_frame("stun")
+		elif not _trial.is_empty() and absf(float(_trial.get("delay_hint", -1.0)) - 0.14) < 0.001 and not _shots.has("dodge_done") and bool(_trial.get("pressed", false)) and now - float(_trial.get("press_real", now)) < 0.7:
+			_capture_frame("dodge")
+		elif not _trial.is_empty() and absf(float(_trial.get("delay_hint", -1.0)) - 0.14) < 0.001 and bool(_trial.get("pressed", false)) and now - float(_trial.get("press_real", now)) >= 0.7:
+			_shots["dodge_done"] = true
 	# Suivi : script de touches.
 	if _script_t >= 0.0:
 		_script_t += delta
@@ -626,13 +636,13 @@ func _client_process(delta: float) -> void :
 			if lateral <= CLAW_SIZE.x * 0.5 + 0.38 and absf(offset.dot(aim)) <= CLAW_SIZE.z * 0.5 + 0.38 and absf(offset.y) <= CLAW_SIZE.y * 0.5 + 0.9: _trial["inside"] = true
 
 
-func _capture_frame() -> void :
+func _capture_frame(kind: String) -> void :
 	_capturing = true
 	await RenderingServer.frame_post_draw
 	var image: Image = get_viewport().get_texture().get_image()
 	if image != null:
 		DirAccess.make_dir_recursive_absolute(frames_dir)
-		image.save_png(frames_dir.path_join("f_%03d.png" % _frame_index))
+		image.save_png(frames_dir.path_join("%s_%03d_%d.png" % [kind, _frame_index, int(round(fmod(_wall(), 1000.0) * 1000.0))]))
 	_frame_index += 1
 	_capturing = false
 

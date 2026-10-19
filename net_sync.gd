@@ -44,6 +44,7 @@ var _last_report_pos: Vector3 = Vector3.INF
 var _echo_until: float = -1.0
 
 # Hôte
+var _urgent: bool = false
 var _entities_quiet: float = 1.0
 var _world_bytes: PackedByteArray = PackedByteArray()
 var _world_age: float = 99.0
@@ -61,7 +62,7 @@ func setup(owner: Node) -> void :
 func reset() -> void :
 	_view_ready = false;_arrivals.clear();_last_t = -1.0;_serial = -1;_buffer = 0.06
 	_input = [];_report_wait = 0.0;_last_report_pos = Vector3.INF
-	_entities_quiet = 1.0;_world_bytes = PackedByteArray();_world_age = 99.0
+	_entities_quiet = 1.0;_world_bytes = PackedByteArray();_world_age = 99.0;_urgent = false
 	if lag: lag.clear()
 
 
@@ -112,6 +113,8 @@ func _host_pre_tick() -> void :
 			continue
 		var owned: bool = _owned(a)
 		if owned and not m.owned: m.resync(a)
+		# L'hôte prend ou rend la main : instantané envoyé dès ce pas (le client se recale plus tôt).
+		if owned != m.owned: _urgent = true
 		m.owned = owned
 		a.net_follow = not owned
 
@@ -311,7 +314,13 @@ func _remote_movement(a: PaperActor, m: PaperNetMotion, report: Dictionary) -> v
 
 # --- Instantanés ---------------------------------------------------------------------------------
 
+# Hôte : un instantané doit partir dès ce pas (sans attendre le prochain trentième de seconde).
+func wants_snapshot() -> bool:
+	return _urgent
+
+
 func send_snapshot() -> int:
+	_urgent = false
 	var packed: PackedByteArray = PaperNetCodec.encode_snapshot(world)
 	rx_snapshot.rpc(packed)
 	stats.snapshots_sent += 1;stats.snapshot_bytes += packed.size()
