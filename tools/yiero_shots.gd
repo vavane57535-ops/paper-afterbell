@@ -4,6 +4,7 @@ extends Node
 #   -- --tool yiero_shots --ys-mode sheet [--ys-out DIR] [--ys-views "front,three,profile,..."] [--ys-pose NOM]
 #        modèle seul, temps du film figé à 60,5 s : vues face, trois-quarts, profil, gros plans visage,
 #        contre-plongée, mains. --ys-pose : neutral (défaut), roar, squint, fury, grab, laugh, closed.
+#        --ys-debug N : vue de contrôle du shader de peau (1 masques, 2 brillance, 3 position de repos, 4 fenêtre du sourire).
 #   -- --tool yiero_shots --ys-mode film --ys-times "36.5,39.2" [--ys-out DIR]
 #        images du prologue à ces instants (le film est déterministe : saut puis 2 images).
 #   -- --tool yiero_shots --ys-mode film --ys-ranges "34-40:0.25,46-52:0.5"
@@ -32,6 +33,7 @@ var times: Array[float] = []
 var spans: Array[Vector3] = []
 var views: PackedStringArray = PackedStringArray(["front", "three", "profile", "face", "face34", "low", "hand", "eye"])
 var pose_name: String = "neutral"
+var debug_view: int = 0
 var _cam: Camera3D
 var _freeze: float = -1.0
 var _override: bool = false
@@ -48,6 +50,7 @@ func setup(owner: Node) -> void :
 			"--ys-mode": mode = value
 			"--ys-out": out_dir = value
 			"--ys-pose": pose_name = value
+			"--ys-debug": debug_view = int(value)
 			"--ys-views": views = value.split(",")
 			"--ys-times":
 				for part: String in value.split(","): times.append(float(part))
@@ -131,9 +134,7 @@ func _pose_model(y: Node3D) -> void :
 			y.grin = 0.0;y.jaw = 0.0;y.reveal = 0.0
 		"half":
 			y.grin = 0.45;y.jaw = 0.0;y.reveal = 0.0
-	if y.has_method("set"):
-		for key: String in ["breath", "tilt"]:
-			if key in y: y.set(key, y.get(key))
+	if "debug_view" in y: y.set("debug_view", debug_view)
 	y.pose()
 
 func _sheet() -> void :

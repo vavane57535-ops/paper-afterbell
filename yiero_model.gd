@@ -1,131 +1,332 @@
 extends Node3D
 class_name PaperYiero
 
-# Yiero, le démon colossal du prologue (« Prologue — Yiero »), construit entièrement par code :
-# crâne et corps en papier noir froissé (peau brun-rouge à peine visible), yeux ronds pâles sans
-# paupières, sourire plus large que le visage avec des dents pointues irrégulières, gencives rouge sang,
-# bras immenses à griffes pilotés par IK, franges de papier déchiré qui ondulent.
+# Yiero, le démon colossal du prologue (« Prologue — Yiero »).
+# Modèle sculpté dans Blender par script (models/yiero/src/build_yiero.py → models/yiero/yiero.glb) :
+# un seul maillage skinné (peau d'encre, gencives, gueule, langue, dents, griffes), un squelette de
+# 52 os piloté ici par code (IK des bras, doigts, mâchoire, visage), yeux et halos ajoutés en code.
 # Le film règle les paramètres publics ci-dessous à chaque image puis appelle pose().
 # Repère local : +Z = devant (vers ce que Yiero regarde), Y = haut, origine = surface de l'encre.
+# Côté « _l » = x local négatif (à gauche de l'écran quand on le regarde de face) = hand_target[0]
+# (piste « hand_px » du film, Yiero étant tourné de PI) ; côté « _r » = x positif = hand_target[1].
+#
+# --- API utilisée par film_intro_yiero.gd (inchangée) -------------------------------------------
+#   build(), pose(), socket(nom)
+#   rise 0..1 (0 = sous l'encre)          reveal 0..1 (0 = corps invisible : yeux et sourire seuls)
+#   eye_open 0..1, eye_glow (1 = normal)  grin 0..1 (le sourire se fend du centre vers les coins)
+#   grin_wide 1..1.3 (coins tirés)        jaw 0..1.2 (gueule ouverte ; 1 = rugissement)
+#   lean (avancée du buste, unités)       head_pitch (+ = regarde en bas), head_yaw, head_roll
+#   tremble, hurt (éclair doré), fury, squint, wind (tempête), tooth_chip 0..1 (éclat de dent),
+#   clock (temps du film, ralentis compris), look_target (monde), hand_target[2] (poignets, monde),
+#   hand_curl[2] (0 = ouverte, 1 = poing / pince), hand_spread[2], arm_shown[2], breath.
+#   Sockets : eye_l, eye_r, eyes, mouth, teeth, chin, head, face, brow, hand_l, hand_r, grip_l,
+#   grip_r, pinch_l, pinch_r, chest, + throat, tongue, nose, shoulder_l/r, elbow_l/r, claw_l/r.
+#
+# --- Contrôles fins (nouveaux, 0.17) — pour les lots du prologue --------------------------------
+#   squint_eye[2]   plissement d'un seul œil (s'ajoute à squint ; l'œil s'écrase, sourcil et
+#                   pommette se resserrent : pas de paupières)
+#   pupil           taille des pupilles (1 = normal, 0.5 = tête d'épingle, 1.8 = dilatées)
+#   brow            sourcils : -1 levés (surprise moqueuse) … +1 froncés
+#   head_tilt       inclinaison « curieuse » de la tête (rad), répartie sur le cou et la tête
+#   neck_reach      avance la tête vers l'avant (unités, ~0..6), sans bouger le corps
+#   breath          amplitude du souffle (1 = normal, 0 = retenu) ; breath_rate = vitesse
+#   snarl           retrousse les babines (montre les gencives), 0..1
+#   drool           filets de bave entre les mâchoires quand la gueule s'ouvre, 0..1
+#   finger_curl[2][5]  flexion propre à chaque doigt (index, majeur, annulaire, auriculaire,
+#                   pouce), ajoutée à hand_curl ; -0.3..1.2
+#   claw_flex[2]    crochète les dernières phalanges (griffes qui grattent), 0..1
+#   hand_twist[2]   rotation du poignet (rad, + = paume tournée vers le visage)
+#   hand_pitch[2]   flexion du poignet (rad, + = doigts vers le bas)
+#   shrug[2]        hausse l'épaule (0..1)
+#   drip, gloss     coulures d'encre et brillance (1 = normal)
+# Chaque contrôle fin peut aussi être piloté par une piste du film, sans toucher à _pose_yiero :
+#   _key("yiero_<nom>", t, valeur)   noms : squint_l, squint_r, pupil, brow, tilt, neck, breath,
+#   breath_rate, snarl, drool, drip, gloss, curl_l / curl_r (doigt par doigt : index_l, middle_l,
+#   ring_l, pinky_l, thumb_l, idem _r), claw_l, claw_r, twist_l, twist_r, wrist_l, wrist_r,
+#   shrug_l, shrug_r, spread_l, spread_r.
+# PaperYiero lit ces pistes lui-même (film parent qui a _val et elapsed) ; sans clé, rien ne change.
+
+const MODEL_PATH: String = "res://models/yiero/yiero.glb"
 
 const HEAD_Y: float = 30.0
-const HEAD_HALF: float = 15.0
+const HEAD_HALF: float = 16.0
 const MOUTH_HALF: float = 17.5
 const EYE_X: float = 7.4
 const EYE_Y: float = 35.5
-const EYE_R: float = 1.85
+const EYE_Z: float = 6.3
+const EYE_R: float = 2.75
 const FACE_Z: float = 8.4
-const UPPER_ARM: float = 25.0
-const FOREARM: float = 24.0
-const SHOULDER: Vector3 = Vector3(25.0, 17.0, -2.0)
+const UPPER_ARM: float = 33.0
+const FOREARM: float = 32.0
+const SHOULDER: Vector3 = Vector3(25.5, 18.0, -3.0)
 const CORNER_Y: float = 27.6
+const FINGERS: PackedStringArray = ["index", "middle", "ring", "pinky", "thumb"]
+const CHANNELS: PackedStringArray = ["squint_l", "squint_r", "pupil", "brow", "tilt", "neck", "breath", "breath_rate", "snarl", "drool", "drip", "gloss", "claw_l", "claw_r", "twist_l", "twist_r", "wrist_l", "wrist_r", "shrug_l", "shrug_r", "spread_l", "spread_r", "index_l", "middle_l", "ring_l", "pinky_l", "thumb_l", "index_r", "middle_r", "ring_r", "pinky_r", "thumb_r"]
 
-const SKIN_SHADER: String = """
-shader_type spatial;
-render_mode cull_disabled, diffuse_lambert_wrap, specular_schlick_ggx;
-uniform vec4 base_color : source_color = vec4(0.09, 0.03, 0.022, 1.0);
-uniform vec4 rim_color : source_color = vec4(0.62, 0.1, 0.06, 1.0);
-uniform float reveal = 1.0;
-uniform float rim_power = 2.6;
-uniform float hurt = 0.0;
-uniform vec4 hurt_color : source_color = vec4(1.0, 0.82, 0.45, 1.0);
-uniform float fury = 0.0;
-varying vec3 wpos;
-float hash(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
-float noise(vec3 x) {
+# Fonction partagée par les shaders : fenêtre du sourire (grin < 1 → fente qui s'ouvre du centre).
+const GRIN_GLSL: String = """
+uniform float grin = 1.0;
+const float MZ0 = -6.0;
+const float MTHC = 1.2;
+const float MCY = 27.6;
+float grin_open(vec3 r) {
+	if (grin >= 0.999) return 1.0;
+	float u = atan(r.x, r.z - MZ0) / MTHC;
+	float uc = clamp(u, -1.0, 1.0);
+	float up = MCY - 6.6 * (1.0 - uc * uc);
+	float lo = MCY - 11.8 * (1.0 - uc * uc);
+	float c = 0.5 * (up + lo) + 0.05;
+	float hh = 0.5 * (up - lo) + 1.45;
+	float g = clamp(grin, 0.0, 1.0);
+	float extent = g * 1.14;
+	float span = 1.0 - smoothstep(extent - 0.14, extent, abs(u));
+	float lens = sqrt(max(0.0, 1.0 - pow(abs(u) / max(extent, 0.001), 2.0)));
+	float height = hh * mix(0.14, 1.0, smoothstep(0.05, 0.9, g)) * lens;
+	float vert = 1.0 - smoothstep(height - 0.3, height + 0.05, abs(r.y - c));
+	return span * vert;
+}
+"""
+
+const NOISE_GLSL: String = """
+float yh(vec3 p) { p = fract(p * 0.3183099 + 0.1); p *= 17.0; return fract(p.x * p.y * p.z * (p.x + p.y + p.z)); }
+float yn(vec3 x) {
 	vec3 i = floor(x); vec3 f = fract(x); f = f * f * (3.0 - 2.0 * f);
-	return mix(mix(mix(hash(i), hash(i + vec3(1, 0, 0)), f.x), mix(hash(i + vec3(0, 1, 0)), hash(i + vec3(1, 1, 0)), f.x), f.y),
-		mix(mix(hash(i + vec3(0, 0, 1)), hash(i + vec3(1, 0, 1)), f.x), mix(hash(i + vec3(0, 1, 1)), hash(i + vec3(1, 1, 1)), f.x), f.y), f.z);
-}
-void vertex() { wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz; }
-void fragment() {
-	float fibre = noise(wpos * 0.42) * 0.6 + noise(wpos * 1.7) * 0.4;
-	float burn = smoothstep(0.55, 0.85, noise(wpos * 0.11 + vec3(3.0)));
-	vec3 col = base_color.rgb * (0.65 + 0.7 * fibre);
-	col = mix(col, vec3(0.012, 0.006, 0.006), burn * 0.8);
-	ALBEDO = col * reveal;
-	ROUGHNESS = 0.9;
-	SPECULAR = 0.2 * reveal;
-	float fres = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), rim_power);
-	vec3 rim = rim_color.rgb * fres * (0.55 + 0.45 * fibre);
-	EMISSION = rim * reveal * (1.0 + fury * 1.6) + hurt_color.rgb * hurt * (0.12 + fres) * 0.9;
+	return mix(mix(mix(yh(i), yh(i + vec3(1, 0, 0)), f.x), mix(yh(i + vec3(0, 1, 0)), yh(i + vec3(1, 1, 0)), f.x), f.y),
+		mix(mix(yh(i + vec3(0, 0, 1)), yh(i + vec3(1, 0, 1)), f.x), mix(yh(i + vec3(0, 1, 1)), yh(i + vec3(1, 1, 1)), f.x), f.y), f.z);
 }
 """
 
-const BONE_SHADER: String = """
+const FLESH_SHADER: String = """
 shader_type spatial;
-render_mode cull_disabled, specular_schlick_ggx;
-uniform float glow = 0.35;
-uniform float wet = 0.5;
+render_mode cull_back, depth_draw_opaque;
 uniform float reveal = 1.0;
-uniform vec4 tint : source_color = vec4(1.0);
+uniform float hurt = 0.0;
+uniform vec4 hurt_color : source_color = vec4(1.0, 0.8, 0.42, 1.0);
+uniform float fury = 0.0;
+uniform float clock = 0.0;
+uniform float glow = 1.0;
+uniform float jaw = 0.0;
+uniform float drip = 1.0;
+uniform float gloss = 1.0;
+uniform float crumple = 1.0;
+uniform int debug_view = 0;
+uniform vec3 sun_dir = vec3(0.0, 0.42, 1.0);
+uniform vec4 rim_color : source_color = vec4(0.95, 0.16, 0.08, 1.0);
+uniform vec4 sky_low : source_color = vec4(0.5, 0.05, 0.035, 1.0);
+uniform vec4 sky_high : source_color = vec4(0.05, 0.0, 0.012, 1.0);
+uniform vec4 corona : source_color = vec4(1.0, 0.36, 0.16, 1.0);
+varying vec3 rest;
+varying vec4 mask;
+varying vec3 wn;
+varying vec3 wp;
+varying float wet_v;
+varying float mouth_v;
+%s
+%s
+void vertex() {
+	rest = vec3(UV.x, UV.y, UV2.x);
+	mask = COLOR;
+	wp = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	wn = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
+}
+vec3 sky(vec3 d) {
+	float h = d.y;
+	vec3 c = mix(sky_low.rgb, sky_high.rgb, smoothstep(-0.1, 0.55, h));
+	float s = max(dot(d, normalize(sun_dir)), 0.0);
+	c += corona.rgb * (pow(s, 24.0) * 1.6 + pow(s, 4.0) * 0.18);
+	return c;
+}
 void fragment() {
-	vec3 c = COLOR.rgb * tint.rgb;
-	ALBEDO = c * mix(0.5, 1.0, reveal);
-	ROUGHNESS = mix(0.75, 0.18, wet);
-	SPECULAR = 0.5 + 0.5 * wet;
-	EMISSION = c * glow;
+	float gum = mask.r;
+	float mouth = mask.g;
+	float ao = mask.b;
+	float inner = clamp(gum + mouth, 0.0, 1.0);
+	float open = grin_open(rest);
+	// papier froissé : relief des plis dans la normale (repère de repos → monde → vue)
+	vec3 q = rest * 0.33;
+	float e = 0.35;
+	float n0 = yn(q);
+	vec3 g = vec3(yn(q + vec3(e, 0, 0)) - n0, yn(q + vec3(0, e, 0)) - n0, yn(q + vec3(0, 0, e)) - n0) / e;
+	float ridge = 1.0 - abs(2.0 * yn(q * 2.1 + 3.7) - 1.0);
+	vec3 gw = (MODEL_MATRIX * vec4(g, 0.0)).xyz * 0.33;
+	gw -= wn * dot(gw, wn);
+	vec3 nw = normalize(wn - gw * 0.55 * crumple * (1.0 - inner) * (0.5 + ridge));
+	vec3 n = normalize((VIEW_MATRIX * vec4(nw, 0.0)).xyz);
+	NORMAL = n;
+	vec3 vw = normalize((INV_VIEW_MATRIX * vec4(VIEW, 0.0)).xyz);
+	float ndv = clamp(dot(n, VIEW), 0.0, 1.0);
+	float fres = pow(1.0 - ndv, 3.0);
+	// coulures d'encre : traînées verticales qui glissent
+	float col = yn(vec3(rest.x * 0.7, 0.0, rest.z * 0.7) + 11.0);
+	float streak = smoothstep(0.72, 0.8, col) * smoothstep(0.92, 0.82, col);
+	float flow = fract(rest.y * 0.045 + clock * 0.07 * drip + col * 9.0);
+	float drop = smoothstep(0.0, 0.05, flow) * (1.0 - smoothstep(0.05, 0.3, flow));
+	float wet = clamp(mask.a + streak * (0.45 + 0.55 * drop) * drip, 0.0, 1.0) * gloss;
+	// peau : encre noire, fibres de papier
+	float fib = yn(rest * 1.7) * 0.6 + yn(rest * 4.3) * 0.4;
+	vec3 skin = vec3(0.022, 0.014, 0.018) * (0.75 + 0.5 * fib) * ao;
+	// gencives et gueule
+	float depth = clamp((16.0 - length(rest.xz - vec2(0.0, -6.0))) / 9.0, 0.0, 1.0);
+	vec3 gum_c = mix(vec3(0.5, 0.03, 0.045), vec3(0.22, 0.0, 0.02), 1.0 - ao);
+	vec3 mouth_c = mix(vec3(0.16, 0.01, 0.015), vec3(0.03, 0.0, 0.004), depth);
+	vec3 alb = skin;
+	alb = mix(alb, gum_c, gum);
+	alb = mix(alb, mouth_c, mouth);
+	float seen = mix(reveal, 1.0, inner) * mix(1.0, open, inner);
+	ALBEDO = alb * seen;
+	ROUGHNESS = mix(mix(0.62, 0.16, wet), 0.14, gum);
+	SPECULAR = mix(0.35 + 0.45 * wet, 0.75, inner) * seen;
+	// reflet du ciel (encre brillante) + liseré rouge côté éclipse
+	vec3 r = reflect(-vw, nw);
+	float back = smoothstep(-0.35, 0.65, dot(nw, normalize(sun_dir)));
+	vec3 refl = sky(r) * (0.035 + 0.965 * fres) * (0.25 + 0.75 * wet) * ao;
+	vec3 rim = rim_color.rgb * pow(1.0 - ndv, 4.0) * (0.12 + 0.55 * back) * (0.6 + 0.4 * fib);
+	vec3 em = (refl + rim) * reveal * (1.0 - inner);
+	// fureur : veines de braise qui affleurent
+	float crack = smoothstep(0.86, 0.97, 1.0 - abs(2.0 * yn(rest * 0.21 + vec3(0.0, clock * 0.05, 0.0)) - 1.0));
+	em += vec3(1.0, 0.18, 0.04) * crack * fury * (0.55 + 0.45 * sin(clock * 5.0 + rest.y * 0.3)) * 0.9 * (1.0 - inner) * reveal;
+	em += hurt_color.rgb * hurt * (0.1 + fres * 1.2) * (1.0 - inner);
+	// gueule : gencives humides qui luisent un peu dans le noir, gorge brûlante
+	float throat = (0.3 + jaw * 1.35 + fury * 0.4) * depth * depth;
+	em += gum_c * gum * (0.16 + 0.22 * glow) * open;
+	em += vec3(0.62, 0.04, 0.02) * mouth * throat * open * (0.85 + 0.15 * sin(clock * 3.1));
+	EMISSION = em;
+	if (debug_view == 1) { ALBEDO = vec3(0.0); EMISSION = mask.rgb; }
+	if (debug_view == 2) { ALBEDO = vec3(0.0); EMISSION = vec3(mask.a); }
+	if (debug_view == 3) { ALBEDO = vec3(0.0); EMISSION = fract(rest * 0.1); }
+	if (debug_view == 4) { ALBEDO = vec3(0.0); EMISSION = vec3(open); }
+	if (debug_view == 5) { ALBEDO = vec3(0.0); SPECULAR = 0.0; ROUGHNESS = 1.0; }
+	if (debug_view == 6) { EMISSION = vec3(0.0); }
+	if (debug_view == 7) { EMISSION = vec3(0.0); SPECULAR = 0.0; }
+	if (debug_view == 8) { ALBEDO = vec3(0.0); SPECULAR = 0.0; EMISSION = wn * 0.5 + 0.5; }
+	if (debug_view == 9) { ALBEDO = vec3(0.0); SPECULAR = 0.0; EMISSION = vec3(ndv, fres, back); }
+	if (debug_view == 10) { ALBEDO = vec3(0.0); SPECULAR = 0.0; EMISSION = refl; }
+	if (debug_view == 11) { ALBEDO = vec3(0.0); SPECULAR = 0.0; EMISSION = rim; }
+	if (debug_view == 12) { ALBEDO = vec3(0.0); SPECULAR = 0.0; EMISSION = nw * 0.5 + 0.5; }
+	if (debug_view == 13) { ALBEDO = vec3(0.0); SPECULAR = 0.0; EMISSION = n * 0.5 + 0.5; }
+	if (debug_view == 14) { ALBEDO = vec3(0.0); SPECULAR = 0.0; EMISSION = gw * 5.0 + 0.5; }
+	if (debug_view == 15) { ALBEDO = vec3(0.0); SPECULAR = 0.0; EMISSION = VIEW * 0.5 + 0.5; }
 }
 """
 
-const GLOW_SHADER: String = """
+const TEETH_SHADER: String = """
 shader_type spatial;
-render_mode unshaded, cull_disabled;
-uniform vec4 color : source_color = vec4(1.0);
-uniform float energy = 1.0;
+render_mode cull_back;
+uniform float glow = 1.0;
+uniform float reveal = 1.0;
+uniform float hurt = 0.0;
+uniform float fury = 0.0;
+uniform float wet = 0.8;
+uniform vec4 ivory : source_color = vec4(0.93, 0.88, 0.74, 1.0);
+uniform vec4 stain : source_color = vec4(0.52, 0.36, 0.2, 1.0);
+uniform vec4 shade : source_color = vec4(0.42, 0.22, 0.16, 1.0);
+varying vec3 rest;
+varying float along;
+%s
+void vertex() {
+	rest = vec3(UV.x, UV.y, UV2.x);
+	along = UV2.y;
+}
 void fragment() {
-	ALBEDO = COLOR.rgb * color.rgb * energy;
+	float open = grin_open(rest);
+	vec3 base = mix(stain.rgb, ivory.rgb, smoothstep(0.0, 0.5, along));
+	base = mix(base, vec3(1.0, 0.97, 0.9), smoothstep(0.75, 1.0, along) * 0.6);
+	ALBEDO = base * open;
+	ROUGHNESS = mix(0.5, 0.18, wet);
+	SPECULAR = 0.6 * open;
+	EMISSION = base * open * (0.12 + 0.2 * glow) + vec3(1.0, 0.8, 0.45) * hurt * 0.4 * open;
+}
+void light() {
+	float ndl = dot(NORMAL, LIGHT);
+	float aa = clamp(length(fwidth(NORMAL)) * 0.5, 0.02, 0.2);
+	float lit = smoothstep(0.08 - aa, 0.08 + aa, ndl * ATTENUATION);
+	vec3 ramp = mix(shade.rgb * 0.55, vec3(1.0), lit);
+	DIFFUSE_LIGHT += LIGHT_COLOR * ATTENUATION * ramp * max(ndl, 0.25) / PI;
+	vec3 h = normalize(LIGHT + VIEW);
+	float sp = pow(max(dot(NORMAL, h), 0.0), 60.0);
+	SPECULAR_LIGHT += LIGHT_COLOR * ATTENUATION * smoothstep(0.35, 0.45, sp) * wet * 0.5 / PI;
+}
+"""
+
+const CLAW_SHADER: String = """
+shader_type spatial;
+render_mode cull_back;
+uniform float reveal = 1.0;
+uniform float hurt = 0.0;
+uniform float glow = 1.0;
+uniform vec4 root_c : source_color = vec4(0.05, 0.03, 0.025, 1.0);
+uniform vec4 tip_c : source_color = vec4(0.78, 0.7, 0.56, 1.0);
+varying float along;
+void vertex() { along = UV2.y; }
+void fragment() {
+	vec3 base = mix(root_c.rgb, tip_c.rgb, smoothstep(0.25, 0.95, along));
+	float ndv = clamp(dot(NORMAL, VIEW), 0.0, 1.0);
+	ALBEDO = base * mix(0.35, 1.0, reveal);
+	ROUGHNESS = 0.22;
+	SPECULAR = 0.65;
+	EMISSION = base * (0.04 + 0.06 * glow) * smoothstep(0.4, 1.0, along) + vec3(0.9, 0.18, 0.08) * pow(1.0 - ndv, 4.0) * 0.25 * reveal + vec3(1.0, 0.8, 0.45) * hurt * 0.3;
+}
+"""
+
+const OUTLINE_SHADER: String = """
+shader_type spatial;
+render_mode unshaded, cull_front, depth_draw_opaque;
+uniform float width = 0.07;
+uniform vec4 color : source_color = vec4(0.0, 0.0, 0.0, 1.0);
+void vertex() { VERTEX += NORMAL * width; }
+void fragment() { ALBEDO = color.rgb; }
+"""
+
+const EYE_SHADER: String = """
+shader_type spatial;
+render_mode unshaded, cull_back;
+uniform vec3 look = vec3(0.0, 0.0, 1.0);
+uniform float pupil = 0.15;
+uniform float glow = 1.0;
+uniform float fury = 0.0;
+uniform float hurt = 0.0;
+varying vec3 on;
+%s
+void vertex() { on = normalize(VERTEX); }
+void fragment() {
+	vec3 d = normalize(on);
+	vec3 lk = normalize(look);
+	float ang = acos(clamp(dot(d, lk), -1.0, 1.0));
+	// globe pâle : lumineux au centre, plus sombre et chaud vers le bord de l'orbite
+	float front = clamp(dot(d, normalize(lk + vec3(0.0, 0.0, 1.6))), -1.0, 1.0);
+	vec3 scl = mix(vec3(0.3, 0.22, 0.2), vec3(0.88, 0.84, 0.74), smoothstep(-0.15, 0.55, front));
+	scl = mix(scl, vec3(1.0, 0.98, 0.93), smoothstep(0.6, 0.98, front) * 0.7);
+	float vein = smoothstep(0.6, 0.68, yn(d * 7.0 + 4.0)) * smoothstep(0.72, 0.25, front);
+	vein += smoothstep(0.66, 0.72, yn(d * 15.0 + 9.0)) * smoothstep(0.6, 0.1, front) * 0.6;
+	scl = mix(scl, vec3(0.62, 0.08, 0.07), clamp(vein, 0.0, 1.0) * (0.22 + 0.7 * fury));
+	scl = mix(scl, vec3(1.0, 0.66, 0.52), fury * 0.3);
+	// iris gris à peine marqué, pupille minuscule, point de lumière au centre
+	float iris = 1.0 - smoothstep(pupil * 1.6, pupil * 2.6, ang);
+	vec3 c = mix(scl, scl * vec3(0.62, 0.6, 0.58), iris * 0.55);
+	float ring = 1.0 - smoothstep(pupil * 0.88, pupil * 1.04, ang);
+	c = mix(c, vec3(0.02, 0.008, 0.008), ring);
+	float pin = 1.0 - smoothstep(pupil * 0.16, pupil * 0.3, ang);
+	c = mix(c, vec3(1.0, 0.9, 0.8), pin * 0.75);
+	float glint = smoothstep(0.988, 0.996, dot(NORMAL, normalize(vec3(-0.4, 0.5, 0.77))));
+	glint += smoothstep(0.996, 0.999, dot(NORMAL, normalize(vec3(0.3, -0.2, 0.93)))) * 0.5;
+	ALBEDO = c * glow * 0.98 + vec3(1.0) * glint * 0.9 * glow + vec3(1.0, 0.8, 0.45) * hurt * 0.25;
 }
 """
 
 const HALO_SHADER: String = """
 shader_type spatial;
-render_mode unshaded, cull_disabled, blend_add, depth_draw_never;
-uniform vec4 color : source_color = vec4(1.0);
+render_mode unshaded, cull_disabled, blend_add, depth_draw_never, fog_disabled;
+uniform vec4 color : source_color = vec4(0.92, 0.85, 0.72, 1.0);
 uniform float energy = 0.25;
+void vertex() {
+	MODELVIEW_MATRIX = VIEW_MATRIX * mat4(INV_VIEW_MATRIX[0], INV_VIEW_MATRIX[1], INV_VIEW_MATRIX[2], MODEL_MATRIX[3]);
+	MODELVIEW_NORMAL_MATRIX = mat3(MODELVIEW_MATRIX);
+}
 void fragment() {
-	float a = COLOR.a * COLOR.a;
+	float r = length(UV - vec2(0.5)) * 2.0;
+	float a = pow(max(0.0, 1.0 - r), 2.2);
 	ALBEDO = color.rgb * energy * a;
 	ALPHA = a;
-}
-"""
-
-const THROAT_SHADER: String = """
-shader_type spatial;
-render_mode unshaded, cull_disabled;
-uniform float glow = 1.0;
-uniform float clock = 0.0;
-varying vec2 local;
-void vertex() { local = VERTEX.xy; }
-void fragment() {
-	float d = length((local - vec2(0.0, -3.0)) * vec2(0.09, 0.2));
-	float pulse = 0.85 + 0.15 * sin(clock * 3.1);
-	vec3 deep = vec3(0.01, 0.0, 0.0);
-	vec3 hot = vec3(0.55, 0.03, 0.02) * pulse;
-	ALBEDO = mix(hot, deep, smoothstep(0.0, 1.0, d)) * glow;
-}
-"""
-
-const FRINGE_SHADER: String = """
-shader_type spatial;
-render_mode cull_disabled, diffuse_lambert_wrap;
-uniform float clock = 0.0;
-uniform float wind = 1.0;
-uniform float reveal = 1.0;
-uniform vec4 rim_color : source_color = vec4(0.55, 0.09, 0.05, 1.0);
-void vertex() {
-	float w = COLOR.a;
-	float phase = UV2.x;
-	vec3 side = vec3(UV2.y, 0.0, 0.0);
-	VERTEX += NORMAL * sin(clock * 2.3 + phase) * w * 0.9 * wind;
-	VERTEX.y += cos(clock * 1.7 + phase * 1.3) * w * 0.6 * wind;
-}
-void fragment() {
-	ALBEDO = COLOR.rgb * reveal;
-	ROUGHNESS = 0.95;
-	SPECULAR = 0.1 * reveal;
-	float fres = pow(1.0 - clamp(abs(dot(NORMAL, VIEW)), 0.0, 1.0), 2.0);
-	EMISSION = rim_color.rgb * (0.25 + fres) * reveal * 0.6;
 }
 """
 
@@ -154,53 +355,87 @@ var hand_spread: Array[float] = [0.6, 0.6]
 var arm_shown: Array[bool] = [true, true]
 var tooth_chip: float = 0.0
 
+# Contrôles fins (voir l'en-tête).
+var squint_eye: Array[float] = [0.0, 0.0]
+var pupil: float = 1.0
+var brow: float = 0.0
+var head_tilt: float = 0.0
+var neck_reach: float = 0.0
+var breath_rate: float = 1.0
+var snarl: float = 0.0
+var drool: float = 1.0
+var drip: float = 1.0
+var gloss: float = 1.0
+var finger_curl: Array = [[0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0]]
+var claw_flex: Array[float] = [0.0, 0.0]
+var hand_twist: Array[float] = [0.0, 0.0]
+var hand_pitch: Array[float] = [0.0, 0.0]
+var shrug: Array[float] = [0.0, 0.0]
+var film_channels: bool = true
+var debug_view: int = 0
+
 var _body: Node3D
-var _head: Node3D
-var _mouth: Node3D
-var _jaw: Node3D
-var _eyes: Array[Node3D] = []
-var _pupils: Array[Node3D] = []
-var _scleras: Array[MeshInstance3D] = []
-var _upper: Array[Node3D] = []
-var _fore: Array[Node3D] = []
-var _hand: Array[Node3D] = []
-var _fingers: Array = [[], []]
+var _model: Node3D
+var _skel: Skeleton3D
+var _mesh: MeshInstance3D
 var _chip: MeshInstance3D
-var _skin: ShaderMaterial
-var _bone: ShaderMaterial
-var _gum: ShaderMaterial
-var _sclera: ShaderMaterial
-var _ring: ShaderMaterial
-var _pupil: ShaderMaterial
-var _throat: ShaderMaterial
-var _halo: ShaderMaterial
-var _fringe: ShaderMaterial
-var _claw: ShaderMaterial
-var _mouth_light: OmniLight3D
+var _chip_rest: Vector3 = Vector3(-2.6, 19.6, 9.6)
+var _head_follow: Node3D
+var _jaw_follow: Node3D
+var _eyes: Array[MeshInstance3D] = []
+var _eye_mats: Array[ShaderMaterial] = []
+var _halos: Array[MeshInstance3D] = []
 var _eye_lights: Array[OmniLight3D] = []
-var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
+var _mouth_light: OmniLight3D
+var _flesh: ShaderMaterial
+var _teeth: ShaderMaterial
+var _claw: ShaderMaterial
+var _halo: ShaderMaterial
 var _built: bool = false
+var _film: Object = null
+var _film_checked: bool = false
+
+# Squelette : index, parents, poses de repos globales (repère du squelette).
+var _bone: Dictionary = {}
+var _parent: PackedInt32Array = PackedInt32Array()
+var _rest_g: Array[Transform3D] = []
+var _rest_l: Array[Transform3D] = []
+var _pose_g: Array[Transform3D] = []
+var _arm: Array = [{}, {}]
 
 func build() -> void :
 	if _built: return
 	_built = true
-	_rng.seed = 6661
 	_materials()
 	_body = Node3D.new();_body.name = "Body";add_child(_body)
-	_build_torso()
-	_head = Node3D.new();_head.name = "Head";_body.add_child(_head);_head.position = Vector3(0, HEAD_Y - 6.0, 0)
-	var skull_root: Node3D = Node3D.new();_head.add_child(skull_root);skull_root.position = Vector3(0, 6.0, 0)
-	_build_skull(skull_root)
-	_build_eyes(skull_root)
-	_build_mouth(skull_root)
-	_build_fringe(skull_root)
-	for side: int in [0, 1]: _build_arm(side)
-	_mouth_light = OmniLight3D.new();_mouth_light.light_color = Color("ff2a14");_mouth_light.omni_range = 26.0;_mouth_light.light_energy = 0.0;_mouth_light.shadow_enabled = false
-	_mouth.add_child(_mouth_light);_mouth_light.position = Vector3(0, -2.0, FACE_Z + 2.0)
-	for side: int in [-1, 1]:
-		var light: OmniLight3D = OmniLight3D.new();light.light_color = Color("f3e6c8");light.omni_range = 9.0;light.light_energy = 0.0
-		skull_root.add_child(light);light.position = Vector3(side * EYE_X, EYE_Y - HEAD_Y, FACE_Z + 3.0)
-		_eye_lights.append(light)
+	var scene: PackedScene = load(MODEL_PATH) as PackedScene
+	if scene == null:
+		push_error("PaperYiero : modèle introuvable " + MODEL_PATH)
+		return
+	_model = scene.instantiate() as Node3D
+	_model.name = "Model"
+	_body.add_child(_model)
+	var skeletons: Array[Node] = _model.find_children("*", "Skeleton3D", true, false)
+	_skel = skeletons[0] as Skeleton3D
+	for node: Node in _model.find_children("*", "MeshInstance3D", true, false):
+		var mi: MeshInstance3D = node as MeshInstance3D
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mi.extra_cull_margin = 60.0
+		if mi.name.begins_with("ToothChip"): _chip = mi
+		elif mi.skin != null or mi.get_parent() == _skel: _mesh = mi
+	_assign_materials()
+	_read_skeleton()
+	_head_follow = Node3D.new();_head_follow.name = "HeadFollow";_skel.add_child(_head_follow)
+	_jaw_follow = Node3D.new();_jaw_follow.name = "JawFollow";_skel.add_child(_jaw_follow)
+	if is_instance_valid(_chip):
+		var aabb: AABB = _chip.mesh.get_aabb()
+		_chip_rest = aabb.get_center()
+		_chip.get_parent().remove_child(_chip)
+		_head_follow.add_child(_chip)
+		_chip.material_override = _teeth
+	_build_eyes()
+	_mouth_light = OmniLight3D.new();_mouth_light.light_color = Color("ff2a14");_mouth_light.omni_range = 30.0;_mouth_light.light_energy = 0.0;_mouth_light.shadow_enabled = false
+	_jaw_follow.add_child(_mouth_light);_mouth_light.position = Vector3(0, 18.5, 2.0)
 	pose()
 
 func _shader(code: String) -> Shader:
@@ -209,551 +444,422 @@ func _shader(code: String) -> Shader:
 	return shader
 
 func _materials() -> void :
-	_skin = ShaderMaterial.new();_skin.shader = _shader(SKIN_SHADER)
-	_bone = ShaderMaterial.new();_bone.shader = _shader(BONE_SHADER)
-	_bone.set_shader_parameter("glow", 0.42);_bone.set_shader_parameter("wet", 0.7)
-	_claw = ShaderMaterial.new();_claw.shader = _bone.shader
-	_claw.set_shader_parameter("glow", 0.22);_claw.set_shader_parameter("wet", 0.35)
-	_gum = ShaderMaterial.new();_gum.shader = _bone.shader
-	_gum.set_shader_parameter("glow", 0.3);_gum.set_shader_parameter("wet", 1.0)
-	var glow: Shader = _shader(GLOW_SHADER)
-	_sclera = ShaderMaterial.new();_sclera.shader = glow;_sclera.set_shader_parameter("color", Color("cdc4b0"));_sclera.set_shader_parameter("energy", 1.0)
-	_ring = ShaderMaterial.new();_ring.shader = glow;_ring.set_shader_parameter("color", Color("1e100b"));_ring.set_shader_parameter("energy", 1.0)
-	_pupil = ShaderMaterial.new();_pupil.shader = glow;_pupil.set_shader_parameter("color", Color("ffffff"));_pupil.set_shader_parameter("energy", 3.0)
-	_throat = ShaderMaterial.new();_throat.shader = _shader(THROAT_SHADER)
-	_halo = ShaderMaterial.new();_halo.shader = _shader(HALO_SHADER);_halo.set_shader_parameter("color", Color("e8d9b8"))
-	_fringe = ShaderMaterial.new();_fringe.shader = _shader(FRINGE_SHADER)
+	_flesh = ShaderMaterial.new();_flesh.shader = _shader(FLESH_SHADER % [GRIN_GLSL, NOISE_GLSL])
+	var outline: Shader = _shader(OUTLINE_SHADER)
+	_teeth = ShaderMaterial.new();_teeth.shader = _shader(TEETH_SHADER % GRIN_GLSL)
+	var teeth_line: ShaderMaterial = ShaderMaterial.new();teeth_line.shader = outline;teeth_line.set_shader_parameter("width", 0.055)
+	_teeth.next_pass = teeth_line
+	_claw = ShaderMaterial.new();_claw.shader = _shader(CLAW_SHADER)
+	var claw_line: ShaderMaterial = ShaderMaterial.new();claw_line.shader = outline;claw_line.set_shader_parameter("width", 0.07)
+	_claw.next_pass = claw_line
+	_halo = ShaderMaterial.new();_halo.shader = _shader(HALO_SHADER)
 
+func _assign_materials() -> void :
+	if not is_instance_valid(_mesh): return
+	var mesh: Mesh = _mesh.mesh
+	for i: int in range(mesh.get_surface_count()):
+		var source: Material = mesh.surface_get_material(i)
+		var label: String = source.resource_name if source != null else ""
+		if label.is_empty(): label = str(mesh.get("surface_%d/name" % i))
+		var material: Material = _flesh
+		if label.contains("teeth"): material = _teeth
+		elif label.contains("claw"): material = _claw
+		_mesh.set_surface_override_material(i, material)
 
+func _read_skeleton() -> void :
+	var count: int = _skel.get_bone_count()
+	_parent.resize(count)
+	_rest_g.resize(count);_rest_l.resize(count);_pose_g.resize(count)
+	for i: int in range(count):
+		_bone[_skel.get_bone_name(i)] = i
+		_parent[i] = _skel.get_bone_parent(i)
+		_rest_l[i] = _skel.get_bone_rest(i)
+		_rest_g[i] = _rest_l[i] if _parent[i] < 0 else _rest_g[_parent[i]] * _rest_l[i]
+	for side: int in [0, 1]:
+		var tag: String = "_l" if side == 0 else "_r"
+		var arm: Dictionary = {}
+		for key: String in ["clavicle", "upperarm", "forearm", "hand"]:
+			arm[key] = int(_bone.get(key + tag, -1))
+		var fingers: Array = []
+		for f: String in FINGERS:
+			var chain: Array[int] = []
+			for j: int in range(3): chain.append(int(_bone.get("%s_%d%s" % [f, j + 1, tag], -1)))
+			fingers.append(chain)
+		arm["fingers"] = fingers
+		var tips: Array[int] = []
+		for f: String in FINGERS: tips.append(int(_bone.get("%s_tip%s" % [f, tag], -1)))
+		arm["tips"] = tips
+		var s: Vector3 = _rest_g[arm.upperarm].origin
+		var e: Vector3 = _rest_g[arm.forearm].origin
+		var w: Vector3 = _rest_g[arm.hand].origin
+		arm["l1"] = s.distance_to(e)
+		arm["l2"] = e.distance_to(w)
+		var u0: Vector3 = (e - s).normalized()
+		var f0: Vector3 = (w - e).normalized()
+		arm["u0"] = u0;arm["f0"] = f0;arm["n0"] = u0.cross(f0).normalized()
+		# repère de la main au repos : avant (vers les jointures), haut (dos de la main), extérieur
+		var knuckles: Vector3 = Vector3.ZERO
+		for chain: Array[int] in fingers.slice(0, 4): knuckles += _rest_g[chain[0]].origin
+		knuckles /= 4.0
+		var fwd: Vector3 = (knuckles - w).normalized()
+		var outv: Vector3 = (_rest_g[fingers[3][0]].origin - _rest_g[fingers[0][0]].origin).normalized()
+		var upv: Vector3 = fwd.cross(outv).normalized() * (1.0 if side == 1 else -1.0)
+		if upv.y < 0.0: upv = -upv
+		arm["hand_fwd"] = fwd;arm["hand_up"] = upv;arm["hand_out"] = outv
+		arm["palm"] = w + fwd * 5.6 - upv * 0.3
+		# axes de flexion de chaque doigt au repos (perpendiculaires au doigt et au dos de la main)
+		var axes: Array[Vector3] = []
+		for k: int in range(5):
+			var chain: Array[int] = fingers[k]
+			var dir: Vector3 = (_rest_g[chain[1]].origin - _rest_g[chain[0]].origin).normalized()
+			var axis: Vector3 = dir.cross(upv).normalized()
+			if k == 4: axis = dir.cross(upv * 0.75 - outv * 0.65).normalized()
+			axes.append(axis)
+		arm["axes"] = axes
+		_arm[side] = arm
 
-
-func _mesh_node(parent: Node3D, mesh: Mesh, material: Material, label: String) -> MeshInstance3D:
-	var node: MeshInstance3D = MeshInstance3D.new()
-	node.name = label;node.mesh = mesh;node.material_override = material
-	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	node.extra_cull_margin = 40.0
-	parent.add_child(node)
-	return node
-
-# Triangle donné dans le sens trigonométrique vu de l'extérieur ; Godot attend des faces avant
-# horaires, on émet donc (a, c, b) avec la normale extérieure.
-func _tri(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, color: Color) -> void :
-	_tri3(st, a, b, c, color, color, color)
-
-func _tri3(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, ca: Color, cb: Color, cc: Color) -> void :
-	var n: Vector3 = (b - a).cross(c - a)
-	n = n.normalized() if n.length_squared() > 1e-10 else Vector3.BACK
-	st.set_color(ca);st.set_normal(n);st.add_vertex(a)
-	st.set_color(cc);st.set_normal(n);st.add_vertex(c)
-	st.set_color(cb);st.set_normal(n);st.add_vertex(b)
-
-func _area(outline: PackedVector2Array) -> float:
-	var sum: float = 0.0
-	for i: int in range(outline.size()):
-		var a: Vector2 = outline[i]
-		var b: Vector2 = outline[(i + 1) % outline.size()]
-		sum += a.x * b.y - b.x * a.y
-	return sum * 0.5
-
-
-func _prism(st: SurfaceTool, source: PackedVector2Array, z0: float, z1: float, front: Color, side: Color, bulge: float = 0.0) -> void :
-	var outline: PackedVector2Array = source.duplicate()
-	if _area(outline) < 0.0: outline.reverse()
-	var indices: PackedInt32Array = Geometry2D.triangulate_polygon(outline)
-	if indices.is_empty(): return
-	var center: Vector2 = Vector2.ZERO
-	for p: Vector2 in outline: center += p
-	center /= float(outline.size())
-	var radius: float = 0.001
-	for p: Vector2 in outline: radius = maxf(radius, p.distance_to(center))
-	for k: int in range(0, indices.size(), 3):
-		var pts: Array[Vector3] = []
-		for j: int in range(3):
-			var p: Vector2 = outline[indices[k + j]]
-			var lift: float = bulge * (1.0 - clampf(p.distance_to(center) / radius, 0.0, 1.0))
-			pts.append(Vector3(p.x, p.y, z1 + lift))
-		var ccw: bool = (pts[1].x - pts[0].x) * (pts[2].y - pts[0].y) - (pts[1].y - pts[0].y) * (pts[2].x - pts[0].x) > 0.0
-		if not ccw: pts = [pts[0], pts[2], pts[1]]
-		_tri(st, pts[0], pts[1], pts[2], front)
-		_tri(st, Vector3(pts[0].x, pts[0].y, z0), Vector3(pts[2].x, pts[2].y, z0), Vector3(pts[1].x, pts[1].y, z0), side)
-	for i: int in range(outline.size()):
-		var a: Vector2 = outline[i]
-		var b: Vector2 = outline[(i + 1) % outline.size()]
-		_tri(st, Vector3(a.x, a.y, z0), Vector3(b.x, b.y, z0), Vector3(b.x, b.y, z1), side)
-		_tri(st, Vector3(a.x, a.y, z0), Vector3(b.x, b.y, z1), Vector3(a.x, a.y, z1), side)
-
-
-func _blob(st: SurfaceTool, center: Vector3, radii: Vector3, rings: int, segments: int, rough: float, color: Color, flat_front: float = 0.0) -> void :
-	var grid: Array = []
-	for r: int in range(rings + 1):
-		var row: Array[Vector3] = []
-		var v: float = float(r) / float(rings)
-		var phi: float = v * PI
-		for s: int in range(segments):
-			var theta: float = float(s) / float(segments) * TAU
-			var dir: Vector3 = Vector3(sin(phi) * cos(theta), cos(phi), sin(phi) * sin(theta))
-			var jitter: float = 1.0 + (_rng.randf() - 0.5) * rough if r > 0 and r < rings else 1.0
-			var p: Vector3 = dir * radii * jitter
-			if flat_front > 0.0 and p.z > 0.0: p.z *= 1.0 - flat_front
-			row.append(center + p)
-		grid.append(row)
-	for r: int in range(rings):
-		for s: int in range(segments):
-			var a: Vector3 = grid[r][s]
-			var b: Vector3 = grid[r][(s + 1) % segments]
-			var c: Vector3 = grid[r + 1][s]
-			var d: Vector3 = grid[r + 1][(s + 1) % segments]
-			var shade: Color = color.lerp(Color.BLACK, _rng.randf() * 0.35)
-			_tri(st, a, b, c, shade)
-			_tri(st, b, d, c, shade)
-
-
-
-
-func _build_torso() -> void :
-	var st: SurfaceTool = SurfaceTool.new();st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	_blob(st, Vector3(0, 4.0, -6.0), Vector3(26.0, 20.0, 15.0), 9, 16, 0.22, Color.WHITE)
+func _build_eyes() -> void :
+	var sphere: SphereMesh = SphereMesh.new()
+	sphere.radius = EYE_R;sphere.height = EYE_R * 2.0;sphere.radial_segments = 40;sphere.rings = 20
+	var quad: QuadMesh = QuadMesh.new();quad.size = Vector2(EYE_R * 7.0, EYE_R * 7.0)
+	var eye_shader: Shader = _shader(EYE_SHADER % NOISE_GLSL)
 	for side: int in [-1, 1]:
-		_blob(st, Vector3(side * 21.0, 14.0, -3.0), Vector3(11.0, 9.0, 10.0), 7, 12, 0.3, Color.WHITE)
-		_blob(st, Vector3(side * 12.0, 21.0, -7.0), Vector3(8.5, 7.0, 7.5), 6, 10, 0.3, Color.WHITE)
-	_mesh_node(_body, st.commit(), _skin, "Torso")
-
-
-func _build_skull(root: Node3D) -> void :
-	var st: SurfaceTool = SurfaceTool.new();st.begin(Mesh.PRIMITIVE_TRIANGLES)
-
-	_blob(st, Vector3(0, 6.0, 0), Vector3(HEAD_HALF, 13.5, 9.5), 11, 20, 0.12, Color.WHITE, 0.25)
-	for side: int in [-1, 1]:
-		_blob(st, Vector3(side * 8.5, 17.0, -1.5), Vector3(6.0, 5.0, 5.5), 6, 10, 0.25, Color.WHITE)
-		_blob(st, Vector3(side * 11.5, 1.0, 1.5), Vector3(5.0, 6.5, 5.0), 6, 10, 0.25, Color.WHITE)
-
-	_blob(st, Vector3(0, 0.5, 2.5), Vector3(12.0, 4.0, 6.5), 6, 14, 0.15, Color.WHITE, 0.2)
-	_mesh_node(root, st.commit(), _skin, "Skull")
-
-
-func _ring_points(radius: float, count: int, wobble: float, seed_value: int) -> PackedVector2Array:
-	var pts: PackedVector2Array = PackedVector2Array()
-	var rng: RandomNumberGenerator = RandomNumberGenerator.new();rng.seed = seed_value
-	for i: int in range(count):
-		var a: float = float(i) / float(count) * TAU
-		var r: float = radius * (1.0 + (rng.randf() - 0.5) * wobble)
-		pts.append(Vector2(cos(a), sin(a)) * r)
-	return pts
-
-func _disc_mesh(radius: float, count: int, wobble: float, seed_value: int, depth: float, color: Color) -> ArrayMesh:
-	var st: SurfaceTool = SurfaceTool.new();st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	_prism(st, _ring_points(radius, count, wobble, seed_value), - depth, 0.0, color, color.darkened(0.3))
-	return st.commit()
-
-func _annulus_mesh(inner: float, outer: float, count: int, depth: float, color: Color) -> ArrayMesh:
-	var st: SurfaceTool = SurfaceTool.new();st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	for i: int in range(count):
-		var a0: float = float(i) / float(count) * TAU
-		var a1: float = float(i + 1) / float(count) * TAU
-		var p0: Vector3 = Vector3(cos(a0), sin(a0), 0) * inner
-		var p1: Vector3 = Vector3(cos(a1), sin(a1), 0) * inner
-		var q0: Vector3 = Vector3(cos(a0), sin(a0), 0) * outer
-		var q1: Vector3 = Vector3(cos(a1), sin(a1), 0) * outer
-		_tri(st, p0, q0, q1, color);_tri(st, p0, q1, p1, color)
-	return st.commit()
-
-
-func _build_eyes(root: Node3D) -> void :
-	for side: int in [-1, 1]:
-		var eye: Node3D = Node3D.new();eye.name = "Eye";root.add_child(eye)
-		eye.position = Vector3(side * EYE_X, EYE_Y - HEAD_Y, FACE_Z - 0.6)
-		eye.rotation = Vector3(-0.05, side * 0.16, 0)
-
-		var socket: MeshInstance3D = _mesh_node(eye, _disc_mesh(EYE_R * 1.7, 18, 0.25, 40 + side, 1.0, Color.WHITE), _skin, "Socket")
-		socket.position = Vector3(0, 0, -0.2)
-		var halo: MeshInstance3D = _mesh_node(eye, _halo_mesh(EYE_R * 3.2), _halo, "Halo")
-		halo.position = Vector3(0, 0, 0.2)
-		var sclera: MeshInstance3D = _mesh_node(eye, _eye_disc_mesh(EYE_R), _sclera, "Sclera")
-		sclera.position = Vector3(0, 0, 0.35)
-		_scleras.append(sclera)
-		var ring: MeshInstance3D = _mesh_node(eye, _annulus_mesh(EYE_R * 0.9, EYE_R * 1.06, 30, 0.05, Color.WHITE), _ring, "Rim")
-		ring.position = Vector3(0, 0, 0.42)
-		var pupil_root: Node3D = Node3D.new();eye.add_child(pupil_root);pupil_root.position = Vector3(0, 0, 0.5)
-		var iris: MeshInstance3D = _mesh_node(pupil_root, _annulus_mesh(EYE_R * 0.13, EYE_R * 0.22, 16, 0.04, Color.WHITE), _ring, "Iris")
-		iris.position = Vector3(0, 0, 0.0)
-		var pupil: MeshInstance3D = _mesh_node(pupil_root, _disc_mesh(EYE_R * 0.14, 12, 0.0, 60 + side, 0.05, Color.WHITE), _pupil, "Pupil")
-		pupil.position = Vector3(0, 0, 0.06)
-		_eyes.append(eye)
-		_pupils.append(pupil_root)
-
-
-func _eye_disc_mesh(radius: float) -> ArrayMesh:
-	var st: SurfaceTool = SurfaceTool.new();st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var count: int = 30
-	var centre: Color = Color(1.0, 0.99, 0.96)
-	for i: int in range(count):
-		var a0: float = float(i) / float(count) * TAU
-		var a1: float = float(i + 1) / float(count) * TAU
-		var mid0: Vector3 = Vector3(cos(a0), sin(a0), 0) * radius * 0.6
-		var mid1: Vector3 = Vector3(cos(a1), sin(a1), 0) * radius * 0.6
-		var out0: Vector3 = Vector3(cos(a0), sin(a0), 0) * radius
-		var out1: Vector3 = Vector3(cos(a1), sin(a1), 0) * radius
-		var middle: Color = Color(0.9, 0.86, 0.78)
-		var edge: Color = Color(0.5, 0.44, 0.38)
-		_tri3(st, Vector3.ZERO, mid0, mid1, centre, middle, middle)
-		_tri3(st, mid0, out0, out1, middle, edge, edge)
-		_tri3(st, mid0, out1, mid1, middle, edge, middle)
-	return st.commit()
-
-
-func _halo_mesh(radius: float) -> ArrayMesh:
-	var st: SurfaceTool = SurfaceTool.new();st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var count: int = 24
-	for i: int in range(count):
-		var a0: float = float(i) / float(count) * TAU
-		var a1: float = float(i + 1) / float(count) * TAU
-		var centre: Color = Color(1, 1, 1, 1)
-		var edge: Color = Color(1, 1, 1, 0)
-		_tri3(st, Vector3.ZERO, Vector3(cos(a0), sin(a0), 0) * radius, Vector3(cos(a1), sin(a1), 0) * radius, centre, edge, edge)
-	return st.commit()
-
-
-func _smile_upper(u: float) -> float:
-	return CORNER_Y - 6.6 * (1.0 - u * u) - HEAD_Y
-
-func _smile_lower(u: float) -> float:
-	return CORNER_Y - 11.8 * (1.0 - u * u) - HEAD_Y
-
-
-func _build_mouth(root: Node3D) -> void :
-	_mouth = Node3D.new();_mouth.name = "Mouth";root.add_child(_mouth)
-	var steps: int = 24
-	var pivot: float = CORNER_Y - HEAD_Y
-
-	var cavity: PackedVector2Array = PackedVector2Array()
-	for i: int in range(steps + 1):
-		var u: float = lerpf(-1.0, 1.0, float(i) / float(steps))
-		cavity.append(Vector2(u * MOUTH_HALF, _smile_upper(u) + 0.6))
-	for i: int in range(steps, -1, -1):
-		var u: float = lerpf(-1.0, 1.0, float(i) / float(steps))
-		cavity.append(Vector2(u * MOUTH_HALF * 0.96, _smile_lower(u) - 17.0 * (1.0 - u * u * 0.6) - 1.0))
-	var st: SurfaceTool = SurfaceTool.new();st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	_prism(st, cavity, -0.3, 0.0, Color.WHITE, Color.WHITE)
-	_mesh_node(_mouth, st.commit(), _throat, "Throat").position = Vector3(0, 0, FACE_Z - 2.6)
-
-	var gum: PackedVector2Array = PackedVector2Array()
-	for i: int in range(steps + 1):
-		var u: float = lerpf(-1.04, 1.04, float(i) / float(steps))
-		gum.append(Vector2(u * MOUTH_HALF, _smile_upper(clampf(u, -1, 1)) + 1.3 + 0.3 * sin(u * 9.0)))
-	for i: int in range(steps, -1, -1):
-		var u: float = lerpf(-1.0, 1.0, float(i) / float(steps))
-		gum.append(Vector2(u * MOUTH_HALF * 0.995, _smile_upper(u) - 0.55))
-	st = SurfaceTool.new();st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	_prism(st, gum, -0.6, 0.0, Color("8c0d12"), Color("4a0508"), 0.35)
-	_mesh_node(_mouth, st.commit(), _gum, "UpperGum").position = Vector3(0, 0, FACE_Z)
-	st = SurfaceTool.new();st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	_teeth(st, true)
-	_mesh_node(_mouth, st.commit(), _bone, "UpperTeeth").position = Vector3(0, 0, FACE_Z)
-
-	_jaw = Node3D.new();_jaw.name = "Jaw";_mouth.add_child(_jaw)
-	_jaw.position = Vector3(0, pivot, -2.0)
-	var lower: PackedVector2Array = PackedVector2Array()
-	for i: int in range(steps + 1):
-		var u: float = lerpf(-1.0, 1.0, float(i) / float(steps))
-		lower.append(Vector2(u * MOUTH_HALF * 0.995, _smile_lower(u) + 0.5 - pivot))
-	for i: int in range(steps, -1, -1):
-		var u: float = lerpf(-1.05, 1.05, float(i) / float(steps))
-		lower.append(Vector2(u * MOUTH_HALF, _smile_lower(clampf(u, -1, 1)) - 1.2 - 0.3 * sin(u * 7.0) - pivot))
-	st = SurfaceTool.new();st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	_prism(st, lower, -0.6, 0.0, Color("8c0d12"), Color("4a0508"), 0.35)
-	_mesh_node(_jaw, st.commit(), _gum, "LowerGum").position = Vector3(0, 0, FACE_Z + 2.0)
-	st = SurfaceTool.new();st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	_teeth(st, false)
-	_mesh_node(_jaw, st.commit(), _bone, "LowerTeeth").position = Vector3(0, 0, FACE_Z + 2.0)
-
-	var chin: SurfaceTool = SurfaceTool.new();chin.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var chin_outline: PackedVector2Array = PackedVector2Array()
-	for i: int in range(steps + 1):
-		var u: float = lerpf(-1.08, 1.08, float(i) / float(steps))
-		chin_outline.append(Vector2(u * MOUTH_HALF, _smile_lower(clampf(u, -1, 1)) - 1.0 - pivot))
-	for i: int in range(10, -1, -1):
-		var a: float = lerpf(0.0, PI, float(i) / 10.0)
-		chin_outline.append(Vector2(cos(a) * MOUTH_HALF * 0.95, - 15.0 - sin(a) * 7.0 + 3.0))
-	_prism(chin, chin_outline, -6.0, 0.0, Color.WHITE, Color.WHITE, 1.4)
-	_mesh_node(_jaw, chin.commit(), _skin, "Chin").position = Vector3(0, 0, FACE_Z + 1.4)
-
-	var chip_st: SurfaceTool = SurfaceTool.new();chip_st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	_tooth_shape(chip_st, Vector3.ZERO, 1.2, 2.2, 0.0, 1.0, 0.0)
-	_chip = _mesh_node(_mouth, chip_st.commit(), _bone, "ToothChip")
-	_chip.visible = false
-
-
-func _tooth_shape(st: SurfaceTool, root: Vector3, width: float, length: float, lean: float, down: float, curl: float) -> void :
-	var tip: Vector3 = root + Vector3(lean * length, - down * length, 0.35 + curl)
-	var l: Vector3 = root + Vector3( - width * 0.5, 0, 0)
-	var r: Vector3 = root + Vector3(width * 0.5, 0, 0)
-	var front: Vector3 = root + Vector3(0, - down * length * 0.25, 0.55)
-	var back: Vector3 = root + Vector3(0, 0, -0.35)
-	var ivory: Color = Color("efe4c4")
-	var stain: Color = Color("9c7f45")
-	var mid: Color = ivory.lerp(stain, 0.45 + _rng.randf() * 0.3)
-	var shade: Color = stain.darkened(0.3)
-	if down > 0.0:
-		_tri3(st, l, tip, front, stain, ivory, mid)
-		_tri3(st, front, tip, r, mid, ivory, stain)
-		_tri3(st, r, tip, back, stain, ivory, shade)
-		_tri3(st, back, tip, l, shade, ivory, stain)
-	else:
-		_tri3(st, l, front, tip, stain, mid, ivory)
-		_tri3(st, front, r, tip, mid, stain, ivory)
-		_tri3(st, r, back, tip, stain, shade, ivory)
-		_tri3(st, back, l, tip, shade, stain, ivory)
-
-
-func _teeth(st: SurfaceTool, upper: bool) -> void :
-	var count: int = 25 if upper else 23
-	var pivot: float = CORNER_Y - HEAD_Y
-	for i: int in range(count):
-		var u: float = lerpf(-0.95, 0.95, (float(i) + 0.5) / float(count))
-		u += (_rng.randf() - 0.5) * 0.03
-		var span: float = 1.0 - u * u
-		var gap: float = (_smile_upper(u) - _smile_lower(u))
-		var length: float = maxf(0.7, gap * (0.55 + _rng.randf() * 0.35) + 0.3) * (0.9 + 0.4 * span)
-		if _rng.randf() < 0.12: length *= 0.55
-		var width: float = (1.15 + _rng.randf() * 0.7) * (0.65 + 0.5 * span)
-		var lean: float = (_rng.randf() - 0.5) * 0.35 - u * 0.25
-		if upper:
-			var at: Vector3 = Vector3(u * MOUTH_HALF, _smile_upper(u) + 0.15, 0.1 + _rng.randf() * 0.3)
-			_tooth_shape(st, at, width, length, lean, 1.0, (_rng.randf() - 0.5) * 0.4)
-			if _rng.randf() < 0.35:
-				_tooth_shape(st, at + Vector3((_rng.randf() - 0.5) * 0.8, 0.2, -0.45), width * 0.7, length * 0.6, - lean, 1.0, 0.0)
-		else:
-			var at: Vector3 = Vector3(u * MOUTH_HALF, _smile_lower(u) - 0.1 - pivot, 0.1 + _rng.randf() * 0.3)
-			_tooth_shape(st, at, width * 0.95, length * 0.92, lean, -1.0, (_rng.randf() - 0.5) * 0.4)
+		var material: ShaderMaterial = ShaderMaterial.new();material.shader = eye_shader
+		var eye: MeshInstance3D = MeshInstance3D.new();eye.name = "Eye";eye.mesh = sphere;eye.material_override = material
+		eye.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_head_follow.add_child(eye);eye.position = Vector3(side * EYE_X, EYE_Y, EYE_Z)
+		_eyes.append(eye);_eye_mats.append(material)
+		var halo: MeshInstance3D = MeshInstance3D.new();halo.name = "Halo";halo.mesh = quad;halo.material_override = _halo
+		halo.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_head_follow.add_child(halo);halo.position = Vector3(side * EYE_X, EYE_Y, EYE_Z + EYE_R + 0.6)
+		_halos.append(halo)
+		var light: OmniLight3D = OmniLight3D.new();light.light_color = Color("f3e6c8");light.omni_range = 11.0;light.light_energy = 0.0
+		_head_follow.add_child(light);light.position = Vector3(side * EYE_X, EYE_Y, EYE_Z + EYE_R + 2.5)
+		_eye_lights.append(light)
 
 
 
 
-func _build_fringe(root: Node3D) -> void :
-	var st: SurfaceTool = SurfaceTool.new();st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var count: int = 70
-	for i: int in range(count):
-		var a: float = float(i) / float(count) * TAU + _rng.randf() * 0.05
-		var edge: Vector3 = Vector3(cos(a) * HEAD_HALF * 0.98, 6.0 + sin(a) * 13.3, -1.0 + _rng.randf() * 2.0)
-		if sin(a) < -0.55: continue
-		var out: Vector3 = Vector3(cos(a), sin(a) * 0.9, 0.0).normalized()
-		var length: float = 2.0 + _rng.randf() * 5.5
-		var width: float = 1.0 + _rng.randf() * 2.2
-		var side: Vector3 = out.cross(Vector3.BACK).normalized() * width * 0.5
-		var tip: Vector3 = edge + out * length + side * (_rng.randf() - 0.5) * 2.0
-		var mid: Vector3 = edge + out * length * 0.55 + side * 0.4
-		var shade: Color = Color(0.05 + _rng.randf() * 0.06, 0.016, 0.012)
-		var phase: float = _rng.randf() * TAU
-		var pts: Array = [[edge - side, 0.0], [edge + side, 0.0], [mid + side * 0.5, 0.55], [tip, 1.0], [mid - side * 0.6, 0.55]]
-		var n: Vector3 = Vector3.BACK
-		for tri: Array in [[0, 1, 2], [0, 2, 4], [4, 2, 3]]:
-			for k: int in tri:
-				var p: Array = pts[k]
-				st.set_color(Color(shade.r, shade.g, shade.b, float(p[1])))
-				st.set_uv2(Vector2(phase, 0.0))
-				st.set_normal(n)
-				st.add_vertex(p[0])
-	_mesh_node(root, st.commit(), _fringe, "Fringe")
+# --- pistes optionnelles du film (contrôles fins) ------------------------------------------------
+func _find_film() -> Object:
+	var node: Node = get_parent()
+	while node != null:
+		if node.has_method("_val") and "elapsed" in node: return node
+		node = node.get_parent()
+	return null
+
+func _channels() -> void :
+	if not film_channels: return
+	if not _film_checked:
+		_film_checked = true
+		_film = _find_film()
+	if _film == null or not is_instance_valid(_film): return
+	var keys: Variant = _film.get("_keys")
+	if not (keys is Dictionary) or (keys as Dictionary).is_empty(): return
+	var has_any: bool = false
+	for key: Variant in (keys as Dictionary).keys():
+		if str(key).begins_with("yiero_"):
+			has_any = true
+			break
+	if not has_any: return
+	var t: float = float(_film.get("elapsed"))
+	squint_eye[0] = _ch("squint_l", t, squint_eye[0]);squint_eye[1] = _ch("squint_r", t, squint_eye[1])
+	pupil = _ch("pupil", t, pupil);brow = _ch("brow", t, brow);head_tilt = _ch("tilt", t, head_tilt)
+	neck_reach = _ch("neck", t, neck_reach);breath = _ch("breath", t, breath);breath_rate = _ch("breath_rate", t, breath_rate)
+	snarl = _ch("snarl", t, snarl);drool = _ch("drool", t, drool);drip = _ch("drip", t, drip);gloss = _ch("gloss", t, gloss)
+	for side: int in [0, 1]:
+		var tag: String = "_l" if side == 0 else "_r"
+		claw_flex[side] = _ch("claw" + tag, t, claw_flex[side])
+		hand_twist[side] = _ch("twist" + tag, t, hand_twist[side])
+		hand_pitch[side] = _ch("wrist" + tag, t, hand_pitch[side])
+		shrug[side] = _ch("shrug" + tag, t, shrug[side])
+		hand_spread[side] = _ch("spread" + tag, t, hand_spread[side])
+		for f: int in range(5):
+			finger_curl[side][f] = _ch(FINGERS[f] + tag, t, float(finger_curl[side][f]))
+
+func _ch(name_value: String, t: float, fallback: float) -> float:
+	return float(_film.call("_val", "yiero_" + name_value, t, fallback))
 
 
 
 
-func _segment_mesh(length: float, r0: float, r1: float, sides: int, rough: float) -> ArrayMesh:
-	var st: SurfaceTool = SurfaceTool.new();st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var rings: int = 5
-	var grid: Array = []
-	for r: int in range(rings + 1):
-		var v: float = float(r) / float(rings)
-		var radius: float = lerpf(r0, r1, v) * (1.0 + sin(v * PI) * 0.18)
-		var row: Array[Vector3] = []
-		for s: int in range(sides):
-			var a: float = float(s) / float(sides) * TAU + v * 0.4
-			var jitter: float = 1.0 + (_rng.randf() - 0.5) * rough
-			row.append(Vector3(cos(a) * radius * jitter, sin(a) * radius * jitter * 0.85, - v * length))
-		grid.append(row)
-	for r: int in range(rings):
-		for s: int in range(sides):
-			var a: Vector3 = grid[r][s]
-			var b: Vector3 = grid[r][(s + 1) % sides]
-			var c: Vector3 = grid[r + 1][s]
-			var d: Vector3 = grid[r + 1][(s + 1) % sides]
-			var shade: Color = Color.WHITE.lerp(Color.BLACK, _rng.randf() * 0.35)
-			_tri(st, a, c, b, shade);_tri(st, b, c, d, shade)
-	for s: int in range(sides):
-		_tri(st, Vector3.ZERO, grid[0][s], grid[0][(s + 1) % sides], Color.WHITE)
-		_tri(st, Vector3(0, 0, - length), grid[rings][(s + 1) % sides], grid[rings][s], Color.WHITE)
-	return st.commit()
+# --- squelette ------------------------------------------------------------------------------------
+func _fk(i: int) -> Transform3D:
+	var p: int = _parent[i]
+	return _rest_l[i] if p < 0 else _pose_g[p] * _rest_l[i]
 
-func _claw_mesh(length: float, radius: float) -> ArrayMesh:
-	var st: SurfaceTool = SurfaceTool.new();st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var sides: int = 5
-	var root_color: Color = Color("6e5a3a")
-	var tip_color: Color = Color("ece0bd")
-	for s: int in range(sides):
-		var a0: float = float(s) / float(sides) * TAU
-		var a1: float = float(s + 1) / float(sides) * TAU
-		var p0: Vector3 = Vector3(cos(a0) * radius, sin(a0) * radius * 0.7, 0)
-		var p1: Vector3 = Vector3(cos(a1) * radius, sin(a1) * radius * 0.7, 0)
-		var tip: Vector3 = Vector3(0, - radius * 1.6, - length)
-		_tri3(st, p0, tip, p1, root_color, tip_color, root_color)
-	return st.commit()
+func _rotated(i: int, r: Basis, offset: Vector3 = Vector3.ZERO) -> void :
+	var t: Transform3D = _fk(i)
+	_pose_g[i] = Transform3D(r * t.basis, t.origin + offset)
 
+func _delta(i: int) -> Transform3D:
+	return _pose_g[i] * _rest_g[i].affine_inverse()
 
-func _build_arm(side: int) -> void :
-	var upper: Node3D = Node3D.new();upper.name = "Upper%d" % side;add_child(upper)
-	_mesh_node(upper, _segment_mesh(UPPER_ARM, 5.2, 3.6, 7, 0.3), _skin, "Mesh")
-	var fore: Node3D = Node3D.new();fore.name = "Fore%d" % side;add_child(fore)
-	_mesh_node(fore, _segment_mesh(FOREARM, 3.8, 2.4, 7, 0.32), _skin, "Mesh")
-	var hand: Node3D = Node3D.new();hand.name = "Hand%d" % side;add_child(hand)
-	_mesh_node(hand, _segment_mesh(6.5, 3.0, 4.2, 7, 0.3), _skin, "Palm")
-	var fingers: Array = []
-	for f: int in range(5):
-		var thumb: bool = f == 4
-		var finger: Dictionary = {"joints": [], "spread": (float(f) - 1.5) * 0.24 if not thumb else 0.0, "thumb": thumb}
-		var parent: Node3D = hand
-		var lengths: Array = [5.0, 4.4, 3.6] if not thumb else [4.0, 3.5, 3.0]
-		for j: int in range(3):
-			var joint: Node3D = Node3D.new();parent.add_child(joint)
-			if j == 0:
-				joint.position = Vector3((float(f) - 1.5) * 1.55, -0.2, -6.3) if not thumb else Vector3(2.9 * (1 if side == 0 else -1), -0.6, -3.0)
-			else:
-				joint.position = Vector3(0, 0, - float(lengths[j - 1]))
-			var radius: float = 0.9 - 0.18 * float(j)
-			_mesh_node(joint, _segment_mesh(float(lengths[j]), radius, radius * 0.8, 5, 0.25), _skin, "Bone")
-			finger.joints.append(joint)
-			parent = joint
-		var claw: MeshInstance3D = _mesh_node(parent, _claw_mesh(4.2 if not thumb else 3.4, 0.62), _claw, "Claw")
-		claw.position = Vector3(0, 0, - float(lengths[2]) + 0.2)
-		finger["tip"] = float(lengths[2]) + (3.2 if not thumb else 2.6)
-		fingers.append(finger)
-	_upper.append(upper);_fore.append(fore);_hand.append(hand)
-	_fingers[side] = fingers
-
-
-
+func _wave(a: float, b: float, c: float) -> float:
+	return sin(clock * a + c) * 0.6 + sin(clock * b + c * 1.7) * 0.4
 
 func socket(name_value: String) -> Vector3:
-	if not _built: return global_position
+	if not _built or not is_instance_valid(_skel): return global_position
+	var xf: Transform3D = _skel.global_transform
+	var head: Transform3D = xf * _delta(_bone.head)
+	var jaw_x: Transform3D = xf * _delta(_bone.jaw)
 	match name_value:
-		"eye_l": return _eyes[0].global_position
-		"eye_r": return _eyes[1].global_position
-		"eyes": return (_eyes[0].global_position + _eyes[1].global_position) * 0.5
-		"mouth": return _mouth.global_transform * Vector3(0, _smile_upper(0.0) - 1.5, FACE_Z + 1.0)
-		"teeth": return _mouth.global_transform * Vector3(-3.0, _smile_upper(0.0) - 1.2, FACE_Z + 1.4)
-		"chin": return _jaw.global_transform * Vector3(0, -12.0, FACE_Z + 3.0)
-		"head": return _head.global_transform * Vector3(0, 6.0, 0)
-		"face": return _head.global_transform * Vector3(0, 6.0, FACE_Z)
-		"brow": return _head.global_transform * Vector3(0, 13.0, FACE_Z - 1.0)
-		"hand_l": return _hand[0].global_transform * Vector3(0, 0, -6.0)
-		"hand_r": return _hand[1].global_transform * Vector3(0, 0, -6.0)
-		"grip_l": return _hand[0].global_transform * Vector3(0, 0, -9.5) + Vector3.DOWN * 3.4
-		"pinch_l": return _tip(0, 1).lerp(_tip(0, 2), 0.5)
-		"chest": return _body.global_transform * Vector3(0, 6.0, 6.0)
+		"eye_l": return _eyes[0].global_transform * Vector3(0, 0, EYE_R * 0.85)
+		"eye_r": return _eyes[1].global_transform * Vector3(0, 0, EYE_R * 0.85)
+		"eyes": return (socket("eye_l") + socket("eye_r")) * 0.5
+		"mouth": return (head * Vector3(0, 21.0, 7.5) + jaw_x * Vector3(0, 16.0, 7.5)) * 0.5
+		"teeth": return head * _chip_rest
+		"chin": return jaw_x * Vector3(0, 12.0, 8.6)
+		"head": return head * Vector3(0, 30.0, 0.0)
+		"face": return head * Vector3(0, 30.0, FACE_Z)
+		"brow": return head * Vector3(0, 38.5, 10.0)
+		"nose": return head * Vector3(0, 30.8, 10.3)
+		"throat": return (head * Vector3(0, 21.0, -2.0) + jaw_x * Vector3(0, 17.0, -2.0)) * 0.5
+		"tongue": return jaw_x * Vector3(0, 16.2, 3.0)
+		"hand_l": return xf * (_delta(_arm[0].hand) * (_arm[0].palm as Vector3))
+		"hand_r": return xf * (_delta(_arm[1].hand) * (_arm[1].palm as Vector3))
+		"grip_l", "grip_r":
+			var k: int = 0 if name_value == "grip_l" else 1
+			var palm: Vector3 = _arm[k].palm
+			return xf * (_delta(_arm[k].hand) * (palm + (_arm[k].hand_fwd as Vector3) * 3.0 - (_arm[k].hand_up as Vector3) * 3.2))
+		"pinch_l": return _pinch(0)
+		"pinch_r": return _pinch(1)
+		"claw_l": return _tip(0, 1)
+		"claw_r": return _tip(1, 1)
+		"shoulder_l": return xf * _pose_g[_arm[0].upperarm].origin
+		"shoulder_r": return xf * _pose_g[_arm[1].upperarm].origin
+		"elbow_l": return xf * _pose_g[_arm[0].forearm].origin
+		"elbow_r": return xf * _pose_g[_arm[1].forearm].origin
+		"chest": return xf * (_delta(_bone.chest) * Vector3(0, 12.0, 2.0))
 	return global_position
 
+# Bout de la griffe d'un doigt (repère monde) : os « <doigt>_tip » placé à la pointe de la griffe.
+func _tip(side: int, finger: int, _extra: float = 0.0) -> Vector3:
+	var tip: int = int(_arm[side].tips[finger])
+	if tip < 0: return _skel.global_transform * _pose_g[_arm[side].hand].origin
+	return _skel.global_transform * _pose_g[tip].origin
+
+func _pinch(side: int) -> Vector3:
+	return _tip(side, 0).lerp(_tip(side, 4), 0.5)
 
 
-
-func _tip(side: int, index: int) -> Vector3:
-	var finger: Dictionary = _fingers[side][index]
-	var last: Node3D = (finger.joints as Array).back()
-	return last.global_transform * Vector3(0, 0, - float(finger.get("tip", 6.0)))
 
 
 func pose() -> void :
-	if not _built: return
+	if not _built or not is_instance_valid(_skel): return
+	_channels()
+	var count: int = _pose_g.size()
 	var shake: Vector3 = Vector3(sin(clock * 37.0) + sin(clock * 23.0 + 1.0), sin(clock * 41.0 + 2.0), sin(clock * 29.0 + 0.5)) * tremble * 0.35
-	var heave: float = sin(clock * 0.9) * 0.6 * breath
-	_body.position = Vector3(0, lerpf(-58.0, 0.0, rise) + heave, lean) + shake
-	_body.rotation = Vector3(lean * 0.004, 0, sin(clock * 0.37) * 0.015)
-	_head.rotation = Vector3(head_pitch, head_yaw, head_roll + sin(clock * 0.53) * 0.02)
-	var g: float = clampf(grin, 0.0, 1.0)
-	_mouth.scale = Vector3(maxf(0.02, g) * grin_wide, lerpf(0.25, 1.0, smoothstep(0.0, 0.6, g)), 1.0)
-	_mouth.visible = g > 0.005
-	_mouth.position = Vector3(0, 0, 0)
-	_jaw.rotation = Vector3( - jaw * 0.16, 0, 0)
-	_jaw.position = Vector3(0, CORNER_Y - HEAD_Y - jaw * 13.0, -2.0 + jaw * 3.0)
-	_throat.set_shader_parameter("glow", 0.35 + jaw * 1.4 + fury * 0.4)
-	_throat.set_shader_parameter("clock", clock)
-	_mouth_light.light_energy = jaw * 3.0 * reveal + fury * 1.5
+	var phase: float = clock * 0.9 * breath_rate
+	var inhale: float = sin(phase) * breath
+	var heave: float = inhale * 0.6
+	_body.position = Vector3(0, lerpf(-58.0, 0.0, rise) + heave, lean * 0.75) + shake
+	_body.rotation = Vector3(0, 0, _wave(0.37, 0.23, 0.4) * 0.012)
+	for i: int in range(count): _pose_g[i] = _fk(i)
+	# buste : avancée (lean), souffle
+	var hunch: float = lean * 0.006
+	_rotated(_bone.root, Basis.IDENTITY)
+	_rotated(_bone.spine, Basis(Vector3.RIGHT, hunch * 0.5 + _wave(0.21, 0.13, 1.0) * 0.006))
+	_rotated(_bone.chest, Basis(Vector3.RIGHT, hunch * 0.5 - inhale * 0.012) * Basis(Vector3.UP, _wave(0.17, 0.29, 2.0) * 0.01))
+	# cou et tête : tangage / lacet / roulis répartis, inclinaison curieuse, petits mouvements vivants
+	var idle_p: float = _wave(0.31, 0.53, 0.2) * 0.012
+	var idle_y: float = _wave(0.23, 0.41, 1.3) * 0.015
+	var idle_r: float = sin(clock * 0.53) * 0.02
+	var tilt: float = head_tilt
+	var neck_b: Basis = Basis(Vector3.UP, head_yaw * 0.4) * Basis(Vector3.RIGHT, head_pitch * 0.35) * Basis(Vector3.BACK, head_roll * 0.3 + tilt * 0.4)
+	_rotated(_bone.neck, neck_b, Vector3(0, 0, neck_reach * 0.55))
+	var head_b: Basis = Basis(Vector3.UP, head_yaw * 0.6 + idle_y) * Basis(Vector3.RIGHT, head_pitch * 0.65 + idle_p) * Basis(Vector3.BACK, head_roll * 0.7 + tilt * 0.6 + idle_r)
+	_rotated(_bone.head, head_b, Vector3(0, 0, neck_reach * 0.45))
+	# mâchoire : rotation autour de la charnière + décrochage (mâchoire de serpent)
+	var j: float = clampf(jaw, 0.0, 1.25)
+	_rotated(_bone.jaw, Basis(Vector3.RIGHT, j * 0.4), Vector3(0, -j * 4.2, j * 1.3))
+	# visage : commissures, sourcils, pommettes (pas de paupières : le plissement vient de là)
+	var wide: float = clampf(grin_wide - 1.0, -0.3, 0.5)
+	for side: int in [0, 1]:
+		var sx: float = -1.0 if side == 0 else 1.0
+		var tag: String = "_l" if side == 0 else "_r"
+		var sq: float = clampf(squint + squint_eye[side], 0.0, 1.3)
+		var corner: Vector3 = Vector3(sx * wide * 4.2, wide * 3.0 + snarl * 0.9, -wide * 1.8)
+		_rotated(_bone["corner" + tag], Basis.IDENTITY, corner)
+		var frown: float = clampf(brow + fury * 0.5, -1.0, 1.5)
+		_rotated(_bone["brow" + tag], Basis.IDENTITY, Vector3(-sx * frown * 0.25, -sq * 1.3 - frown * 0.9, sq * 0.35 + frown * 0.3))
+		_rotated(_bone["cheek" + tag], Basis.IDENTITY, Vector3(0, sq * 1.05 + wide * 1.6 + snarl * 0.5, sq * 0.3))
+	for side: int in [0, 1]: _pose_arm(side, inhale)
+	for i: int in range(count):
+		var p: int = _parent[i]
+		var local: Transform3D = _pose_g[i] if p < 0 else _pose_g[p].affine_inverse() * _pose_g[i]
+		_skel.set_bone_pose_position(i, local.origin)
+		_skel.set_bone_pose_rotation(i, local.basis.get_rotation_quaternion())
+	_head_follow.transform = _delta(_bone.head)
+	_jaw_follow.transform = _delta(_bone.jaw)
+	_pose_eyes()
+	_pose_chip()
+	_update_materials()
+
+func _pose_arm(side: int, inhale: float) -> void :
+	var arm: Dictionary = _arm[side]
+	var sx: float = -1.0 if side == 0 else 1.0
+	var skel_inv: Transform3D = _skel.global_transform.affine_inverse()
+	var shown: bool = arm_shown[side] and hand_target[side].is_finite()
+	var target: Vector3 = skel_inv * hand_target[side] if shown else Vector3(sx * 30.0, -40.0, 30.0)
+	# clavicule : haussement (souffle, shrug) et aide à l'allonge vers la cible
+	var clav: int = arm.clavicle
+	var c_fk: Transform3D = _fk(clav)
+	var s_rest: Vector3 = c_fk * (_rest_g[clav].affine_inverse() * _rest_g[arm.upperarm].origin)
+	var reach: float = float(arm.l1) + float(arm.l2)
+	var need: float = s_rest.distance_to(target) - reach * 0.97
+	var to_t: Vector3 = (target - c_fk.origin).normalized()
+	var clav_dir: Vector3 = (s_rest - c_fk.origin).normalized()
+	var assist: float = clampf(need / 22.0, 0.0, 0.28)
+	var c_basis: Basis = Basis.IDENTITY
+	var axis: Vector3 = clav_dir.cross(to_t)
+	if axis.length_squared() > 1e-6 and assist > 0.0: c_basis = Basis(axis.normalized(), assist)
+	var lift: float = shrug[side] * 0.28 + inhale * 0.01 + _wave(0.27, 0.19, float(side) * 2.0) * 0.008
+	c_basis = Basis(Vector3.BACK, -sx * lift) * c_basis
+	_rotated(clav, c_basis)
+	# bras : IK à deux os, coude vers l'extérieur, le haut et l'arrière (pattes d'araignée)
+	var up_i: int = arm.upperarm
+	var fo_i: int = arm.forearm
+	var ha_i: int = arm.hand
+	var s: Vector3 = _fk(up_i).origin
+	var l1: float = arm.l1
+	var l2: float = arm.l2
+	var to: Vector3 = target - s
+	var dist: float = clampf(to.length(), absf(l1 - l2) + 1.0, l1 + l2 - 0.05)
+	var dir: Vector3 = to.normalized() if to.length_squared() > 0.01 else Vector3.DOWN
+	var body_b: Basis = _pose_g[_bone.chest].basis * _rest_g[_bone.chest].basis.inverse()
+	var pole: Vector3 = body_b * Vector3(sx * 1.0, 0.8, -0.45)
+	pole = pole - dir * pole.dot(dir)
+	pole = pole.normalized() if pole.length_squared() > 1e-5 else body_b * Vector3(sx, 0, 0)
+	var a: float = (l1 * l1 + dist * dist - l2 * l2) / (2.0 * dist)
+	var h: float = sqrt(maxf(l1 * l1 - a * a, 0.0))
+	var e: Vector3 = s + dir * a + pole * h
+	var w: Vector3 = s + dir * dist
+	var u1: Vector3 = (e - s).normalized()
+	var f1: Vector3 = (w - e).normalized()
+	var n1: Vector3 = u1.cross(f1)
+	n1 = n1.normalized() if n1.length_squared() > 1e-6 else u1.cross(pole).normalized()
+	var u0: Vector3 = arm.u0
+	var f0: Vector3 = arm.f0
+	var n0: Vector3 = arm.n0
+	var ru: Basis = _frame(u1, n1) * _frame(u0, n0).inverse()
+	_pose_g[up_i] = Transform3D(ru * _rest_g[up_i].basis, s)
+	var rf: Basis = _frame(f1, n1) * _frame(f0, n0).inverse()
+	_pose_g[fo_i] = Transform3D(rf * _rest_g[fo_i].basis, e)
+	# main : prolonge l'avant-bras, se pose à plat près de l'encre, se tourne quand elle tient
+	var fk_h: Transform3D = _fk(ha_i)
+	var fwd0: Vector3 = arm.hand_fwd
+	var up0: Vector3 = arm.hand_up
+	var fwd_fk: Vector3 = (fk_h.basis * (_rest_g[ha_i].basis.inverse() * fwd0)).normalized()
+	var flat: Vector3 = Vector3(fwd_fk.x, minf(fwd_fk.y, -0.12), fwd_fk.z)
+	flat = Vector3(flat.x, flat.y * 0.35 - 0.12, flat.z).normalized()
+	var low: float = 1.0 - smoothstep(4.0, 16.0, w.y)
+	var curl: float = clampf(hand_curl[side], -0.2, 1.25)
+	var hold: float = smoothstep(0.8, 1.0, curl) * smoothstep(8.0, 16.0, w.y)
+	var fwd_h: Vector3 = fwd_fk.slerp(flat, low * 0.8).normalized()
+	var up_h: Vector3 = Vector3.UP - fwd_h * fwd_h.y
+	up_h = up_h.normalized()
+	var twist: float = hand_twist[side] + hold * 1.15 * -sx
+	up_h = up_h.rotated(fwd_h, twist)
+	var side_h: Vector3 = fwd_h.cross(up_h).normalized()
+	var pitch: float = hand_pitch[side] + _wave(0.6, 0.37, float(side) * 3.0) * 0.03
+	fwd_h = fwd_h.rotated(side_h, -pitch);up_h = up_h.rotated(side_h, -pitch)
+	var hb: Basis = _frame(fwd_h, up_h) * _frame(fwd0, up0).inverse()
+	_pose_g[ha_i] = Transform3D(hb * _rest_g[ha_i].basis, w)
+	# doigts : flexion phalange par phalange, écartement, petits frémissements
+	var spread: float = (hand_spread[side] - 0.6) * (1.0 - smoothstep(0.4, 1.0, curl))
+	var axes: Array = arm.axes
+	for k: int in range(5):
+		var chain: Array[int] = arm.fingers[k]
+		var c: float = clampf(curl + float(finger_curl[side][k]), -0.3, 1.3)
+		var twitch: float = _wave(2.3 + float(k) * 0.37, 3.1 - float(k) * 0.21, float(k) * 1.9 + float(side) * 4.0) * 0.045
+		var flex: float = claw_flex[side]
+		for jn: int in range(3):
+			var bone: int = chain[jn]
+			var fk: Transform3D = _fk(bone)
+			var parent_delta: Basis = _pose_g[_parent[bone]].basis * _rest_g[_parent[bone]].basis.inverse()
+			var bend_axis: Vector3 = (parent_delta * (axes[k] as Vector3)).normalized()
+			var amount: float
+			if k == 4:
+				amount = [0.55, 0.7, 0.6][jn] * c + twitch * 0.5
+			else:
+				amount = [0.95, 1.3, 0.95][jn] * c + twitch + (flex * 0.75 if jn == 2 else 0.0) - (flex * 0.25 if jn == 0 else 0.0)
+			var r: Basis = Basis(bend_axis, amount)
+			if jn == 0 and k < 4:
+				var up_axis: Vector3 = (parent_delta * up0).normalized()
+				r = Basis(up_axis, (float(k) - 1.5) * 0.11 * spread * sx) * r
+			_pose_g[bone] = Transform3D(r * fk.basis, fk.origin)
+
+func _frame(x: Vector3, y: Vector3) -> Basis:
+	var a: Vector3 = x.normalized()
+	var b: Vector3 = (y - a * y.dot(a)).normalized()
+	return Basis(a, b, a.cross(b))
+
+func _pose_eyes() -> void :
 	var open: float = clampf(eye_open, 0.0, 1.0)
 	for k: int in range(2):
-		var eye: Node3D = _eyes[k]
+		var eye: MeshInstance3D = _eyes[k]
+		var sq: float = clampf(squint + squint_eye[k], 0.0, 1.2)
 		var s: float = maxf(0.001, open)
-		eye.scale = Vector3(s, s * (1.0 - squint * 0.72), s)
+		eye.scale = Vector3(s * (1.0 + sq * 0.06), s * (1.0 - sq * 0.62), s * (1.0 - sq * 0.25))
+		eye.position = Vector3((-1.0 if k == 0 else 1.0) * EYE_X, EYE_Y - sq * 0.25, EYE_Z - sq * 0.35)
 		eye.visible = open > 0.002
+		_halos[k].visible = eye.visible
+		var look: Vector3 = Vector3(0, 0, 1)
 		if look_target.is_finite():
-			var local: Vector3 = eye.global_transform.affine_inverse() * look_target
-			var flat: Vector2 = Vector2(local.x, local.y)
-			var reach: float = clampf(flat.length() / maxf(1.0, absf(local.z)), 0.0, 1.0)
-			var shift: Vector2 = flat.normalized() * reach * EYE_R * 0.42 if flat.length() > 0.01 else Vector2.ZERO
-			_pupils[k].position = Vector3(shift.x, shift.y, 0.5)
-		else:
-			_pupils[k].position = Vector3(0, 0, 0.5)
-		_eye_lights[k].light_energy = eye_glow * open * 1.4
-	var glow_energy: float = eye_glow * (1.0 + fury * 0.6)
-	_sclera.set_shader_parameter("energy", glow_energy * 1.05)
-	_sclera.set_shader_parameter("color", Color("cdc4b0").lerp(Color("ffb8a0"), fury * 0.6))
-	_halo.set_shader_parameter("energy", 0.22 * glow_energy * eye_open)
-	_pupil.set_shader_parameter("energy", 2.4 + glow_energy * 2.0)
-	_bone.set_shader_parameter("glow", 0.42 * eye_glow + 0.1)
-	_gum.set_shader_parameter("glow", 0.3 * eye_glow + 0.05)
-	for material: ShaderMaterial in [_skin]:
-		material.set_shader_parameter("reveal", reveal)
-		material.set_shader_parameter("hurt", hurt)
+			var local: Vector3 = (eye.global_transform.affine_inverse() * look_target)
+			if local.length_squared() > 0.01:
+				look = local.normalized()
+				# les globes tournent peu : la pupille reste dans un cône de 40°
+				var ang: float = acos(clampf(look.z, -1.0, 1.0))
+				var lim: float = deg_to_rad(40.0)
+				if ang > lim:
+					var flat: Vector2 = Vector2(look.x, look.y).normalized()
+					look = Vector3(flat.x * sin(lim), flat.y * sin(lim), cos(lim))
+		# micro-saccades : petits sauts irréguliers du regard
+		var beat: float = floor(clock * 1.7 + float(k) * 0.0)
+		var jitter: Vector2 = Vector2(sin(beat * 12.9898) , cos(beat * 78.233)) * 0.012
+		look = (look + Vector3(jitter.x, jitter.y, 0.0)).normalized()
+		var material: ShaderMaterial = _eye_mats[k]
+		material.set_shader_parameter("look", look)
+		material.set_shader_parameter("pupil", 0.15 * clampf(pupil, 0.3, 2.2) * (1.0 - fury * 0.25))
+		material.set_shader_parameter("glow", eye_glow * (1.0 + fury * 0.3))
 		material.set_shader_parameter("fury", fury)
-	_fringe.set_shader_parameter("clock", clock)
-	_fringe.set_shader_parameter("wind", wind)
-	_fringe.set_shader_parameter("reveal", reveal)
-	_bone.set_shader_parameter("reveal", 1.0)
-	_chip.visible = tooth_chip > 0.0 and tooth_chip < 1.0
-	if _chip.visible:
-		var u: float = tooth_chip
-		_chip.position = Vector3(-3.0 - u * 9.0, _smile_upper(0.1) - 1.0 - u * u * 26.0, FACE_Z + 1.5 + u * 10.0)
-		_chip.rotation = Vector3(u * 9.0, u * 5.0, u * 7.0)
-	for side: int in [0, 1]: _pose_arm(side)
+		material.set_shader_parameter("hurt", hurt)
+		_eye_lights[k].light_energy = eye_glow * open * 1.6
+	_halo.set_shader_parameter("energy", 0.2 * eye_glow * (1.0 + fury * 0.6) * open)
+	_halo.set_shader_parameter("color", Color("e8d9b8").lerp(Color("ffb090"), fury * 0.6))
 
+func _pose_chip() -> void :
+	if not is_instance_valid(_chip): return
+	var u: float = tooth_chip
+	_chip.visible = u < 0.985
+	if u <= 0.01:
+		_chip.transform = Transform3D.IDENTITY
+		return
+	var k: float = clampf((u - 0.01) / 0.99, 0.0, 1.0)
+	var spin: Basis = Basis.from_euler(Vector3(k * 9.0, k * 5.0, k * 7.0))
+	var at: Vector3 = _chip_rest + Vector3(-k * 9.0, -k * k * 26.0, k * 10.0)
+	_chip.transform = Transform3D(spin, at - spin * _chip_rest)
 
-func _pose_arm(side: int) -> void :
-	var sign_x: float = -1.0 if side == 0 else 1.0
-	var shown: bool = arm_shown[side] and hand_target[side].is_finite()
-	_upper[side].visible = shown;_fore[side].visible = shown;_hand[side].visible = shown
-	if not shown: return
-	var basis_root: Basis = _body.global_transform.basis.orthonormalized()
-	var shoulder: Vector3 = _body.global_transform * Vector3(sign_x * SHOULDER.x, SHOULDER.y, SHOULDER.z)
-	var target: Vector3 = hand_target[side]
-	var to_target: Vector3 = target - shoulder
-	var reach: float = clampf(to_target.length(), 2.0, UPPER_ARM + FOREARM - 0.5)
-	var dir: Vector3 = to_target.normalized() if to_target.length_squared() > 0.01 else - basis_root.y
-	var pole: Vector3 = basis_root * Vector3(sign_x * 1.0, 0.75, -0.55)
-	pole = (pole - dir * pole.dot(dir))
-	pole = pole.normalized() if pole.length_squared() > 0.0001 else basis_root.x * sign_x
-	var cos_a: float = clampf((UPPER_ARM * UPPER_ARM + reach * reach - FOREARM * FOREARM) / (2.0 * UPPER_ARM * reach), -1.0, 1.0)
-	var alpha: float = acos(cos_a)
-	var elbow: Vector3 = shoulder + dir * cos(alpha) * UPPER_ARM + pole * sin(alpha) * UPPER_ARM
-	var wrist: Vector3 = shoulder + dir * reach
-	_place_segment(_upper[side], shoulder, elbow, pole)
-	_place_segment(_fore[side], elbow, wrist, pole)
-
-	var fore_dir: Vector3 = (wrist - elbow).normalized()
-	var palm_dir: Vector3 = (fore_dir + Vector3.DOWN * 0.35).normalized()
-	var up_hint: Vector3 = - pole if absf(palm_dir.dot(pole)) < 0.95 else Vector3.UP
-	var hand_basis: Basis = Basis.looking_at(palm_dir, up_hint)
-	_hand[side].global_transform = Transform3D(hand_basis, wrist)
-	var curl: float = clampf(hand_curl[side], 0.0, 1.2)
-	var spread: float = hand_spread[side]
-	var twitch: float = sin(clock * 3.3 + float(side) * 2.0) * 0.05
-	for finger: Dictionary in _fingers[side]:
-		var joints: Array = finger.joints
-		for j: int in range(joints.size()):
-			var joint: Node3D = joints[j]
-			var bend: float = curl * (0.55 + 0.25 * float(j)) + twitch * float(j)
-			if bool(finger.thumb): joint.rotation = Vector3(bend * 0.6 - 0.1, sign_x * (0.7 - curl * 0.4) if j == 0 else 0.0, 0)
-			else: joint.rotation = Vector3(-0.08 + bend if j > 0 else bend * 0.6 - 0.05, float(finger.spread) * spread * sign_x if j == 0 else 0.0, 0)
-
-
-func _place_segment(node: Node3D, from: Vector3, to: Vector3, pole: Vector3) -> void :
-	var forward: Vector3 = to - from
-	if forward.length_squared() < 0.0001: return
-	var up: Vector3 = pole if absf(forward.normalized().dot(pole)) < 0.98 else Vector3.UP
-	node.global_transform = Transform3D(Basis.looking_at(forward, up), from)
+func _update_materials() -> void :
+	var j: float = clampf(jaw, 0.0, 1.25)
+	_flesh.set_shader_parameter("reveal", reveal)
+	_flesh.set_shader_parameter("hurt", hurt)
+	_flesh.set_shader_parameter("fury", fury)
+	_flesh.set_shader_parameter("clock", clock)
+	_flesh.set_shader_parameter("grin", grin)
+	_flesh.set_shader_parameter("glow", eye_glow)
+	_flesh.set_shader_parameter("jaw", j)
+	_flesh.set_shader_parameter("drip", drip)
+	_flesh.set_shader_parameter("gloss", gloss)
+	_flesh.set_shader_parameter("debug_view", debug_view)
+	_teeth.set_shader_parameter("grin", grin)
+	_teeth.set_shader_parameter("glow", eye_glow)
+	_teeth.set_shader_parameter("reveal", reveal)
+	_teeth.set_shader_parameter("hurt", hurt)
+	_teeth.set_shader_parameter("fury", fury)
+	_claw.set_shader_parameter("reveal", reveal)
+	_claw.set_shader_parameter("hurt", hurt)
+	_claw.set_shader_parameter("glow", eye_glow)
+	_mouth_light.light_energy = (j * 3.0 * reveal + fury * 1.5) * clampf(grin, 0.0, 1.0)
