@@ -1505,111 +1505,109 @@ func _chase_z(t: float) -> float:
 
 
 # Acte VII — l'école Paper Afterbell (153 → 182 s).
+# Corps : clips écrits (pb_simon_portal/rejoin, pb_usayuko_fight/finish, pb_alice_fight/finish,
+# pb_elly_heal, pb_bleuette_hurt, pb_lysia_broken) ; les coups tombent sur les accents de la musique
+# (PrologueB.q(n) : une noire à 165 bpm depuis 157,83 s). Ici : caméra, effets, répliques.
 func _write_school() -> void :
 	var t0: float = T_SCHOOL
-	_move(S, t0, t0 + 0.02, Vector3(-3.0, 1.0, -4.0), "jump")
-	_do(S, t0, "unset", ["grounded", "vertical_speed"])
-	_do(S, t0, "state", {"grounded": false, "vertical_speed": -2.0})
-	_face(S, t0, "dir", Vector3(0.15, 0, 1))
 	_do(S, 154.2, "show", true)
-	_move(S, 154.25, 154.9, Vector3(-2.5, 0, -2.4), "in")
-	_do(S, 154.9, "unset", ["grounded", "vertical_speed"]);_do(S, 154.9, "state", {"landing_roll": 0.65});_ramp(S, 154.9, 155.55, "landing_roll", 0.65, 0.0)
-	_do(S, 155.5, "life", "downed");_do(S, 155.5, "mood", "tired")
-	_cue(154.9, "sfx", "ground_impact", 0.8)
+	_cue(154.86, "sfx", "ground_impact", 0.8);_cue(154.88, "dust_ring", {"a": S}, 0.7)
 	_key("portal", 0.0, 0.0);_key("portal", 153.3, 0.0);_key("portal", 153.9, 1.0, "out");_key("portal", 156.1, 1.0);_key("portal", 156.6, 0.0, "in")
 	_key("portal_demon", 155.5, 0.0);_key("portal_demon", 155.8, 1.0);_key("portal_demon", 156.4, 1.0)
 	_cue(156.1, "sfx", "sfx_portal", 0.9);_cue(155.5, "sfx", "sfx_growl", 0.6, 0.7)
 	_shot(t0, {"eye": [Vector3(-0.3, 1.6, 2.6), Vector3(-0.4, 1.5, 2.2)], "look": Vector3(-2.8, 1.0, -3.4), "fov": [50, 48], "hand": 0.3})
-	_shot(156.7, {"eye": [Vector3(-1.0, 0.7, 0.4), Vector3(-1.1, 0.7, 0.3)], "look": Vector3(-2.5, 0.4, -2.4), "fov": [42, 40], "hand": 0.3})
+	_shot(156.7, {"eye": [Vector3(-1.2, 0.55, 0.9), Vector3(-1.3, 0.55, 0.8)], "look": {"a": S, "h": 0.3}, "fov": [42, 40], "hand": 0.3})
 
-	_put(U, Vector3(0.8, 0, 2.6));_put(AL, Vector3(0.6, 0, 4.6))
-	_face(U, 0.0, "at", AL);_face(AL, 0.0, "at", U)
-	_do(U, 0.0, "mood", "grin");_do(AL, 0.0, "mood", "menace")
 	_key("aura", 0.0, 0.0);_key("aura", t0, 1.0, "jump");_key("aura", 181.6, 1.0);_key("aura", 182.0, 0.0)
-	_shot(157.4, {"eye": [Vector3(-1.6, 1.2, 0.0), Vector3(-1.5, 1.2, 0.1)], "look": [Vector3(-2.5, 0.5, -2.4), {"mid": [U, AL], "h": 1.2}], "fov": 44, "hand": 0.3, "ease": "dash"})
-	_shot(157.7, {"eye": [Vector3(2.9, 0.45, 1.2), Vector3(2.7, 0.5, 1.6)], "look": {"mid": [U, AL], "h": 1.25}, "fov": [46, 44], "hand": 0.8})
-	_move(AL, 157.45, 157.7, Vector3(0.7, 0, 3.7), "dash");_do(AL, 157.62, "trigger", "slash")
-	_do(U, 157.3, "state", {"block": 1.0});_do(U, 158.25, "unset", ["block"])
-	_cue(157.78, "event", "block", {"position": {"a": U}});_cue(157.78, "sound", "block", {"a": U});_do(U, 157.78, "play", "block_hit");_do(AL, 157.78, "hitstop", 0.12);_cue(157.78, "shake", 0.3)
-	_cue(157.8, "bolts", {"a": U, "h": 1.3}, GOLD, 4, 0.7)
-	_do(U, 158.3, "trigger", "contre");_blow(158.42, AL, U, "counter", GOLD, 1.25);_knock(AL, 158.42, 1.3, Vector3(0, 0, 1))
-	_shot(158.9, {"rel": {"a": U}, "eye": [Vector3(0.55, 1.75, -1.1), Vector3(0.5, 1.7, -0.9)], "look": {"a": AL, "h": 1.25}, "fov": [42, 40], "hand": 0.6})
-	_move(AL, 159.3, 159.55, Vector3(0.6, 0, 3.5), "dash");_do(AL, 159.48, "trigger", "slash")
-	_move(U, 159.4, 159.6, Vector3(0.7, 0, 2.7), "dash");_do(U, 159.5, "trigger", "punch")
-	_blow(159.62, AL, U, "punch", GOLD, 1.3);_knock(AL, 159.62, 1.6, Vector3(0, 0, 1));_stun(AL, 159.62, 0.8)
-	_shot(160.4, {"eye": [Vector3(-4.6, 1.2, 3.9), Vector3(-4.3, 1.1, 4.1)], "look": {"mid": [U, AL], "h": 1.1}, "fov": [42, 40], "hand": 0.5})
-	_move(AL, 160.6, 160.9, Vector3(0.6, 0, 3.6), "dash");_do(AL, 160.85, "trigger", "slash")
-	_do(U, 160.6, "state", {"block": 1.0});_do(U, 161.4, "unset", ["block"])
-	_cue(161.0, "event", "block", {"position": {"a": U}});_cue(161.0, "sound", "block", {"a": U});_do(U, 161.0, "play", "block_hit");_cue(161.0, "shake", 0.3)
-	_cue(161.02, "bolts", {"a": U, "h": 1.3}, GOLD, 5, 0.8)
-	_do(U, 161.9, "trigger", "dropkick");_move(U, 161.9, 162.2, Vector3(0.7, 0, 3.1), "dash")
-	_blow(162.15, AL, U, "punch", GOLD, 1.6);_cue(162.15, "frame", Color(1, 1, 1, 0.18), 0.08);_knock(AL, 162.15, 3.6, Vector3(0, 0, 1));_stun(AL, 162.15, 2.1)
-	_cue(162.15, "sfx", "sfx_gold_hit", 0.7, 1.2);_cue(162.55, "dust_ring", {"a": AL}, 1.1);_cue(162.6, "crack", {"a": AL}, 1.4)
-	_slowmo(162.15, 162.55, 0.3)
-	_shot(161.85, {"eye": [Vector3(2.3, 0.35, 2.9), Vector3(2.6, 0.45, 4.2)], "look": {"a": AL, "h": 1.0}, "fov": [52, 48], "hand": 0.8})
-	_do(U, 162.7, "emote", "laugh");_do(U, 162.7, "mood", "laugh")
-	_say(162.6, "Usayuko", "HA HA ! C'est tout ce que t'as, Alice ?!", 0.5, true)
-	_shot(162.6, {"rel": {"a": U}, "eye": [Vector3(0.9, 1.55, 2.4), Vector3(0.85, 1.55, 2.2)], "look": {"a": U, "h": 1.5}, "fov": [34, 32], "hand": 0.4})
-	_do(AL, 164.3, "play", "recover");_do(AL, 165.0, "trigger", "fury");_cue(165.6, "word", "roar", {"a": AL, "h": 2.4}, CRIMSON, 1.1);_cue(165.6, "sfx", "shadow", 0.7, 0.8)
-	_shot(164.2, {"rel": {"a": AL}, "eye": [Vector3(-0.9, 1.25, -2.3), Vector3(-0.8, 1.3, -2.0)], "look": {"a": AL, "h": 1.33}, "fov": [38, 34], "hand": 0.4})
+	_shot(157.4, {"eye": [Vector3(-1.6, 1.2, 0.4), Vector3(-1.5, 1.2, 0.5)], "look": [{"a": S, "h": 0.3}, {"mid": [U, AL], "h": 1.2}], "fov": 44, "hand": 0.3, "ease": "dash"})
+	_shot(157.7, {"eye": [Vector3(2.9, 0.45, 1.2), Vector3(2.7, 0.5, 1.6)], "look": {"mid": [U, AL], "h": 1.15}, "fov": [46, 44], "hand": 0.8})
+	var q0: float = PrologueB.q(0)
+	# Blocage en croix (157,83) : CLANG, étincelles.
+	_cue(q0, "event", "block", {"position": {"a": U}});_cue(q0, "sound", "block", {"a": U});_cue(q0, "shake", 0.3)
+	_cue(q0, "word", "block", {"a": U, "h": 1.7}, PAPER, 0.9);_cue(q0 + 0.02, "bolts", {"a": U, "h": 1.3}, GOLD, 5, 0.7)
+	# Uppercut (158,19), direct (159,65), blocage haut (160,74), poussée (161,47), dropkick (162,19).
+	_pb_blow(PrologueB.q(1), AL, U, "counter", 1.25)
+	_shot(158.9, {"rel": {"a": U}, "eye": [Vector3(0.55, 1.6, -1.1), Vector3(0.5, 1.55, -0.9)], "look": {"a": AL, "h": 1.0}, "fov": [42, 40], "hand": 0.6})
+	_pb_blow(PrologueB.q(5), AL, U, "punch", 1.3)
+	_shot(160.4, {"eye": [Vector3(-3.8, 1.15, 3.9), Vector3(-3.5, 1.05, 4.1)], "look": {"mid": [U, AL], "h": 1.05}, "fov": [42, 40], "hand": 0.5})
+	var q8: float = PrologueB.q(8)
+	_cue(q8, "event", "block", {"position": {"a": U}});_cue(q8, "sound", "block", {"a": U});_cue(q8, "shake", 0.35)
+	_cue(q8, "word", "block", {"a": U, "h": 1.75}, PAPER, 1.0);_cue(q8 + 0.02, "bolts", {"a": U, "h": 1.4}, GOLD, 6, 0.8)
+	_cue(PrologueB.q(9), "bolts", {"a": U, "h": 1.3}, GOLD, 3, 0.5)
+	_cue(PrologueB.q(10), "whoosh", {"a": U, "h": 1.1}, Vector3(0, 0, 1), PAPER, 1.0);_cue(PrologueB.q(10), "sound", "hit", {"a": AL}, 0.6)
+	var kick: float = PrologueB.q(12)
+	_pb_blow(kick, AL, U, "punch", 1.6)
+	_cue(kick, "frame", Color(1, 1, 1, 0.18), 0.08);_cue(kick, "sfx", "sfx_gold_hit", 0.7, 1.2)
+	_slowmo(kick, kick + 0.4, 0.3)
+	_cue(kick + 0.8, "dust_ring", {"a": AL}, 1.1);_cue(kick + 0.82, "crack", {"a": AL}, 1.4);_cue(kick + 0.8, "sfx", "ground_impact", 0.9)
+	_cue(kick + 0.62, "dust_ring", {"a": U}, 0.7)
+	_shot(161.85, {"eye": [Vector3(2.3, 0.35, 2.9), Vector3(2.6, 0.45, 4.2)], "look": {"a": AL, "h": 0.9}, "fov": [52, 48], "hand": 0.8})
+	_say(162.85, "Usayuko", "HA HA ! Même le pion tape plus fort que toi !", 0.5, true)
+	_shot(162.6, {"rel": {"a": U}, "eye": [Vector3(0.9, 1.3, 2.4), Vector3(0.85, 1.45, 2.2)], "look": [{"a": U, "h": 0.9}, {"a": U, "h": 1.4}], "fov": [36, 32], "hand": 0.4, "ease": "smooth"})
+	_cue(165.6, "word", "roar", {"a": AL, "h": 2.4}, CRIMSON, 1.1);_cue(165.6, "sfx", "shadow", 0.7, 0.8);_cue(165.6, "shake", 0.3)
+	_shot(164.2, {"rel": {"a": AL}, "eye": [Vector3(-0.9, 0.9, -2.3), Vector3(-0.8, 1.2, -2.0)], "look": [{"a": AL, "h": 0.5}, {"a": AL, "h": 1.3}], "fov": [38, 34], "hand": 0.4, "ease": "smooth"})
 	var bolt_t: float = 157.0
 	while bolt_t < 181.5:
 		_cue(bolt_t, "bolts", {"a": U, "h": 1.2}, Color("ffe08a"), 2, 0.9)
 		bolt_t += 0.75
 
-	_put(B, Vector3(-5.6, 0, 4.2));_put(E, Vector3(-4.6, 0, 3.0))
-	_face(B, 0.0, "at", E);_face(E, 0.0, "at", B)
-	_do(B, t0, "state", {"second_life": true});_do(B, t0, "mood", "hurt")
-	_do(B, 167.6, "play", "healed");_do(B, 169.0, "mood", "sad")
-	_do(E, t0, "state", {"heal_time": 99.0});_do(E, t0, "mood", "focus")
-	_cue(166.0, "event", "zone", {"position": {"a": B}, "radius": 2.6});_cue(166.0, "sfx", "heal", 0.8)
-	var plus_t: float = 166.0
+	# Elly soigne Bleuette : la main se pose sur la plaie à 167,0.
+	_cue(167.0, "event", "zone", {"position": {"a": B}, "radius": 2.0});_cue(167.0, "sfx", "heal", 0.8)
+	_cue(167.0, "sparkles", {"a": E, "s": "hand_r"}, Color("b9f3f5"), 8, 0.6)
+	var plus_t: float = 167.0
 	while plus_t < 171.0:
-		_cue(plus_t, "pluses", {"a": B, "h": 0.6}, 3)
+		_cue(plus_t, "pluses", {"a": B, "h": 0.5}, 3)
 		plus_t += 0.8
-	_say(166.0, "Elly", "Tiens bon, Bleuette. Personne ne reste en arrière.", 0.3, false, 1.18)
-	_say(169.05, "Bleuette", "J-je vais bien… je crois…", 0.3, false, 1.1)
-	_shot(166.0, {"eye": [Vector3(-2.9, 1.25, 5.3), Vector3(-3.1, 1.2, 5.2)], "look": {"mid": [E, B], "h": 1.15}, "fov": [42, 40], "hand": 0.3})
-	_shot(168.9, {"rel": {"a": B}, "eye": [Vector3(1.3, 1.2, -0.1), Vector3(1.2, 1.2, -0.05)], "look": {"a": B, "h": 1.15}, "fov": [32, 30], "hand": 0.3})
+	_say(166.0, "Elly", "Bouge pas, Bleuette. Ça va piquer un peu.", 0.3, false, 1.18)
+	_say(169.05, "Bleuette", "A-aïe… N-non, ça va. Ça va.", 0.3, false, 1.1)
+	_shot(166.0, {"eye": [Vector3(-2.9, 0.95, 5.3), Vector3(-3.1, 0.9, 5.2)], "look": {"mid": [E, B], "h": 0.62}, "fov": [42, 40], "hand": 0.3})
+	# Bleuette par-dessus l'épaule d'Elly.
+	_shot(168.9, {"eye": [Vector3(-5.06, 0.98, 3.06), Vector3(-5.04, 0.98, 3.1)], "look": {"a": B, "h": 0.68}, "fov": [30, 28], "hand": 0.3})
 
-	_put(L, Vector3(6.0, 0, 5.6));_face(L, 0.0, "dir", Vector3(-1, 0, -0.2))
-	_do(L, t0, "state", {"outlet_healing": 99.0, "second_life": true});_do(L, t0, "mood", "hurt")
 	_key("lysia_spark", 0.0, 0.0);_key("lysia_spark", t0, 1.0, "jump");_key("lysia_spark", 181.6, 1.0);_key("lysia_spark", 181.7, 0.0)
 	var spark_t: float = 155.0
 	while spark_t < 181.0:
-		_cue(spark_t, "bolts", {"a": L, "h": 1.15}, Color("9ff0ff"), 2, 0.5)
+		_cue(spark_t, "bolts", {"a": L, "s": "hand_l"}, Color("9ff0ff"), 2, 0.5)
 		spark_t += 0.55
 	_cue(171.2, "event", "overheat", {"position": {"a": L}, "active": true})
-	_say(171.22, "Lysia", "Armure à 40 %… Je tiens encore.", 0.3, false, 1.3)
-	# Lysia à genoux, tête basse : elle relève la tête vers la caméra (basse, face à elle) pour parler.
-	_do(L, 170.9, "state", {"look_up": 0.55});_do(L, 173.6, "unset", ["look_up"])
-	_shot(171.1, {"rel": {"a": L}, "eye": [Vector3(-2.2, 0.55, 0.75), Vector3(-2.0, 0.56, 0.62)], "look": {"a": L, "h": 0.78}, "fov": [38, 36], "hand": 0.3})
+	_cue(172.78, "bolts", {"a": L, "h": 0.9}, Color("9ff0ff"), 6, 0.8);_cue(172.78, "sound", "hit", {"a": L}, 0.4)
+	_say(171.22, "Lysia", "Armure à 40 %. Bras gauche… hors ligne. Je tiens.", 0.3, false, 1.3)
+	_shot(171.1, {"rel": {"a": L}, "eye": [Vector3(-2.2, 0.55, 0.75), Vector3(-2.0, 0.56, 0.62)], "look": {"a": L, "h": 0.72}, "fov": [38, 36], "hand": 0.3})
 
-	_face(U, 173.6, "at", S);_do(U, 173.6, "mood", "surprise");_do(U, 173.6, "emote", "")
-	_say(173.72, "Usayuko", "SIMON ?! T'étais passé où, toi ?!", 0.4, true)
-	_shot(173.65, {"rel": {"a": U}, "eye": [Vector3(-1.9, 1.55, -1.3), Vector3(-1.8, 1.55, -1.2)], "look": {"a": U, "h": 1.5}, "fov": [36, 34], "hand": 0.3})
-	_do(S, 174.5, "life", "alive");_do(S, 174.5, "play", "recover");_do(S, 174.5, "mood", "tired");_face(S, 174.5, "at", U)
-	_do(S, 175.7, "mood", "determined")
-	_say(175.88, "Simon", "…Longue histoire. Je suis avec toi !", 0.3)
+	_say(173.72, "Usayuko", "SIMON ?! Mais t'étais où, toi ?!", 0.4, true)
+	_shot(173.65, {"rel": {"a": U}, "eye": [Vector3(-1.9, 1.5, -1.3), Vector3(-1.8, 1.5, -1.2)], "look": {"a": U, "h": 1.4}, "fov": [36, 34], "hand": 0.3})
+	_say(175.88, "Simon", "Plus tard. D'abord, on la dégage !", 0.3)
 	_key("gold_s", 153.0, 0.0);_key("gold_s", 177.35, 0.0);_key("gold_s", 177.7, 0.9, "out");_key("gold_s", 178.9, 1.2);_key("gold_s", 179.0, 1.2)
 	_cue(177.4, "sparkles", {"a": S, "s": "hand_r"}, GOLD, 6, 0.4);_cue(177.4, "sfx", "sfx_ignite", 0.55, 1.4)
-	_shot(175.75, {"rel": {"a": S}, "eye": [Vector3(0.9, 1.32, 1.7), Vector3(0.85, 1.34, 1.5)], "look": {"a": S, "h": 1.36}, "fov": [34, 32], "hand": 0.3})
-	_shot(177.3, {"rel": {"a": S}, "eye": [Vector3(0.75, 1.05, 1.1), Vector3(0.7, 1.05, 1.0)], "look": {"a": S, "s": "hand_r"}, "fov": [30, 28], "hand": 0.3})
+	_shot(175.75, {"rel": {"a": S}, "eye": [Vector3(0.9, 1.1, 1.7), Vector3(0.85, 1.12, 1.5)], "look": {"a": S, "h": 1.08}, "fov": [34, 32], "hand": 0.3})
+	_shot(177.3, {"rel": {"a": S}, "eye": [Vector3(0.75, 0.95, 1.1), Vector3(0.7, 0.95, 1.0)], "look": {"a": S, "s": "hand_r"}, "fov": [30, 28], "hand": 0.3})
 
-	_face(AL, 177.6, "at", S)
-	_do(S, 177.83, "state", {"speed_boost": 3.0});_face(S, 177.83, "move");_move(S, 177.88, 178.73, Vector3(0.1, 0, 6.4), "dash")
-	_face(U, 178.03, "at", AL);_do(U, 178.03, "mood", "angry");_move(U, 178.08, 178.68, Vector3(1.5, 0, 7.2), "dash")
-	_do(S, 178.68, "trigger", "flash punch");_do(U, 178.68, "trigger", "punch")
-	_face(S, 178.63, "at", AL)
-	_blow(178.95, AL, S, "punch", GOLD, 1.6)
-	_flash(178.95, Color(1, 1, 1, 0.45), 0.04, 0.3)
-	_cue(178.95, "sfx", "sfx_gold_hit", 1.0);_cue(178.95, "frame", Color(1, 1, 1, 0.22), 0.1)
+	# Coup double (178,95, accent de la musique) puis arrêt sur image façon case de BD.
+	var hit: float = PrologueB.T_DOUBLE
+	_pb_blow(hit, AL, S, "punch", 1.6)
+	_cue(hit, "pop", {"a": AL, "h": 1.2, "o": Vector3(-0.4, 0, 0)}, Vector3(-1, 0, 0), GOLD, 1.2)
+	_flash(hit, Color(1, 1, 1, 0.45), 0.04, 0.3)
+	_cue(hit, "sfx", "sfx_gold_hit", 1.0);_cue(hit, "frame", Color(1, 1, 1, 0.22), 0.1)
 	_slowmo(179.01, 181.7, 0.0)
 	_flash(179.03, Color(1.0, 0.96, 0.86, 0.14), 2.55, 0.05)
-	_shot(177.85, {"eye": [Vector3(-3.4, 0.5, 2.4), Vector3(-3.2, 0.55, 3.0)], "look": {"mid": [S, AL], "h": 1.1}, "fov": [50, 46], "hand": 0.6})
-	_shot(178.83, {"eye": [Vector3(2.7, 0.65, 4.4), Vector3(2.8, 0.7, 4.6)], "look": {"a": AL, "h": 1.2}, "fov": [44, 42], "hand": 0.0})
+	_shot(177.85, {"eye": [Vector3(-3.4, 0.5, 2.4), Vector3(-3.2, 0.55, 3.0)], "look": {"mid": [S, AL], "h": 1.0}, "fov": [50, 46], "hand": 0.6})
+	_shot(178.83, {"eye": [Vector3(2.7, 0.65, 4.4), Vector3(2.8, 0.7, 4.6)], "look": {"a": AL, "h": 1.1}, "fov": [44, 42], "hand": 0.0})
 	_cue(184.6, "sfx", "sfx_title", 1.2)
 	_cue(190.4, "sfx", "sfx_laugh", 0.6, 0.85)
+
+
+# Un coup qui porte, version film : effets BD et son (comme PaperCinema._blow) mais sans réaction ni
+# arrêt de jeu sur les corps — la réaction est écrite dans les clips.
+func _pb_blow(t: float, victim: int, from: int, word_key: String, weight: float = 1.0) -> void :
+	var toward: Vector3 = (_spots[from] - _spots[victim])
+	toward.y = 0.0
+	toward = toward.normalized() if toward.length_squared() > 0.001 else Vector3(0, 0, -1)
+	_cue(t, "pop", {"a": victim, "h": 1.15, "o": toward * 0.4}, toward, GOLD, weight)
+	_cue(t, "word", word_key, {"a": victim, "h": 1.8, "o": toward * 0.3}, GOLD.lerp(PAPER, 0.35), 0.95 * weight)
+	_cue(t, "stars", {"a": victim, "s": "over"}, 3)
+	_cue(t, "sound", "hit", {"a": victim})
+	_cue(t, "shake", 0.38 * weight)
+	_cue(t, "impact", 0.6 * weight, true)
 
 
 # Ondes dans l'encre sous les pas de Simon et d'Ashura.

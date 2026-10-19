@@ -18,7 +18,8 @@ const AnimClip = preload("res://anim_clip.gd")
 
 # Ralentis du film dans cette partie : [début, fin, facteur]. L'arrêt sur image (facteur 0) : les clips y
 # tiennent leur pose (le jeu avance encore d'1/240 s par image pendant un ralenti nul).
-const SLOW: Array = [[149.2, 150.6, 0.3], [162.15, 162.55, 0.3], [179.01, 181.7, 0.0]]
+# (Dropkick : q(12) = 157,83 + 12 × 0,3636 = 162,1932.)
+const SLOW: Array = [[149.2, 150.6, 0.3], [162.1932, 162.5932, 0.3], [179.01, 181.7, 0.0]]
 
 # Mesures des squelettes (tools/pb_probe.gd), en unités du modèle : portée de jambe (hanche → cheville),
 # échelle (unités → mètres), hauteur du bassin au repos, hauteur des hanches, demi-écart des hanches,
@@ -113,6 +114,8 @@ class Clip:
 	var fade_in: float = 0.0
 	# Canal → retard (s, temps du film) : la tête, les mains et les doigts arrivent après le corps.
 	var lag: Dictionary = {}
+	# Abaisse le bassin là où une jambe d'appui serait trop tendue (pied qui ne toucherait plus le sol).
+	var clamp_legs: bool = true
 
 	func _init(who: String, clip_name: String, t0: float, t1: float) -> void :
 		person = who;name = clip_name;start = t0;end = t1
@@ -158,12 +161,104 @@ static func finish(k: Clip) -> void :
 		for d: float in delayed: keys.append(_key(scaled(t + d) - origin, delayed[d], flag))
 	keys.sort_custom( func(a: Array, b: Array) -> bool: return float(a[0]) < float(b[0]))
 	var length: float = maxf(0.05, scaled(k.end) - origin)
+	if k.clamp_legs: keys = _clamp_legs(k.person, keys, length)
 	_clips[k.name] = {"len": length, "in": k.fade_in, "out": 0.0, "face": k.face, "keys": keys}
+	# Trajectoire et orientation du personnage pendant le clip, pour le banc (tools/pb_pose.gd --pb-path).
+	if _plans.has(k.person) and not (_plans[k.person].points as Array).is_empty():
+		var path: Array = []
+		var t: float = k.start
+		while t <= k.end + 0.0001:
+			path.append([scaled(t) - origin, root(k.person, t), yaw(k.person, t)])
+			t += 1.0 / 30.0
+		_clips[k.name]["pb_path"] = path
 	_plays.append([k.start, k.person, k.name])
 
 
 static func _key(t: float, pose: Dictionary, flag: String) -> Array:
 	return [t, pose] if flag.is_empty() else [t, pose, flag]
+
+
+# Garde-fou des jambes : échantillonne le clip compilé au 1/60 s ; quand les pieds sont posés (plant)
+# et qu'une cheville est plus loin de sa hanche que 97 % de la jambe, le bassin descend juste ce qu'il
+# faut (correction lissée sur ±0,08 s), et la piste « hips » est réécrite à ces instants.
+static func _clamp_legs(person: String, keys: Array, length: float) -> Array:
+	var clip_data: Dictionary = AnimClip.compile({"len": length, "keys": keys})
+	var channels: Dictionary = clip_data.channels
+	if not channels.has("hips") or not (channels.has("foot_l") or channels.has("foot_r")): return keys
+	var rig: Dictionary = RIG[person]
+	var reach: float = float(rig.reach)
+	var limit: float = reach * 0.97
+	var step: float = 1.0 / 60.0
+	var count: int = int(ceil(length / step)) + 1
+	var need: PackedFloat32Array = PackedFloat32Array()
+	need.resize(count)
+	var any: bool = false
+	for i: int in range(count):
+		var t: float = minf(length, float(i) * step)
+		var plant: float = float(AnimClip.sample(channels.plant, t, false, length)) if channels.has("plant") else 1.0
+		need[i] = 0.0
+		if plant < 0.5: continue
+		var body_q: Quaternion = Quaternion.from_euler(AnimClip.sample(channels.body, t, false, length)) if channels.has("body") else Quaternion.IDENTITY
+		var hip_offset: Vector3 = (AnimClip.sample(channels.hips, t, false, length) as Vector3) * reach
+		var pelvis: Vector3 = Vector3(0.0, float(rig.base), 0.0) + hip_offset
+		for side: int in [-1, 1]:
+			var channel: String = "foot_l" if side < 0 else "foot_r"
+			if not channels.has(channel): continue
+			var rest: Vector3 = rig.foot_l if side < 0 else rig.foot_r
+			var ankle: Vector3 = rest + (AnimClip.sample(channels[channel], t, false, length) as Vector3) * reach
+			var hip: Vector3 = pelvis + body_q * Vector3(float(rig.hip_x) * float(side), float(rig.hip_y) - float(rig.base), 0.0)
+			var d: Vector3 = ankle - hip
+			if d.length() <= limit: continue
+			var flat: float = Vector2(d.x, d.z).length()
+			if flat >= limit * 0.995: flat = limit * 0.995
+			var drop: float = - d.y - sqrt(limit * limit - flat * flat)
+			if drop > need[i]:
+				need[i] = drop
+				any = true
+	if not any: return keys
+	# Lissage : la correction à un instant vaut le maximum voisin (±0,08 s) adouci en cloche.
+	var window: int = int(0.08 / step)
+	var smooth: PackedFloat32Array = PackedFloat32Array()
+	smooth.resize(count)
+	for i: int in range(count):
+		var best: float = 0.0
+		for j: int in range(maxi(0, i - window), mini(count, i + window + 1)):
+			var w: float = 1.0 - absf(float(j - i)) / float(window + 1)
+			best = maxf(best, need[j] * (0.5 + 0.5 * w))
+		smooth[i] = best
+	var result: Array = []
+	for key: Array in keys:
+		var pose: Dictionary = key[1]
+		if not pose.has("hips"):
+			result.append(key)
+			continue
+		var t: float = float(key[0])
+		var i: int = clampi(int(round(t / step)), 0, count - 1)
+		if smooth[i] <= 0.0005 and _span_clear(smooth, i, window):
+			result.append(key)
+			continue
+		var copy: Array = key.duplicate()
+		var changed: Dictionary = pose.duplicate()
+		changed["hips"] = (pose["hips"] as Vector3) - Vector3(0.0, smooth[i] / reach, 0.0)
+		copy[1] = changed
+		result.append(copy)
+	# Clés de bassin supplémentaires là où la correction varie entre deux clés existantes.
+	var hips_times: Dictionary = {}
+	for key: Array in result:
+		if (key[1] as Dictionary).has("hips"): hips_times[int(round(float(key[0]) / step))] = true
+	for i: int in range(0, count, 3):
+		if smooth[i] <= 0.0005 or hips_times.has(i): continue
+		var t: float = float(i) * step
+		var base_hips: Vector3 = AnimClip.sample(channels.hips, t, false, length)
+		result.append([t, {"hips": base_hips - Vector3(0.0, smooth[i] / reach, 0.0)}])
+	result.sort_custom( func(a: Array, b: Array) -> bool: return float(a[0]) < float(b[0]))
+	return result
+
+
+static func _span_clear(values: PackedFloat32Array, i: int, window: int) -> bool:
+	for j: int in range(maxi(0, i - window), mini(values.size(), i + window + 1)):
+		if values[j] > 0.0005: return false
+	return true
 
 
 
@@ -538,9 +633,9 @@ static func _flee_run(k: Clip) -> void :
 	var style: Dictionary = {
 		"period": [[124.7, 0.27], [125.0, 0.215], [125.4, CHASE_STEP]],
 		"duty": [[124.7, 0.62], [125.2, 0.48], [125.8, 0.38], [126.4, 0.36], [140.1, 0.36], [140.8, 0.31]],
-		"lean": [[124.7, 0.62], [125.3, 0.55], [126.2, 0.42], [131.9, 0.4], [132.05, 0.22], [132.5, 0.4], [140.1, 0.42], [140.6, 0.82], [149.2, 0.86]],
-		"chest": [[124.7, 0.2], [126.2, 0.08], [131.95, -0.12], [132.4, 0.06], [140.1, 0.06], [140.6, 0.28], [149.2, 0.3]],
-		"head": [[124.7, 0.4], [126.2, 0.36], [140.1, 0.38], [140.6, 0.78], [149.2, 0.8]],
+		"lean": [[124.7, 0.66], [125.3, 0.62], [126.2, 0.52], [131.9, 0.5], [132.05, 0.26], [132.5, 0.5], [140.1, 0.52], [140.6, 0.86], [149.2, 0.9]],
+		"chest": [[124.7, 0.2], [126.2, 0.1], [131.95, -0.12], [132.4, 0.08], [140.1, 0.08], [140.6, 0.28], [149.2, 0.3]],
+		"head": [[124.7, 0.5], [126.2, 0.5], [140.1, 0.5], [140.6, 0.85], [149.2, 0.88]],
 		"kick": [[124.7, 0.22], [125.5, 0.38], [126.4, 0.44], [140.1, 0.44], [140.6, 0.5]],
 		"knee": [[124.7, 0.26], [125.5, 0.32], [126.4, 0.34], [140.1, 0.34], [140.6, 0.38]],
 		"drop": [[124.7, 0.1], [125.5, 0.07], [126.4, 0.055], [140.1, 0.055], [140.6, 0.065]],
@@ -867,14 +962,14 @@ static func run(k: Clip, r: Dictionary) -> Array:
 		var sonic: float = curve(r.get("sonic", [[0.0, 0.0]]), tc)
 		var fore: int = - s
 		var arm_t: float = tc + 0.03
-		var lead: Vector3 = Vector3(0.05, -0.12, 0.55).lerp(Vector3(0.32, 0.12 + 0.1 * jitter, 0.45), panic)
-		var back: Vector3 = Vector3(0.16, -0.55, -0.38).lerp(Vector3(0.35, -0.35, -0.5), panic)
+		var lead: Vector3 = Vector3(0.08, 0.0, 0.72).lerp(Vector3(0.4, 0.3 + 0.12 * jitter, 0.5), panic)
+		var back: Vector3 = Vector3(0.2, -0.55, -0.6).lerp(Vector3(0.46, -0.22 - 0.1 * jitter, -0.62), panic)
 		var tail_l: Vector3 = Vector3(0.28, -0.42, -0.86 + 0.03 * float(fore))
 		var tail_r: Vector3 = Vector3(0.28, -0.42, -0.86 - 0.03 * float(fore))
 		var hand_fore: Vector3 = lead.lerp(tail_l if fore < 0 else tail_r, sonic)
 		var hand_back: Vector3 = back.lerp(tail_r if fore < 0 else tail_l, sonic)
 		var arms: Dictionary = {}
-		var flare: float = lerpf(0.15, 0.45, panic)
+		var flare: float = lerpf(0.2, 0.55, panic)
 		if fore < 0:
 			arms = M([Lt(hand_fore.x, hand_fore.y, hand_fore.z, flare), Rt(hand_back.x, hand_back.y, hand_back.z, flare)])
 		else:
@@ -886,8 +981,578 @@ static func run(k: Clip, r: Dictionary) -> Array:
 		k.keys.append([arm_t, arms])
 	return steps_out
 
+# --- Acte VII : l'école (153 → 182 s) -----------------------------------------------------------------
+
+# Accents de la musique de la bagarre (165 bpm) : une noire toutes les 0,3636 s depuis 157,83 s.
+const FIGHT_GRID: float = 157.83
+const FIGHT_STEP: float = 0.3636
+
+static func q(n: float) -> float:
+	return FIGHT_GRID + FIGHT_STEP * n
+
+# Repères de la scène (repère du film de l'école).
+const U_SPOT: Vector3 = Vector3(0.7, 0.0, 2.6)
+const AL_SPOT: Vector3 = Vector3(0.7, 0.0, 4.6)
+const B_SPOT: Vector3 = Vector3(-5.6, 0.0, 4.2)
+const E_SPOT: Vector3 = Vector3(-5.12, 0.0, 3.62)
+const L_SPOT: Vector3 = Vector3(6.0, 0.0, 5.6)
+const S_LAND: Vector3 = Vector3(-2.6, 0.0, -2.5)
+# Coup double : Alice reçoit les deux poings à 178,95 (accent de la musique) ; arrêt sur image à 179,01.
+const T_DOUBLE: float = 178.95
+
 static func _school() -> void :
-	pass
+	_school_usayuko()
+	_school_alice()
+	_school_simon()
+	_school_elly()
+	_school_bleuette()
+	_school_lysia()
+
+
+# Pied (repère du personnage, mètres) → repère du film à l'instant t.
+static func spot_at(person: String, t: float, local: Vector3) -> Vector3:
+	var p: Vector3 = to_film(person, t, local)
+	p.y = 0.0
+	return p
+
+
+# Garde d'Usayuko (poings serrés, coude gauche devant) ; open = 1 : mains ouvertes, bras écartés.
+static func u_guard(lead: float = 0.0, high: float = 0.0) -> Dictionary:
+	return M([Lt(-0.02, 0.28 + high, 0.62 + lead, 0.25), Rt(-0.1, 0.22 + high, 0.36, 0.3), WL(-0.2, 0.3), WR(-0.2, -0.3), {"curl": 1.0, "curl_l": 1.0}])
+
+
+# Usayuko contre Alice : garde sautillante, blocage en croix (157,83), contre en uppercut (158,19), esquive
+# rotative et direct du droit (159,65), blocage haut de la double griffe (160,74), poussée (161,47),
+# dropkick (162,19, ralenti), réception accroupie, fou rire ; il garde Alice à l'œil, remarque Simon
+# (173,6), puis fonce et frappe avec lui (178,95).
+static func _school_usayuko() -> void :
+	var who: String = "Usayuko"
+	put(who, U_SPOT)
+	face(who, 0.0, Vector3(0, 0, 1))
+	# Trajectoire : recul au blocage, pas en avant pour le contre, retour, glissade au 2e blocage,
+	# petit saut arrière, élan du dropkick, réception, puis la charge finale.
+	move(who, q(0), q(0) + 0.2, U_SPOT + Vector3(0, 0, -0.22), "out")
+	move(who, q(0.3), q(1), U_SPOT + Vector3(0, 0, 0.12), "smooth")
+	move(who, q(2.2), q(3.2), U_SPOT + Vector3(0, 0, -0.05), "smooth")
+	move(who, q(4.6), q(5), U_SPOT + Vector3(0, 0, 0.35), "smooth")
+	move(who, q(6), q(7), U_SPOT + Vector3(0, 0, 0.1), "smooth")
+	move(who, q(8), q(8) + 0.2, U_SPOT + Vector3(0, 0, -0.12), "out")
+	move(who, q(10), q(10.4), U_SPOT + Vector3(0, 0, 0.05), "smooth")
+	move(who, q(10.5), q(10.85), U_SPOT + Vector3(0, 0, -0.35), "smooth")
+	move(who, q(10.9), q(11.2), U_SPOT + Vector3(0, 0, 0.4), "in")
+	move(who, q(11.2), q(12), U_SPOT + Vector3(0, 0, 1.45), "linear")
+	# Ralenti 162,19 → 162,59 : il rebondit sur Alice et retombe.
+	move(who, q(12), q(12) + 0.4, U_SPOT + Vector3(0, 0, 1.3), "linear")
+	move(who, q(12) + 0.4, q(12) + 0.62, U_SPOT + Vector3(0, 0, 1.05), "out")
+	var k: Clip = clip(who, "pb_usayuko_fight", 153.0, 166.0, "grin")
+	k.lag = {"head": 0.05, "ik_l": 0.04, "ik_r": 0.04, "curl": 0.05, "curl_l": 0.05}
+	var feet: Dictionary = {-1: spot_at(who, 153.0, Vector3(-0.14, 0, -0.16)), 1: spot_at(who, 153.0, Vector3(0.16, 0, 0.2))}
+	at(k, 153.0, [base(), {"hips": hips(who, Vector3(0.0, -0.07, 0.0))}, B(0.12, -0.35, 0.0), C(0.06, 0.1, 0.0), HD(-0.02, 0.22, 0.0), u_guard(), {"fp_r": -0.3}, FACE("grin")])
+	# Sautille sur la musique (avant le combat, hors champ) : un rebond par noire.
+	var n: float = -12.0
+	while q(n) < q(-0.6):
+		var t: float = q(n)
+		if t > 153.05:
+			at(k, t, [{"hips": hips(who, Vector3(0.0, -0.09, 0.0))}, C(0.08, 0.1 + 0.03 * sin(n), 0.0), u_guard(0.0, -0.02)])
+			at(k, t + 0.17, [{"hips": hips(who, Vector3(0.0, -0.045, 0.0))}, C(0.04, 0.08, 0.0), u_guard(0.02, 0.02)])
+		n += 1.0
+	# 157,6 : la griffe arrive, il croise les avant-bras devant le visage.
+	at(k, q(-0.6), [{"hips": hips(who, Vector3(0.0, -0.08, 0.0))}, B(0.1, -0.3), C(0.05, 0.08), HD(0.0, 0.2), u_guard()])
+	at(k, q(-0.15), [{"hips": hips(who, Vector3(0.0, -0.12, 0.02))}, B(0.18, -0.1), C(0.12, 0.0), HD(-0.05, 0.05), Lt(0.12, 0.62, 0.42, 0.6), Rt(0.08, 0.55, 0.45, 0.6), WL(0.6, 0.8), WR(0.6, -0.8), {"curl": 1.0, "curl_l": 1.0}, FACE("determined")])
+	# CLANG (157,83) : l'impact l'écrase, il glisse en arrière ; puis il rit à travers sa garde.
+	at(k, q(0), [{"hips": hips(who, Vector3(0.0, -0.16, 0.05))}, B(0.05, -0.08), C(-0.04, 0.0), HD(-0.12, 0.05, 0.05), Lt(0.14, 0.58, 0.36, 0.6), Rt(0.1, 0.52, 0.38, 0.6), {"sq": 0.95}], "s")
+	at(k, q(0) + 0.07, [{"hips": hips(who, Vector3(0.0, -0.13, 0.04))}, C(0.0, 0.0), HD(-0.05, 0.05, 0.03), {"sq": 1.0}, FACE("grin")])
+	# Il chasse la griffe vers le haut du bras gauche, armé du droit…
+	at(k, q(0.3), [{"hips": hips(who, Vector3(0.0, -0.13, 0.0))}, B(0.08, 0.35, 0.0), C(0.0, 0.3), HD(0.05, -0.15), Lt(0.2, 0.95, 0.45, 0.5), Rt(0.05, -0.3, 0.05, 0.4), WR(0.2), {"curl_l": 0.6}])
+	# … et remonte en uppercut sur le menton (158,19), tout le corps tourne et se redresse.
+	at(k, q(0.75), [{"hips": hips(who, Vector3(0.0, -0.2, 0.0))}, B(0.22, 0.5, 0.05), C(0.18, 0.45), HD(-0.05, -0.3), Rt(0.0, -0.45, 0.25, 0.3), {"sq": 0.95, "ev": "effort"}])
+	at(k, q(1), [{"hips": hips(who, Vector3(0.0, -0.02, 0.0))}, B(-0.08, -0.45, -0.05), C(-0.15, -0.45), HD(0.1, 0.35), Rt(0.05, 0.95, 0.45, 0.2), WR(0.4), Lt(0.15, 0.3, 0.3, 0.4), {"curl": 1.0, "sq": 1.07, "fp_r": -0.8, "ev": "grunt"}, FACE("angry")], "s")
+	at(k, q(1) + 0.1, [{"hips": hips(who, Vector3(0.0, -0.03, 0.0))}, B(-0.06, -0.5, -0.04), C(-0.12, -0.48), HD(0.12, 0.35), Rt(0.08, 0.92, 0.4, 0.2), {"sq": 1.0}])
+	# Il retombe en garde en riant, sautille.
+	at(k, q(2), [{"hips": hips(who, Vector3(0.0, -0.08, 0.0))}, B(0.1, -0.3), C(0.04, 0.05), HD(0.05, 0.2, 0.08), u_guard(0.05), {"fp_r": -0.3}, FACE("laugh")])
+	at(k, q(2.5), [{"hips": hips(who, Vector3(0.0, -0.05, 0.0))}, C(0.02, 0.08), HD(0.08, 0.22, -0.05), u_guard(0.0, 0.03)])
+	at(k, q(3), [{"hips": hips(who, Vector3(0.0, -0.09, 0.0))}, C(0.08, 0.06), HD(0.0, 0.2), u_guard(), FACE("grin")])
+	# Alice plonge sur ses jambes (159,28) : il esquive en rotation, tête hors de la ligne…
+	at(k, q(3.6), [{"hips": hips(who, Vector3(0.0, -0.1, 0.0))}, B(0.15, -0.35), C(0.1, 0.1), HD(-0.05, 0.25), u_guard(0.0, -0.05), FACE("focus")])
+	at(k, q(4.25), [{"hips": hips(who, Vector3(0.1, -0.18, 0.02))}, B(0.3, -0.15, -0.25), C(0.15, -0.1, -0.2), HD(-0.1, 0.1, 0.15), u_guard(-0.1, -0.05), {"sq": 0.96}])
+	# … et sort le direct du droit (159,65) : bras tendu, épaule devant, pied arrière qui pivote.
+	at(k, q(4.7), [{"hips": hips(who, Vector3(0.04, -0.14, 0.0))}, B(0.2, -0.45, -0.1), C(0.1, -0.2, -0.05), HD(-0.05, 0.3), Rt(-0.05, 0.12, 0.3, 0.35), {"ev": "effort"}])
+	at(k, q(5), [{"hips": hips(who, Vector3(-0.03, -0.1, -0.06))}, B(0.22, 0.45, 0.05), C(0.12, 0.42), HD(-0.05, -0.25), Rt(-0.18, 0.28, 0.98, 0.1), WR(0.0), Lt(0.05, 0.25, 0.25, 0.4), {"curl": 1.0, "fp_r": -0.9, "sq": 1.04, "ev": "grunt"}, FACE("angry")], "s")
+	at(k, q(5) + 0.1, [B(0.2, 0.42, 0.04), Rt(-0.16, 0.26, 0.94, 0.1), {"sq": 1.0}])
+	at(k, q(6), [{"hips": hips(who, Vector3(0.0, -0.08, 0.0))}, B(0.1, -0.3), C(0.05, 0.06), HD(0.05, 0.2), u_guard(), {"fp_r": -0.3}, FACE("grin")])
+	at(k, q(6.5), [{"hips": hips(who, Vector3(0.0, -0.05, 0.0))}, HD(0.1, 0.25, 0.1), u_guard(0.03, 0.02), FACE("laugh")])
+	# Double griffe d'Alice (160,74) : blocage haut, les genoux encaissent, il glisse.
+	at(k, q(7.4), [{"hips": hips(who, Vector3(0.0, -0.1, 0.0))}, B(0.12, -0.2), C(0.05, 0.0), HD(0.0, 0.1), u_guard(0.0, 0.05), FACE("focus")])
+	at(k, q(7.85), [{"hips": hips(who, Vector3(0.0, -0.14, 0.0))}, B(0.15, 0.0), C(0.05, 0.0), HD(-0.12, 0.0), Lt(0.18, 0.9, 0.32, 0.7), Rt(0.15, 0.88, 0.34, 0.7), WL(0.7, 0.6), WR(0.7, -0.6), {"curl": 1.0, "curl_l": 1.0}])
+	at(k, q(8), [{"hips": hips(who, Vector3(0.0, -0.24, 0.06))}, B(0.06, 0.0), C(-0.05, 0.0), HD(-0.2, 0.0), Lt(0.2, 0.8, 0.26, 0.7), Rt(0.17, 0.78, 0.28, 0.7), {"sq": 0.93, "shake": 0.5}, FACE("pain")], "s")
+	# Bras contre griffes : il force… et sourit.
+	at(k, q(9), [{"hips": hips(who, Vector3(0.0, -0.22, 0.04))}, B(0.1, 0.0), C(0.02, 0.0), HD(-0.1, 0.0), Lt(0.2, 0.84, 0.3, 0.7), Rt(0.17, 0.82, 0.3, 0.7), {"sq": 1.0, "shake": 0.7}, FACE("grin")])
+	# Poussée (161,47) : il la repousse des deux bras.
+	at(k, q(9.75), [{"hips": hips(who, Vector3(0.0, -0.26, 0.05))}, B(0.2, 0.0), C(0.15, 0.0), HD(-0.08, 0.0), Lt(0.15, 0.55, 0.2, 0.6), Rt(0.12, 0.55, 0.22, 0.6), {"shake": 0.3, "sq": 0.95}])
+	at(k, q(10), [{"hips": hips(who, Vector3(0.0, -0.1, -0.03))}, B(0.28, 0.0), C(0.1, 0.0), HD(0.05, 0.0), Lt(0.1, 0.45, 0.95, 0.2), Rt(0.1, 0.45, 0.95, 0.2), WL(-0.8), WR(-0.8), {"curl": 0.1, "curl_l": 0.1, "shake": 0.0, "sq": 1.05, "ev": "effort"}, FACE("angry")], "s")
+	# Petit saut en arrière, élan, envol : dropkick, les deux pieds dans la poitrine d'Alice (162,19).
+	at(k, q(10.5), [{"hips": hips(who, Vector3(0.0, -0.06, 0.0))}, B(0.05, -0.2), C(0.0, 0.0), HD(0.1, 0.1), u_guard(), {"sq": 1.0}, FACE("laugh")])
+	at(k, q(10.85), [{"hips": hips(who, Vector3(0.0, -0.18, 0.0))}, B(0.3, 0.0), C(0.15), HD(0.2), Lt(0.3, -0.3, -0.3, 0.4), Rt(0.3, -0.3, -0.3, 0.4), {"curl": 0.8, "curl_l": 0.8, "sq": 0.94}, FACE("grin")])
+	at(k, q(11), [{"plant": 1.0, "hips": hips(who, Vector3(0.0, -0.1, 0.0))}, B(0.15, 0.0), C(0.05), HD(0.15), Lt(0.4, 0.3, 0.2, 0.6), Rt(0.4, 0.3, 0.2, 0.6), {"sq": 1.06, "ev": "effort"}])
+	at(k, q(11.35), [{"plant": 0.0, "hips": hips(who, Vector3(0.0, 0.25, 0.0))}, B(-0.7, 0.0, 0.0), C(-0.1), HD(0.55), TL(1.5, 0.08), KL(1.6, 0.4), TR(1.45, 0.1), KR(1.7, 0.4), Lt(0.5, 0.0, -0.1, 0.6), Rt(0.5, 0.05, -0.1, 0.6), {"sq": 1.0}])
+	at(k, q(11.85), [{"hips": hips(who, Vector3(0.0, 0.32, 0.0))}, B(-1.15, 0.0, 0.1), C(-0.15), HD(0.85), TL(1.55, 0.06), KL(0.15, 0.6), TR(1.5, 0.08), KR(0.2, 0.6), Lt(0.6, -0.1, -0.2, 0.7), Rt(0.6, -0.05, -0.2, 0.7), {"ev": "grunt"}, FACE("angry")])
+	at(k, q(12), [{"hips": hips(who, Vector3(0.0, 0.3, 0.0))}, B(-1.25, 0.0, 0.1), C(-0.12), HD(0.9), TL(1.45, 0.06), KL(0.25, 0.5), TR(1.42, 0.08), KR(0.3, 0.5), {"sq": 0.94}], "s")
+	# Ralenti : il rebondit sur elle, se retourne en l'air et retombe accroupi, une main au sol.
+	at(k, q(12) + 0.4, [{"hips": hips(who, Vector3(0.0, 0.25, 0.0))}, B(-0.6, 0.0, 0.2), C(0.0), HD(0.5), TL(1.2, 0.1), KL(1.3, 0.3), TR(1.0, 0.12), KR(1.4, 0.3), Lt(0.55, 0.1, 0.3, 0.6), Rt(0.55, 0.3, 0.2, 0.6), {"sq": 1.0}, FACE("grin")])
+	at(k, q(12) + 0.62, [{"plant": 0.0, "gsnap": 1.0}, H(0, 0, 0), B(0.55, 0.0, 0.0), C(0.2), HD(0.4), TL(1.95, 0.25), KL(2.3, -0.4), TR(1.75, 0.3), KR(2.25, -0.4), Lg(0.15, 0.35), Rt(0.4, 0.2, 0.2, 0.6), {"sq": 0.92, "fx": "dust"}, FACE("laugh")], "s")
+	at(k, q(12) + 0.8, [B(0.45), C(0.12), HD(0.45), {"sq": 1.0}])
+	# Il se relève en riant à gorge déployée : tête en arrière, épaules qui sautent, il montre Alice.
+	at(k, q(12) + 1.05, [{"plant": 1.0, "gsnap": 0.0}, {"hips": hips(who, Vector3(0.0, -0.1, 0.0))}, B(0.15, 0.0), C(0.05), HD(0.3, 0.1), Lt(0.3, -0.5, 0.2, 0.4), Rt(0.25, -0.2, 0.35, 0.4), {"curl": 0.5, "curl_l": 0.5, "sq": 1.0}])
+	var laugh_t: float = q(12) + 1.3
+	var flip: float = 1.0
+	while laugh_t < 165.9:
+		at(k, laugh_t, [{"hips": hips(who, Vector3(0.0, -0.05 - 0.02 * flip, 0.0))}, B(-0.08 - 0.03 * flip, 0.05 * flip), C(-0.12 - 0.05 * flip, 0.04 * flip), HD(0.45 + 0.1 * flip, -0.08 * flip, 0.05 * flip), Lt(0.3, -0.45 + 0.05 * flip, 0.25, 0.4), Rt(-0.05, 0.25, 0.85, 0.2), WR(0.1, 0.0, 0.3), {"curl": 0.85, "curl_l": 0.55, "jaw": 0.6 + 0.2 * flip}, FACE("laugh")])
+		laugh_t += 0.19 + 0.04 * flip
+		flip = - flip
+	at(k, 165.9, [{"hips": hips(who, Vector3(0.0, -0.08, 0.0))}, B(0.1, -0.3), C(0.05, 0.08), HD(0.1, 0.2), u_guard(), {"jaw": 0.0}, FACE("grin")])
+	var plan: Array = [
+		[q(-0.2), q(0) + 0.15, 1, spot_at(who, q(0) + 0.15, Vector3(0.16, 0, 0.22))],
+		[q(0.4), q(0.8), -1, spot_at(who, q(1), Vector3(-0.12, 0, -0.32))],
+		[q(2.3), q(2.9), -1, spot_at(who, q(3.2), Vector3(-0.14, 0, -0.16))],
+		[q(4.5), q(4.85), -1, spot_at(who, q(5), Vector3(-0.16, 0, -0.36))],
+		[q(6.2), q(6.8), -1, spot_at(who, q(7), Vector3(-0.14, 0, -0.16))],
+		[q(10.5), q(10.8), 1, spot_at(who, q(10.85), Vector3(0.16, 0, 0.18))],
+		[q(10.6), q(10.85), -1, spot_at(who, q(10.85), Vector3(-0.14, 0, -0.1))],
+		[q(10.9), q(11.15), 1, spot_at(who, q(11.15), Vector3(0.12, 0, -0.15))],
+	]
+	steps(k, feet, plan, {"lift": 0.08, "roll": 0.5, "land": -0.1, "end": q(11.3)})
+	# Le dernier appui (pied gauche) quitte le sol à l'envol.
+	k.keys.append([q(11.3), {"foot_l": foot(who, -1, Vector3(-0.14, 0.15, -0.1), -0.8), "fp_l": -0.8}])
+	k.keys.append([q(12) + 1.05, {"foot_l": foot(who, -1, Vector3(-0.15, 0, -0.18)), "foot_r": foot(who, 1, Vector3(0.16, 0, 0.18)), "fp_l": 0.0, "fp_r": 0.0}])
+	finish(k)
+	_usayuko_after()
+
+
+# Usayuko après le fou rire : garde, Alice à l'œil ; il remarque Simon (173,6), lui crie dessus, se
+# retourne vers Alice ; charge et coup du droit avec Simon (178,95), figé.
+static func _usayuko_after() -> void :
+	var who: String = "Usayuko"
+	var here: Vector3 = U_SPOT + Vector3(0, 0, 1.05)
+	var k: Clip = clip(who, "pb_usayuko_finish", 166.0, 182.0, "grin")
+	k.lag = {"head": 0.06, "ik_l": 0.05, "ik_r": 0.05, "curl": 0.06, "curl_l": 0.06}
+	at(k, 166.0, [base(), {"hips": hips(who, Vector3(0.0, -0.08, 0.0))}, B(0.1, -0.3), C(0.05, 0.08), HD(0.1, 0.2), u_guard(), {"fp_l": 0.0, "fp_r": -0.3, "foot_l": foot(who, -1, Vector3(-0.15, 0, -0.18)), "foot_r": foot(who, 1, Vector3(0.16, 0, 0.18), -0.3)}, FACE("grin")])
+	# Il sautille, roule des épaules, fait signe à Alice d'approcher (main gauche).
+	var t: float = q(23)
+	var i: int = 0
+	while t < 172.6:
+		var up: bool = i % 2 == 0
+		at(k, t, [{"hips": hips(who, Vector3(0.0, -0.1 if up else -0.06, 0.0))}, C(0.08 if up else 0.04, 0.08 + 0.04 * sin(float(i)))])
+		t += FIGHT_STEP * 0.5
+		i += 1
+	at(k, 168.2, [Lt(0.0, 0.3, 0.75, 0.2), WL(-0.4), {"curl_l": 0.1}, HD(0.15, 0.15, 0.1), FACE("grin")])
+	at(k, 168.45, [Lt(0.0, 0.32, 0.6, 0.2), {"curl_l": 0.9}])
+	at(k, 168.7, [Lt(0.0, 0.3, 0.75, 0.2), {"curl_l": 0.1}])
+	at(k, 168.95, [u_guard(), HD(0.1, 0.2)])
+	# 173,6 : « SIMON ?! » — la tête d'abord, puis le buste ; bras ouverts, sidéré.
+	at(k, 173.5, [B(0.1, -0.3), C(0.05, 0.08), HD(0.1, 0.2), u_guard()])
+	at(k, 173.66, [HD(0.15, 1.15, 0.0), FACE("surprise")])
+	at(k, 173.82, [B(0.0, 0.25), C(-0.05, 0.6), HD(0.2, 0.95, 0.0), L(0.45, -0.2, 0.25, 0.4), R(0.5, -0.15, 0.2, 0.4), {"curl": 0.2, "curl_l": 0.2}])
+	at(k, 174.4, [C(-0.08, 0.62), HD(0.25, 0.9, -0.08), L(0.55, -0.05, 0.25, 0.4), R(0.55, 0.0, 0.2, 0.4)])
+	at(k, 175.0, [C(-0.04, 0.55), HD(0.15, 0.85, 0.05), L(0.4, -0.35, 0.15, 0.3), R(0.42, -0.3, 0.15, 0.3), FACE("grin")])
+	# Il se retourne vers Alice, craque ses poings.
+	at(k, 175.9, [B(0.1, -0.2), C(0.05, 0.1), HD(0.05, 0.25), Lt(0.0, 0.1, 0.45, 0.3), Rt(0.0, 0.08, 0.45, 0.3), {"curl": 0.6, "curl_l": 1.0}])
+	at(k, 176.2, [Lt(0.02, 0.12, 0.42, 0.3), Rt(0.02, 0.1, 0.42, 0.3), {"curl": 1.0}])
+	at(k, 176.9, [B(0.12, -0.3), C(0.06, 0.08), HD(0.05, 0.2), u_guard(), FACE("angry")])
+	# 178,03 : il fonce (trajet 178,08 → 178,68) et arme le droit.
+	var dash_to: Vector3 = Vector3(1.45, 0.0, 7.3)
+	move(who, 178.06, 178.66, dash_to, "smooth")
+	face(who, 178.0, (dash_to - here).normalized())
+	face(who, 178.55, Vector3(-1.0, 0.0, 0.05))
+	at(k, 178.02, [{"hips": hips(who, Vector3(0.0, -0.14, 0.0))}, B(0.35, -0.2), C(0.15, 0.1), HD(0.1, 0.15), u_guard(0.0, -0.05), {"sq": 0.95}])
+	at(k, 178.4, [{"hips": hips(who, Vector3(0.0, -0.1, 0.0))}, B(0.4, -0.1), C(0.15, 0.0), HD(0.2, 0.0), Lt(0.25, 0.1, 0.6, 0.3), Rt(0.15, -0.2, -0.2, 0.4), {"sq": 1.0}])
+	at(k, 178.72, [{"hips": hips(who, Vector3(0.0, -0.18, 0.0))}, B(0.25, -0.55), C(0.1, -0.35), HD(0.0, 0.5), Lt(0.1, 0.2, 0.5, 0.3), Rt(0.1, 0.0, -0.15, 0.5), {"sq": 0.94, "ev": "effort"}])
+	# Impact : direct du droit dans la joue d'Alice, figé jusqu'au noir.
+	at(k, T_DOUBLE, [{"hips": hips(who, Vector3(-0.04, -0.14, -0.08))}, B(0.3, 0.5, 0.05), C(0.15, 0.45), HD(-0.05, -0.2), Rt(-0.15, 0.3, 1.0, 0.1), Lt(0.1, 0.2, 0.2, 0.4), {"curl": 1.0, "curl_l": 1.0, "fp_r": -0.9, "sq": 1.05, "jaw": 0.5}, FACE("angry")], "h")
+	at(k, 182.0, [{"hips": hips(who, Vector3(-0.04, -0.14, -0.08))}, B(0.3, 0.5, 0.05), C(0.15, 0.45), HD(-0.05, -0.2), Rt(-0.15, 0.3, 1.0, 0.1), Lt(0.1, 0.2, 0.2, 0.4), {"sq": 1.05, "jaw": 0.5}], "h")
+	var feet: Dictionary = {-1: spot_at(who, 166.0, Vector3(-0.15, 0, -0.18)), 1: spot_at(who, 166.0, Vector3(0.16, 0, 0.18))}
+	var plan: Array = [
+		[177.95, 178.15, 1, spot_at(who, 178.15, Vector3(0.1, 0, -0.35))],
+		[178.12, 178.34, -1, spot_at(who, 178.34, Vector3(-0.08, 0, -0.42))],
+		[178.3, 178.52, 1, spot_at(who, 178.52, Vector3(0.1, 0, -0.38))],
+		[178.48, 178.7, -1, spot_at(who, 178.7, Vector3(-0.2, 0, -0.32))],
+	]
+	steps(k, feet, plan, {"lift": 0.12, "roll": 0.6, "land": -0.1, "begin": 166.0, "end": 182.0})
+	finish(k)
+
+
+# Alice : à l'affût, griffe sur la garde (157,83), uppercut encaissé, plongée basse, direct reçu,
+# double griffe bloquée, repoussée, dropkick en pleine poitrine (projetée, ralenti), au sol ; elle se
+# relève comme une marionnette, fureur, rugissement (165,6) ; elle tourne autour d'Usayuko, voit Simon
+# foncer, lève la griffe… et prend les deux poings (178,95).
+static func _school_alice() -> void :
+	var who: String = "Alice"
+	put(who, AL_SPOT)
+	face(who, 0.0, Vector3(0, 0, -1))
+	move(who, q(-0.95), q(-0.15), AL_SPOT + Vector3(0, 0, -0.9), "dash")
+	move(who, q(1), q(1) + 0.42, AL_SPOT + Vector3(0, 0, 0.45), "out")
+	move(who, q(3.9), q(4.6), AL_SPOT + Vector3(0, 0, -1.15), "dash")
+	move(who, q(5), q(5) + 0.5, AL_SPOT + Vector3(0, 0, 0.5), "out")
+	move(who, q(7.25), q(7.9), AL_SPOT + Vector3(0, 0, -1.0), "dash")
+	move(who, q(10), q(10) + 0.35, AL_SPOT + Vector3(0, 0, -0.25), "out")
+	# Dropkick : ralenti (×0,3) puis le vol jusqu'au sol, et la glissade.
+	move(who, q(12), q(12) + 0.4, AL_SPOT + Vector3(0, 0, 0.35), "linear")
+	move(who, q(12) + 0.4, q(12) + 0.78, AL_SPOT + Vector3(0, 0, 2.9), "linear")
+	move(who, q(12) + 0.78, q(12) + 1.15, AL_SPOT + Vector3(0, 0, 3.55), "out")
+	var k: Clip = clip(who, "pb_alice_fight", 153.0, 166.0, "menace")
+	k.lag = {"head": 0.07, "ik_l": 0.06, "ik_r": 0.05, "curl": 0.08, "curl_l": 0.08}
+	var feet: Dictionary = {-1: spot_at(who, 153.0, Vector3(-0.2, 0, 0.12)), 1: spot_at(who, 153.0, Vector3(0.22, 0, -0.1))}
+	var claws: Dictionary = {"curl": 0.35, "curl_l": 0.35}
+	# À l'affût : penchée, épaules hautes, griffes écartées ; un balancement lent, pas sur la musique.
+	at(k, 153.0, [base(), {"hips": hips(who, Vector3(0.0, -0.12, 0.0))}, B(0.3, 0.1, 0.0), C(0.25, -0.05), HD(0.25, 0.0, 0.1), L(0.45, -0.25, 0.3, 0.6), R(0.5, -0.2, 0.35, 0.6), WL(0.4), WR(0.4), claws, FACE("menace")])
+	var sway: float = 153.6
+	var side: float = 1.0
+	while sway < q(-1.3):
+		at(k, sway, [{"hips": hips(who, Vector3(0.03 * side, -0.12, 0.0))}, B(0.3, 0.12 * side, 0.04 * side), C(0.25, -0.08 * side), HD(0.25, 0.1 * side, 0.15 * side)])
+		sway += 1.05 + 0.2 * side
+		side = - side
+	# Anticipation : elle se ramasse, la griffe droite monte… et fond sur Usayuko (157,83).
+	at(k, q(-1.3), [{"hips": hips(who, Vector3(0.0, -0.2, 0.0))}, B(0.42, -0.25, 0.0), C(0.3, -0.3), HD(0.3, 0.2), L(0.45, -0.3, 0.25, 0.6), R(0.55, 0.65, -0.1, 0.8), WR(0.6, 0.0, 0.4), {"curl": 0.2, "sq": 0.95}, FACE("angry")])
+	at(k, q(-0.5), [{"hips": hips(who, Vector3(0.0, -0.18, 0.0))}, B(0.4, -0.35, 0.0), C(0.2, -0.45), HD(0.25, 0.3), R(0.45, 0.85, -0.2, 0.8), {"sq": 1.03}])
+	at(k, q(0), [{"hips": hips(who, Vector3(0.0, -0.26, 0.0))}, B(0.55, 0.35, 0.05), C(0.35, 0.4), HD(0.2, -0.2), R(-0.1, 0.25, 0.85, 0.3), WR(-0.3, 0.0, -0.3), L(0.5, -0.35, 0.0, 0.6), {"curl": 0.3, "sq": 0.96, "ev": "effort"}], "s")
+	# Contre d'Usayuko au menton (158,19) : la tête part en arrière, elle recule, bras projetés.
+	at(k, q(0.6), [{"hips": hips(who, Vector3(0.0, -0.2, 0.0))}, B(0.45, 0.25), C(0.25, 0.3), HD(0.15, -0.1), R(0.2, 0.0, 0.6, 0.4)])
+	at(k, q(1), [{"hips": hips(who, Vector3(0.0, -0.08, 0.05))}, B(-0.25, 0.1, -0.1), C(-0.3, 0.1), HD(1.0, 0.0, -0.2), L(0.7, 0.2, -0.1, 0.8), R(0.65, 0.35, -0.2, 0.8), {"curl": 0.1, "curl_l": 0.1, "sq": 1.06, "ev": "hurt"}, FACE("pain")], "s")
+	at(k, q(1) + 0.18, [{"hips": hips(who, Vector3(0.0, -0.1, 0.06))}, B(-0.3, 0.12, -0.12), C(-0.32, 0.12), HD(0.8, 0.1, -0.25), {"sq": 1.0}])
+	at(k, q(2), [{"hips": hips(who, Vector3(0.0, -0.22, 0.0))}, B(0.35, 0.0, 0.05), C(0.3, 0.0), HD(0.15, 0.1, 0.2), L(0.5, -0.4, 0.2, 0.6), R(0.55, -0.35, 0.25, 0.6), claws, FACE("angry")])
+	# Elle siffle, tête penchée, puis plonge bas, griffe gauche vers les jambes (159,45).
+	at(k, q(3), [{"hips": hips(who, Vector3(0.0, -0.3, 0.0))}, B(0.55, 0.15), C(0.35, 0.1), HD(0.4, -0.1, 0.35), L(0.6, -0.1, 0.1, 0.7), R(0.6, -0.15, 0.2, 0.7), {"jaw": 0.6, "shake": 0.3}])
+	at(k, q(3.7), [{"hips": hips(who, Vector3(0.0, -0.4, 0.0))}, B(0.75, -0.3), C(0.4, -0.3), HD(0.5, 0.2), L(0.6, -0.1, -0.3, 0.8), R(0.5, -0.3, 0.3, 0.6), {"jaw": 0.2, "shake": 0.0, "sq": 0.94}])
+	at(k, q(4.4), [{"hips": hips(who, Vector3(0.0, -0.45, 0.0))}, B(0.85, 0.35), C(0.45, 0.35), HD(0.55, -0.25), L(-0.2, -0.7, 0.85, 0.3), R(0.6, -0.1, -0.2, 0.7), {"sq": 1.02, "ev": "effort"}])
+	# Direct d'Usayuko en plein visage (159,65) : la tête tourne, elle titube en arrière.
+	at(k, q(5), [{"hips": hips(who, Vector3(0.05, -0.3, 0.05))}, B(0.2, -0.45, -0.2), C(-0.1, -0.4), HD(0.6, -0.9, -0.3), L(0.7, 0.1, 0.0, 0.8), R(0.6, -0.4, 0.2, 0.6), {"curl": 0.1, "curl_l": 0.1, "sq": 1.05, "ev": "hurt"}, FACE("pain")], "s")
+	at(k, q(5.5), [{"hips": hips(who, Vector3(-0.04, -0.25, 0.0))}, B(0.3, -0.2, 0.15), C(0.15, -0.1), HD(0.2, -0.4, 0.3), L(0.6, -0.45, 0.2, 0.6), R(0.55, -0.5, 0.15, 0.6), {"sq": 1.0}, FACE("dazed")])
+	at(k, q(6.2), [{"hips": hips(who, Vector3(0.05, -0.22, 0.0))}, B(0.35, 0.15, -0.12), C(0.2, 0.1), HD(0.15, 0.25, -0.25)])
+	# Elle secoue la tête, crache sa rage, charge les deux griffes hautes (160,74).
+	at(k, q(6.8), [{"hips": hips(who, Vector3(0.0, -0.2, 0.0))}, B(0.35, 0.0), C(0.25, 0.0), HD(0.25, -0.35, 0.0), {"shake": 0.6}, FACE("angry")])
+	at(k, q(7.0), [HD(0.25, 0.3, 0.0), {"shake": 0.6}])
+	at(k, q(7.3), [{"hips": hips(who, Vector3(0.0, -0.24, 0.0))}, B(0.45, 0.0), C(0.3, 0.0), HD(0.3, 0.0), L(0.4, 0.95, -0.15, 0.8), R(0.4, 0.95, -0.15, 0.8), WL(0.7), WR(0.7), {"curl": 0.25, "curl_l": 0.25, "shake": 0.0, "sq": 1.04}])
+	at(k, q(8), [{"hips": hips(who, Vector3(0.0, -0.28, 0.0))}, B(0.6, 0.0), C(0.4, 0.0), HD(0.25, 0.0), L(0.25, 0.45, 0.75, 0.5), R(0.25, 0.45, 0.75, 0.5), WL(-0.3), WR(-0.3), {"sq": 0.95, "ev": "effort"}], "s")
+	# Griffes contre avant-bras : elle pousse de tout son poids, grogne.
+	at(k, q(9), [{"hips": hips(who, Vector3(0.0, -0.3, 0.0))}, B(0.62, 0.0), C(0.42, 0.0), HD(0.3, 0.0), L(0.24, 0.42, 0.72, 0.5), R(0.24, 0.42, 0.72, 0.5), {"shake": 0.6, "jaw": 0.5}])
+	# Repoussée (161,47) : elle part en arrière, rattrape son équilibre.
+	at(k, q(10), [{"hips": hips(who, Vector3(0.0, -0.12, 0.05))}, B(-0.2, 0.0), C(-0.25, 0.0), HD(0.55, 0.0), L(0.6, 0.3, 0.1, 0.8), R(0.6, 0.35, 0.1, 0.8), {"shake": 0.0, "jaw": 0.2, "sq": 1.04}, FACE("surprise")], "s")
+	at(k, q(10.6), [{"hips": hips(who, Vector3(0.0, -0.2, 0.0))}, B(0.3, 0.0), C(0.25), HD(0.25), L(0.5, -0.3, 0.2, 0.6), R(0.5, -0.25, 0.25, 0.6), {"sq": 1.0}, FACE("angry")])
+	at(k, q(11.6), [{"hips": hips(who, Vector3(0.0, -0.2, 0.0))}, B(0.35, 0.0), C(0.3), HD(0.35), L(0.55, -0.15, 0.25, 0.6), R(0.55, -0.1, 0.3, 0.6), FACE("surprise")])
+	# Dropkick dans la poitrine (162,19) : pliée en deux, projetée, ralenti.
+	at(k, q(12), [{"plant": 1.0, "hips": hips(who, Vector3(0.0, -0.15, 0.1))}, B(0.75, 0.0), C(0.5), HD(-0.2), L(0.6, 0.35, 0.5, 0.8), R(0.6, 0.4, 0.5, 0.8), {"curl": 0.0, "curl_l": 0.0, "sq": 0.9, "jaw": 0.8, "ev": "hurt"}, FACE("pain")], "s")
+	at(k, q(12) + 0.4, [{"plant": 0.0, "hips": hips(who, Vector3(0.0, 0.05, 0.15))}, B(0.55, 0.0, 0.05), C(0.45), HD(-0.4), TL(0.9, 0.1), KL(0.6, 0.3), TR(0.8, 0.12), KR(0.7, 0.3), L(0.6, 0.6, 0.4, 0.8), R(0.6, 0.65, 0.35, 0.8), {"sq": 1.0}])
+	at(k, q(12) + 0.7, [{"hips": hips(who, Vector3(0.0, -0.2, 0.0))}, B(-0.9, 0.0, 0.1), C(-0.2), HD(-0.5), TL(0.7, 0.15), KL(0.5, 0.2), TR(0.5, 0.15), KR(0.8, 0.2), L(0.7, 0.7, 0.2, 0.9), R(0.65, 0.75, 0.1, 0.9)])
+	# Au sol, sur le dos, qui glisse ; poussière, fissure.
+	at(k, q(12) + 0.82, [{"gsnap": 1.0}, H(0, 0, 0), B(-1.45, 0.0, 0.1), C(-0.1, 0.0), HD(-0.2, 0.3), TL(0.4, 0.2), KL(0.7, 0.2), TR(0.25, 0.18), KR(0.4, 0.2), Lg(0.8, 0.3), Rg(0.85, 0.1), {"el_l": 0.6, "el_r": 0.6, "sq": 0.92, "fx": "dust"}, FACE("dazed")], "s")
+	at(k, q(12) + 1.0, [B(-1.5, 0.0, 0.08), HD(-0.1, 0.4), TL(0.3, 0.22), KL(0.5, 0.2), {"sq": 1.0}])
+	at(k, 163.9, [B(-1.52, 0.0, 0.05), HD(0.0, 0.5, 0.05), TL(0.28, 0.24), KL(0.45, 0.2), TR(0.2, 0.2), KR(0.35, 0.2), Lg(0.82, 0.25), Rg(0.85, 0.12)])
+	# Elle se relève comme une marionnette : le buste se plie à partir du bassin, sans les mains, la
+	# tête pend en arrière… puis claque en avant.
+	at(k, 164.3, [B(-1.4, 0.0, 0.0), HD(0.0, 0.3, 0.0), TL(0.35, 0.2), KL(0.6, 0.2), FACE("dazed")])
+	at(k, 164.75, [B(-0.25, 0.0, 0.0), C(-0.2, 0.0), HD(-0.9, 0.0, 0.0), TL(1.55, 0.25), KL(0.5, 0.0), TR(1.5, 0.2), KR(0.4, 0.0), L(0.35, -0.85, 0.0, 0.3), R(0.35, -0.85, 0.0, 0.3), {"curl": 0.6, "curl_l": 0.6}])
+	at(k, 164.92, [C(0.35, 0.0), HD(0.35, 0.0, 0.15), FACE("menace")], "s")
+	at(k, 165.05, [{"gsnap": 0.0, "plant": 1.0}, {"hips": hips(who, Vector3(0.0, -0.35, 0.0))}, B(0.6, 0.0), C(0.45), HD(0.4, 0.0, 0.1), L(0.5, -0.4, 0.3, 0.6), R(0.5, -0.4, 0.3, 0.6), {"curl": 0.3, "curl_l": 0.3}, FACE("angry")])
+	at(k, 165.35, [{"hips": hips(who, Vector3(0.0, -0.2, 0.0))}, B(0.45, 0.0), C(0.35), HD(0.35, 0.0, 0.05), L(0.6, -0.1, 0.25, 0.7), R(0.6, -0.05, 0.25, 0.7), {"shake": 0.4}])
+	# Rugissement (165,6) : la tête en avant, mâchoire grande ouverte, griffes en arrière.
+	at(k, 165.6, [{"hips": hips(who, Vector3(0.0, -0.24, 0.0))}, B(0.55, 0.0), C(0.15), HD(0.55, 0.0, 0.0), L(0.6, 0.1, -0.35, 0.8), R(0.6, 0.15, -0.35, 0.8), {"curl": 0.0, "curl_l": 0.0, "shake": 0.8, "jaw": 1.0, "sq": 1.05, "ev": "roar"}, FACE("angry")])
+	at(k, 166.0, [{"hips": hips(who, Vector3(0.0, -0.24, 0.0))}, B(0.52, 0.0), C(0.12), HD(0.5, 0.0, 0.0), {"shake": 0.7, "jaw": 0.9}])
+	var plan: Array = [
+		[q(-1.0), q(-0.35), 1, spot_at(who, q(-0.15), Vector3(0.18, 0, -0.55))],
+		[q(-0.5), q(-0.1), -1, spot_at(who, q(-0.1), Vector3(-0.2, 0, 0.15))],
+		[q(1) + 0.05, q(1) + 0.3, 1, spot_at(who, q(1) + 0.42, Vector3(0.22, 0, 0.0))],
+		[q(1) + 0.15, q(1) + 0.4, -1, spot_at(who, q(1) + 0.42, Vector3(-0.22, 0, 0.18))],
+		[q(3.9), q(4.45), 1, spot_at(who, q(4.6), Vector3(0.2, 0, -0.55))],
+		[q(4.2), q(4.55), -1, spot_at(who, q(4.6), Vector3(-0.25, 0, 0.3))],
+		[q(5) + 0.05, q(5) + 0.3, -1, spot_at(who, q(5) + 0.5, Vector3(-0.22, 0, 0.25))],
+		[q(5) + 0.2, q(5) + 0.45, 1, spot_at(who, q(5) + 0.5, Vector3(0.24, 0, -0.05))],
+		[q(7.3), q(7.75), 1, spot_at(who, q(7.9), Vector3(0.2, 0, -0.5))],
+		[q(7.5), q(7.85), -1, spot_at(who, q(7.9), Vector3(-0.22, 0, 0.2))],
+		[q(10) + 0.05, q(10) + 0.25, -1, spot_at(who, q(10) + 0.35, Vector3(-0.22, 0, 0.3))],
+	]
+	steps(k, feet, plan, {"lift": 0.1, "roll": 0.5, "land": -0.15, "end": q(12) + 0.2})
+	finish(k)
+	_alice_after()
+
+
+static func _alice_after() -> void :
+	var who: String = "Alice"
+	var here: Vector3 = AL_SPOT + Vector3(0, 0, 3.55)
+	var k: Clip = clip(who, "pb_alice_finish", 166.0, 182.0, "angry")
+	k.lag = {"head": 0.07, "ik_l": 0.06, "ik_r": 0.05, "curl": 0.08, "curl_l": 0.08}
+	var claws: Dictionary = {"curl": 0.35, "curl_l": 0.35}
+	at(k, 166.0, [base(), {"hips": hips(who, Vector3(0.0, -0.24, 0.0))}, B(0.52, 0.0), C(0.12), HD(0.5, 0.0, 0.0), L(0.6, 0.1, -0.35, 0.8), R(0.6, 0.15, -0.35, 0.8), {"shake": 0.7, "jaw": 0.9, "curl": 0.0, "curl_l": 0.0}, FACE("angry")])
+	at(k, 166.5, [{"hips": hips(who, Vector3(0.0, -0.16, 0.0))}, B(0.35, 0.0), C(0.25), HD(0.25, 0.0, 0.1), L(0.45, -0.25, 0.3, 0.6), R(0.5, -0.2, 0.35, 0.6), claws, {"shake": 0.0, "jaw": 0.0}, FACE("menace")])
+	# Elle tourne autour d'Usayuko : trois pas lents de côté, puis avance vers lui.
+	move(who, 167.0, 170.5, here + Vector3(-0.9, 0.0, -0.35), "smooth")
+	move(who, 171.0, 174.5, here + Vector3(-0.1, 0.0, -0.6), "smooth")
+	var feet: Dictionary = {-1: spot_at(who, 166.0, Vector3(-0.2, 0, 0.12)), 1: spot_at(who, 166.0, Vector3(0.22, 0, -0.1))}
+	var plan: Array = [
+		[167.2, 167.75, -1, spot_at(who, 167.75, Vector3(-0.3, 0, 0.1))],
+		[168.1, 168.7, 1, spot_at(who, 168.7, Vector3(0.15, 0, -0.08))],
+		[169.2, 169.75, -1, spot_at(who, 169.75, Vector3(-0.3, 0, 0.1))],
+		[170.0, 170.6, 1, spot_at(who, 170.6, Vector3(0.18, 0, -0.1))],
+		[171.4, 172.0, -1, spot_at(who, 172.0, Vector3(-0.2, 0, 0.02))],
+		[172.5, 173.1, 1, spot_at(who, 173.1, Vector3(0.22, 0, -0.18))],
+		[173.6, 174.2, -1, spot_at(who, 174.2, Vector3(-0.2, 0, 0.1))],
+		[174.4, 174.9, 1, spot_at(who, 174.9, Vector3(0.22, 0, -0.1))],
+	]
+	var sway: float = 167.0
+	var side: float = 1.0
+	while sway < 177.4:
+		at(k, sway, [{"hips": hips(who, Vector3(0.03 * side, -0.16, 0.0))}, B(0.35, 0.12 * side, 0.04 * side), C(0.25, -0.08 * side), HD(0.28, 0.12 * side, 0.18 * side)])
+		sway += 1.1 + 0.25 * side
+		side = - side
+	# 177,6 : elle voit Simon foncer : se tourne vers lui, la griffe droite monte.
+	face(who, 177.55, Vector3(-0.3, 0.0, -1.0))
+	at(k, 177.5, [B(0.35, 0.0), C(0.25, 0.0), HD(0.28, 0.0, 0.0)])
+	at(k, 177.7, [HD(0.35, 0.35, 0.0), C(0.25, 0.2), FACE("surprise")])
+	at(k, 178.1, [{"hips": hips(who, Vector3(0.0, -0.2, 0.0))}, B(0.4, -0.2), C(0.3, -0.25), HD(0.3, 0.2), R(0.5, 0.75, -0.15, 0.8), WR(0.6), L(0.45, -0.25, 0.3, 0.6), {"curl": 0.2}, FACE("angry")])
+	at(k, 178.6, [{"hips": hips(who, Vector3(0.0, -0.22, 0.0))}, B(0.42, -0.35), C(0.3, -0.4), HD(0.28, 0.3), R(0.45, 0.9, -0.2, 0.8), {"sq": 1.03}])
+	# Les deux poings arrivent ensemble (178,95) : le visage écrasé, le corps plié de travers, figé.
+	at(k, T_DOUBLE - 0.04, [{"hips": hips(who, Vector3(0.0, -0.2, 0.0))}, B(0.4, -0.3), C(0.28, -0.35), HD(0.3, 0.25), R(0.4, 0.85, 0.0, 0.8)])
+	at(k, T_DOUBLE, [{"hips": hips(who, Vector3(-0.06, -0.12, 0.08))}, B(0.05, 0.3, -0.3), C(-0.2, 0.25, -0.2), HD(0.55, -0.55, -0.45), R(0.75, 0.55, -0.1, 0.9), L(0.7, 0.35, 0.0, 0.9), WL(0.6), WR(0.6), {"curl": 0.0, "curl_l": 0.0, "jaw": 0.9, "sq": 1.06}, FACE("pain")], "h")
+	at(k, 182.0, [{"hips": hips(who, Vector3(-0.06, -0.12, 0.08))}, B(0.05, 0.3, -0.3), C(-0.2, 0.25, -0.2), HD(0.55, -0.55, -0.45), R(0.75, 0.55, -0.1, 0.9), L(0.7, 0.35, 0.0, 0.9), {"jaw": 0.9, "sq": 1.06}], "h")
+	steps(k, feet, plan, {"lift": 0.06, "roll": 0.45, "land": -0.2, "begin": 166.0, "end": 182.0})
+	finish(k)
+
+
+# Simon jaillit du portail en plein plongeon, s'écrase à plat ventre et glisse ; le front au sol, il
+# halète ; il relève la tête vers la bagarre (157,2). Usayuko l'appelle (173,7) : il se relève, s'essuie
+# la joue, répond, serre le poing (doré), fonce et frappe Alice en même temps qu'Usayuko (178,95).
+const S_PORTAL: Vector3 = Vector3(-3.0, 1.05, -4.3)
+const S_REST: Vector3 = Vector3(-2.5, 0.0, -1.62)
+const S_HIT: Vector3 = Vector3(0.15, 0.0, 6.85)
+
+static func _school_simon() -> void :
+	var who: String = "Simon"
+	move(who, 153.0, 153.02, S_PORTAL, "jump")
+	face(who, 153.0, Vector3(0.15, 0.0, 1.0))
+	move(who, 154.2, 154.5, Vector3(-2.82, 0.75, -3.45), "linear")
+	move(who, 154.5, 154.86, S_LAND, "in")
+	move(who, 154.86, 155.5, S_REST, "out")
+	var k: Clip = clip(who, "pb_simon_portal", 154.2, 174.3, "determined")
+	k.lag = {"head": 0.07, "ik_l": 0.06, "ik_r": 0.06, "curl": 0.08, "curl_l": 0.08}
+	k.clamp_legs = false
+	# Toujours en plongeon (comme dans la dimension) : allongé, bras tendus, jambes qui suivent.
+	at(k, 154.2, [base(), {"plant": 0.0}, B(1.4), C(-0.15), HD(0.95), Lt(0.14, 0.28, 0.95, 0.1), Rt(0.1, 0.3, 0.97, 0.1), TL(0.0, 0.06), KL(0.2, -0.7), TR(-0.3, 0.06), KR(0.5, -0.8), {"curl": 0.0, "curl_l": 0.0}, FACE("pain")])
+	# La gravité le reprend : les jambes tombent, les bras viennent amortir.
+	at(k, 154.55, [B(1.2), C(-0.2), HD(0.8), Lt(0.3, -0.1, 0.8, 0.4), Rt(0.28, -0.05, 0.82, 0.4), TL(0.3, 0.1), KL(0.6, -0.4), TR(0.15, 0.1), KR(0.9, -0.5), FACE("panic")])
+	# 154,86 : il s'écrase à plat ventre et glisse sur le carrelage.
+	at(k, 154.86, [{"gsnap": 1.0}, H(0, 0, 0), B(1.55, 0.0, 0.05), C(-0.25), HD(0.55, 0.1), TL(-0.1, 0.1), KL(0.15, 0.3), TR(-0.05, 0.12), KR(0.3, 0.3), Lg(0.4, 0.75), Rg(0.35, 0.8), {"el_l": 0.4, "el_r": 0.4, "sq": 0.92, "ev": "hurt", "fx": "dust"}, FACE("pain")], "s")
+	at(k, 155.05, [B(1.56, 0.0, 0.04), HD(0.3, 0.15), Lg(0.45, 0.6), Rg(0.42, 0.65), {"sq": 1.0}])
+	# Il s'arrête, le front tombe sur le carrelage : il halète, le dos se soulève.
+	at(k, 155.5, [B(1.55, 0.05, 0.05), C(-0.05, 0.05), HD(-0.2, 0.25, 0.1), Lg(0.35, 0.35), Rg(0.3, 0.42), WL(0.3), WR(0.3), {"el_l": 0.7, "el_r": 0.7, "curl": 0.4, "curl_l": 0.4}, FACE("tired")])
+	var t: float = 155.75
+	var breath: float = 1.0
+	while t < 157.0:
+		at(k, t, [B(1.55 - 0.03 * breath, 0.05, 0.05), C(-0.05 - 0.05 * breath, 0.05), HD(-0.2 + 0.04 * breath, 0.25, 0.1), {"jaw": 0.25 + 0.15 * breath}])
+		t += 0.32 + 0.04 * breath
+		breath = - breath
+	# 157,15 : le bruit de la bagarre ; il relève la tête vers elle (à sa gauche).
+	at(k, 157.1, [B(1.5, 0.05, 0.05), C(-0.15, 0.1), HD(0.2, 0.4, 0.0), Lg(0.3, 0.4), Rg(0.28, 0.42), FACE("surprise")])
+	at(k, 157.35, [B(1.42, 0.08, 0.05), C(-0.3, 0.25), HD(0.5, 0.65, -0.05), {"jaw": 0.1}])
+	# Accoudé, il regarde la bagarre, grimace aux coups, reprend son souffle.
+	at(k, 158.2, [B(1.4, 0.08, 0.05), C(-0.32, 0.25), HD(0.52, 0.62, -0.05), Lg(0.2, 0.3), Rg(0.18, 0.32), {"el_l": 0.75, "el_r": 0.75}, FACE("fear")])
+	at(k, 159.7, [HD(0.45, 0.6, 0.05), FACE("hurt")])
+	at(k, 162.3, [C(-0.38, 0.28), HD(0.6, 0.62, -0.05), FACE("surprise")])
+	at(k, 163.5, [C(-0.3, 0.25), HD(0.5, 0.6, 0.0), FACE("tired")])
+	at(k, 168.0, [HD(0.42, 0.55, 0.05)])
+	at(k, 173.0, [B(1.38, 0.05, 0.05), C(-0.3, 0.2), HD(0.45, 0.5, 0.0)])
+	# 173,72 : « SIMON ?! » — il tourne la tête vers Usayuko.
+	at(k, 173.85, [HD(0.5, 0.75, 0.0), FACE("surprise")])
+	at(k, 174.3, [B(1.35, 0.05, 0.0), C(-0.25, 0.2), HD(0.45, 0.7, 0.0), Lg(0.15, 0.25), Rg(0.15, 0.28), WL(1.1), WR(1.1), FACE("tired")])
+	finish(k)
+	_simon_rejoin()
+
+
+static func _simon_rejoin() -> void :
+	var who: String = "Simon"
+	var k: Clip = clip(who, "pb_simon_rejoin", 174.3, 182.0, "tired")
+	k.lag = {"head": 0.06, "ik_l": 0.05, "ik_r": 0.05, "curl": 0.07, "curl_l": 0.07}
+	var ground: Dictionary = M([base(), {"plant": 0.0, "gsnap": 1.0}])
+	# Il pousse sur les mains, ramène les genoux, un pied, puis se redresse en vacillant.
+	at(k, 174.3, [ground, B(1.35, 0.05, 0.0), C(-0.25, 0.2), HD(0.45, 0.7, 0.0), TL(-0.1, 0.1), KL(0.15, 0.3), TR(-0.05, 0.12), KR(0.3, 0.3), Lg(0.15, 0.25), Rg(0.15, 0.28), WL(1.1), WR(1.1), {"el_l": 0.7, "el_r": 0.7, "curl": 0.3, "curl_l": 0.3}, FACE("tired")])
+	at(k, 174.55, [B(1.05, 0.02, 0.0), C(-0.2, 0.15), HD(0.4, 0.5), TL(1.15, 0.12), KL(1.75, -0.6), TR(1.1, 0.14), KR(1.8, -0.6), Lg(0.08, 0.25), Rg(0.1, 0.25), {"sq": 1.02, "ev": "effort"}])
+	at(k, 174.85, [B(0.6, 0.0, 0.0), C(0.05, 0.05), HD(0.2, 0.3), half_kneel(1, 0.6), Lg(0.05, 0.22), Rt(0.1, -0.35, 0.35, 0.4), {"sq": 0.98}])
+	at(k, 175.15, [{"plant": 0.6, "gsnap": 0.3}, H(0.0, -0.25, 0.0), B(0.35, 0.0, 0.0), C(0.1, 0.0), HD(0.1, 0.2), Lt(0.2, -0.5, 0.25, 0.3), Rt(0.15, -0.45, 0.3, 0.3)])
+	at(k, 175.4, [{"plant": 1.0, "gsnap": 0.0}, {"hips": hips(who, Vector3(0.03, -0.07, 0.0))}, B(0.08, 0.0, -0.05), C(0.05, 0.0, -0.04), HD(0.05, 0.25, 0.08), L(0.3, -0.8, 0.05, 0.2), R(0.28, -0.8, 0.08, 0.2), {"curl": 0.4, "curl_l": 0.4, "sq": 1.0}])
+	# Il vacille, se rattrape, s'essuie la joue du revers de la main.
+	at(k, 175.55, [{"hips": hips(who, Vector3(-0.03, -0.06, 0.0))}, B(0.04, 0.0, 0.06), C(0.0, 0.0, 0.05), HD(0.1, 0.3, -0.06)])
+	at(k, 175.72, [Rt(-0.25, 0.42, 0.18, 0.7), WR(0.3, 1.2), HD(0.0, 0.1, -0.15), {"curl": 0.6}])
+	at(k, 175.86, [Rt(-0.12, 0.38, 0.25, 0.7), HD(0.05, 0.2, -0.08)])
+	# « Plus tard. D'abord, on la dégage ! » : regard vers Alice, menton qui se relève.
+	at(k, 176.05, [{"hips": hips(who, Vector3(0.0, -0.07, 0.0))}, B(0.05, -0.1, 0.0), C(0.0, -0.15), HD(0.12, 0.3, 0.0), R(0.3, -0.75, 0.1, 0.2), FACE("determined")])
+	at(k, 176.6, [B(0.08, -0.2, 0.0), C(0.02, -0.25), HD(0.06, -0.05, 0.0)])
+	# Il serre le poing droit devant lui : le poing s'allume (177,4).
+	at(k, 176.95, [Rt(-0.05, -0.1, 0.45, 0.4), WR(0.2), {"curl": 0.4}])
+	at(k, 177.3, [Rt(-0.05, -0.05, 0.5, 0.4), {"curl": 1.0}, HD(0.0, -0.1, 0.0)])
+	at(k, 177.6, [{"hips": hips(who, Vector3(0.0, -0.12, 0.0))}, B(0.3, -0.2), C(0.1, -0.15), HD(0.2, -0.1), Rt(0.1, -0.3, 0.2, 0.4), Lt(0.15, -0.2, 0.4, 0.4), {"curl": 1.0, "curl_l": 1.0, "sq": 0.95}])
+	# 177,86 : il fonce (8,9 m en un peu moins d'une seconde), arme le droit…
+	var dash: Vector3 = S_HIT - S_REST
+	face(who, 177.6, Vector3(dash.x, 0.0, dash.z).normalized())
+	move(who, 177.88, 178.86, S_HIT, "smooth")
+	var feet: Dictionary = {-1: spot_at(who, 175.4, Vector3(-0.11, 0, 0.0)), 1: spot_at(who, 175.4, Vector3(0.12, 0, 0.0))}
+	var along: Vector3 = dash.normalized()
+	var plan: Array = [
+		[177.82, 177.98, 1, S_REST + along * 0.45 + Vector3(0.04, 0, 0.0)],
+		[177.95, 178.16, -1, S_REST + along * 1.6 - Vector3(0.04, 0, 0.0)],
+		[178.12, 178.34, 1, S_REST + along * 3.2 + Vector3(0.04, 0, 0.0)],
+		[178.3, 178.51, -1, S_REST + along * 5.0 - Vector3(0.04, 0, 0.0)],
+		[178.47, 178.66, 1, S_REST + along * 6.7 + Vector3(0.05, 0, 0.0)],
+		[178.63, 178.82, -1, S_REST + along * 8.15 - Vector3(0.08, 0, 0.0)],
+	]
+	steps(k, feet, plan, {"lift": 0.2, "roll": 0.8, "land": -0.15, "begin": 175.4, "end": 182.0})
+	at(k, 177.9, [{"hips": hips(who, Vector3(0.0, -0.1, 0.0))}, B(0.55, 0.0), C(0.15), HD(0.45), Lt(0.1, 0.0, 0.6, 0.3), Rt(0.2, -0.5, -0.5, 0.3), FACE("angry")])
+	at(k, 178.1, [{"hips": hips(who, Vector3(0.0, -0.06, 0.0))}, B(0.6, 0.1), C(0.15, -0.1), HD(0.5, -0.05), Lt(0.2, -0.5, -0.45, 0.3), Rt(0.08, 0.0, 0.6, 0.3)])
+	at(k, 178.3, [{"hips": hips(who, Vector3(0.0, -0.08, 0.0))}, B(0.6, -0.1), C(0.15, 0.1), HD(0.5, 0.05), Lt(0.1, 0.0, 0.6, 0.3), Rt(0.2, -0.5, -0.5, 0.3)])
+	at(k, 178.5, [{"hips": hips(who, Vector3(0.0, -0.06, 0.0))}, B(0.55, 0.1), C(0.12, -0.1), HD(0.45, -0.05), Lt(0.2, -0.45, -0.4, 0.3), Rt(0.1, 0.0, 0.55, 0.3)])
+	# … pied gauche planté, le corps tourne, le poing droit part (178,95), figé.
+	at(k, 178.72, [{"hips": hips(who, Vector3(0.0, -0.16, 0.0))}, B(0.35, -0.55, 0.0), C(0.1, -0.35), HD(0.2, 0.5), Lt(0.25, 0.1, 0.45, 0.4), Rt(0.15, 0.0, -0.35, 0.5), {"sq": 0.94, "ev": "effort"}])
+	at(k, T_DOUBLE, [{"hips": hips(who, Vector3(0.02, -0.16, -0.08))}, B(0.3, 0.55, 0.0), C(0.12, 0.45), HD(0.12, -0.3), Rt(-0.1, 0.32, 1.0, 0.1), WR(0.0), Lt(0.2, 0.05, -0.05, 0.4), {"curl": 1.0, "curl_l": 1.0, "fp_r": -0.9, "sq": 1.06, "jaw": 0.6}, FACE("angry")], "h")
+	at(k, 182.0, [{"hips": hips(who, Vector3(0.02, -0.16, -0.08))}, B(0.3, 0.55, 0.0), C(0.12, 0.45), HD(0.12, -0.3), Rt(-0.1, 0.32, 1.0, 0.1), Lt(0.2, 0.05, -0.05, 0.4), {"sq": 1.06, "jaw": 0.6}], "h")
+	finish(k)
+
+
+# Elly à genoux devant Bleuette : la main gauche soutient l'avant-bras blessé, la droite se pose sur la
+# plaie (167,0, lumière de soin) ; elle parle doucement, regarde Bleuette, presse, caresse du pouce,
+# retire la main et lui tapote l'épaule. Puis elles regardent vers la bagarre.
+const E_FACE: Vector3 = Vector3(-0.637, 0.0, 0.77)
+
+static func _school_elly() -> void :
+	var who: String = "Elly"
+	put(who, E_SPOT)
+	face(who, 0.0, E_FACE)
+	var k: Clip = clip(who, "pb_elly_heal", 153.0, 182.0, "focus")
+	k.lag = {"head": 0.08, "ik_l": 0.06, "ik_r": 0.07, "curl": 0.1, "curl_l": 0.1}
+	k.clamp_legs = false
+	var kneeling: Dictionary = M([base(), half_kneel(-1, 0.35)])
+	# Penchée vers Bleuette : la main gauche sous son avant-bras, la droite au-dessus de la plaie.
+	at(k, 153.0, [kneeling, B(0.35, 0.0, 0.0), C(0.2, 0.0), HD(-0.35, 0.0, 0.0), L(0.05, -0.62, 0.62, 0.25), R(0.12, -0.42, 0.7, 0.3), WL(0.3, -1.4), WR(0.9), {"curl": 0.25, "curl_l": 0.45}, FACE("focus")])
+	var t: float = 154.2
+	var flip: float = 1.0
+	while t < 165.7:
+		at(k, t, [C(0.2 + 0.02 * flip, 0.03 * flip), HD(-0.35 + 0.04 * flip, 0.06 * flip, 0.03 * flip), R(0.12, -0.42 + 0.02 * flip, 0.7, 0.3)])
+		t += 1.4 + 0.3 * flip
+		flip = - flip
+	# « Bouge pas, Bleuette. » : elle relève les yeux vers son visage.
+	at(k, 165.95, [C(0.18, 0.0), HD(-0.32, 0.0, 0.0), FACE("focus")])
+	at(k, 166.3, [HD(0.05, 0.0, 0.1), FACE("calm")])
+	# « Ça va piquer un peu. » : retour sur la plaie, la main droite descend…
+	at(k, 166.75, [HD(-0.3, 0.0, 0.05), R(0.12, -0.45, 0.68, 0.3), FACE("focus")])
+	# … et se pose (167,0) : la lumière de soin jaillit ; elle tient bon pendant que Bleuette sursaute.
+	at(k, 167.0, [B(0.38, 0.0, 0.0), C(0.24, 0.0), R(0.1, -0.56, 0.66, 0.3), WR(0.7), {"curl": 0.15, "sq": 0.98}])
+	at(k, 167.08, [L(0.05, -0.6, 0.64, 0.25), HD(-0.28, 0.05, 0.05), {"sq": 1.0}])
+	# Le pouce caresse (petits mouvements du poignet), elle se penche, rassurante.
+	at(k, 167.4, [WR(0.75, 0.1), HD(-0.2, 0.08, 0.1), FACE("calm")])
+	at(k, 167.7, [WR(0.65, -0.08)])
+	at(k, 168.0, [WR(0.75, 0.1), HD(-0.1, 0.06, 0.12)])
+	at(k, 168.4, [WR(0.68, -0.05), HD(0.0, 0.04, 0.1), FACE("smile")])
+	at(k, 169.0, [HD(0.05, 0.0, 0.08)])
+	# Elle retire la main, tapote deux fois l'épaule de Bleuette.
+	at(k, 170.2, [R(0.12, -0.3, 0.62, 0.3), WR(0.2), {"curl": 0.2}])
+	at(k, 170.45, [R(0.02, -0.12, 0.75, 0.3), WR(0.4)])
+	at(k, 170.6, [R(0.02, -0.17, 0.75, 0.3)])
+	at(k, 170.75, [R(0.02, -0.12, 0.76, 0.3)])
+	at(k, 170.9, [R(0.02, -0.17, 0.75, 0.3), FACE("smile")])
+	at(k, 171.4, [R(0.25, -0.75, 0.25, 0.2), L(0.2, -0.75, 0.3, 0.2), WL(0.0), WR(0.0), B(0.3), C(0.15), HD(0.0, 0.0, 0.0), {"curl": 0.4, "curl_l": 0.4}, FACE("calm")])
+	# 173,72 : le cri d'Usayuko, elle tourne la tête vers lui, puis vers Simon.
+	at(k, 173.85, [HD(0.15, -0.7, 0.0), C(0.1, -0.25), FACE("surprise")])
+	at(k, 175.0, [HD(0.12, -0.9, 0.0), C(0.08, -0.3), FACE("focus")])
+	at(k, 177.9, [HD(0.15, -0.6, 0.0), FACE("surprise")])
+	finish(k)
+
+
+# Bleuette assise sur ses talons, l'avant-bras gauche tendu vers Elly ; elle tremble, sursaute quand la
+# main se pose (167,0), se crispe, puis se détend quand le soin agit ; elle lève les yeux, bégaie sa
+# réplique, un petit sourire timide.
+const B_FACE: Vector3 = Vector3(0.637, 0.0, -0.77)
+
+static func _school_bleuette() -> void :
+	var who: String = "Bleuette"
+	put(who, B_SPOT)
+	face(who, 0.0, B_FACE)
+	var k: Clip = clip(who, "pb_bleuette_hurt", 153.0, 182.0, "hurt")
+	k.lag = {"head": 0.07, "ik_l": 0.05, "ik_r": 0.06, "curl": 0.08, "curl_l": 0.08}
+	k.clamp_legs = false
+	var sit: Dictionary = M([base(), kneel(0.95, 0.15, 0.2)])
+	at(k, 153.0, [sit, B(0.15, 0.08, 0.05), C(0.18, 0.1), HD(-0.4, 0.1, 0.12), L(0.1, -0.6, 0.48, 0.2), WL(-0.4, 1.4), Rt(-0.3, -0.18, 0.32, 0.4), WR(0.3), {"curl": 0.6, "curl_l": 0.35, "shake": 0.5}, FACE("hurt")])
+	var t: float = 153.8
+	var flip: float = 1.0
+	while t < 166.4:
+		at(k, t, [C(0.18 + 0.03 * flip, 0.1), HD(-0.4 + 0.06 * flip, 0.1 + 0.08 * flip, 0.12), {"shake": 0.45 + 0.15 * flip}])
+		t += 0.9 + 0.35 * flip
+		flip = - flip
+	# Elle regarde la main d'Elly descendre, retient son souffle.
+	at(k, 166.6, [HD(-0.45, 0.0, 0.1), C(0.22, 0.05), {"shake": 0.6}, FACE("fear")])
+	# 167,0 : ça pique ! Les épaules montent, la tête se détourne, les yeux se ferment.
+	at(k, 167.04, [B(0.1, 0.25, 0.1), C(0.05, 0.3, 0.1), HD(0.05, 0.75, 0.25), Rt(-0.32, 0.0, 0.3, 0.5), {"curl": 1.0, "shake": 1.0, "sq": 1.04, "ev": "hurt"}, FACE("pain")], "s")
+	at(k, 167.3, [B(0.12, 0.22, 0.08), C(0.1, 0.28, 0.08), HD(-0.05, 0.7, 0.22), {"shake": 0.9, "sq": 1.0}])
+	at(k, 167.6, [HD(-0.1, 0.65, 0.2), {"shake": 0.85}])
+	# Le soin agit : elle souffle, les épaules redescendent, le tremblement s'apaise.
+	at(k, 167.95, [B(0.18, 0.1, 0.05), C(0.25, 0.12, 0.05), HD(-0.35, 0.35, 0.15), Rt(-0.3, -0.18, 0.32, 0.4), {"curl": 0.6, "shake": 0.45, "sq": 0.97}, FACE("tired")])
+	at(k, 168.4, [C(0.22, 0.1), HD(-0.38, 0.25, 0.12), {"shake": 0.35, "sq": 1.0}, FACE("hurt")])
+	# 168,95 : elle lève les yeux vers Elly ; « A-aïe… N-non, ça va. Ça va. »
+	at(k, 168.95, [C(0.15, 0.05), HD(0.0, 0.05, 0.1), {"shake": 0.4}, FACE("sad")])
+	at(k, 169.3, [HD(0.05, -0.05, 0.15), {"shake": 0.5}])
+	at(k, 169.8, [HD(-0.08, 0.05, 0.12), Rt(-0.22, 0.32, 0.25, 0.5), WR(0.5), {"curl": 0.5}, FACE("fear")])
+	at(k, 170.2, [HD(0.02, 0.0, 0.18), Rt(-0.2, 0.36, 0.22, 0.5)])
+	# Petit hochement de tête, sourire timide.
+	at(k, 170.45, [HD(-0.12, 0.0, 0.16), FACE("smile")])
+	at(k, 170.65, [HD(0.0, 0.0, 0.16)])
+	at(k, 170.85, [HD(-0.1, 0.0, 0.15)])
+	at(k, 171.1, [HD(0.0, 0.0, 0.12), Rt(-0.3, -0.18, 0.32, 0.4), {"curl": 0.6, "shake": 0.3}])
+	# 173,72 : le cri, elle sursaute et regarde vers la bagarre.
+	at(k, 173.8, [HD(0.1, -0.6, 0.0), C(0.1, -0.3), {"shake": 0.6}, FACE("surprise")])
+	at(k, 175.0, [HD(0.05, -0.8, 0.0), C(0.12, -0.35), {"shake": 0.4}, FACE("fear")])
+	finish(k)
+
+
+# Lysia à moitié cassée, à genoux, branchée à une prise : le bras gauche pend, mort ; mouvements
+# d'automate abîmé, par à-coups (clés tenues) ; elle relève la tête en trois saccades vers la caméra,
+# parle, tente de se relever, le servo lâche, elle retombe ; hochement têtu.
+const L_FACE: Vector3 = Vector3(-1.0, 0.0, -0.2)
+
+static func _school_lysia() -> void :
+	var who: String = "Lysia"
+	put(who, L_SPOT)
+	face(who, 0.0, L_FACE)
+	var k: Clip = clip(who, "pb_lysia_broken", 153.0, 182.0, "hurt")
+	k.lag = {"ik_r": 0.03, "curl": 0.05}
+	k.clamp_legs = false
+	var knees: Dictionary = M([base(), kneel(0.55, 0.32, 0.2)])
+	var dead_arm: Dictionary = M([L(0.18, -0.85, 0.12, 0.1), WL(0.5, 0.3), {"curl_l": 0.15}])
+	at(k, 153.0, [knees, B(0.32, 0.0, 0.08), C(0.25, 0.05, 0.1), HD(-0.5, 0.2, 0.25), dead_arm, Rg(0.12, 0.32), WR(1.1), {"curl": 0.5, "shake": 0.15}, FACE("dazed")])
+	# Spasmes : la tête et l'épaule sautent d'une position à l'autre (clés tenues), jamais en rythme.
+	var twitches: Array = [[154.4, 0.15, 0.1], [155.9, -0.1, 0.3], [157.1, 0.2, -0.1], [158.8, -0.05, 0.25], [160.6, 0.12, 0.05], [161.9, -0.12, 0.35], [163.7, 0.18, 0.0], [165.2, -0.08, 0.22], [166.9, 0.1, 0.12], [168.3, -0.15, 0.3], [169.6, 0.05, 0.15]]
+	for row: Array in twitches:
+		var at_t: float = float(row[0])
+		at(k, at_t, [HD(-0.5 + float(row[1]), 0.2 + float(row[2]) * 0.5, 0.25 - float(row[2])), C(0.25, 0.05 + float(row[1]) * 0.3, 0.1), {"shake": 0.6}], "h")
+		at(k, at_t + 0.09, [{"shake": 0.15}], "h")
+	# 170,9 : elle relève la tête en trois saccades vers nous.
+	at(k, 170.85, [HD(-0.45, 0.25, 0.2), C(0.24, 0.05, 0.1)], "h")
+	at(k, 170.98, [HD(-0.25, 0.1, 0.3), {"shake": 0.5}, FACE("hurt")], "h")
+	at(k, 171.08, [HD(-0.05, -0.05, 0.12), {"shake": 0.2}], "h")
+	at(k, 171.18, [HD(0.12, 0.0, 0.18), C(0.18, 0.0, 0.08), {"shake": 0.1}, FACE("focus")], "h")
+	# « Armure à 40 %. Bras gauche… hors ligne. Je tiens. » : la tête penche par crans, les doigts de la
+	# main droite se replient et se rouvrent par à-coups.
+	at(k, 171.6, [HD(0.12, 0.0, 0.3), {"curl": 0.8}], "h")
+	at(k, 171.75, [{"curl": 0.35}], "h")
+	at(k, 172.05, [HD(0.08, 0.12, 0.05), {"curl": 0.65, "shake": 0.4}, FACE("dazed")], "h")
+	at(k, 172.15, [{"shake": 0.1}], "h")
+	# Elle pousse sur la main pour se relever… le servo lâche : elle retombe d'un coup.
+	at(k, 172.4, [B(0.2, 0.0, 0.05), C(0.1, 0.0, 0.05), HD(0.15, 0.0, 0.1), Rg(0.08, 0.2), knees, {"curl": 0.4, "ev": "effort"}, FACE("focus")])
+	at(k, 172.7, [kneel(0.25, 0.1, 0.2), H(0.0, 0.0, 0.0), B(0.1, 0.0, 0.0), C(0.05, 0.0, 0.0), HD(0.2, 0.0, 0.05), Rg(0.05, 0.12, 0.0), {"shake": 0.3}])
+	at(k, 172.78, [kneel(0.6, 0.4, 0.2), B(0.4, 0.0, 0.12), C(0.32, 0.05, 0.12), HD(-0.3, 0.2, 0.3), Rg(0.15, 0.35), {"shake": 1.0, "sq": 0.95, "ev": "hurt"}, FACE("pain")], "h")
+	at(k, 172.95, [{"shake": 0.4, "sq": 1.0}], "h")
+	# Têtue : la tête remonte, petit hochement en deux crans.
+	at(k, 173.25, [HD(0.05, 0.05, 0.15), C(0.25, 0.05, 0.1), {"shake": 0.15}, FACE("determined")], "h")
+	at(k, 173.42, [HD(-0.1, 0.05, 0.15)], "h")
+	at(k, 173.55, [HD(0.08, 0.05, 0.12)], "h")
+	at(k, 174.2, [HD(0.1, -0.5, 0.05), {"shake": 0.3}, FACE("focus")], "h")
+	at(k, 174.3, [{"shake": 0.12}], "h")
+	at(k, 176.4, [HD(0.05, -0.35, 0.1), {"shake": 0.5}], "h")
+	at(k, 176.5, [{"shake": 0.12}], "h")
+	finish(k)
 
 # Poses d'essai tenues 1 s chacune (banc tools/pb_pose.gd, --pb-step 1) : calage des axes du squelette.
 static func _bench() -> void :

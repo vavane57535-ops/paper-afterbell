@@ -116,6 +116,18 @@ func _path_at(path: Array, t: float) -> Vector3:
 			return (a[1] as Vector3).lerp(b[1], u)
 	return path[path.size() - 1][1]
 
+# Orientation écrite dans la trajectoire ([t, position, lacet]) ; NAN si la trajectoire n'en a pas.
+func _yaw_at(path: Array, t: float) -> float:
+	if path.is_empty() or (path[0] as Array).size() < 3: return NAN
+	if t <= float(path[0][0]): return float(path[0][2])
+	for k: int in range(1, path.size()):
+		if t <= float(path[k][0]):
+			var a: Array = path[k - 1]
+			var b: Array = path[k]
+			var u: float = (t - float(a[0])) / maxf(0.0001, float(b[0]) - float(a[0]))
+			return lerp_angle(float(a[2]), float(b[2]), u)
+	return float(path[path.size() - 1][2])
+
 # Glissement des pieds : un pied est « posé » quand sa cheville est à moins de 3 cm au-dessus de sa
 # hauteur de repos ; on mesure de combien il bouge (dans le plan du sol) pendant cet appui.
 func _check_feet(visual: PaperVisual, t: float) -> void :
@@ -181,7 +193,9 @@ func _run() -> void :
 					if not str(row[1]).is_empty(): (row[0] as PaperVisual).play(str(row[1]))
 			var next: Vector3 = _path_at(path, t + DT)
 			var velocity: Vector3 = (next - previous) / DT
-			if not path.is_empty() and Vector2(velocity.x, velocity.z).length() > 0.3:
+			var written: float = _yaw_at(path, t + DT)
+			if not is_nan(written): main.rotation.y = written
+			elif not path.is_empty() and Vector2(velocity.x, velocity.z).length() > 0.3:
 				main.rotation.y = atan2( - velocity.x, - velocity.z)
 			main.position = next
 			main.animate(DT, velocity, false, false)
