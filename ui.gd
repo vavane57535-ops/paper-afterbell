@@ -2917,6 +2917,8 @@ func _qte_press(choice: String) -> void :
 func show_training_panel(open: bool = true) -> void :
 	_clear(overlay)
 	if not open: return
+	# L'aide « F2 pour… » ne doit pas rester posée sur le panneau qu'elle annonce.
+	toast_time = 0
 	_dim(overlay, 0.74)
 	var panel: PanelContainer = PanelContainer.new()
 	var style: StyleBox = T.sheet_style(30, 22, T.TEAL_DEEP, 47)
