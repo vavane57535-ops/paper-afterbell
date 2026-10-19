@@ -11,6 +11,7 @@ extends Node
 #   enterré      : pièce cachée sous le sol, ou enfoncée aux trois quarts ;
 #   traverse     : deux objets différents qui s'interpénètrent de plus de 12 cm ;
 #   arbre        : arbre qui pousse dans un bâtiment, un toit, un chemin bloqué ;
+#   meuble_haut  : meuble (bureau, banc, étagère…) dont le bas ne repose sur rien (collé au mur, au plafond) ;
 #   archive_pose : meuble d'archive qui ne repose pas exactement sur le sol ou le tapis dessous ;
 #   porte        : objet dans le passage d'une porte, porte qui donne sur un mur ou sur le vide ;
 #   escalier     : rampe dont un bout ne donne sur aucun sol ;
@@ -32,7 +33,8 @@ class AuditSchool extends PaperSchool:
 		var kit: String = ""
 		for frame: Dictionary in frames:
 			var source: String = str(frame.source).get_file()
-			if source == "map_kit.gd" and kit.is_empty(): kit = str(frame.function)
+			# fonction du kit appelée par la carte (« desk », « bench »…), pas ses briques internes (« deco »)
+			if source == "map_kit.gd": kit = str(frame.function)
 			if source.begins_with("map_") and source != "map_kit.gd" and source != "map_audit.gd":
 				return "%s:%d%s @%s" % [source, int(frame.line), (" " + kit) if not kit.is_empty() else "", str(frame.function)]
 		for frame: Dictionary in frames:
@@ -77,8 +79,17 @@ const JUMP_HEIGHT: float = 3.2
 const CAPSULE_RADIUS: float = 0.38
 const CAPSULE_HEIGHT: float = 1.75
 
-# [carte, contrôle, extrait du texte, raison] : vérifiés en capture, ce ne sont pas des défauts.
-const ALLOWED: Array = []
+# [carte, contrôle, extraits du texte (tous présents), raison] : vérifiés en capture, ce ne sont pas des défauts.
+# Les numéros de ligne les rendent fragiles exprès : si la carte change, le cas revient et se revérifie.
+const ALLOWED: Array = [
+	["school", "traverse", ["map_school.gd:120 @_walls]"], "cloison de l'étage : bandeaux et soubassement qui finissent dans le mur extérieur et dans la dalle"],
+	["school", "traverse", ["map_school.gd:121 @_walls]"], "cloison de l'étage : bandeaux et soubassement qui finissent dans le mur extérieur et dans la dalle"],
+	["school", "traverse", ["pillar @_lobby]", "deco @_roof_and_windows]"], "poutre du toit posée sur le chapiteau des piliers du hall"],
+	["forest", "traverse", ["fence @_north_plateau]", "@_perimeter]"], "la clôture du plateau nord finit dans un rocher du pourtour, hors de la carte"],
+	["snow", "traverse", ["map_snow.gd:103 deco @_chalet]", "map_snow.gd:111 deco @_chalet]"], "pignon en planches sous le toit du chalet"],
+]
+# meubles et objets posés : leur bas doit toucher ce qui les porte (« meuble_haut »)
+const FURNITURE: Array[String] = ["desk", "chair", "table", "long_table", "bookshelf", "bench", "crate_stack", "lockers", "locker_island", "vending_machine", "trophy_case", "plant", "picnic", "music_stand", "swings", "slide", "dome", "lantern", "school_bus", "stake_sign"]
 
 var world: Node
 var maps: Array[String] = ["school", "forest", "snow"]
@@ -151,6 +162,7 @@ func _audit_map(map_id: String) -> void :
 	_crossing()
 	_trees()
 	_archives()
+	_furniture()
 	_doors()
 	_stairs()
 	_labels()
@@ -362,7 +374,11 @@ func _floor_below(p: Vector3, above: float = 0.3) -> float:
 func _finding(check: String, where: Vector3, text: String, extra: Dictionary = {}) -> void :
 	# défauts examinés à l'œil et gardés exprès (assemblages voulus) : comptés à part, sous « voulu »
 	for allowed: Array in ALLOWED:
-		if allowed[0] == school.map_id and check == allowed[1] and text.contains(allowed[2]):
+		if allowed[0] != school.map_id or check != allowed[1]: continue
+		var matched: bool = true
+		for part: String in allowed[2]:
+			if not text.contains(part): matched = false
+		if matched:
 			check = "voulu"
 			break
 	var entry: Dictionary = {"check": check, "position": where, "text": "à " + _v(where) + " · " + text}
@@ -585,6 +601,40 @@ func _archives() -> void :
 		# il peut s'enfoncer de 1 à 2 cm dans une latte ou un tapis fin, pas flotter
 		if support == -INF or bottom.y - support > 0.012 or bottom.y - support < -0.025:
 			_finding("archive_pose", bottom, "meuble d'archive : %s · %s" % ["rien dessous" if support == -INF else "%.3f m au-dessus de ce qui le porte" % (bottom.y - support), piece.label])
+
+# Meubles : l'ensemble (pieds compris) doit reposer sur ce qui est dessous ; un meuble collé au mur
+# ou au plafond, ou posé en l'air sur un autre objet, est signalé. Un meuble = les pièces d'un même appel
+# du kit (même ligne de la carte) qui se touchent.
+func _furniture() -> void :
+	var seen: Dictionary = {}
+	for index: int in range(pieces.size()):
+		var piece: Dictionary = pieces[index]
+		if seen.has(index) or piece.node == null or piece.ground: continue
+		var site: String = str(piece.node.get_meta("audit_site", ""))
+		var parts: PackedStringArray = site.split(" ")
+		if parts.size() < 2 or parts[1] not in FURNITURE: continue
+		var members: Array[int] = [index]
+		seen[index] = true
+		var cursor: int = 0
+		while cursor < members.size():
+			for other: int in pieces[members[cursor]].contacts:
+				var o: Dictionary = pieces[other]
+				if seen.has(other) or o.node == null or o.ground or str(o.node.get_meta("audit_site", "")) != site: continue
+				seen[other] = true
+				members.append(other)
+			cursor += 1
+		var bounds: AABB = pieces[members[0]].aabb
+		var exclude: Array[RID] = []
+		for member: int in members:
+			bounds = bounds.merge(pieces[member].aabb)
+			exclude.append(pieces[member].rid)
+		var bottom: Vector3 = Vector3(bounds.get_center().x, bounds.position.y, bounds.get_center().z)
+		var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(bottom + Vector3.UP * 0.3, bottom + Vector3.DOWN * 4.0, PROXY_LAYER | 1)
+		query.exclude = exclude
+		var hit: Dictionary = space.intersect_ray(query)
+		var gap: float = 4.0 if hit.is_empty() else bottom.y - float(hit.position.y)
+		if gap > 0.25:
+			_finding("meuble_haut", bottom, "%s (%d pièce(s)) : bas à %s · %s" % [parts[1], members.size(), "plus de 4 m du sol" if hit.is_empty() else "%.2f m de ce qui est dessous" % gap, piece.label])
 
 func _doors() -> void :
 	for door: Dictionary in school.doors:

@@ -53,6 +53,13 @@ const PRESETS: Dictionary = {
 			["parvis_sud", Vector3(0, 2.6, 44.5), Vector3(0, 1.0, 62), 62.0],
 			["affiches_couloir", Vector3(0, 2.0, -9.5), Vector3(-8, 2.4, -17.7), 58.0],
 		],
+		"retouches": [
+			["infirmerie_armoire", Vector3(-37, 1.8, 11), Vector3(-27, 1.2, 17.6), 60.0],
+			["labo_tableau", Vector3(25, 1.8, 27), Vector3(18.3, 2.0, 24.0), 62.0],
+			["archive_cantine", Vector3(37.6, 1.0, -32.2), Vector3(36, 0.25, -35.5), 50.0],
+			["jonction_retenue", Vector3(-46, 6.6, 12), Vector3(-53.4, 5.8, 17.6), 58.0],
+			["chapiteaux_hall", Vector3(4, 1.8, 31), Vector3(12, 9.4, 26), 64.0],
+		],
 	},
 	"forest": {
 		"tour": [
@@ -85,6 +92,13 @@ const PRESETS: Dictionary = {
 			["fosse_rocher", Vector3(-7, 3.2, -27.5), Vector3(-2, 1.4, -34), 55.0],
 			["arbre_muret", Vector3(-31.5, 9.5, -44.5), Vector3(-39, 5.5, -52), 58.0],
 		],
+		"retouches": [
+			["archive_potager", Vector3(61.6, 1.0, 43.0), Vector3(60, 0.25, 40), 50.0],
+			["archive_serre", Vector3(-36.4, 5.0, -29.0), Vector3(-38, 4.25, -32), 50.0],
+			["couronne_est", Vector3(64, 3.0, -12), Vector3(80, 4.0, -4), 64.0],
+			["cloture_rocher", Vector3(67, 6.8, -53), Vector3(74, 5.0, -58), 58.0],
+			["couronne_nord", Vector3(10, 8.5, -63), Vector3(14, 8.0, -78), 64.0],
+		],
 	},
 	"snow": {
 		"tour": [
@@ -116,6 +130,14 @@ const PRESETS: Dictionary = {
 			["arbre_remonte_pente", Vector3(38.5, 9.0, -51.5), Vector3(49.5, 7.5, -57.5), 60.0],
 			["bord_est_sol", Vector3(59, 21, 2), Vector3(71, 0.0, 8), 58.0],
 			["remonte_pente_panneau", Vector3(50, 7.2, -41.5), Vector3(50, 7.9, -48), 55.0],
+		],
+		"retouches": [
+			["porte_dortoir_dedans", Vector3(-3.0, 6.7, 1.0), Vector3(-4.5, 6.3, 12), 66.0],
+			["porte_dortoir_dehors", Vector3(-1.5, 6.9, 15.6), Vector3(-5, 6.4, 11), 66.0],
+			["lanterne_crete", Vector3(-2, 7.0, -38.5), Vector3(-6, 6.4, -44), 60.0],
+			["pignon_chalet", Vector3(4, 7.5, 30), Vector3(0, 11.0, 14.8), 60.0],
+			["archive_cabane", Vector3(45.6, 1.0, 3.0), Vector3(44, 0.25, 0), 50.0],
+			["couronne_ouest", Vector3(-62, 3.0, 4), Vector3(-80, 4.0, -8), 64.0],
 		],
 	},
 }
