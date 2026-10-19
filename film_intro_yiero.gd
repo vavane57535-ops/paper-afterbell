@@ -1471,18 +1471,23 @@ func _write_chase() -> void :
 	_key("pitch", 122.0, 0.05);_key("pitch", 126.0, 0.42);_key("rise", 122.0, 1.0);_key("rise", 126.0, 0.88)
 	_key("lean", 122.0, 0.0);_key("lean", 126.0, 8.0);_key("jaw", 122.0, 0.1);_key("jaw", 126.0, 0.32)
 	_key("fury", 122.0, 0.4);_key("eye_glow", 122.0, 1.4);_key("tremble", 122.0, 0.45)
-	_shot(122.0, {"rel": {"a": S}, "eye": [Vector3(1.3, 1.7, -3.4), Vector3(1.1, 1.5, -3.0)], "look": {"y": "face", "h": -8.0}, "fov": [50, 48], "hand": 0.3, "safe": false})
+	# Plan 25 (122 → 124,9) : derrière Simon, au ras de l'encre ; la tête de Yiero descend sur lui. Il se
+	# relève, recule vers nous, se retourne.
+	_shot(122.0, {"rel": {"a": S}, "eye": [Vector3(0.95, 0.8, -3.0), Vector3(0.8, 0.88, -3.3)], "look": [{"a": S, "h": 6.8, "o": Vector3(-1.2, 0, 20.0)}, {"a": S, "h": 6.4, "o": Vector3(-1.6, 0, 18.0)}], "fov": [54, 50], "hand": 0.35, "ease": "smooth", "safe": false})
 	_cue(124.98, "sfx", "sfx_whoosh", 0.35, 0.8);_cue(125.1, "rush", 0.6)
 	_shot(124.9, {"rel": {"a": S}, "eye": [Vector3(-3.2, 1.2, -2.0), Vector3(-2.6, 1.1, -3.0)], "look": {"a": S, "h": 0.9}, "fov": 46, "hand": 0.7})
 	_shot(126.0, {"rel": {"a": S}, "eye": [Vector3(0.35, 1.25, -4.4), Vector3(0.3, 1.25, -4.0)], "look": {"a": S, "h": 1.0}, "fov": [40, 38], "hand": 0.9})
 	_say(127.0, "Simon", "Non non non non non !", 0.6)
-	_shot(131.0, {"rel": {"a": S}, "eye": [Vector3(-5.6, 0.6, 0.6), Vector3(-5.5, 0.65, -0.4)], "look": {"a": S, "h": 0.8}, "fov": 46, "hand": 0.9})
-	_shot(135.5, {"rel": {"a": S}, "eye": [Vector3(-30, 14, -26), Vector3(-28, 13, -24)], "look": {"a": S, "h": 4.0, "o": Vector3(0, 0, 22)}, "fov": [50, 48], "hand": 0.3, "safe": false})
+	_shot(131.0, {"rel": {"a": S}, "eye": [Vector3(-5.6, 0.75, 0.6), Vector3(-5.5, 0.8, -0.4)], "look": {"a": S, "h": 0.8}, "fov": 46, "hand": 0.9})
+	# Plan 28 (135,5 → 140) : très large, en plongée de trois quarts : Yiero et ses mains qui avancent comme
+	# des pattes d'araignée ; Simon, minuscule étincelle dorée, court devant.
+	_shot(135.5, {"rel": {"a": S}, "eye": [Vector3(-25, 12, -21), Vector3(-23.5, 11, -19.5)], "look": {"a": S, "h": 2.6, "o": Vector3(0, 0, 13)}, "fov": [48, 46], "hand": 0.3, "safe": false})
 	_say(136.0, "Yiero", "Allez, cours ! J'adore quand ça court !", 0.4, true)
-	_shot(140.0, {"rel": {"a": S}, "eye": [Vector3(0.45, 0.5, 2.7), Vector3(0.4, 0.55, 2.4)], "look": {"a": S, "h": 0.8, "o": Vector3(0, 0, -30)}, "fov": [50, 48], "hand": 0.8})
+	# Plan 29 (140 → 144,5) : derrière Simon, au ras du sol ; au loin, la porte (à droite de lui).
+	_shot(140.0, {"rel": {"a": S}, "eye": [Vector3(1.7, 0.6, 2.2), Vector3(1.55, 0.62, 2.0)], "look": {"a": S, "h": 1.0, "o": Vector3(-0.5, 0, -8.0)}, "fov": [54, 52], "hand": 0.8})
 	_say(141.0, "Simon", "Une porte ?! Allez, allez, allez !", 0.6)
 	_shot(144.5, {"rel": {"a": S}, "eye": [Vector3(0.3, 0.95, -2.9), Vector3(0.25, 0.95, -2.7)], "look": {"a": S, "h": 0.9}, "fov": [40, 38], "hand": 1.0})
-	_say(144.8, "Yiero", "Une porte ? C'est MIGNON.", 0.3)
+	_say(144.8, "Yiero", "Une porte ? T'es mignon.", 0.3)
 	_cue(144.8, "pulse", Color(0.75, 0.02, 0.05, 0.42), 3.0);_cue(147.0, "pulse", Color(0.75, 0.02, 0.05, 0.42), 2.0)
 
 	# Yiero derrière Simon, de plus en plus près ; la tête plonge vers lui.
@@ -1534,7 +1539,8 @@ func _write_chase() -> void :
 		_cue(t_up + 0.02, "ink", at + Vector3(0, 0.5, 0), 8, 4.0)
 		_cue(t_up, "shake", 0.4)
 	_cue(leap, "sfx", "sfx_whoosh", 0.6)
-	_key("gold_s", 125.0, 0.3);_key("gold_s", 140.0, 0.25);_key("gold_s", 140.3, 1.15, "out");_key("gold_s", 142.5, 0.65);_key("gold_s", 150.6, 0.65);_key("gold_s", 150.7, 0.0, "jump")
+	# Sa lumière est presque morte pendant la fuite… elle revient d'un coup avec le sursaut (140,17).
+	_key("gold_s", 125.0, 0.15);_key("gold_s", 135.3, 0.15);_key("gold_s", 135.6, 0.6);_key("gold_s", 139.8, 0.5);_key("gold_s", 140.05, 0.2);_key("gold_s", 140.3, 1.15, "out");_key("gold_s", 142.5, 0.65);_key("gold_s", 150.6, 0.65);_key("gold_s", 150.7, 0.0, "jump")
 	_cue(140.17, "event", "boost_release", {"position": {"a": S}, "level": 3});_cue(140.17, "sfx", "sfx_ignite", 0.7, 1.2);_cue(140.17, "rush", 1.0)
 	_flash(140.17, Color(1.0, 0.85, 0.4, 0.25), 0.04, 0.35)
 	var door: Vector3 = _pb_void(PrologueB.plan("Simon").door)

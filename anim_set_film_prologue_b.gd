@@ -635,9 +635,9 @@ static func _flee_run(k: Clip) -> void :
 	var style: Dictionary = {
 		"period": [[124.7, 0.27], [125.0, 0.215], [125.4, CHASE_STEP]],
 		"duty": [[124.7, 0.62], [125.2, 0.48], [125.8, 0.38], [126.4, 0.36], [140.1, 0.36], [140.8, 0.31]],
-		"lean": [[124.7, 0.66], [125.3, 0.62], [126.2, 0.52], [131.9, 0.5], [132.05, 0.26], [132.5, 0.5], [140.1, 0.52], [140.6, 0.86], [149.2, 0.9]],
+		"lean": [[124.7, 0.66], [125.3, 0.64], [126.2, 0.6], [131.9, 0.6], [132.05, 0.3], [132.5, 0.58], [140.1, 0.6], [140.6, 1.0], [149.2, 1.04]],
 		"chest": [[124.7, 0.2], [126.2, 0.1], [131.95, -0.12], [132.4, 0.08], [140.1, 0.08], [140.6, 0.28], [149.2, 0.3]],
-		"head": [[124.7, 0.5], [126.2, 0.5], [140.1, 0.5], [140.6, 0.85], [149.2, 0.88]],
+		"head": [[124.7, 0.5], [126.2, 0.55], [140.1, 0.55], [140.6, 0.95], [149.2, 0.98]],
 		"kick": [[124.7, 0.22], [125.5, 0.38], [126.4, 0.44], [140.1, 0.44], [140.6, 0.5]],
 		"knee": [[124.7, 0.26], [125.5, 0.32], [126.4, 0.34], [140.1, 0.34], [140.6, 0.38]],
 		"drop": [[124.7, 0.1], [125.5, 0.07], [126.4, 0.055], [140.1, 0.055], [140.6, 0.065]],
@@ -964,14 +964,16 @@ static func run(k: Clip, r: Dictionary) -> Array:
 		var sonic: float = curve(r.get("sonic", [[0.0, 0.0]]), tc)
 		var fore: int = - s
 		var arm_t: float = tc + 0.03
-		var lead: Vector3 = Vector3(0.08, 0.0, 0.72).lerp(Vector3(0.4, 0.3 + 0.12 * jitter, 0.5), panic)
-		var back: Vector3 = Vector3(0.2, -0.55, -0.6).lerp(Vector3(0.46, -0.22 - 0.1 * jitter, -0.62), panic)
-		var tail_l: Vector3 = Vector3(0.28, -0.42, -0.86 + 0.03 * float(fore))
-		var tail_r: Vector3 = Vector3(0.28, -0.42, -0.86 - 0.03 * float(fore))
+		# Pompe de sprint ; panique : plus large et plus haute, mains ouvertes qui battent ; Sonic : bras
+		# tendus en arrière le long du corps (repère du buste : vers les hanches, au-dessus du dos).
+		var lead: Vector3 = Vector3(0.08, 0.0, 0.72).lerp(Vector3(0.18, 0.06 + 0.08 * jitter, 0.66), panic)
+		var back: Vector3 = Vector3(0.2, -0.55, -0.6).lerp(Vector3(0.24, -0.62 - 0.08 * jitter, -0.62), panic)
+		var tail_l: Vector3 = Vector3(0.2 + 0.02 * jitter, -0.8, -0.46 + 0.03 * float(fore))
+		var tail_r: Vector3 = Vector3(0.2 - 0.02 * jitter, -0.8, -0.46 - 0.03 * float(fore))
 		var hand_fore: Vector3 = lead.lerp(tail_l if fore < 0 else tail_r, sonic)
 		var hand_back: Vector3 = back.lerp(tail_r if fore < 0 else tail_l, sonic)
 		var arms: Dictionary = {}
-		var flare: float = lerpf(0.2, 0.55, panic)
+		var flare: float = lerpf(lerpf(0.2, 0.4, panic), 0.05, sonic)
 		if fore < 0:
 			arms = M([Lt(hand_fore.x, hand_fore.y, hand_fore.z, flare), Rt(hand_back.x, hand_back.y, hand_back.z, flare)])
 		else:
