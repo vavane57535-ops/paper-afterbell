@@ -467,6 +467,7 @@ static func _compile(a: Actor) -> void :
 		for row: Array in a.feet[side]: times.append(float(row[0]))
 		a.feet_t[side] = times
 	a.acts.sort_custom( func(x: Array, y: Array) -> bool: return float(x[0]) < float(y[0]))
+	_hold_defaults(a)
 	var compiled: Dictionary = AnimClip.compile({"len": 1.0, "keys": a.acts})
 	a.track = compiled.channels
 	a.strings = compiled.strings
@@ -477,6 +478,28 @@ static func _compile(a: Actor) -> void :
 			if str(row[2]) == "plant" and k > 0 and float(row[3].get("fall", 1.0)) > 0.0:
 				a.falls.append([float(row[0]), side, row[3].at, float(row[3].get("fall", 1.0))])
 	a.falls.sort_custom( func(x: Array, y: Array) -> bool: return float(x[0]) < float(y[0]))
+
+
+# Avant sa première clé, un canal vaut sa valeur de repos (sinon l'interpolation rendrait la valeur de
+# cette première clé depuis le début du film : un « sq » ou un « gsnap » écrit à 64 s agirait dès 0 s).
+# La valeur de repos tient jusqu'à HOLD_LEAD avant la première clé (clé d'arrêt, sans dépassement).
+const HOLD_LEAD: float = 0.2
+
+static func _hold_defaults(a: Actor) -> void :
+	var first: Dictionary = {}
+	for row: Array in a.acts:
+		for channel: String in (row[1] as Dictionary):
+			if not first.has(channel): first[channel] = float(row[0])
+	var extra: Array = []
+	for channel: String in first:
+		if channel in AnimClip.STRING_CHANNELS: continue
+		var at: float = float(first[channel])
+		if at <= 0.0001: continue
+		var value: Variant = DEFAULTS.get(channel, Vector3.ZERO)
+		extra.append([0.0, {channel: value}, "s"])
+		if at - HOLD_LEAD > 0.0001: extra.append([at - HOLD_LEAD, {channel: value}, "s"])
+	a.acts.append_array(extra)
+	a.acts.sort_custom( func(x: Array, y: Array) -> bool: return float(x[0]) < float(y[0]))
 
 
 # Canaux composés du corps (unités du moteur) à l'instant t du film : jeu d'acteur + appuis.
@@ -687,6 +710,10 @@ static func _bake(a: Actor) -> void :
 			_direct_keys(a, channel, t0, t1, base, keys)
 		for channel: String in OPTIONAL:
 			if a.track.has(channel): _direct_keys(a, channel, t0, t1, base, keys)
+			# Jambes au repos sous le clip (le clip « air » du moteur, joué quand le corps n'est pas « au
+			# sol », les replierait) : l'IK des pieds les repose ensuite sur les appuis, et « gsnap »
+			# mesure le point le plus bas sur ce corps-là.
+			elif channel in AnimClip.LEG_CHANNELS: keys.append([0.0, {channel: Vector3.ZERO}])
 		_feet_keys(a, times, states, marks, base, keys)
 		for channel: String in a.strings:
 			var list: Array = a.strings[channel]
