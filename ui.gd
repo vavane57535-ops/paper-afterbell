@@ -34,13 +34,13 @@ const TIPS: Array[String] = [
 	"Un allié au sol se relève immédiatement avec E. Lysia, elle, ne peut pas être réanimée.", 
 	"Simon et Ashura : maintiens la capacité 2 pour charger. 3 s de charge, 6 s de boost.", 
 	"Après un stun, Alice ne peut plus être étourdie pendant 5 s. Ne balancez pas tout en même temps.", 
-	"15 étourdissements débloquent la True Form d’Alice : 30 secondes, chrono suspendu, sortie fermée.", 
+	"Après 15 stuns, Alice peut passer en True Form, une seule fois : 30 s, chrono en pause et sortie fermée.", 
 	"Le LMS dure le temps de la musique du dernier survivant. Une aura pleine garde la sortie ouverte.", 
 	"En LMS, tu gagnes 65 PV (150 max). Seule Bleuette peut dépasser 150, avec « Je peux le faire ».", 
 	"Soins, boosts, protections, stuns : tout ce qui aide l’équipe remplit ton aura.", 
 	"Archives : maintiens E, puis appuie sur la bonne touche (J, K ou L). Une erreur, et l’alarme sonne.", 
 	"Lysia se recharge aux prises murales et mange les épaves de drone pour 7 PV.", 
-	"Elly entend les capacités d’Alice partout dans l’école.", 
+	"Elly entend les pas et les capacités d’Alice partout sur la carte.", 
 ]
 
 
@@ -2089,7 +2089,7 @@ func _settings_access(content: VBoxContainer) -> void :
 		reduced_motion = on))
 	_setting_row(content, "Daltonisme", "Palette orange / bleu pour distinguer alliés, danger et objectifs.", _check(bool(world.options.get("colorblind", false)), func(on: bool) -> void : _set_option("colorblind", on)))
 	_spacer(content, 6)
-	_paragraph("G ouvre la roue d’émotes. Avec Simon, 3 passe du lancer au coup éclair. Ton aura se remplit quand tu aides ; à 100, tes bonus de LMS se débloquent.", content, 14, T.MUTED)
+	_paragraph("Tu peux aussi couper les secousses de caméra, les onomatopées et les effets d’écran dans l’onglet JEU.", content, 14, T.MUTED)
 
 func _settings_back() -> void :
 	if world.phase == "playing":

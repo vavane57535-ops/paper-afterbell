@@ -727,7 +727,7 @@ func _draw_banner() -> void :
 	canvas.draw_set_transform_matrix(Transform2D.IDENTITY)
 	var bearing: Vector2 = exit_bearing()
 	var killer: bool = viewer_is_killer()
-	var order: String = T.tr_text("EMPÊCHEZ LEUR FUITE") if killer else T.tr_text("FUYEZ !")
+	var order: String = T.tr_text("EMPÊCHE-LES DE FUIR") if killer else T.tr_text("FUYEZ !")
 	var line: String = "%s   ·   %s %d m" % [order, T.tr_text("SORTIE"), int(round(bearing.y))]
 	var small: Font = T.font("caps_wide")
 	var small_size: int = int(clampf(viewport.y * 0.03, 17.0, 30.0))

@@ -9,8 +9,8 @@ extends Node
 # Textes passés tels quels au traducteur par le code du jeu (gabarits avant formatage quand le code
 # traduit le gabarit, texte final sinon).
 const SOURCES: Array[String] = [
-	"LA SORTIE EST OUVERTE", "LA SORTIE SE ROUVRE", "DERNIÈRES SECONDES", "EMPÊCHEZ LEUR FUITE", "FUYEZ !", "SORTIE",
-	"SORTIE OUVERTE · EMPÊCHEZ LEUR FUITE", "SORTIE OUVERTE · FUYEZ !", "SORTIE À 01:20 · RESTEZ EN VIE", "LAST MAN STANDING",
+	"LA SORTIE EST OUVERTE", "LA SORTIE SE ROUVRE", "DERNIÈRES SECONDES", "EMPÊCHE-LES DE FUIR", "FUYEZ !", "SORTIE",
+	"SORTIE OUVERTE · EMPÊCHE-LES DE FUIR", "SORTIE OUVERTE · FUYEZ !", "SORTIE À 01:20 · RESTEZ EN VIE", "LAST MAN STANDING",
 	"CAMÉRA : DERRIÈRE", "CAMÉRA : LIBRE 360°", "Le personnage tourne avec la caméra", "Tourne librement autour du personnage",
 	"Caméra", "Émotes", "Courir", "Interagir", "Saut", "Menu", "%s : caméra", "TAB : allié suivant", "SPECTATEUR", "Tu suis %s",
 	"ÉVADÉ · TU ES EN SÉCURITÉ",

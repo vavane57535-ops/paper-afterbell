@@ -678,14 +678,14 @@ func _update_top(a: PaperActor) -> void :
 	var tint: Color = T.TEAL
 	var icon_name: String = "exit"
 	if world.exit_flow.opened:
-		objective = "SORTIE OUVERTE · EMPÊCHEZ LEUR FUITE" if killer_view else "SORTIE OUVERTE · FUYEZ !"
+		objective = "SORTIE OUVERTE · EMPÊCHE-LES DE FUIR" if killer_view else "SORTIE OUVERTE · FUYEZ !"
 		tint = T.GOLD
 	elif world.lms:
 		objective = "LAST MAN STANDING"
 		tint = T.RED
 		icon_name = "bell"
 	elif killer_view:
-		objective = "EMPÊCHEZ LEUR FUITE"
+		objective = "EMPÊCHE-LES DE FUIR"
 		tint = Color("f08a9a")
 		icon_name = "slash"
 	else: objective = "SORTIE À 01:20 · RESTEZ EN VIE"

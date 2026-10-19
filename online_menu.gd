@@ -132,7 +132,7 @@ func _identity() -> void :
 
 func _require_account() -> bool:
 	if client.service_url.is_empty():
-		_card("Le service en ligne n’est pas configuré", "Aucun serveur régional public n’est fourni pour l’instant. Le solo reste disponible. L’administrateur devra fournir l’adresse HTTPS du service.")
+		_card("Le service en ligne n’est pas configuré", "Pas encore de serveur régional public. Le solo marche toujours. Pour le reste, il faut l’adresse HTTPS du service : demande-la à l’admin.")
 		content.add_child(_button("Configurer l’adresse du service", show_service, true));return false
 	if client.token.is_empty():
 		_card("Il te faut un compte", "Connecte-toi pour rejoindre un groupe privé, recevoir des invitations et retrouver tes statistiques.")
@@ -141,7 +141,7 @@ func _require_account() -> bool:
 
 func show_service() -> void :
 	_clear("service", "Le service de jeu")
-	var box: VBoxContainer = _card("Adresse fournie par l’administrateur", "Sans hébergement configuré, les comptes et les parties régionales restent indisponibles. Utilise la même adresse sur ordinateur et Android.")
+	var box: VBoxContainer = _card("Adresse fournie par l’administrateur", "Sans cette adresse, pas de comptes ni de parties régionales. Mets la même sur PC et sur Android.")
 	var address: LineEdit = _field("https://adresse-du-service");address.text = client.service_url;address.virtual_keyboard_type = LineEdit.KEYBOARD_TYPE_URL;box.add_child(address)
 	box.add_child(_button("Enregistrer et vérifier", func():
 		if not client.configure(address.text): return
@@ -273,7 +273,7 @@ func _show_rules(party: Dictionary, regions: Array = []) -> void :
 			var index: int = region.item_count;region.add_item(str(item.name) + ("" if item.available else " — indisponible"));region.set_item_metadata(index, item.id);region.set_item_disabled(index, not bool(item.available))
 			if bool(item.available) and not available: region.select(index);available = true
 		box.add_child(_label("Région du serveur", 17));box.add_child(region)
-		if not available: box.add_child(_label("Aucune région n’est hébergée pour l’instant. Les parties régionales deviendront disponibles quand un administrateur déploiera le serveur.", 18, RED))
+		if not available: box.add_child(_label("Aucune région n’est hébergée pour l’instant. Les parties régionales arriveront quand un admin aura mis le serveur en ligne.", 18, RED))
 	var existing: Dictionary = party.get("config", {}); var options: Dictionary = existing.get("options", {})
 	var maps: OptionButton = _option(["École", "Bois", "Classe de neige"]);maps.select(maxi(0, ["school", "forest", "snow"].find(str(existing.get("map_id", "school")))));box.add_child(_label("Carte", 17));box.add_child(maps)
 	var alice: OptionButton = _option(["Alice est un bot", "Alice : chef du groupe", "Alice : joueur au hasard", "Alice : malice"]);alice.select(maxi(0, ["bot", "host", "random", "malice"].find(str(options.get("killer_mode", "bot")))));box.add_child(_label("Rôle d’Alice", 17));box.add_child(alice)

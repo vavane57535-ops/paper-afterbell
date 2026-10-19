@@ -137,9 +137,12 @@ static func catalogue() -> Array[Dictionary]:
 		if "Ashura" in team: parts.append("Ashura envoie son drone")
 		if "Usayuko" in team: parts.append("Usayuko frappe Alice")
 		if "Lysia" in team: parts.append("Lysia repousse Alice")
-		if "Elly" in team: parts.append("Elly soigne le groupe" if team.size() > 1 else "Elly esquive et pose sa zone de soin")
-		if "Bleuette" in team: parts.append("Bleuette encourage le groupe" if team.size() > 1 else "Bleuette esquive et se donne du courage")
-		rows.append(_entry("team_%02d" % mask, " + ".join(PackedStringArray(team)), "team", "ending_survivors", team, team[0], " ; ".join(parts) + ". Puis l’équipe s’échappe."))
+		if "Elly" in team: parts.append("Elly soigne les blessés" if team.size() > 1 else "Elly esquive et pose sa zone de soin")
+		if "Bleuette" in team: parts.append("Bleuette encourage les autres" if team.size() > 1 else "Bleuette esquive et se donne du courage")
+		# « A, B et C », puis la fuite : seul(e), à deux ou en groupe.
+		var story: String = parts[0] if parts.size() == 1 else ", ".join(parts.slice(0, parts.size() - 1)) + " et " + parts[parts.size() - 1]
+		story += ", puis se sauve." if team.size() == 1 else (". Puis les deux se sauvent." if team.size() == 2 else ". Puis tout le monde se sauve.")
+		rows.append(_entry("team_%02d" % mask, " + ".join(PackedStringArray(team)), "team", "ending_survivors", team, team[0], story))
 	rows.append(_entry("blocus", PaperFilmBlocus.title(), "fins", PaperFilmBlocus.KIND, PaperData.NAMES.duplicate(), "Usayuko", PaperFilmBlocus.description()))
 	return rows
 

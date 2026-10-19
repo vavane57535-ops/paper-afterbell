@@ -26,7 +26,7 @@ const PASSIVES = {
 	"Usayuko": "115 PV + 50 surPV soignables. Voit l'allié le plus blessé. LMS : recharges améliorées et Dropkick.", 
 	"Simon": "Le Shadow reveal ne te montre pas. Après un coup : +30 % de vitesse pendant 5 s. 10 % de chances d’esquiver. En LMS : recharges plus courtes.", 
 	"Lysia": "200 d’armure. Tu manges les épaves de drone au contact (+7 PV) et tu te recharges aux prises. Les soins d’Elly ne marchent pas sur toi. À ta mort, tu exploses : Alice est étourdie 5 s si elle est à moins de 7 m. Personne ne peut te réanimer.", 
-	"Elly": "Tu entends les capacités d’Alice partout dans l’école. En LMS : un tir de Shotgun, une seule fois.", 
+	"Elly": "Tu entends les pas et les capacités d’Alice partout sur la carte. En LMS : un tir de Shotgun, une seule fois.", 
 	"Bleuette": "Après un coup : vitesse ×2 pendant 3 s. En LMS : « Je peux le faire » se débloque.", 
 	"Alice": "Une seule porte condamnée à la fois. Tu traverses tes propres piques. Après chaque stun : aura rouge, et plus aucun stun pendant 5 s."
 }
