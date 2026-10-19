@@ -168,7 +168,11 @@ func _run() -> void :
 		var other: PaperVisual = _actor(stage, spec[0])
 		other.position = Vector3(float(spec[2]) if spec.size() > 2 else 1.0, 0.0, float(spec[3]) if spec.size() > 3 else 0.0)
 		other.rotation.y = deg_to_rad(float(spec[4])) if spec.size() > 4 else 0.0
-		others.append([other, spec[1] if spec.size() > 1 else ""])
+		var other_clip: String = spec[1] if spec.size() > 1 else ""
+		var other_source: Dictionary = AnimLibrary.source(other_clip) if not other_clip.is_empty() else {}
+		# Avec --pb-path, le partenaire suit aussi sa trajectoire écrite (même repère que le personnage).
+		var other_path: Array = other_source.get("pb_path", []) if use_path else []
+		others.append([other, other_clip, other_path])
 	var times: Array[float] = []
 	var at: float = from_t
 	while at <= to_t + 0.0001:
@@ -199,7 +203,17 @@ func _run() -> void :
 				main.rotation.y = atan2( - velocity.x, - velocity.z)
 			main.position = next
 			main.animate(DT, velocity, false, false)
-			for row: Array in others: (row[0] as PaperVisual).animate(DT, Vector3.ZERO, false, false)
+			for row: Array in others:
+				var partner: PaperVisual = row[0]
+				var partner_path: Array = row[2]
+				var partner_velocity: Vector3 = Vector3.ZERO
+				if not partner_path.is_empty():
+					var was: Vector3 = partner.position
+					partner.position = _path_at(partner_path, t + DT)
+					partner_velocity = (partner.position - was) / DT
+					var partner_yaw: float = _yaw_at(partner_path, t + DT)
+					if not is_nan(partner_yaw): partner.rotation.y = partner_yaw
+				partner.animate(DT, partner_velocity, false, false)
 			previous = next
 			t += DT
 			if feet_check: _check_feet(main, t)
