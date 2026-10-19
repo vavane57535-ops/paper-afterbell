@@ -1369,33 +1369,94 @@ const PB_STATES: Array = ["look_up", "forced_time", "force_name", "boost_time", 
 
 func _write_defeat() -> void :
 	_pb_cast()
-	_say(105.4, "Simon", "ASHURA ! Lâche-le !", 0.8, true)
-	_shot(104.0, {"rel": {"a": S}, "eye": [Vector3(-0.6, 0.5, 1.6), Vector3(-0.5, 0.5, 1.35)], "look": {"a": S, "h": 0.5}, "fov": [38, 34], "hand": 0.4})
-	_shot(106.9, {"rel": {"a": S}, "eye": [Vector3(0.7, 0.75, -1.5), Vector3(0.65, 0.8, -1.4)], "look": {"a": A, "h": 1.2}, "fov": [40, 36], "hand": 0.4, "safe": false})
-	_face(A, 104.0, "dir", Vector3(0.35, 0, -1))
-	_say(109.4, "Ashura", "Simon. Cours. Te retourne pas.", 1.0)
-	_key("gold_a", 109.9, 0.55);_key("gold_a", 113.0, 0.0)
-	_shot(109.0, {"rel": {"a": A}, "eye": [Vector3(-0.7, 0.9, -2.6), Vector3(-0.6, 0.95, -2.3)], "look": {"a": A, "h": 1.25}, "fov": [32, 29], "hand": 0.3, "safe": false})
+	# Yiero ne bouge plus : il tient Ashura à bout de griffe et savoure. Sa place à 104 s (celle que
+	# laisse le combat) est tenue jusqu'à la poursuite, qui part de là (_pb_yiero_local).
+	_pb_rest = _pb_val("y_pos", 104.0, Vector3(0, 0, 80))
+	_key("y_pos", 104.0, _pb_rest);_key("y_pos", 121.6, _pb_rest)
+	_key("tremble", 104.0, 0.1);_key("fury", 104.0, 0.35);_key("eye_glow", 104.0, 1.35);_key("lean", 104.0, 0.0)
+	_key("pitch", 104.0, 0.1);_key("roll", 104.0, 0.0);_key("jaw", 104.0, 0.04);_key("grin_wide", 104.0, 1.08)
+	# Ashura pend à la pince de Yiero (posée par ses clés) : il fait face à Simon, en bas.
+	var hang: Vector3 = _pb_hang(105.0)
+	var toward: Vector3 = _pb_origin - hang
+	toward.y = 0.0
+	_face(A, 104.0, "dir", toward.normalized() if toward.length_squared() > 0.01 else Vector3(0.35, 0, -1))
+	# Le cri de Simon : les pupilles glissent vers lui… puis reviennent à Ashura, qu'il penche la tête
+	# pour écouter (109 → 113).
+	_key("look_who", 104.0, 1.0);_key("look_who", 105.5, 1.0);_key("look_who", 105.9, 0.25);_key("look_who", 107.4, 0.25);_key("look_who", 108.1, 1.0)
+	_key("roll", 109.6, 0.0);_key("roll", 111.0, 0.13);_key("roll", 113.2, 0.05)
+	_key("pitch", 111.0, 0.16);_key("lean", 113.0, 0.0);_key("lean", 114.4, 3.5);_key("lean", 117.8, 1.0);_key("lean", 121.6, 0.0)
 
+	# Plan 21 (104 → 106,9) : au ras du sol, face à Simon qui revient à lui et tend la main vers nous
+	# (Ashura est derrière la caméra).
+	_say(105.4, "Simon", "ASHURA ! Lâche-le !", 0.8, true)
+	_shot(104.0, {"rel": {"a": S}, "eye": [Vector3(-0.78, 0.3, 1.5), Vector3(-0.64, 0.34, 1.32)], "look": {"a": S, "h": 0.82, "o": Vector3(0.04, 0, 0.3)}, "fov": [40, 37], "hand": 0.45, "safe": false})
+	# Plan 21b (106,9 → 109) : par-dessus l'épaule de Simon, Ashura dans la griffe, minuscule devant le
+	# sourire ; Simon retend la main vers lui.
+	_shot(106.9, {"rel": {"a": S}, "eye": [Vector3(0.1, 0.8, -1.25), Vector3(0.06, 0.82, -1.15)], "look": [{"a": A, "h": 1.6, "o": Vector3(4.2, 0, 10.0)}, {"a": A, "h": 1.9, "o": Vector3(3.8, 0, 9.0)}], "fov": [42, 39], "hand": 0.35, "safe": false})
+	# Plan 22 (109 → 113,5) : Ashura dans la griffe, la lumière de ses poings s'éteint.
+	_say(109.4, "Ashura", "Simon. Cours. Te retourne pas.", 1.0)
+	# Les poings d'Ashura brillent encore pendant qu'il se débat, puis s'éteignent pendant qu'il parle.
+	_key("gold_a", 104.0, 0.85);_key("gold_a", 106.0, 1.05);_key("gold_a", 107.0, 1.3);_key("gold_a", 108.6, 1.15);_key("gold_a", 109.3, 0.8);_key("gold_a", 109.9, 0.6);_key("gold_a", 113.0, 0.0)
+	# Ceux de Simon s'allument quand il tend la main, retombent, flambent avec le cri et s'éteignent.
+	_key("gold_s", 104.0, 0.45);_key("gold_s", 105.3, 0.95, "out");_key("gold_s", 106.6, 0.55);_key("gold_s", 108.7, 0.75);_key("gold_s", 109.3, 0.5)
+	_key("gold_s", 113.8, 0.35);_key("gold_s", 119.15, 0.4);_key("gold_s", 119.3, 1.0, "out");_key("gold_s", 120.4, 0.6);_key("gold_s", 120.65, 0.12);_key("gold_s", 122.5, 0.2)
+	_shot(109.0, {"rel": {"a": A}, "eye": [Vector3(-0.45, 0.45, -2.05), Vector3(-0.4, 0.5, -1.85)], "look": {"a": A, "h": 1.42, "o": Vector3(0.05, 0, 0.2)}, "fov": [34, 32], "hand": 0.3, "safe": false})
+
+	# L'effacement (113,8 → 117,4) : il se décolore, puis part en papier doré des pieds à la tête ; les
+	# lambeaux filent dans la gueule, qui se referme sur le vide (117,6).
 	_key("erase_fade", 0.0, 0.0);_key("erase_fade", 113.0, 0.0);_key("erase_fade", 114.4, 1.0)
 	_key("erase", 0.0, 0.0);_key("erase", 113.8, 0.0);_key("erase", 117.4, 1.0, "linear")
-	_key("jaw", 113.8, 0.12);_key("jaw", 114.7, 0.55);_key("jaw", 117.6, 0.55);_key("jaw", 118.4, 0.1)
-	_key("eye_glow", 113.5, 1.4);_key("eye_glow", 115.0, 2.0);_key("eye_glow", 118.0, 1.3)
+	_key("jaw", 113.6, 0.04);_key("jaw", 114.5, 0.62);_key("jaw", 117.35, 0.68);_key("jaw", 117.62, 0.0, "in");_key("jaw", 121.6, 0.0)
+	_key("eye_glow", 113.5, 1.4);_key("eye_glow", 115.0, 2.1);_key("eye_glow", 118.0, 1.35)
+	_key("fury", 113.5, 0.35);_key("fury", 115.0, 0.0);_key("fury", 118.0, 0.25)
+	_key("tremble", 113.6, 0.1);_key("tremble", 114.6, 0.3);_key("tremble", 117.6, 0.08)
+	_key("grin_wide", 117.6, 1.08);_key("grin_wide", 118.3, 1.22, "out");_key("grin_wide", 121.6, 1.1)
 	_cue(113.8, "sfx", "sfx_erase", 1.2)
 	_cue(113.9, "pulse", Color(0.9, 0.85, 0.7, 0.25), 3.0)
+	_cue(117.62, "sfx", "sfx_chomp", 0.55, 0.8);_cue(117.62, "shake", 0.3)
 	_do(A, 117.5, "show", false)
-	_flights.append([114.3, 115.6, "drone", {"a": A, "s": "hand_r"}, Vector3(7.0, 0.1, 30.0), 0.5, 1.2])
-	_key("curl_px", 117.4, 1.05);_key("curl_px", 118.2, 0.2)
-	_key("hand_px", 117.6, Vector3(4.0, 23.0, 46.0));_key("hand_px", 120.0, Vector3(28, 4, 44), "smooth")
-	_shot(113.5, {"rel": {"a": A}, "eye": [Vector3(3.6, 0.5, -1.9), Vector3(3.2, 0.6, -1.6)], "look": {"a": A, "h": 0.95}, "fov": [42, 40], "hand": 0.3, "safe": false})
-	# Effacement vu en contre-plongée derrière Ashura : il se dissout au premier plan, la gueule béante
-	# derrière lui avale les lambeaux. Coordonnées fixes (Ashura pend à la griffe vers (-5, 8,5, 48)).
-	# Le plan dure jusqu'au cri de Simon : la gueule se referme sur le vide à 117,6.
-	_shot(114.6, {"eye": [Vector3(-6.85, 8.2, 44.5), Vector3(-6.35, 8.55, 45.3)], "look": [Vector3(-3.8, 12.6, 55.4), Vector3(-3.6, 13.2, 56.0)], "fov": [50, 46], "hand": 0.3, "ease": "smooth", "safe": false})
+	# Le drone d'Ashura lui échappe des doigts et tombe dans l'encre, près de Simon.
+	_flights.append([114.3, 115.6, "drone", {"a": A, "s": "hand_r"}, {"a": S, "o": Vector3(-3.5, 0.1, 4.0)}, 0.5, 1.2])
+	_key("curl_px", 117.5, 1.05);_key("curl_px", 118.3, 0.2)
+	_key("hand_px", 117.6, _pb_val("hand_px", 117.6, Vector3(4.0, 23.0, 46.0)));_key("hand_px", 120.2, Vector3(28, 4, 44), "smooth")
+	# Il regarde Simon, ensuite.
+	_key("look_who", 117.7, 1.0);_key("look_who", 118.6, 0.0)
+	_key("pitch", 117.8, 0.16);_key("pitch", 119.5, 0.22);_key("pitch", 121.6, 0.12)
+	# Plan 23 (113,5 → 114,6) : de profil, Ashura pendu à la griffe devant la gueule qui s'ouvre.
+	_shot(113.5, {"rel": {"a": A}, "eye": [Vector3(-9.0, -1.0, -4.0), Vector3(-8.6, -0.9, -3.6)], "look": {"a": A, "h": 4.4, "o": Vector3(6.1, 0, 9.1)}, "fov": [52, 50], "hand": 0.3, "safe": false})
+	# Plan 23b (114,6 → 117,45) : en contre-plongée derrière lui, vers la gueule béante.
+	_shot(114.6, {"rel": {"a": A}, "eye": [Vector3(-0.9, -0.55, -2.7), Vector3(-0.75, -0.4, -2.25)], "look": [{"a": A, "h": 2.0, "o": Vector3(0.6, 0, 2.6)}, {"a": A, "h": 2.6, "o": Vector3(0.9, 0, 3.4)}], "fov": [56, 52], "hand": 0.3, "ease": "smooth", "safe": false})
+	# Plan 23c (117,45 → 119) : la gueule claque sur le vide, le sourire s'étire.
+	_shot(117.45, {"rel": {"y": "face"}, "eye": [Vector3(-6.0, -15.0, -42.0), Vector3(-5.5, -15.5, -39.0)], "look": {"y": "mouth", "h": 6.0}, "fov": [40, 38], "hand": 0.2, "safe": false})
 
+	# Plan 24 (119 → 122) : très gros plan sur Simon, le cri.
 	_say(119.2, "Simon", "ASHURAAA !", 1.0, true)
 	_cue(119.3, "shake", 0.45)
-	_shot(119.0, {"rel": {"a": S}, "eye": [Vector3(-0.4, 0.62, 1.6), Vector3(-0.35, 0.62, 1.4)], "look": {"a": S, "h": 0.52}, "fov": [34, 30], "hand": 0.5})
+	_shot(119.0, {"rel": {"a": S}, "eye": [Vector3(0.32, 0.88, 1.42), Vector3(0.29, 0.86, 1.3)], "look": {"a": S, "h": 0.74, "o": Vector3(0.0, 0, -0.05)}, "fov": [42, 39], "hand": 0.5, "safe": false})
+	# Plan 24b (120,45 → 122) : il s'effondre, vu de haut, minuscule dans l'encre.
+	_shot(120.45, {"rel": {"a": S}, "eye": [Vector3(-1.7, 2.5, -1.5), Vector3(-1.9, 2.8, -1.7)], "look": {"a": S, "h": 0.35, "o": Vector3(0.0, 0, 0.25)}, "fov": [42, 44], "hand": 0.3, "safe": false})
+
+
+# Où pend Ashura à l'instant t (repère du film) : Yiero est posé avec les clés déjà écrites et on lit sa
+# pince, comme le fait _update_held pendant le film.
+func _pb_hang(t: float) -> Vector3:
+	if not is_instance_valid(yiero): return _spots[A]
+	for track: String in _keys: (_keys[track] as Array).sort_custom( func(x: Array, y: Array) -> bool: return float(x[0]) < float(y[0]))
+	_pose_yiero(t, _scaled(t))
+	return yiero.socket("pinch_l") - DIM + Vector3.DOWN * 1.72
+
+
+# Valeur d'une piste du film à l'instant t pendant l'écriture (les clés ne sont triées qu'à la fin).
+func _pb_val(track: String, t: float, fallback: Variant) -> Variant:
+	var rows: Array = (_keys.get(track, []) as Array).duplicate()
+	if rows.is_empty(): return fallback
+	rows.sort_custom( func(a: Array, b: Array) -> bool: return float(a[0]) < float(b[0]))
+	if t <= float(rows[0][0]): return rows[0][1]
+	for k: int in range(1, rows.size()):
+		if t <= float(rows[k][0]):
+			var u: float = _ease((t - float(rows[k - 1][0])) / maxf(0.001, float(rows[k][0]) - float(rows[k - 1][0])), str(rows[k][2]))
+			return lerp(rows[k - 1][1], rows[k][1], u)
+	return rows[rows.size() - 1][1]
 
 
 # Acte V — la course-poursuite, Acte VI — la porte de sortie (122 → 154 s).
@@ -1490,18 +1551,17 @@ func _write_chase() -> void :
 
 
 # Place de Yiero pendant la poursuite (relative à la place de Simon à 104 s) : derrière Simon, à
-# CHASE_GAP mètres, et un peu en retard sur ses écarts de côté.
+# CHASE_GAP mètres, et un peu en retard sur ses écarts de côté. Il part de là où il tenait Ashura
+# (_pb_rest) et rejoint la ligne de Simon pendant que celui-ci se relève (122 → 126,5).
 func _pb_yiero_local(t: float) -> Vector3:
 	var simon: Vector3 = PrologueB.root("Simon", clampf(t, 122.0, 149.2))
 	var late: Vector3 = PrologueB.root("Simon", clampf(t - 1.5, 122.0, 149.2))
 	var gap: float = PrologueB.curve(CHASE_GAP, t)
 	if t > 149.2: simon.z -= (t - 149.2) * 3.6
-	return Vector3(late.x, 0.0, simon.z + gap)
-
-
-# Position z de Yiero pendant la poursuite (repère du film).
-func _chase_z(t: float) -> float:
-	return _pb_void(_pb_yiero_local(t)).z
+	var chase: Vector3 = Vector3(late.x, 0.0, simon.z + gap)
+	var rest: Vector3 = _pb_rest - _pb_origin
+	rest.y = 0.0
+	return rest.lerp(chase, smoothstep(122.0, 126.5, t))
 
 
 # Acte VII — l'école Paper Afterbell (153 → 182 s).
@@ -1599,7 +1659,7 @@ func _write_school() -> void :
 # Un coup qui porte, version film : effets BD et son (comme PaperCinema._blow) mais sans réaction ni
 # arrêt de jeu sur les corps — la réaction est écrite dans les clips.
 func _pb_blow(t: float, victim: int, from: int, word_key: String, weight: float = 1.0) -> void :
-	var toward: Vector3 = (_spots[from] - _spots[victim])
+	var toward: Vector3 = PrologueB.root(CAST[from], t) - PrologueB.root(CAST[victim], t)
 	toward.y = 0.0
 	toward = toward.normalized() if toward.length_squared() > 0.001 else Vector3(0, 0, -1)
 	_cue(t, "pop", {"a": victim, "h": 1.15, "o": toward * 0.4}, toward, GOLD, weight)
@@ -1650,5 +1710,7 @@ func _pb_cast() -> void :
 
 # Point du décor de la dimension écrit relativement à la place de Simon à 104 s → repère du film.
 var _pb_origin: Vector3 = Vector3.ZERO
+# Place de Yiero pendant la défaite (repère du film), tenue jusqu'à la poursuite.
+var _pb_rest: Vector3 = Vector3(0, 0, 80)
 func _pb_void(local: Vector3) -> Vector3:
 	return local + _pb_origin

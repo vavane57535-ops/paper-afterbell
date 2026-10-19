@@ -61,7 +61,7 @@ func _run() -> void :
 					h = absf(camera.unproject_position(head).y - camera.unproject_position(foot).y) / size.y
 				row += " | %s tête%s pieds%s h=%.2f" % [take.person.substr(0, 3), _screen(camera, size, head), _screen(camera, size, foot), h]
 			if film._stage_at(t) == "void" and is_instance_valid(film.yiero) and film.yiero.visible:
-				row += " | Yie yeux%s gueule%s" % [_screen(camera, size, film.yiero.socket("eyes")), _screen(camera, size, film.yiero.socket("mouth"))]
+				row += " | Yie yeux%s gueule%s pince%s" % [_screen(camera, size, film.yiero.socket("eyes")), _screen(camera, size, film.yiero.socket("mouth")), _screen(camera, size, film.yiero.socket("pinch_l"))]
 			row += " | proche=%.2f" % nearest
 			print(row)
 			t += float(span[2])

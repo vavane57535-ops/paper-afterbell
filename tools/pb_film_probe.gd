@@ -44,5 +44,9 @@ func _run() -> void :
 			var row: String = "  Yiero    pos=%s" % str(_local(film, y.global_position))
 			for socket: String in ["pinch_l", "hand_l", "hand_r", "mouth", "face", "eyes"]: row += " %s=%s" % [socket, str(_local(film, y.socket(socket)))]
 			print(row)
+			if "--pb-fingers" in OS.get_cmdline_user_args() and y.has_method("_tip"):
+				var tips: String = "  Yiero    doigts_l="
+				for index: int in range((y._fingers[0] as Array).size()): tips += " " + str(_local(film, y._tip(0, index)))
+				print(tips)
 	world.set_process(true)
 	get_tree().quit()
