@@ -1361,7 +1361,10 @@ func _tick_overheat(actor, delta: float):
 		_mark_motion(actor)
 		actor.effects["overheat_charge"] = maxf(0.0, charging - delta)
 		_dispel_box(actor.position, direction, Vector3(2.6, 2.2, 2.8))
-		var touching: bool = _inside_box(actor.position, direction, Vector3(2.6, 2.2, 2.8), enemy)
+		# Compensation du retard (net_lag.gd) : Alice là où Lysia la voyait, et là où elle est.
+		var lag = world.get("net_lag")
+		var charge_from: Vector3 = actor.position
+		var touching: bool = _inside_box(actor.position, direction, Vector3(2.6, 2.2, 2.8), enemy) if lag == null else lag.touches_now(actor, enemy, func(at: Vector3) -> bool: return _inside_box(charge_from, direction, Vector3(2.6, 2.2, 2.8), enemy, at))
 		if touching and _effect(enemy, "stun_immunity") > 0:
 			_feedback(actor, "immune", "Alice est protégée · étourdissement sans effet")
 		if touching and _los(actor.position, enemy.position) and _effect(enemy, "stun_immunity") <= 0 and _effect(enemy, "stun") <= 0 and not bool(enemy.effects.get("shadow_hide", false)):

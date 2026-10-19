@@ -14,6 +14,8 @@ extends Node
 const SNAPSHOT_INTERVAL: float = 1.0 / 30.0
 const IDLE_REPORT_INTERVAL: float = 1.0 / 30.0
 const FOLLOW_REPORT_INTERVAL: float = 1.0 / 30.0
+# Vitesse (1/s) à laquelle le joueur local rejoint l'hôte quand celui-ci reprend la main.
+const FOLLOW_BLEND: float = 10.0
 # Effets que le joueur local calcule lui-même pendant la prédiction (l'hôte ne les écrase pas).
 const PREDICTED_KEYS: Array[String] = ["jump_cd", "jump_pending", "land_roll_time", "landing_boost_time", "roll_dash_time", "roll_direction", "grind_jump", "airborne", "air_time", "air_peak_delta", "running"]
 # États où l'hôte garde la main sur le mouvement (le client le suit au lieu de prédire).
@@ -119,9 +121,13 @@ func _client_pre_tick(delta: float) -> void :
 	var me: PaperActor = world.local_actor()
 	for a: PaperActor in world.actors.values():
 		if a == me and a.net_predicted: continue
-		# Joueur local qui suit l'hôte (coup, étourdissement…) : dernière position connue, lissée,
-		# pour ne pas reculer d'un tampon entier ; collé à un autre acteur, il reste aligné sur lui.
-		var s: Array = a.net_motion.sample_at(_view_t) if _view_ready and (a != me or _attached(a)) else []
+		if a == me and not _attached(a):
+			_follow_host(a, delta)
+			continue
+		a.net_motion.follow_blend = false
+		# Les autres acteurs, et le joueur local collé à un autre (porté, saisi, exécuté) : tampon
+		# d'instantanés interpolé, pour rester aligné sur celui qui le tient.
+		var s: Array = a.net_motion.sample_at(_view_t) if _view_ready else []
 		if s.is_empty():
 			if a.net_exact: a.net_position = a.net_motion.last_row_pos
 			a.net_exact = false
@@ -130,6 +136,22 @@ func _client_pre_tick(delta: float) -> void :
 	if me != null:
 		_local_mode(me, delta)
 		if me.net_predicted: _align_carried(me)
+
+
+# Joueur local qui suit l'hôte (étourdi, poussé, à terre…) : il rejoint la dernière position connue
+# de l'hôte (pas le tampon : il ne recule pas d'un tampon entier), en douceur. Juste après la
+# prédiction, l'hôte le voyait un aller-retour plus tôt : ce recul se lit comme un pas en arrière
+# (au plus ~0,15 m par image en pleine course) et non comme un saut.
+func _follow_host(a: PaperActor, delta: float) -> void :
+	var m: PaperNetMotion = a.net_motion
+	if not m.follow_blend: m.shown = a.global_position;m.follow_blend = true
+	# Cible : dernière ligne de l'hôte prolongée par sa vitesse (100 ms au plus) ; le corps affiché
+	# avance à la même vitesse et ne rattrape en douceur que l'écart (pas de traîne en mouvement).
+	var target: Vector3 = m.last_row_pos + m.host_vel * clampf(_now() - m.host_at, 0.0, 0.1)
+	m.shown += m.host_vel * delta
+	if m.shown.distance_to(target) > PaperActor.REMOTE_SNAP_DISTANCE: m.shown = target
+	else: m.shown = m.shown.lerp(target, 1.0 - exp(- FOLLOW_BLEND * delta))
+	a.net_position = m.shown;a.net_velocity = m.host_vel;a.net_exact = true
 
 
 func _attached(a: PaperActor) -> bool:
@@ -169,7 +191,7 @@ func _local_mode(me: PaperActor, delta: float) -> void :
 	var m: PaperNetMotion = me.net_motion
 	var can: bool = m.host_followed and not m.host_owned and m.host_epoch >= 0 and not me.bot and not _client_owned(me)
 	if can and not me.net_predicted:
-		me.net_predicted = true;me.net_exact = false
+		me.net_predicted = true;me.net_exact = false;m.follow_blend = false
 		m.epoch = m.host_epoch
 		m.correction = m.host_pos - me.global_position
 		me.velocity = m.host_vel
@@ -341,7 +363,7 @@ func _apply_row(a: PaperActor, row: Dictionary, mine: bool, t: float) -> void :
 		m.host_followed = (flags & PaperNetCodec.ROW_FOLLOWED) != 0
 		m.host_owned = (flags & PaperNetCodec.ROW_OWNED) != 0
 		m.host_epoch = int(row.epoch)
-		m.host_pos = row.pos;m.host_vel = row.vel
+		m.host_pos = row.pos;m.host_vel = row.vel;m.host_at = _now()
 	if not predicted: a.aim = row.aim
 	a.hp = float(row.hp);a.max_hp = float(row.max_hp);a.stamina = float(row.stamina);a.max_stamina = float(row.max_stamina)
 	a.alive = (flags & PaperNetCodec.ROW_ALIVE) != 0;a.lms = (flags & PaperNetCodec.ROW_LMS) != 0

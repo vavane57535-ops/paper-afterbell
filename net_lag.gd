@@ -126,6 +126,19 @@ func judge(source: Variant, target: PaperActor, touch: Callable, strike: Callabl
 	return true
 
 
+# Contact immédiat (charge de Lysia) : le contact change aussitôt l'état de l'attaquant (fin de
+# charge, prise), il ne peut pas attendre. La cible doit être dans la zone là où l'attaquant la
+# voyait (rembobinage borné) ET à sa position actuelle (la plus récente validée pour un joueur
+# distant) ; un bot ne voit rien, seule compte la vue de l'attaquant.
+func touches_now(source: Variant, target: PaperActor, touch: Callable) -> bool:
+	if target == null: return false
+	var rewind: float = rewind_for(source) if active() else 0.0
+	if rewind <= 0.0: return touch.call(target.global_position)
+	var seen: Vector3 = body_at(target, float(world.clock) - rewind)
+	if target.bot: return touch.call(seen)
+	return touch.call(seen) and touch.call(target.global_position)
+
+
 # Hôte, à chaque pas : tranche les coups dont les positions des cibles distantes sont arrivées.
 func tick() -> void :
 	if _queue.is_empty(): return

@@ -62,6 +62,7 @@ var host_owned: bool = true
 var host_followed: bool = false
 var host_pos: Vector3 = Vector3.ZERO
 var host_vel: Vector3 = Vector3.ZERO
+var host_at: float = 0.0
 var correction: Vector3 = Vector3.ZERO
 var seq: int = 0
 var local_jumps: int = 0
@@ -70,6 +71,9 @@ var local_rolls: int = 0
 # --- Client : interpolation des autres acteurs ---
 var samples: Array = []
 var last_row_pos: Vector3 = Vector3.ZERO
+# Joueur local qui suit l'hôte : position affichée qui rejoint l'hôte en douceur.
+var shown: Vector3 = Vector3.ZERO
+var follow_blend: bool = false
 
 
 # Hôte : l'hôte reprend la main ou refuse un déplacement. Le client se recalera sur la position de
