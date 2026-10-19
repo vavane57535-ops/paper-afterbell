@@ -11,6 +11,8 @@ extends Node
 # ou hors de l'écran, puis « TX_RESULT cuts=<n> ».
 # Traductions seules (sans rendu) : godot --headless -- --tool test_textes --tx-l10n <liste.json>
 #   (tableau JSON de textes français) : « TX_L10N_MISSING <texte> » pour chaque texte sans anglais.
+# Cinémathèque (sans rendu) : godot --headless -- --tool test_textes --tx-catalogue
+#   (titres et descriptions de catalogue() en français et en anglais, « TX_CAT_RESULT »).
 
 const ALL: Array[String] = ["main", "hints", "setup", "alice", "shop", "gallery", "credits", "network", "advanced", "connecting", "lobby", "settings", "controls", "online", "loading", "game", "pause", "confirm", "emotes", "training", "alice_game", "verdicts"]
 
@@ -240,9 +242,37 @@ func _check_l10n(path: String) -> void :
 	PaperLanguage.language = previous
 	_note("TX_L10N_RESULT %s" % ("OK" if missing == 0 else "MISSING %d" % missing))
 
+# --tx-catalogue : titres et descriptions de toute la cinémathèque (63 fuites en équipe comprises).
+# Imprime « TX_CAT_FR » / « TX_CAT_EN » pour chaque entrée, « TX_CAT_MISSING » pour un texte resté en
+# français (un titre fait seulement de prénoms, comme « Simon + Elly », n'a pas à changer), puis « TX_CAT_RESULT ».
+func _check_catalogue() -> void :
+	var missing: int = 0
+	var previous: String = PaperLanguage.language
+	for entry: Dictionary in PaperCinema.catalogue():
+		var title: String = str(entry.title)
+		var description: String = str(entry.description)
+		PaperLanguage.language = "en"
+		var title_en: String = PaperLanguage.t(title)
+		var description_en: String = PaperLanguage.t(description)
+		PaperLanguage.language = previous
+		_note("TX_CAT_FR %s | %s | %s" % [entry.id, title, description])
+		_note("TX_CAT_EN %s | %s | %s" % [entry.id, title_en, description_en])
+		var names_only: bool = title.replace(" + ", "").replace(" ", "").is_valid_identifier()
+		if title_en == title and not names_only and title != "Prologue — Yiero":
+			missing += 1
+			_note("TX_CAT_MISSING titre " + title)
+		if description_en == description and not description.is_empty():
+			missing += 1
+			_note("TX_CAT_MISSING description " + description)
+	_note("TX_CAT_RESULT %s" % ("OK" if missing == 0 else "MISSING %d" % missing))
+
 func _run() -> void :
 	await _wait(0.5)
 	var args: PackedStringArray = OS.get_cmdline_user_args()
+	if args.has("--tx-catalogue"):
+		_check_catalogue()
+		get_tree().quit()
+		return
 	var l10n_at: int = args.find("--tx-l10n")
 	if l10n_at >= 0 and l10n_at + 1 < args.size():
 		_check_l10n(args[l10n_at + 1])
