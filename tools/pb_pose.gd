@@ -204,7 +204,7 @@ func _run() -> void :
 		camera.size = zoom
 		camera.position = eye
 		camera.look_at(focus)
-		for warm: int in range(2 if k == 0 else 1):
+		for warm: int in range(4 if k == 0 else 1):
 			await get_tree().process_frame
 			await RenderingServer.frame_post_draw
 		var image: Image = viewport.get_texture().get_image()

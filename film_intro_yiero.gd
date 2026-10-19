@@ -1362,15 +1362,18 @@ func _write_fight() -> void :
 
 
 # Acte IV — la défaite : Ashura est effacé de la dimension (104 → 122 s).
+# Tous les corps de 104 à 182 s jouent les clips écrits pour le film (anim_set_film_prologue_b.gd) :
+# _pb_cast() applique leurs trajectoires, orientations et départs de clips.
+const PrologueB = preload("res://anim_set_film_prologue_b.gd")
+const PB_STATES: Array = ["look_up", "forced_time", "force_name", "boost_time", "boost_charging", "charging_boost", "boost_level", "speed_boost", "chased", "carried_by", "grounded", "vertical_speed", "landing_roll", "block", "heal_time", "second_life", "outlet_healing", "outlet_position", "emote_id", "emote_time", "sprinting", "grabbed_by"]
+
 func _write_defeat() -> void :
-	_do(S, 103.8, "state", {"look_up": 0.55})
+	_pb_cast()
 	_say(105.4, "Simon", "ASHURA ! Lâche-le !", 0.8, true)
 	_shot(104.0, {"rel": {"a": S}, "eye": [Vector3(-0.6, 0.5, 1.6), Vector3(-0.5, 0.5, 1.35)], "look": {"a": S, "h": 0.5}, "fov": [38, 34], "hand": 0.4})
 	_shot(106.9, {"rel": {"a": S}, "eye": [Vector3(0.7, 0.75, -1.5), Vector3(0.65, 0.8, -1.4)], "look": {"a": A, "h": 1.2}, "fov": [40, 36], "hand": 0.4, "safe": false})
-	_do(A, 108.8, "stun", false);_do(A, 108.8, "state", {"carried_by": 0});_do(A, 108.8, "mood", "sad")
-	_face(A, 108.8, "dir", Vector3(0.35, 0, -1))
-	_say(109.4, "Ashura", "Simon… cours. Ne te retourne pas.", 1.0)
-	_do(A, 111.6, "mood", "calm")
+	_face(A, 104.0, "dir", Vector3(0.35, 0, -1))
+	_say(109.4, "Ashura", "Simon. Cours. Te retourne pas.", 1.0)
 	_key("gold_a", 109.9, 0.55);_key("gold_a", 113.0, 0.0)
 	_shot(109.0, {"rel": {"a": A}, "eye": [Vector3(-0.7, 0.9, -2.6), Vector3(-0.6, 0.95, -2.3)], "look": {"a": A, "h": 1.25}, "fov": [32, 29], "hand": 0.3, "safe": false})
 
@@ -1390,83 +1393,94 @@ func _write_defeat() -> void :
 	# Le plan dure jusqu'au cri de Simon : la gueule se referme sur le vide à 117,6.
 	_shot(114.6, {"eye": [Vector3(-6.85, 8.2, 44.5), Vector3(-6.35, 8.55, 45.3)], "look": [Vector3(-3.8, 12.6, 55.4), Vector3(-3.6, 13.2, 56.0)], "fov": [50, 46], "hand": 0.3, "ease": "smooth", "safe": false})
 
-	_do(S, 118.9, "mood", "pain")
 	_say(119.2, "Simon", "ASHURAAA !", 1.0, true)
 	_cue(119.3, "shake", 0.45)
 	_shot(119.0, {"rel": {"a": S}, "eye": [Vector3(-0.4, 0.62, 1.6), Vector3(-0.35, 0.62, 1.4)], "look": {"a": S, "h": 0.52}, "fov": [34, 30], "hand": 0.5})
 
 
 # Acte V — la course-poursuite, Acte VI — la porte de sortie (122 → 154 s).
+# Simon court sur ses appuis écrits (pb_simon_flee : 8 m/s, pieds calés sur la croche de la musique,
+# 160 bpm) ; Yiero le suit à distance qui fond (CHASE_GAP), ses griffes et ses pics se plantent autour
+# de la trajectoire de Simon (anim_set_film_prologue_b.gd).
+const CHASE_GAP: Array = [[122.0, 56.0], [126.0, 43.0], [131.0, 52.0], [135.5, 49.0], [140.0, 45.0], [144.5, 37.0], [148.0, 29.0], [150.6, 20.0]]
+
 func _write_chase() -> void :
-	_say(122.2, "Yiero", "Un de moins. À ton tour, petite lumière.", 0.3)
+	_say(122.2, "Yiero", "Mmh… croustillant. À ton tour.", 0.3)
 	_key("look_who", 121.0, 0.0)
-	_key("y_pos", 122.0, Vector3(0, 0, 82));_key("y_pos", 126.0, Vector3(0, 0, 60), "smooth")
 	_key("pitch", 122.0, 0.05);_key("pitch", 126.0, 0.42);_key("rise", 122.0, 1.0);_key("rise", 126.0, 0.88)
 	_key("lean", 122.0, 0.0);_key("lean", 126.0, 8.0);_key("jaw", 122.0, 0.1);_key("jaw", 126.0, 0.32)
 	_key("fury", 122.0, 0.4);_key("eye_glow", 122.0, 1.4);_key("tremble", 122.0, 0.45)
 	_shot(122.0, {"rel": {"a": S}, "eye": [Vector3(1.3, 1.7, -3.4), Vector3(1.1, 1.5, -3.0)], "look": {"y": "face", "h": -8.0}, "fov": [50, 48], "hand": 0.3, "safe": false})
-	_do(S, 123.0, "life", "alive");_do(S, 123.0, "play", "recover");_do(S, 123.0, "mood", "panic");_do(S, 123.0, "unset", ["look_up"])
-	_face(S, 123.0, "dir", Vector3(-0.2, 0, 1))
-	_move(S, 123.6, 124.9, Vector3(11.3, 0, 23.6), "smooth")
-	_do(S, 124.9, "state", {"speed_boost": 30.0, "chased": 3.0});_face(S, 124.9, "move")
-	_do(S, 149.15, "unset", ["speed_boost", "chased"])
-	var path: Array = [[126.0, Vector3(10.0, 0, 15.0), "in"], [131.0, Vector3(6.0, 0, -40.0), "linear"], [133.35, Vector3(4.6, 0, -66.0), "linear"], [133.75, Vector3(2.6, 0, -70.4), "linear"],
-		[135.5, Vector3(2.0, 0, -93.0), "linear"], [140.0, Vector3(-1.0, 0, -142.0), "linear"], [144.5, Vector3(0.0, 0, -191.0), "linear"], [148.0, Vector3(0.0, 0, -229.0), "linear"], [149.2, Vector3(0.0, 0, -241.5), "linear"]]
-	for row: Array in path: _move(S, float(takes[S].path[takes[S].path.size() - 1][0]), float(row[0]), row[1], str(row[2]))
-	_do(S, 133.35, "trigger", "dodge", false);_cue(133.35, "sfx", "sfx_whoosh", 0.6)
-	_cue(125.0, "sfx", "boost", 0.8);_cue(125.1, "rush", 0.8)
-	_shot(124.9, {"rel": {"a": S}, "eye": [Vector3(-3.2, 1.2, -2.0), Vector3(-2.6, 1.1, -3.0)], "look": {"a": S, "h": 1.1}, "fov": 46, "hand": 0.7})
-	_shot(126.0, {"rel": {"a": S}, "eye": [Vector3(0.35, 1.3, -4.4), Vector3(0.3, 1.32, -4.0)], "look": {"a": S, "h": 1.25}, "fov": [40, 38], "hand": 0.9})
-	_say(127.0, "Simon", "Non non non non non…", 0.6)
-	_shot(131.0, {"rel": {"a": S}, "eye": [Vector3(-5.6, 0.6, 0.6), Vector3(-5.5, 0.65, -0.4)], "look": {"a": S, "h": 1.0}, "fov": 46, "hand": 0.9})
+	_cue(124.98, "sfx", "sfx_whoosh", 0.35, 0.8);_cue(125.1, "rush", 0.6)
+	_shot(124.9, {"rel": {"a": S}, "eye": [Vector3(-3.2, 1.2, -2.0), Vector3(-2.6, 1.1, -3.0)], "look": {"a": S, "h": 0.9}, "fov": 46, "hand": 0.7})
+	_shot(126.0, {"rel": {"a": S}, "eye": [Vector3(0.35, 1.25, -4.4), Vector3(0.3, 1.25, -4.0)], "look": {"a": S, "h": 1.0}, "fov": [40, 38], "hand": 0.9})
+	_say(127.0, "Simon", "Non non non non non !", 0.6)
+	_shot(131.0, {"rel": {"a": S}, "eye": [Vector3(-5.6, 0.6, 0.6), Vector3(-5.5, 0.65, -0.4)], "look": {"a": S, "h": 0.8}, "fov": 46, "hand": 0.9})
 	_shot(135.5, {"rel": {"a": S}, "eye": [Vector3(-30, 14, -26), Vector3(-28, 13, -24)], "look": {"a": S, "h": 4.0, "o": Vector3(0, 0, 22)}, "fov": [50, 48], "hand": 0.3, "safe": false})
-	_say(136.0, "Yiero", "Cours ! COURS ! C'est tellement plus drôle !", 0.4, true)
-	_shot(140.0, {"rel": {"a": S}, "eye": [Vector3(0.45, 0.5, 2.7), Vector3(0.4, 0.55, 2.4)], "look": {"a": S, "h": 1.0, "o": Vector3(0, 0, -30)}, "fov": [50, 48], "hand": 0.8})
-	_say(141.0, "Simon", "Une porte… ?!", 0.8)
-	_shot(144.5, {"rel": {"a": S}, "eye": [Vector3(0.3, 1.05, -2.9), Vector3(0.25, 1.05, -2.7)], "look": {"a": S, "h": 1.1}, "fov": [40, 38], "hand": 1.0})
-	_say(144.8, "Yiero", "Tu ne m'échapperas JAMAIS.", 0.2)
+	_say(136.0, "Yiero", "Allez, cours ! J'adore quand ça court !", 0.4, true)
+	_shot(140.0, {"rel": {"a": S}, "eye": [Vector3(0.45, 0.5, 2.7), Vector3(0.4, 0.55, 2.4)], "look": {"a": S, "h": 0.8, "o": Vector3(0, 0, -30)}, "fov": [50, 48], "hand": 0.8})
+	_say(141.0, "Simon", "Une porte ?! Allez, allez, allez !", 0.6)
+	_shot(144.5, {"rel": {"a": S}, "eye": [Vector3(0.3, 0.95, -2.9), Vector3(0.25, 0.95, -2.7)], "look": {"a": S, "h": 0.9}, "fov": [40, 38], "hand": 1.0})
+	_say(144.8, "Yiero", "Une porte ? C'est MIGNON.", 0.3)
 	_cue(144.8, "pulse", Color(0.75, 0.02, 0.05, 0.42), 3.0);_cue(147.0, "pulse", Color(0.75, 0.02, 0.05, 0.42), 2.0)
-	_cue(132.0, "shake", 0.45);_cue(133.6, "shake", 0.45);_cue(137.2, "shake", 0.35);_cue(138.4, "shake", 0.35)
 
-	var chase_y: Array = [[126.0, 58.0], [131.0, 18.0], [135.5, -40.0], [140.0, -95.0], [144.5, -152.0], [148.0, -198.0], [150.6, -224.0]]
-	for row: Array in chase_y: _key("y_pos", float(row[0]), Vector3(0, 0, float(row[1])), "linear")
-	_key("y_pos", 152.0, Vector3(0, 0, -226.0), "out")
+	# Yiero derrière Simon, de plus en plus près ; la tête plonge vers lui.
+	var t: float = 122.0
+	while t <= 152.0:
+		_key("y_pos", t, _pb_void(_pb_yiero_local(t)), "linear")
+		t += 0.5
 	_key("rise", 130.0, 0.86);_key("lean", 130.0, 10.0);_key("pitch", 130.0, 0.48)
 	_key("jaw", 130.0, 0.4);_key("jaw", 140.0, 0.7);_key("jaw", 146.0, 1.0);_key("jaw", 150.42, 1.12);_key("jaw", 150.6, 0.0, "in");_key("jaw", 153.0, 0.0)
 	_key("fury", 130.0, 0.7);_key("tremble", 130.0, 0.55);_key("eye_glow", 130.0, 1.5)
 	_key("curl_px", 126.0, 0.5);_key("curl_nx", 126.0, 0.5)
+	# Les mains avancent comme une araignée, en alternance, à 30 m devant le corps.
 	var step: float = 1.1
 	var k: int = 0
-	var t: float = 126.2
+	t = 126.2
 	while t < 150.0:
 		for side: int in [0, 1]:
 			var start: float = t + (0.55 if side == 1 else 0.0)
 			var sx: float = 22.0 if side == 0 else -22.0
-			var plant: Vector3 = Vector3(sx, 0.4, _chase_z(start) - 30.0)
+			var body: Vector3 = _pb_yiero_local(start)
+			var plant: Vector3 = _pb_void(Vector3(body.x + sx, 0.4, body.z - 30.0))
 			var track: String = "hand_px" if side == 0 else "hand_nx"
+			var ahead: Vector3 = _pb_yiero_local(start + 0.8)
 			_key(track, start, plant, "in")
 			_key(track, start + 0.45, plant)
-			_key(track, start + 0.8, Vector3(sx * 0.8, 11.0, _chase_z(start + 0.8) - 40.0), "out")
+			_key(track, start + 0.8, _pb_void(Vector3(ahead.x + sx * 0.8, 11.0, ahead.z - 40.0)), "out")
 			if k % 2 == side:
 				_cue(start, "sfx", "sfx_slam", 0.45, 1.25)
 				_ripple(start, plant + Vector3(0, 0, -6.0), 3.0)
 		t += step
 		k += 1
-	for row: Array in [[132.0, Vector3(3.5, 0, 3.0)], [133.6, Vector3(-2.8, 0, -1.0)], [137.2, Vector3(3.0, 0, 2.0)], [138.4, Vector3(-3.2, 0, 1.0)], [142.6, Vector3(3.4, 0, 3.5)]]:
-		var at: Vector3 = _where(takes[S], float(row[0])) + (row[1] as Vector3)
+	# Pics de griffe : devant-droite de Simon (il sursaute, 131,93), là où il allait (il plonge, 133,45),
+	# puis dans le plan large et derrière lui.
+	var leap: float = PrologueB.beat(59)
+	var spikes: Array = [
+		[131.93, PrologueB.to_film("Simon", 131.93, Vector3(1.4, 0.0, -2.8))],
+		[133.42, PrologueB.to_film("Simon", leap, Vector3(0.1, 0.0, -2.6))],
+		[137.2, PrologueB.to_film("Simon", 137.2, Vector3(3.2, 0.0, 1.5))],
+		[138.4, PrologueB.to_film("Simon", 138.4, Vector3(-3.4, 0.0, 0.8))],
+		[142.6, PrologueB.to_film("Simon", 142.6, Vector3(3.6, 0.0, 3.0))],
+	]
+	for row: Array in spikes:
+		var at: Vector3 = _pb_void(row[1])
 		at.y = 0.0
-		_spike(float(row[0]), float(row[0]) + 1.4, at, float(row[0]) * 1.7, 0.9)
-		_cue(float(row[0]), "sfx", "sfx_spike", 0.9)
-		_ripple(float(row[0]), at, 3.0)
-		_cue(float(row[0]) + 0.02, "ink", {"a": S, "o": row[1] as Vector3, "h": 0.5}, 8, 4.0)
+		var t_up: float = float(row[0])
+		_spike(t_up, t_up + 1.4, at, t_up * 1.7, 0.9)
+		_cue(t_up, "sfx", "sfx_spike", 0.9)
+		_ripple(t_up, at, 3.0)
+		_cue(t_up + 0.02, "ink", at + Vector3(0, 0.5, 0), 8, 4.0)
+		_cue(t_up, "shake", 0.4)
+	_cue(leap, "sfx", "sfx_whoosh", 0.6)
 	_key("gold_s", 125.0, 0.3);_key("gold_s", 140.0, 0.25);_key("gold_s", 140.3, 1.15, "out");_key("gold_s", 142.5, 0.65);_key("gold_s", 150.6, 0.65);_key("gold_s", 150.7, 0.0, "jump")
-	_cue(140.0, "event", "boost_release", {"position": {"a": S}, "level": 3});_cue(140.0, "sfx", "sfx_ignite", 0.7, 1.2);_cue(140.0, "rush", 1.0)
-	_flash(140.0, Color(1.0, 0.85, 0.4, 0.25), 0.04, 0.35)
-	_key("door_at", 0.0, Vector3(0, 0, -246.0));_key("door", 0.0, 0.0);_key("door", 140.5, 0.0);_key("door", 143.0, 1.0)
+	_cue(140.17, "event", "boost_release", {"position": {"a": S}, "level": 3});_cue(140.17, "sfx", "sfx_ignite", 0.7, 1.2);_cue(140.17, "rush", 1.0)
+	_flash(140.17, Color(1.0, 0.85, 0.4, 0.25), 0.04, 0.35)
+	var door: Vector3 = _pb_void(PrologueB.plan("Simon").door)
+	door.y = 0.0
+	_key("door_at", 0.0, door);_key("door", 0.0, 0.0);_key("door", 140.5, 0.0);_key("door", 143.0, 1.0)
 
-	_shot(148.0, {"rel": {"a": S}, "eye": [Vector3(0.6, 1.55, 2.3), Vector3(0.5, 1.5, 2.0)], "look": {"a": S, "h": 1.2, "o": Vector3(0, 0, -8)}, "fov": [46, 44], "hand": 0.9})
-	_do(S, 149.2, "state", {"grounded": false, "vertical_speed": 3.0})
-	_move(S, 149.2, 150.6, Vector3(0.0, 1.2, -245.3), "out")
+	_shot(148.0, {"rel": {"a": S}, "eye": [Vector3(0.6, 1.45, 2.3), Vector3(0.5, 1.4, 2.0)], "look": {"a": S, "h": 1.0, "o": Vector3(0, 0, -8)}, "fov": [46, 44], "hand": 0.9})
 	_slowmo(149.2, 150.6, 0.3)
 	_shot(149.2, {"rel": {"a": S}, "eye": [Vector3(-5.6, 1.3, 3.6), Vector3(-5.4, 1.2, 3.0)], "look": {"a": S, "h": 0.9, "o": Vector3(0, 0, -1.0)}, "fov": [52, 50], "hand": 0.3, "safe": false})
 	_do(S, 150.65, "show", false)
@@ -1475,14 +1489,19 @@ func _write_chase() -> void :
 	_cue(153.2, "sfx", "bell_00", 0.9)
 
 
-# Position z de Yiero pendant la poursuite (même tableau que les clés y_pos).
+# Place de Yiero pendant la poursuite (relative à la place de Simon à 104 s) : derrière Simon, à
+# CHASE_GAP mètres, et un peu en retard sur ses écarts de côté.
+func _pb_yiero_local(t: float) -> Vector3:
+	var simon: Vector3 = PrologueB.root("Simon", clampf(t, 122.0, 149.2))
+	var late: Vector3 = PrologueB.root("Simon", clampf(t - 1.5, 122.0, 149.2))
+	var gap: float = PrologueB.curve(CHASE_GAP, t)
+	if t > 149.2: simon.z -= (t - 149.2) * 3.6
+	return Vector3(late.x, 0.0, simon.z + gap)
+
+
+# Position z de Yiero pendant la poursuite (repère du film).
 func _chase_z(t: float) -> float:
-	var rows: Array = [[126.0, 58.0], [131.0, 18.0], [135.5, -40.0], [140.0, -95.0], [144.5, -152.0], [148.0, -198.0], [150.6, -224.0]]
-	if t <= float(rows[0][0]): return float(rows[0][1])
-	for i: int in range(1, rows.size()):
-		if t <= float(rows[i][0]):
-			return lerpf(float(rows[i - 1][1]), float(rows[i][1]), (t - float(rows[i - 1][0])) / (float(rows[i][0]) - float(rows[i - 1][0])))
-	return float(rows[rows.size() - 1][1])
+	return _pb_void(_pb_yiero_local(t)).z
 
 
 # Acte VII — l'école Paper Afterbell (153 → 182 s).
@@ -1608,3 +1627,30 @@ func _write_footsteps() -> void :
 				_ripple(t, here + lateral, 0.55 if speed < 4.0 else 1.0)
 				side = - side
 			t += 0.48 if speed < 4.0 else 0.3
+
+
+# Partie B (104 → 182 s) : trajectoires, orientations et clips écrits pour le film (anim_set_film_prologue_b.gd).
+# Simon reprend là où la partie A l'a laissé : ses trajets dans la dimension sont relatifs à sa place à 104 s.
+func _pb_cast() -> void :
+	var origin: Vector3 = _spots[S]
+	_pb_origin = origin
+	for i: int in [S, A]:
+		_do(i, 104.0, "stun", false);_do(i, 104.0, "life", "alive");_do(i, 104.0, "unset", PB_STATES);_do(i, 104.0, "mood", "")
+	for i: int in range(takes.size()):
+		var plan: Dictionary = PrologueB.plan(takes[i].person)
+		if plan.is_empty(): continue
+		if plan.put != null: _put(i, plan.put)
+		for row: Array in plan.moves:
+			var spot: Vector3 = row[2]
+			if i == S and float(row[1]) < T_SCHOOL: spot += origin
+			_move(i, float(row[0]), float(row[1]), spot, str(row[3]))
+		for row: Array in plan.faces: _face(i, float(row[0]), "dir", row[1])
+	for row: Array in PrologueB.plays():
+		var index: int = CAST.find(str(row[1]))
+		if index >= 0: _do(index, float(row[0]), "play", str(row[2]))
+
+
+# Point du décor de la dimension écrit relativement à la place de Simon à 104 s → repère du film.
+var _pb_origin: Vector3 = Vector3.ZERO
+func _pb_void(local: Vector3) -> Vector3:
+	return local + _pb_origin
