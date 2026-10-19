@@ -6,7 +6,8 @@ extends Node
 #   [--es-from 0 --es-to 4 --es-step 0.1 | --es-times 0.5,1,2] [--es-out DIR] [--es-map school|forest|snow] \
 #   [--es-cam film|side:N|front:N|back:N|wide|door] [--es-focus Usayuko] [--es-size 640x360]
 # side:N / front:N / back:N : caméra de contrôle qui suit l'acteur N (indice dans le film, Alice en dernier),
-# de profil, de face ou de dos ; wide : plan large fixe de côté sur la porte ; door : depuis dehors.
+# de profil, de face ou de dos ; wide : plan large fixe de côté sur la porte ; door : depuis dehors ;
+# e:x,y,z,lx,ly,lz,fov : caméra fixe dans le repère E du film de fuite (origine au pied de la porte, z vers dehors).
 # Sans rendu (--headless) : seulement le journal (durée, dépassements de portée des jambes).
 
 var world: Node
@@ -101,7 +102,7 @@ func _debug_camera(film: PaperCinema) -> void :
 	var camera: Camera3D = world.camera
 	var parts: PackedStringArray = cam.split(":")
 	var mode: String = parts[0]
-	var who: int = clampi(int(parts[1]) if parts.size() > 1 else 0, 0, film.takes.size() - 1)
+	var who: int = clampi(int(parts[1]) if parts.size() > 1 and mode != "e" else 0, 0, film.takes.size() - 1)
 	var visual: PaperVisual = film.takes[who].visual
 	var target: Vector3 = visual.global_position + Vector3.UP * 0.85
 	var eye: Vector3
@@ -117,6 +118,16 @@ func _debug_camera(film: PaperCinema) -> void :
 			var door: Vector3 = film.finish - film.forward * 3.0
 			target = door - film.forward * 2.5 + Vector3.UP * 1.0
 			eye = door + film.forward * 6.0 + Vector3.UP * 1.6 + film.right * 0.8
+		"e":
+			# e:x,y,z,lx,ly,lz,fov : caméra fixe dans le repère E du film de fuite (origine au pied de la porte)
+			var v: PackedStringArray = parts[1].split(",")
+			var door: Vector3 = film.finish - film.forward * 3.0
+			eye = door + film.right * float(v[0]) + Vector3.UP * float(v[1]) + film.forward * float(v[2])
+			target = door + film.right * float(v[3]) + Vector3.UP * float(v[4]) + film.forward * float(v[5])
+			camera.global_position = eye
+			camera.look_at(target)
+			camera.fov = float(v[6]) if v.size() > 6 else 40.0
+			return
 		_: return
 	camera.global_position = eye
 	camera.look_at(target)
