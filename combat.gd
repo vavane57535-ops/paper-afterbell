@@ -600,7 +600,7 @@ func interact(actor):
 			var drone_pos: Vector3 = drone.position
 			if str(drone.state) == "salvage" and actor.position.distance_to(drone_pos) < 2.8 and _los(actor.position, drone_pos):
 				if actor.hp >= PaperSurvivorMechanics.heal_ceiling(actor):
-					_feedback(actor, "wreck_full", "Armure déjà complète : conserve cette épave pour plus tard.")
+					_feedback(actor, "wreck_full", "Armure déjà pleine : garde l’épave pour plus tard.")
 					return
 				_heal(actor, 7.0, actor)
 				_remove_drone(index, "recycled")

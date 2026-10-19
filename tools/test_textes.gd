@@ -14,6 +14,8 @@ extends Node
 # Cinémathèque (sans rendu) : godot --headless -- --tool test_textes --tx-catalogue
 #   (titres et descriptions de catalogue() en français et en anglais, « TX_CAT_RESULT »).
 # Fiches des persos (sans rendu) : godot --headless -- --tool test_textes --tx-data (« TX_DATA_RESULT »).
+# Place prise par chaque fiche (sans rendu) : godot --headless -- --tool test_textes --tx-fiches [--tx-old-data F]
+#   (« TX_FICHE <perso> contenu=… visible=… cache=… » ; voir _check_fiches).
 
 const ALL: Array[String] = ["main", "hints", "setup", "alice", "shop", "gallery", "credits", "network", "advanced", "connecting", "lobby", "settings", "controls", "online", "loading", "game", "pause", "confirm", "emotes", "training", "alice_game", "verdicts"]
 
@@ -41,7 +43,7 @@ func setup(game_world: Node) -> void :
 			if parts.size() == 2: get_window().size = Vector2i(int(parts[0]), int(parts[1]))
 	DirAccess.make_dir_recursive_absolute(out_dir)
 	# Langue changée en mémoire seulement (rien n'est écrit dans settings.cfg).
-	if english: PaperLanguage.language = "en"
+	PaperLanguage.language = "en" if english else "fr"
 	_run.call_deferred()
 
 func _process(delta: float) -> void :
@@ -265,6 +267,54 @@ func _check_data() -> void :
 	PaperLanguage.language = previous
 	_note("TX_DATA_RESULT %s" % ("OK" if missing == 0 else "MISSING %d" % missing))
 
+# --tx-fiches [--tx-old-data CHEMIN] : hauteur du texte de chaque fiche de la préparation (6 élèves + Alice)
+# comparée à la zone visible, en px du canevas. « TX_FICHE <perso> contenu=<h> visible=<h> cache=<h> ».
+# Avec --tx-old-data (un ancien data.gd, sans sa ligne class_name), les anciens textes sont remis dans
+# les mêmes libellés pour comparer à mise en page égale : « ancien=<h> ancien_cache=<h> ».
+func _check_fiches(old_path: String) -> void :
+	var old: GDScript = null
+	if not old_path.is_empty():
+		old = GDScript.new()
+		old.source_code = FileAccess.get_file_as_string(old_path)
+		if old.reload() != OK: old = null
+	var ui: Node = world.ui
+	for person: String in PaperData.NAMES + ["Alice"]:
+		if person == "Alice": ui._show_setup("alice", -1)
+		else: ui._show_setup("survivor", PaperData.NAMES.find(person))
+		await _wait(0.6)
+		var passive: String = PaperLanguage.t(PaperData.passive_for(person, "om"))
+		var scroll: ScrollContainer = ui.setup_info.get_parent() as ScrollContainer if is_instance_valid(ui.setup_info) else null
+		if scroll == null or scroll.get_child_count() == 0:
+			_note("TX_FICHE %s introuvable" % person)
+			continue
+		var content: Control = scroll.get_child(0) as Control
+		var bar: VScrollBar = scroll.get_v_scroll_bar()
+		var visible_h: float = bar.page if bar.visible else scroll.size.y
+		var now_h: float = maxf(content.get_combined_minimum_size().y, bar.max_value if bar.visible else content.size.y)
+		var line: String = "TX_FICHE %s vue=%dx%d contenu=%d visible=%d cache=%d" % [person, int(get_viewport().get_visible_rect().size.x), int(get_viewport().get_visible_rect().size.y), int(now_h), int(visible_h), int(maxf(0.0, now_h - visible_h))]
+		if old:
+			var constants: Dictionary = old.get_script_constant_map()
+			var swap: Dictionary = {passive: PaperLanguage.t(str(old.call("passive_for", person, "om")))}
+			var new_rows: Array = PaperData.abilities_for(person, "om")
+			var old_rows: Array = (constants.get("ABILITIES", {}) as Dictionary).get(person, [])
+			for i: int in range(mini(new_rows.size(), old_rows.size())):
+				swap[PaperLanguage.t(str(new_rows[i][2]))] = PaperLanguage.t(str(old_rows[i][2]))
+			swap[PaperLanguage.t(str(PaperData.STATS[person][4]))] = PaperLanguage.t(str((constants.get("STATS", {}) as Dictionary).get(person, ["", "", "", "", ""])[4]))
+			var restore: Dictionary = {}
+			for node: Node in content.find_children("*", "Label", true, false):
+				var label: Label = node as Label
+				if swap.has(label.text):
+					restore[label] = label.text
+					label.text = str(swap[label.text])
+			await get_tree().process_frame
+			await get_tree().process_frame
+			var old_h: float = content.get_combined_minimum_size().y
+			line += " ancien=%d ancien_cache=%d" % [int(old_h), int(maxf(0.0, old_h - visible_h))]
+			for label: Label in restore: label.text = str(restore[label])
+		_note(line)
+		await _shot("fiche_" + person.to_lower())
+	ui.show_main()
+
 # --tx-catalogue : titres et descriptions de toute la cinémathèque (63 fuites en équipe comprises).
 # Imprime « TX_CAT_FR » / « TX_CAT_EN » pour chaque entrée, « TX_CAT_MISSING » pour un texte resté en
 # français (un titre fait seulement de prénoms, comme « Simon + Elly », n'a pas à changer), puis « TX_CAT_RESULT ».
@@ -300,6 +350,11 @@ func _run() -> void :
 	var l10n_at: int = args.find("--tx-l10n")
 	if l10n_at >= 0 and l10n_at + 1 < args.size():
 		_check_l10n(args[l10n_at + 1])
+		get_tree().quit()
+		return
+	if args.has("--tx-fiches"):
+		var old_at: int = args.find("--tx-old-data")
+		await _check_fiches(args[old_at + 1] if old_at >= 0 and old_at + 1 < args.size() else "")
 		get_tree().quit()
 		return
 	var ui: Node = world.ui

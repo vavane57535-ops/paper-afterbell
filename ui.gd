@@ -1123,7 +1123,7 @@ func show_maps() -> void :
 	back.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	column.add_child(back)
 	column.add_child(_kicker("CHOISIR LE TERRAIN"))
-	column.add_child(_label("Au-delà de l'école", "title", 44, T.PAPER))
+	column.add_child(_label("On joue où ?", "title", 44, T.PAPER))
 	var row: HBoxContainer = _hbox(column, 22)
 	var first: Control = null
 	for key: String in ["school", "forest", "snow"]:
@@ -1667,7 +1667,7 @@ func show_lobby() -> void :
 	choose.add_theme_constant_override("icon_max_width", 34)
 	v.add_child(choose)
 	_section(v, "MODE DE JEU")
-	if world.can_manage_lobby(): _option_row(v, "À quoi joue-t-on ?", ["Manche OM", "Terrain d’essai · École"], ["match", "training"], "mode")
+	if world.can_manage_lobby(): _option_row(v, "On joue à quoi ?", ["Manche OM", "Terrain d’essai · École"], ["match", "training"], "mode")
 	# « Qui joue Alice ? » juste sous le mode, avant le résumé : visible sans faire défiler en 1280×800.
 	if world.can_manage_lobby() and world.room_options.mode == "match": _alice_row(v)
 	lobby_options = _paragraph("", v, 16, T.PAPER)
@@ -3180,12 +3180,13 @@ func show_loading(map_id: String, characters: Array = []) -> void :
 
 	loading_label = _label("Préparation de la carte…", "caps", 13, T.PAPER_DIM)
 	page.add_child(loading_label)
-	loading_label.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_RIGHT)
-	loading_label.offset_left = -640
-	loading_label.offset_right = -64
+	# À gauche, au-dessus du début de la barre : à droite, les pieds du perso la cachaient.
+	loading_label.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_LEFT)
+	loading_label.offset_left = 72
+	loading_label.offset_right = 648
 	loading_label.offset_top = -58
 	loading_label.offset_bottom = -38
-	loading_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	loading_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
 	loading_label.set_meta("language_user_text", true)
 	loading_bar = ProgressBar.new()
 	loading_bar.show_percentage = false
