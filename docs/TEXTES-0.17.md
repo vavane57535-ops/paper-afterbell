@@ -27,8 +27,8 @@ FR et EN), avec un œil sur la place que prennent les textes :
   d'**Ashura** (la dernière ligne du passif cachée, alors qu'elle tenait en 0.16), et la dernière ligne d'**Alice**
   était à moitié coupée (déjà en 0.16). Le drone, « Rapide / précis » et « Doubles d'ombre » sont resserrés, sans
   rien enlever des règles : les deux fiches tiennent maintenant entières, en français comme en anglais.
-  **Lysia** reste la seule fiche qui défile : 89 px cachés en français et 53 en anglais, contre 159 en 0.16. La
-  faire tenir obligerait à retirer des règles.
+  **Lysia** reste la seule fiche qui défile : 107 px cachés en français (anglais : voir Vérifications), contre plus
+  de 150 px en 0.16. La faire tenir obligerait à retirer des règles.
 - **Salon.** « Au-delà de l'école » (titre du choix de la carte, alors que l'école en fait partie) devient
   « On joue où ? », et « À quoi joue-t-on ? » devient « On joue à quoi ? ».
 - **Cinémathèque.** Quand Usayuko et Lysia s'en sortent ensemble, la description ne dit plus « Usayuko frappe
