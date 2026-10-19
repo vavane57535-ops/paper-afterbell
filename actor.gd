@@ -78,6 +78,13 @@ var net_position: Vector3
 var net_velocity: Vector3
 var foot_clock: float = 0.0
 var collider: CollisionShape3D
+# Réseau 0.17 (net_sync.gd, net_motion.gd) : chez l'hôte, net_follow = suivre la position prédite par
+# le client ; chez le client, net_predicted = joueur local qui calcule son mouvement lui-même,
+# net_exact = position déjà interpolée dans le tampon d'instantanés (pas de lissage en plus).
+var net_motion: PaperNetMotion = PaperNetMotion.new()
+var net_follow: bool = false
+var net_predicted: bool = false
+var net_exact: bool = false
 
 func setup(actor_id: int, character_name: String, is_bot: bool) -> void :
 	id = actor_id
@@ -191,6 +198,7 @@ func tick(delta: float, authoritative: bool) -> void :
 			regen_wait = maxf(0.0, regen_wait - delta)
 			if regen_wait <= 0 and max_stamina >= 0:
 				stamina = minf(max_stamina, stamina + delta * (16.5 if killer else 15.0))
+		if net_follow and not scripted_motion and not held and not crawling: scripted_motion = PaperNetMotion.follow(self, delta)
 		if not scripted_motion:
 			var was_grounded: bool = is_on_floor()
 			if was_grounded: _air_peak = position.y;_takeoff_y = position.y
@@ -231,7 +239,7 @@ func tick(delta: float, authoritative: bool) -> void :
 		if global_position.distance_squared_to(net_position) > REMOTE_SNAP_DISTANCE * REMOTE_SNAP_DISTANCE:
 			global_position = net_position
 		else:
-			global_position = global_position.lerp(net_position, minf(1.0, delta * 18.0))
+			global_position = global_position.lerp(net_position, 1.0 if net_exact else minf(1.0, delta * 18.0))
 		velocity = net_velocity
 
 	visual.visible = not bool(effects.get("shadow_hide", false)) or float(effects.get("shadow_time", 0.0)) > 0.85

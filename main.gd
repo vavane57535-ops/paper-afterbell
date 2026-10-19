@@ -27,6 +27,8 @@ var rewards: PaperMatchRewards
 var match_results: Array = []
 var emote_wheel: PaperEmoteWheel
 var emote_sync: PaperEmoteSync
+var net_sync: PaperNetSync
+var net_lag: PaperNetLag
 var bindings: PaperBindings
 var controls_menu: PaperControlsMenu
 var exit_flow: PaperEscapeFlow
@@ -169,6 +171,7 @@ var _ping_timer: float = 0.0
 var _ping_sequence: int = 0
 var _ping_pending: Dictionary = {}
 var _ping_last_reply: int = 0
+var lan_port: int = PORT
 const MAP_NAMES: Dictionary = {"school": "L'école après la cloche", "forest": "La forêt des murmures", "snow": "Le silence de l'hiver"}
 
 func _ready() -> void :
@@ -203,6 +206,7 @@ func _ready() -> void :
 	ui = PaperUI.new();add_child(ui);ui.setup(self)
 	emote_wheel = PaperEmoteWheel.new();ui.root.add_child(emote_wheel);emote_wheel.setup(self)
 	emote_sync = PaperEmoteSync.new();add_child(emote_sync);emote_sync.setup(self)
+	net_sync = PaperNetSync.new();add_child(net_sync);net_sync.setup(self);net_lag = net_sync.lag
 	controls_menu = PaperControlsMenu.new();ui.root.add_child(controls_menu);controls_menu.setup(self)
 	online_menu = PaperOnlineMenu.new();ui.root.add_child(online_menu);online_menu.setup(self)
 	presentation = PaperEffects.new();add_child(presentation);presentation.setup(self)
@@ -469,7 +473,7 @@ func chosen_alice_peer() -> int:
 func host_lan_room() -> void :
 	leave_network()
 	net = ENetMultiplayerPeer.new()
-	var error: int = net.create_server(PORT, 6)
+	var error: int = net.create_server(lan_port, 6)
 	if error != OK:
 		ui.toast("Impossible d'ouvrir la partie. Une autre partie utilise peut-être ce port.");return
 	multiplayer.multiplayer_peer = net;networked = true
@@ -481,7 +485,7 @@ func join_lan_room(address: String) -> void :
 	if address.is_empty(): ui.toast("Entre l'adresse de la personne qui héberge.");return
 	leave_network()
 	net = ENetMultiplayerPeer.new()
-	var error: int = net.create_client(address, PORT)
+	var error: int = net.create_client(address, lan_port)
 	if error != OK: ui.toast("Adresse invalide ou connexion indisponible.");return
 	multiplayer.multiplayer_peer = net;networked = true;phase = "lobby"
 	ui.show_lobby();ui.toast("Connexion à la partie…", 8)
@@ -664,6 +668,7 @@ func start_multiplayer_round() -> void :
 func _clear_round() -> void :
 	if exit_flow: exit_flow.clear()
 	if emote_sync: emote_sync.clear()
+	if net_sync: net_sync.reset()
 	if bindings: bindings.controller_sprint = false
 	teleport_warning = 0.0
 	_restore_warning_lamps()
@@ -813,6 +818,7 @@ func _physics_step(delta: float) -> void :
 		combat.tick(delta)
 		brain.tick(delta)
 	else: emote_sync.extrapolate(delta)
+	net_sync.pre_tick(delta)
 	_collect_input(delta)
 	for a: PaperActor in actors.values():
 		if authoritative() and a.killer and clock < 5 and not training: a.move_input = Vector3.ZERO
@@ -821,7 +827,8 @@ func _physics_step(delta: float) -> void :
 		a.visual.set_combat_state(_pose_for(a))
 		a.visual.set_life_state("dead" if not a.alive else "downed" if bool(a.effects.get("downed", false)) else "alive")
 		if bool(a.effects.get("escaped", false)): a.visual.hide()
-		a.tick(delta, authoritative())
+		a.tick(delta, authoritative() or a.net_predicted)
+	net_sync.post_tick(delta)
 	if authoritative():
 		_update_chased(delta)
 		_tick_emotes(delta)
@@ -830,12 +837,12 @@ func _physics_step(delta: float) -> void :
 		exit_flow.tick()
 		snapshot_clock += delta
 		world_state_clock += delta
-		if networked and snapshot_clock >= 0.05:
+		if networked and snapshot_clock >= PaperNetSync.SNAPSHOT_INTERVAL - 0.0005:
 			snapshot_clock = 0
 			_send_snapshot()
 		if networked and world_state_clock >= 0.25:
+			net_sync.send_world_state(world_state_clock)
 			world_state_clock = 0
-			receive_world_state.rpc(zones, objective_progress, objective_done, round_serial, _archive_locks_snapshot(), exit_flow.pack())
 
 const POSE_KEYS: Array[String] = ["sprinting", "second_life", "landing_roll", "lms", "ruleset_om", "grounded", "vertical_speed", "grab_holding"]
 
@@ -851,7 +858,7 @@ func _pose_for(a: PaperActor) -> Dictionary:
 	var effects: Dictionary = a.effects
 
 	pose.merge(effects, true)
-	var host: bool = authoritative()
+	var host: bool = authoritative() or a.net_predicted
 
 	pose["sprinting"] = a.sprint if host else bool(effects.get("running", false))
 	pose["second_life"] = bool(effects.get("revived", false))
@@ -880,11 +887,10 @@ func _pose_for(a: PaperActor) -> Dictionary:
 
 
 
+# 0.17 : instantané binaire compact à 30 par seconde (net_sync.gd, net_codec.gd).
 func _send_snapshot() -> void :
-	var packed: PackedByteArray = _pack_snapshot_rows()
-	receive_snapshot.rpc(packed, _snapshot_raw_size, clock, time_left, phase, lms, blocked_door, round_serial)
-	receive_entities.rpc(_pack_entities(minions, false), _pack_entities(projectiles, true), round_serial, _pack_drones())
-	if perf.sampling(): perf.sample_snapshot(var_to_bytes([packed, _snapshot_raw_size, clock, time_left, phase, lms, blocked_door, round_serial]).size(), 1)
+	var size: int = net_sync.send_snapshot()
+	if perf.sampling(): perf.sample_snapshot(size, 1)
 
 func _pack_snapshot_rows() -> PackedByteArray:
 	_snapshot_rows.clear()
@@ -899,8 +905,7 @@ func _perf_snapshot_estimate(delta: float) -> void :
 	_perf_snapshot_clock += delta
 	if _perf_snapshot_clock < 0.05: return
 	_perf_snapshot_clock = 0.0
-	var packed: PackedByteArray = _pack_snapshot_rows()
-	perf.sample_snapshot(var_to_bytes([packed, _snapshot_raw_size, clock, time_left, phase, lms, blocked_door, round_serial]).size(), 1)
+	perf.sample_snapshot(PaperNetCodec.encode_snapshot(self).size(), 1)
 
 func _collect_input(delta: float) -> void :
 	var a: PaperActor = local_actor()
@@ -926,9 +931,8 @@ func _collect_input(delta: float) -> void :
 		a.move_input = world_move;a.aim = aim;a.sprint = running
 		if piloting: combat.drone_input(a, _drone_movement(input, aim))
 	else:
-		input_clock += delta
-		if input_clock >= 0.04:
-			input_clock = 0;submit_input.rpc_id(1, world_move, aim, running)
+		if a.net_predicted: a.move_input = world_move;a.sprint = running
+		net_sync.set_input(world_move, aim, running)
 	interact_clock += delta
 	if not pause_open and interacting and interact_clock >= 0.2:
 		interact_clock = 0
@@ -967,6 +971,15 @@ func receive_snapshot(packed: PackedByteArray, raw_size: int, t: float, remainin
 		var a: PaperActor = actors.get(int(d[0]))
 		if a: a.unpack_motion(d)
 	if blocked_door != door: blocked_door = door;_build_barrier()
+
+# En-tête d'un instantané 0.17 (PaperNetSync.rx_snapshot) ; false s'il faut l'ignorer.
+func accept_snapshot(t: float, remaining: float, p: String, is_lms: bool, door: int, serial: int) -> bool:
+	if phase not in ["loading", "playing", "ending"]: return false
+	if serial != round_serial or (phase == "ending" and p == "playing"): return false
+	if phase == "loading" and p == "playing": begin_play(serial)
+	messages_received += 1;clock = t;time_left = remaining;phase = p;lms = is_lms
+	if blocked_door != door: blocked_door = door;_build_barrier()
+	return true
 
 @rpc("authority", "call_remote", "reliable", 3)
 func receive_world_state(heal_zones: Array, progress: Dictionary, done: Array, serial: int, locks: Dictionary = {}, escape_state: Dictionary = {}) -> void :
@@ -1135,6 +1148,7 @@ func event(kind: String, data: Dictionary) -> void :
 @rpc("authority", "call_remote", "reliable")
 func receive_event(kind: String, data: Dictionary) -> void :
 	if int(data.get("round_serial", -1)) != round_serial or phase not in ["loading", "playing", "ending"]: return
+	if net_sync and net_sync.local_echo(kind, data): return
 	_event_local(kind, data)
 
 
@@ -1582,6 +1596,7 @@ func _parse_test_args() -> void :
 		if args[i] == "--report" and i + 1 < args.size(): test_report = args[i + 1]
 		if args[i] == "--capture" and i + 1 < args.size(): capture_path = args[i + 1]
 		if args[i] == "--capture-at" and i + 1 < args.size(): capture_at = float(args[i + 1])
+		if args[i] == "--net-port" and i + 1 < args.size(): lan_port = clampi(int(args[i + 1]), 1024, 65535)
 		if args[i] == "--host-test": test_host = true;test_mode = true
 		if args[i] == "--join-test": test_client = true;test_mode = true
 		if args[i] == "--speed" and i + 1 < args.size(): Engine.time_scale = clampf(float(args[i + 1]), 0.1, 12)
@@ -2053,7 +2068,7 @@ func request_jump() -> void :
 	if phase != "playing" or pause_open or ruleset != "om" or emote_wheel.visible: return
 	var actor: PaperActor = local_actor()
 	if not actor or not actor.active(): return
-	if authoritative(): actor.request_jump(true)
+	if authoritative() or actor.net_predicted: actor.request_jump(true)
 	else: command.rpc_id(1, "jump", {})
 
 func _drone_movement(input: Vector2, look: Vector3) -> Vector3:

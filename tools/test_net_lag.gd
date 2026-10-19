@@ -47,6 +47,7 @@ var _script_t: float = -1.0
 var _script: Array = []
 var _react: Dictionary = {}
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
+var only_trials: bool = false
 
 
 func setup(owner: Node) -> void :
@@ -59,6 +60,7 @@ func setup(owner: Node) -> void :
 			"--lag-port": port = int(value)
 			"--lag-out": out = value
 			"--lag-label": label = value
+			"--lag-only-trials": only_trials = true
 	DirAccess.make_dir_recursive_absolute(out)
 	_rng.seed = 1717
 	_begin.call_deferred()
@@ -146,6 +148,15 @@ func _host_process() -> void :
 			if step_clock < 5.4: return
 			_prepare_arena()
 			_stats_begin()
+			if only_trials:
+				marks["track"] = [_wall(), _wall()];marks["react"] = [_wall(), _wall()];marks["trials"] = [_wall()]
+				_plan.clear()
+				for repeat: int in range(2):
+					for d: float in DODGE_DELAYS: _plan.append({"delay": d, "dodge": true})
+					_plan.append({"delay": 0.2, "dodge": false})
+				_trial_index = -1
+				_go("trial_next")
+				return
 			rpc_client.rpc_id(other, "track", {"center": center, "forward": forward})
 			marks["track"] = [_wall()]
 			_go("track")
@@ -197,6 +208,9 @@ func _host_process() -> void :
 			_trial["swing_real"] = _wall()
 			var victim: PaperActor = world.actors.get(other)
 			_trial["victim_at_swing"] = [victim.global_position.x, victim.global_position.z]
+			_trial["followed"] = victim.net_follow if "net_follow" in victim else false
+			var lag: Variant = world.get("net_lag")
+			if lag != null: _trial["lag_before"] = lag.stats.duplicate()
 			_trial["used"] = world.combat.use(alice, 0)
 			_go("trial_result")
 		"trial_result":
@@ -204,6 +218,14 @@ func _host_process() -> void :
 			var victim: PaperActor = world.actors.get(other)
 			_trial["hit"] = victim.hp < float(_trial.hp_before) - 0.5 or int(world.event_count.get("hit", 0)) > int(_trial.hits_before)
 			_trial["hp_after"] = victim.hp
+			var lag: Variant = world.get("net_lag")
+			if lag != null:
+				_trial["lag_after"] = lag.stats.duplicate()
+				var view: Dictionary = lag.own_view_at(victim, float(_trial.swing_clock))
+				_trial["own_view_at_swing"] = [Vector3(view.position).x, Vector3(view.position).z, bool(view.ok)]
+				_trial["epoch"] = victim.net_motion.epoch
+				_trial["rejections"] = victim.net_motion.rejections
+				_trial["view_lag"] = victim.net_motion.view_lag
 			trials.append(_trial)
 			_log("essai %d δ=%.2f esquive=%s → %s" % [_trial_index, float(_trial.delay), str(_trial.dodge), "TOUCHÉ" if _trial.hit else "raté"])
 			victim.hp = victim.max_hp

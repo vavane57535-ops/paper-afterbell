@@ -14,7 +14,7 @@ cd "$ROOT"
 python3 tools/net_lag_proxy.py --listen "$PROXY_PORT" --target "$HOST_PORT" --ping "$PING" --jitter "$JITTER" --duration 230 --stats "$OUT/proxy.json" > "$OUT/proxy.log" 2>&1 &
 PROXY=$!
 sleep 0.5
-XDG_DATA_HOME="$OUT/xdg_host" timeout 220 godot --headless -- --tool test_net_lag --lag-role host --lag-port "$HOST_PORT" --lag-out "$OUT" --lag-label "$LABEL" > "$OUT/host.log" 2>&1 &
+XDG_DATA_HOME="$OUT/xdg_host" timeout 220 godot --headless -- --tool test_net_lag --lag-role host --lag-port "$HOST_PORT" --lag-out "$OUT" --lag-label "$LABEL" ${LAG_EXTRA:-} > "$OUT/host.log" 2>&1 &
 HOST_PID=$!
 sleep 2
 XDG_DATA_HOME="$OUT/xdg_client" timeout 215 godot --headless -- --tool test_net_lag --lag-role client --lag-port "$PROXY_PORT" --lag-out "$OUT" --lag-label "$LABEL" > "$OUT/client.log" 2>&1 &

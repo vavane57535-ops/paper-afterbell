@@ -2166,10 +2166,10 @@ func _begin_attack(actor, size: Vector3, payload: Dictionary, duration: float = 
 	_emit_box(actor, size, duration, attack.aim, int(attack.cast_id))
 	_sample_attack(attack, actor.position)
 
-func _inside_box(origin: Vector3, direction: Vector3, size: Vector3, target) -> bool:
+func _inside_box(origin: Vector3, direction: Vector3, size: Vector3, target, at: Variant = null) -> bool:
 	if not _can_act(target): return false
 	var center: Vector3 = origin + direction * (size.z * 0.5 - 0.25) + Vector3.UP
-	var offset: Vector3 = target.position + Vector3.UP * 0.9 - center
+	var offset: Vector3 = (at if at is Vector3 else target.position) + Vector3.UP * 0.9 - center
 	var side: Vector3 = direction.cross(Vector3.UP)
 
 	return absf(offset.dot(side)) <= size.x * 0.5 + 0.38 and absf(offset.dot(direction)) <= size.z * 0.5 + 0.38 and absf(offset.y) <= size.y * 0.5 + 0.9
@@ -2178,18 +2178,28 @@ func _sample_attack(attack: Dictionary, origin: Vector3):
 	var source = _actor(int(attack.actor))
 	if not _can_act(source): return
 	if not source.killer: _dispel_box(origin, attack.aim, attack.size)
+	# Compensation du retard (net_lag.gd) : en ligne, chaque cible est jugée là où l'attaquant la
+	# voyait et là où elle se voyait elle-même ; le jugement d'un joueur distant peut attendre ses positions.
+	var lag = world.get("net_lag")
+	if lag != null and lag.judge_box(self, attack, origin, source): return
+	_sample_contacts(attack, origin, source, {})
+
+# seen : positions jugées par cible (net_lag.gd) ; vide = positions actuelles de toutes les cibles.
+func _sample_contacts(attack: Dictionary, origin: Vector3, source, seen: Dictionary):
 	var payload: Dictionary = attack.payload
 	var contacts: Array = []
 	for target in world.actors.values():
 		if target.killer == source.killer or attack.hit.has(target.id) or bool(target.effects.get("shadow_hide", false)): continue
-		if _inside_box(origin, attack.aim, attack.size, target) and _los(origin, target.position): contacts.append(target)
+		if not seen.is_empty() and not seen.has(target.id): continue
+		var at: Vector3 = seen.get(target.id, target.position)
+		if _inside_box(origin, attack.aim, attack.size, target, at) and _los(origin, at): contacts.append(target)
 
 
 	if _om(source) and source.killer and payload.has("damage"):
 		for guard in contacts:
 			if guard.character != "Usayuko": continue
 			for friend in contacts:
-				if friend == guard or friend.position.distance_to(guard.position) > 1.5 or not _los(guard.position, friend.position): continue
+				if friend == guard or Vector3(seen.get(friend.id, friend.position)).distance_to(seen.get(guard.id, guard.position)) > 1.5 or not _los(seen.get(guard.id, guard.position), seen.get(friend.id, friend.position)): continue
 				attack.guarded[friend.id] = guard.id
 				_reward("protection", guard, 1.0, "claw_%d" % int(attack.cast_id))
 				world.event("protection", {"actor": guard.id, "target": friend.id, "source": source.id, "position": guard.position, "cast_id": attack.cast_id})
