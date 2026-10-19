@@ -49,6 +49,7 @@ static func write(cinema: PaperCinema) -> PaperFilmAliceKill:
 	var node: PaperFilmAliceKill = hold(cinema)
 	match str(cinema.people[0]) if not cinema.people.is_empty() else "Bleuette":
 		"Simon": node._simon()
+		"Usayuko": node._usayuko()
 		_: node._bleuette()
 	return node
 
@@ -432,3 +433,57 @@ func _simon() -> void :
 		[FA.S_DROP + 0.41, "slide", hop, rest, 0.4, 1.4],
 		[FA.S_DROP + 0.81, "floor", rest, 1.4],
 	])
+
+
+# ----------------------------------------------------------------- USAYUKO --
+
+func _usayuko() -> void :
+	var c: PaperCinema = film
+	var s: int = 0
+	var a: int = c.alice_index
+	path(s, FA.usayuko_path())
+	path(a, FA.usayuko_alice_path())
+	c._face(s, 0.0, "dir", Vector3(0, 0, -1))
+	c._face(a, 0.0, "dir", Vector3(0, 0, 1))
+	c._do(s, 0.0, "play", "fa_usayuko")
+	c._do(a, 0.0, "play", "fa_usayuko_alice")
+
+	# 1 · de profil, large : il recule garde haute, elle avance
+	c._shot(0.0, {"eye": [Vector3(4.7, 1.25, -0.9), Vector3(4.4, 1.2, -0.4)], "look": [{"mid": [s, a], "h": 1.05}, {"mid": [s, a], "h": 1.0}], "fov": [46, 44], "hand": 0.3})
+	# 2 · derrière l'épaule d'Alice : lui, garde haute, qui jette un œil derrière lui
+	c._shot(1.15, {"eye": [Vector3(-0.42, 1.6, -2.6), Vector3(-0.38, 1.58, -2.3)], "look": [{"a": s, "h": 1.5}, {"a": s, "h": 1.45}], "fov": [38, 36], "hand": 0.3})
+	# 3 · au ras du sol, derrière lui : il part à la renverse vers nous
+	c._shot(2.42, {"eye": [Vector3(-0.9, 0.35, 3.3), Vector3(-0.85, 0.32, 3.2)], "look": [Vector3(0.2, 0.7, 1.4), Vector3(0.2, 0.35, 1.7)], "fov": [44, 42], "hand": 0.35})
+	c._cue(2.82, "sound", "ground_impact", {"a": s}, 0.6, 0.9)
+	c._cue(FA.U_FLOOR, "sound", "ground_impact", {"a": s}, 1.0, 0.75)
+	c._cue(FA.U_FLOOR, "shake", 0.35)
+	# 4 · par-dessus sa tête : il se redresse ; au fond, elle attend
+	c._shot(3.3, {"eye": [Vector3(0.0, 1.25, 3.45), Vector3(0.0, 1.3, 3.25)], "look": [Vector3(0.17, 0.5, 0.8), Vector3(0.17, 0.9, 0.3)], "fov": [42, 40], "hand": 0.3})
+	# 5 · face à lui : il s'essuie la bouche, sourit, roule des épaules, la garde
+	c._shot(4.02, {"eye": [Vector3(0.95, 1.3, -0.25), Vector3(0.85, 1.35, -0.15)], "look": [{"a": s, "h": 1.0}, {"a": s, "h": 1.55}], "fov": [40, 36], "hand": 0.35})
+	c._cue(4.98, "sound", "block", {"a": s, "s": "head"}, 0.35, 1.6)
+	# 6 · large, de profil : la charge, le choc ; elle recule d'une demi-foulée et s'arrête net
+	c._shot(FA.U_CHARGE - 0.04, {"eye": [Vector3(3.4, 1.05, 0.2), Vector3(3.3, 1.0, 0.0)], "look": [Vector3(0.18, 0.95, 0.0), Vector3(0.17, 0.95, -0.9)], "fov": [42, 40], "hand": 0.3})
+	for t: float in [5.36, 5.57, 5.76]: c._cue(t, "sound", "step", {"a": s}, 1.0, 0.75)
+	c._cue(FA.U_HIT, "sound", "kill_slam", {"a": a}, 0.8, 0.9)
+	c._cue(FA.U_HIT, "shake", 0.4)
+	c._cue(FA.U_HIT, "impact", 0.5, true)
+	c._cue(FA.U_STOP, "sound", "step", {"a": a}, 0.8, 0.6)
+	# 7 · derrière lui, en contre-plongée : les griffes sur ses épaules, il plie, à genoux
+	c._shot(6.08, {"eye": [Vector3(-1.4, 0.9, -0.5), Vector3(-1.32, 0.85, -0.62)], "look": [Vector3(0.2, 1.05, -1.45), Vector3(0.2, 1.0, -1.45)], "fov": [42, 40], "hand": 0.3})
+	c._cue(6.45, "sound", "grab", {"a": s, "s": "head"}, 0.4, 0.8)
+	c._cue(FA.U_KNEE, "sound", "ground_impact", {"a": s}, 0.7, 0.8)
+	# 8 · ce qu'elle voit : à genoux, il lève les yeux et sourit
+	c._shot(7.32, {"eye": [Vector3(0.58, 1.66, -1.92), Vector3(0.55, 1.62, -1.86)], "look": [{"a": s, "s": "head", "h": -0.12}, {"a": s, "s": "head", "h": -0.1}], "fov": [36, 34], "hand": 0.25})
+	c._cue(7.4, "sweat", {"a": s, "s": "head"}, 2)
+	# 9 · le coup, de profil, en silhouette
+	c._shot(8.18, {"eye": [Vector3(2.9, 0.95, -1.3), Vector3(2.85, 0.92, -1.3)], "look": Vector3(0.16, 1.0, -1.3), "fov": 38, "hand": 0.2})
+	c._cue(FA.U_KILL, "sound", "slash", {"a": s}, 1.0, 0.8)
+	c._cue(FA.U_KILL + 0.02, "sound", "kill_rip", {"a": s}, 0.9, 0.9)
+	c._cue(FA.U_KILL + 0.02, "frame", Color(0.55, 0.0, 0.08, 0.35), 0.1)
+	c._cue(FA.U_KILL + 0.02, "splash", 1.2)
+	c._cue(FA.U_KILL + 0.02, "shake", 0.5)
+	c._cue(9.12, "sound", "ground_impact", {"a": s}, 0.8, 0.7)
+	# 10 · Alice au-dessus de lui, époussette sa robe, nous regarde
+	c._shot(9.3, {"eye": [Vector3(0.85, 0.85, 0.2), Vector3(0.7, 0.95, 0.0)], "look": [{"a": a, "h": 1.15}, {"a": a, "h": 1.45}], "fov": [42, 34], "hand": 0.25, "roll": [0, -2]})
+	c._cue(11.2, "sound", "presence", {"a": a}, 0.45, 0.7)

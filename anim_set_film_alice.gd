@@ -40,6 +40,7 @@ const EPILOGUE: float = 6.7
 static func add(c: Dictionary) -> void :
 	_bleuette(c)
 	_simon(c)
+	_usayuko(c)
 
 
 # ------------------------------------------------------------------- OUTILS --
@@ -863,3 +864,167 @@ static func _simon_alice(c: Dictionary) -> void :
 	k.append(K(11.4, M([HD(-0.38, -0.18, 0.12)]), "s"))
 	k.append(K(12.5, M([HD(-0.36, -0.17, 0.14), R(0.44, -0.76, 0.25, 0.25)])))
 	c["fa_simon_alice"] = _film(0.0, 12.5, k, "menace")
+
+
+# ----------------------------------------------------------------- USAYUKO --
+# « Derrière moi ». Usayuko ne tourne jamais le dos : il recule garde haute, Alice avance. Son
+# talon accroche, il part à la renverse, à plat dos. Il se relève, s'essuie la bouche, sourit,
+# roule des épaules… et la charge pour la plaquer. Elle recule d'un pas sous le choc, puis plus
+# rien ne bouge. Elle pose ses griffes sur ses épaules et l'enfonce à genoux. Il lève les yeux,
+# sourit encore. Le coup, en silhouette. Elle époussette sa robe là où il l'a tenue.
+
+const U_TRIP: float = 2.55
+const U_FLOOR: float = 2.95
+const U_UP: float = 4.55
+const U_CHARGE: float = 5.3
+const U_HIT: float = 5.78
+const U_STOP: float = 5.98
+const U_KNEE: float = 6.8
+const U_KILL: float = 8.38
+
+static func usayuko_path() -> Array:
+	return [[0.0, Vector3(0.2, 0, -0.7)], [2.5, Vector3(0.2, 0, 1.15)], [2.62, Vector3(0.2, 0, 1.25)], [2.85, Vector3(0.2, 0, 1.42)], [3.0, Vector3(0.2, 0, 1.5)],
+		[3.6, Vector3(0.2, 0, 1.5)], [4.0, Vector3(0.2, 0, 1.45)], [4.55, Vector3(0.22, 0, 1.4)], [U_CHARGE, Vector3(0.24, 0, 1.4)],
+		[U_HIT, Vector3(0.4, 0, -0.82)], [U_STOP, Vector3(0.4, 0, -1.04)], [6.5, Vector3(0.36, 0, -1.07)], [U_KNEE, Vector3(0.2, 0, -1.4)], [12.0, Vector3(0.2, 0, -1.4)]]
+
+static func usayuko_alice_path() -> Array:
+	return [[0.0, Vector3(0.15, 0, -3.3)], [0.45, Vector3(0.15, 0, -3.3)], [2.75, Vector3(0.15, 0, -1.55)], [3.15, Vector3(0.15, 0, -1.35)],
+		[U_HIT, Vector3(0.15, 0, -1.35)], [U_STOP, Vector3(0.15, 0, -1.62)], [12.0, Vector3(0.15, 0, -1.62)]]
+
+
+# garde de boxe (poings devant le menton)
+static func guard(bounce: float = 0.0) -> Dictionary:
+	return M([H(0, -0.08 + bounce, 0.0), B(0.12), C(0.08), HD(-0.08), R(0.06, 0.26, 0.55, 0.25), L(0.1, 0.3, 0.48, 0.25), WR(-0.3), WL(-0.3), {"curl": 1.0, "curl_l": 1.0}])
+
+
+static func _usayuko(c: Dictionary) -> void :
+	var p: String = "Usayuko"
+	var path: Array = usayuko_path()
+	var face_dir: Vector3 = Vector3(0, 0, -1)
+	var k: Array = []
+	# --- FUITE : il recule pas à pas, garde haute, sans la quitter des yeux
+	k.append(K(0.0, M([_zero(), guard(), FACE("determined"), {"jaw": 0.1}])))
+	var plants: Array = cadence(0.12, 2.3, 0.5, 0.32, 1, -0.24, 41.0, {"vary": 0.08})
+	gait(k, p, path, face_dir, plants, {"kick": 0.05, "pass": 0.07, "reach_h": 0.03, "strike": 0.0, "push": -0.25, "heel": 0.2, "bob_low": 0.03, "bob_high": 0.012,
+		"walk": true, "sway": 0.03, "yaw": 0.06, "roll": 0.03, "lean": 0.12, "base": Vector3(0, -0.08, 0), "leave": [-1]})
+	for n: int in range(plants.size()):
+		var t: float = float(plants[n][0])
+		k.append(K(t + 0.1, M([C(0.08 + J(n, 1.0) * 0.04, J(n, 2.0) * 0.08), HD(-0.08 + J(n, 3.0) * 0.05, J(n, 4.0) * 0.1, J(n, 5.0) * 0.05),
+			R(0.06, 0.26 + J(n, 6.0) * 0.04, 0.55), L(0.1, 0.3 + J(n, 7.0) * 0.04, 0.48)])))
+	blink(0.8, "determined", k)
+	# un coup d'œil par-dessus l'épaule droite (où il va ?), puis de nouveau sur elle
+	carve(k, ["head", "chest"], 1.2, 1.75)
+	k.append(K(1.26, M([C(0.06, -0.25), HD(0.0, -1.05, -0.05), FACE("fear")])))
+	k.append(K(1.45, M([C(0.06, -0.3), HD(0.02, -1.15, -0.08)]), "s"))
+	k.append(K(1.62, M([C(0.08, 0.0), HD(-0.08, 0.02, 0.0), FACE("angry"), {"jaw": 0.25}])))
+
+	# --- CHUTE : le talon gauche accroche, il part à la renverse, à plat dos
+	k.append(K(2.4, M([{"foot_l": Vector3(0.0, 0.06, 0.4), "fp_l": 0.0}])))
+	k.append(K(U_TRIP, M([{"foot_l": Vector3(0.0, 0.0, 0.52), "fp_l": 0.35}, B(-0.15), C(0.0), HD(0.1), R(0.32, 0.42, 0.5, 0.4), L(0.36, 0.5, 0.42, 0.4),
+		{"curl": 0.15, "curl_l": 0.15, "face": "surprise", "ev": "gasp", "jaw": 0.6}]), "l"))
+	k.append(K(2.7, M([{"foot_r": Vector3(0.0, 0.25, -0.4), "fp_r": 0.4}, H(0, -0.3, -0.2), B(-0.55), C(-0.1), HD(0.35), R(0.45, 0.65, 0.2, 0.5), L(0.2, 0.3, 0.62, 0.3)])))
+	k.append(K(2.82, M([{"plant": 0.0, "gsnap": 1.0}, H(0, -1.0, -0.3), B(-0.95), C(-0.1), HD(0.25), TL(1.15, 0.12), KL(0.5, 0.2), TR(1.4, 0.15), KR(0.3, 0.2),
+		Rg(0.55, -0.3, 0.1), Lg(0.6, -0.25, 0.1), {"fx": "dust_ring", "ev": "hurt", "sq": 0.94}])))
+	# le dos claque au sol, les jambes montent puis retombent, la tête rebondit
+	k.append(K(U_FLOOR, M([B(-1.48), C(-0.05), HD(0.4), TL(0.65, 0.15), KL(0.35, 0.1), TR(0.85, 0.18), KR(0.2, 0.1), Rg(0.85, -0.15, 0.0), Lg(0.9, -0.1, 0.0),
+		{"fx": "land_hard", "face": "pain", "sq": 1.0}]), "s"))
+	k.append(K(3.05, M([HD(-0.15, 0.1, 0.05), {"fx": "stars"}])))
+	k.append(K(3.2, M([B(-1.5), HD(0.15, 0.2, 0.1), TL(0.08, 0.15), KL(0.3, 0.1), TR(0.12, 0.2), KR(0.4, 0.1), FACE("dazed"), {"jaw": 0.3}]), "s"))
+	# il se redresse sur les mains, secoue la tête
+	k.append(K(3.55, M([B(-0.62), C(0.12), HD(0.05, 0.0, 0.0), TL(0.9, 0.15), KL(0.7, 0.1), TR(1.0, 0.18), KR(0.5, 0.1), Rg(0.35, -0.35, 0.0), Lg(0.4, -0.3, 0.0), FACE("hurt")])))
+	k.append(K(3.68, M([HD(0.0, 0.3, -0.15)])))
+	k.append(K(3.78, M([HD(0.05, -0.3, 0.15)])))
+	# un genou au sol, il s'essuie la bouche du revers du pouce… et sourit
+	var knee: Dictionary = M([{"plant": 0.0, "gsnap": 1.0}, H(0, -0.55, 0.0), B(0.1), TL(1.5, 0.12), KL(1.55, 0.0), TR(0.1, 0.1), KR(1.6, 0.4)])
+	k.append(K(3.98, M([knee, C(0.15), HD(0.15, 0.05, 0.0), R(0.25, -0.35, 0.45, 0.3), L(0.2, -0.5, 0.55, 0.2), {"curl": 0.5, "curl_l": 0.5, "face": "angry"}])))
+	k.append(K(4.1, M([R(-0.42, 0.6, 0.4, 0.5), WR(-0.4, 0.3), HD(0.2, 0.1, 0.05), {"curl": 0.8}])))
+	k.append(K(4.24, M([R(-0.1, 0.55, 0.42, 0.5), HD(0.18, -0.05, 0.0)])))
+	k.append(K(4.34, M([R(0.25, -0.3, 0.45, 0.3), FACE("grin"), {"jaw": 0.2}])))
+	# il se relève
+	k.append(K(U_UP, M([_zero(), H(0, -0.06, 0.0), B(0.06), C(0.05), HD(0.05), R(0.35, -0.75, 0.15, 0.2), L(0.35, -0.75, 0.15, 0.2), {"curl": 0.6, "curl_l": 0.6, "face": "grin"}])))
+	# il roule des épaules, fait craquer sa nuque, lève la garde
+	k.append(K(4.72, M([SH(0.35, 0.0, -0.1, 0.0), C(0.05, 0.12)])))
+	k.append(K(4.86, M([SH(0.0, 0.35, 0.0, -0.1), C(0.05, -0.12)])))
+	k.append(K(4.98, M([SH(0.0, 0.0), HD(0.05, 0.0, 0.4)]), "s"))
+	k.append(K(5.08, M([HD(0.0, 0.0, -0.1), guard(0.0), FACE("determined")])))
+	k.append(K(5.2, M([guard(-0.06), {"gsnap": 0.0, "plant": 1.0}])))
+	# --- DÉFENSE : il charge pour la plaquer, l'épaule dans le ventre
+	var charge: Array = [[5.36, -1, 0.3, 0.13], [5.57, 1, 0.38, 0.13], [U_HIT - 0.02, -1, 0.42, 0.12]]
+	gait(k, p, path, face_dir, charge, {"kick": 0.3, "pass": 0.22, "reach_h": 0.08, "strike": 0.1, "push": -0.8, "heel": 0.25, "bob_low": 0.07, "bob_high": 0.03,
+		"lean": 0.55, "yaw": 0.1, "roll": 0.04, "base": Vector3(0, -0.12, 0.05), "start": U_CHARGE, "hold": U_STOP + 0.3})
+	k.append(K(5.45, M([C(0.3), HD(0.35), R(0.45, -0.05, 0.5, 0.4), L(0.45, -0.05, 0.5, 0.4), {"curl": 0.4, "curl_l": 0.4, "face": "angry", "jaw": 0.5, "ev": "effort"}])))
+	k.append(K(U_HIT, M([H(0, -0.22, 0.12), B(0.62), C(0.42), HD(0.45, 0.3, 0.0), R(0.12, -0.32, 0.72, 0.3), L(0.12, -0.32, 0.72, 0.3), {"curl": 0.7, "curl_l": 0.7, "sq": 0.97}])))
+	k.append(K(U_STOP, M([H(0, -0.25, 0.2), B(0.7), C(0.45), {"sq": 1.0, "jaw": 0.8, "shake": 0.5}]), "s"))
+	# elle ne bouge plus : il pousse, ses pieds patinent, puis les griffes sur ses épaules l'enfoncent
+	k.append(K(6.3, M([H(0, -0.3, 0.22), B(0.72), HD(0.5, 0.3, 0.05), {"shake": 0.8, "face": "pain", "gsnap": 0.0, "plant": 1.0}])))
+	k.append(K(6.55, M([{"plant": 1.0, "gsnap": 0.0}, H(0, -0.6, 0.15), B(0.4), C(0.25), HD(0.4, 0.1, 0.0), R(0.2, -0.3, 0.6, 0.3), L(0.2, -0.3, 0.6, 0.3)])))
+	var kneel: Dictionary = M([{"plant": 0.0, "gsnap": 1.0}, H(0, -0.8, 0.0), TL(0.05, 0.12), KL(1.6, 0.4), TR(0.08, 0.14), KR(1.6, 0.4)])
+	k.append(K(U_KNEE, M([kneel, B(-0.04), C(0.0), HD(0.6, 0.0, 0.0), R(0.15, 0.2, 0.62, 0.4), L(0.15, 0.2, 0.62, 0.4), WR(0.4), WL(0.4),
+		{"fx": "dust", "curl": 0.85, "curl_l": 0.85, "shake": 0.6, "jaw": 0.4}]), "s"))
+	# à genoux : il serre les dents… lève les yeux sur elle, et sourit quand même
+	k.append(K(7.2, M([B(0.0), HD(0.68, 0.05, 0.05), {"face": "pain", "jaw": 0.15, "shake": 0.7}])))
+	k.append(K(7.6, M([HD(0.72, -0.02, 0.1), {"face": "angry", "shake": 0.4}])))
+	blink(7.8, "angry", k)
+	k.append(K(7.95, M([HD(0.74, 0.0, 0.12), {"face": "grin", "jaw": 0.2, "shake": 0.2}])))
+	k.append(K(8.15, M([{"jaw": 0.35}])))
+	k.append(K(8.25, M([{"jaw": 0.1}]), "s"))
+	# le coup : la tête part, le corps se raidit puis bascule sur le côté
+	k.append(K(U_KILL + 0.02, M([B(0.1, 0.25, -0.1), C(-0.1, 0.2), HD(0.2, 0.5, -0.3), R(0.4, -0.2, 0.4, 0.4), L(0.3, 0.1, 0.5, 0.4), {"face": "pain", "jaw": 0.7, "shake": 0.0, "ev": "hurt"}])))
+	k.append(K(8.6, M([B(0.2, 0.2, -0.25), C(0.2, 0.1), HD(-0.2, 0.3, -0.2), R(0.4, -0.6, 0.3, 0.2), L(0.4, -0.6, 0.3, 0.2), {"face": "dead", "jaw": 0.3, "curl": 0.3, "curl_l": 0.3}])))
+	k.append(K(8.85, M([B(0.35, 0.3, -0.7), C(0.2, 0.1, -0.2), HD(-0.1, 0.3, -0.3), {"ev": "death"}])))
+	k.append(K(9.12, M([B(0.3, 0.3, -1.42), C(0.1, 0.1, -0.15), HD(0.0, 0.2, -0.25), TL(0.5, 0.2), KL(1.1, 0.3), TR(0.4, 0.2), KR(1.2, 0.3),
+		Rg(0.6, 0.3, 0.0), Lg(0.5, 0.5, 0.2), {"fx": "dust_ring", "sq": 0.97}]), "s"))
+	k.append(K(9.3, M([{"sq": 1.0}])))
+	k.append(K(12.5, M([B(0.3, 0.3, -1.43)])))
+	c["fa_usayuko"] = _film(0.0, 12.5, k, "determined")
+	_usayuko_alice(c)
+
+
+static func _usayuko_alice(c: Dictionary) -> void :
+	var p: String = "Alice"
+	var path: Array = usayuko_alice_path()
+	var k: Array = []
+	k.append(K(0.0, M([alice_stand(), HD(0.2, 0.0, 0.12)])))
+	# elle avance, sans hâte, plus vite qu'il ne recule
+	var plants: Array = cadence(0.62, 2.7, 0.56, 0.72, 1, 0.24, 57.0, {"vary": 0.04, "width": -0.02})
+	plants.append([float(plants[plants.size() - 1][0]) + 0.5, - int(plants[plants.size() - 1][1]), 0.18, 0.7, -0.02])
+	var walk: Dictionary = ALICE_WALK.duplicate()
+	walk["from_rest"] = true
+	walk["start"] = 0.4
+	walk["hold"] = U_HIT
+	var feet: Dictionary = gait(k, p, path, Vector3(0, 0, 1), plants, walk)
+	alice_walk_upper(k, plants, {"tilt": 0.1, "look": 0.2})
+	# il tombe : elle penche la tête pour le regarder
+	k.append(K(3.3, M([C(0.4), HD(-0.1, 0.0, 0.25), L(0.4, -0.82, 0.16, 0.2), R(0.44, -0.75, 0.26, 0.25), {"curl": 0.25, "curl_l": 0.3}])))
+	k.append(K(4.3, M([C(0.38), HD(0.0, 0.03, -0.22)]), "s"))
+	blink(4.5, "menace", k)
+	k.append(K(5.0, M([C(0.36), HD(0.08, 0.0, -0.05)]), "s"))
+	# le choc : elle glisse d'une demi-foulée sous la charge… puis plus rien ne bouge
+	var stand: Dictionary = M([{"foot_l": feet[-1], "foot_r": feet[1], "fp_l": 0.0, "fp_r": 0.0}])
+	k.append(K(U_HIT - 0.02, M([stand, B(0.1), C(0.36), HD(0.05, 0.0, -0.05), L(0.4, -0.82, 0.16, 0.2), R(0.44, -0.75, 0.26, 0.25)])))
+	k.append(K(U_HIT + 0.06, M([B(0.0), C(0.25), HD(0.12, 0.0, 0.0), L(0.55, -0.6, 0.2, 0.4), R(0.55, -0.55, 0.25, 0.4), {"curl": 0.05, "curl_l": 0.05}])))
+	k.append(K(U_STOP, M([B(0.08), C(0.32), HD(-0.2, 0.0, 0.05)]), "s"))
+	# les griffes se posent sur ses épaules, puis l'enfoncent à genoux
+	k.append(K(6.2, M([B(0.2), C(0.45), HD(-0.4, 0.0, 0.1), L(0.6, -0.28, 0.2, 0.3), R(-0.35, -0.28, 0.2, 0.3), WL(0.2), WR(0.2), {"curl": 0.2, "curl_l": 0.2}])))
+	k.append(K(6.45, M([L(0.72, -0.42, 0.14, 0.3), R(-0.46, -0.42, 0.16, 0.3), {"curl": 0.65, "curl_l": 0.65, "face": "menace"}]), "s"))
+	k.append(K(U_KNEE, M([B(0.28), C(0.5), HD(-0.55, 0.0, 0.08), L(0.32, -0.88, 0.37, 0.3), R(-0.05, -0.88, 0.37, 0.3)]), "s"))
+	k.append(K(7.4, M([HD(-0.6, 0.0, 0.3)]), "s"))
+	# la griffe droite le lâche et monte… le coup, en diagonale
+	k.append(K(7.95, M([HD(-0.58, 0.0, 0.15), L(0.32, -0.88, 0.37, 0.3), R(0.3, -0.3, 0.45, 0.4), {"face": "grin"}])))
+	k.append(K(8.22, M([B(0.2), C(0.4, -0.25), R(0.55, 0.62, 0.0, 0.7), WR(-0.6), {"curl": 0.0}]), "s"))
+	k.append(K(U_KILL, M([B(0.35), C(0.58, 0.3), R(-0.15, -0.55, 0.75, 0.3), WR(0.6), {"curl": 0.7, "fx": "claw_r trail_r", "ev": "grunt"}])))
+	k.append(K(8.55, M([C(0.55, 0.25), R(-0.25, -0.75, 0.5, 0.3)]), "s"))
+	# elle le lâche
+	k.append(K(8.75, M([B(0.12), C(0.4, 0.05), HD(-0.4, 0.0, 0.1), L(0.4, -0.75, 0.25, 0.25), R(0.4, -0.8, 0.22, 0.25), {"curl": 0.3, "curl_l": 0.35, "face": "calm"}])))
+	# elle le regarde, puis époussette sa robe du revers de la griffe, là où il l'a tenue
+	k.append(K(9.4, M([C(0.42), HD(-0.5, 0.05, 0.2)]), "s"))
+	k.append(K(9.9, M([B(0.08), C(0.32), HD(-0.2, 0.0, 0.05), R(0.2, -0.4, 0.3, 0.3), WR(0.6, 0.0, 0.3)])))
+	k.append(K(10.15, M([R(-0.08, -0.45, 0.28, 0.3), WR(0.7, 0.0, 0.4), HD(-0.35, 0.05, 0.05)])))
+	k.append(K(10.32, M([R(0.18, -0.42, 0.3, 0.3)])))
+	k.append(K(10.5, M([R(-0.06, -0.46, 0.27, 0.3)])))
+	k.append(K(10.8, M([R(0.42, -0.78, 0.24, 0.25), WR(-0.3, 0.0, 0.0), HD(-0.2, 0.0, 0.05)])))
+	# … et lève les yeux sur nous
+	k.append(K(11.2, M([HD(0.15, 0.03, 0.2), FACE("grin")])))
+	blink(11.7, "grin", k)
+	k.append(K(12.5, M([HD(0.16, 0.04, 0.22)])))
+	c["fa_usayuko_alice"] = _film(0.0, 12.5, k, "menace")
