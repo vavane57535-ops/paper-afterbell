@@ -195,7 +195,10 @@ func _poses() -> void :
 				if times.is_empty() and clock > float(entries[index].t) + 0.0001: continue
 				bodies[index].global_position = film._world_spot(_lane(entries[index], clock))
 				bodies[index].animate(dt, Vector3.ZERO, false, false)
-				_track_feet(bodies[index], str(entries[index].person), slides[index])
+				_track_feet(bodies[index], str(entries[index].person), slides[index], clock)
+		if DisplayServer.get_name() == "headless":
+			index_frame += 1
+			continue
 		var groups: Array = []
 		if each:
 			for visual: PaperVisual in bodies: groups.append([visual])
@@ -235,13 +238,14 @@ func _poses() -> void :
 
 # Appuis d'un corps du labo : cheville à moins de 2,5 cm de sa hauteur de repos = pied posé ;
 # on relève le plus grand déplacement au sol pendant un appui.
-func _track_feet(visual: PaperVisual, person: String, info: Dictionary) -> void :
+func _track_feet(visual: PaperVisual, person: String, info: Dictionary, clock: float = 0.0) -> void :
 	var ankles: Dictionary = visual.get("_ankles")
 	var floor_y: float = visual.global_position.y
 	for side: int in [-1, 1]:
 		var rest: float = float((Poses.FA.RIG[person].feet[0 if side < 0 else 1] as Vector3).y)
 		var p: Vector3 = (ankles[side] as Node3D).global_position
 		var list: Array = info[side]
+		if OS.get_cmdline_user_args().has("--fal-debug") and person == "Elly": print("FAL_DBG %s side=%d root=%s ankle=%s h=%.3f" % [person, side, str(visual.global_position), str(p), p.y - floor_y - rest])
 		if p.y - floor_y < rest + 0.025:
 			list.append(p)
 		elif not list.is_empty():
@@ -249,6 +253,7 @@ func _track_feet(visual: PaperVisual, person: String, info: Dictionary) -> void 
 				var most: float = 0.0
 				for q: Vector3 in list: most = maxf(most, Vector2(q.x - list[0].x, q.z - list[0].z).length())
 				info.worst = maxf(float(info.worst), most * 100.0)
+				if most > 0.03: print("FAL_SLIDE %s %s %.2f-%.2f %.1fcm (%d images)" % [person, "G" if side < 0 else "D", clock - list.size() / 60.0, clock, most * 100.0, list.size()])
 				info.count = int(info.count) + 1
 			list.clear()
 
@@ -291,13 +296,14 @@ func _check() -> void :
 				var low: float = minf(ankle.y, toe.y) - floor_y
 				if OS.get_cmdline_user_args().has("--fal-debug") and absf(fposmod(t, 0.5)) < dt * 0.5: print("FAL_DEBUG %.2f %s %s ankle=%.3f toe=%.3f root=%.3f" % [t, take.person, "G" if side < 0 else "D", ankle.y - floor_y, toe.y - floor_y, root.y - floor_y])
 				var list: Array = info.contact[side]
-				# appui : orteil et cheville tous deux bas (pied à plat)
-				var planted: bool = toe.y - floor_y < 0.06 and ankle.y - floor_y < 0.16
+				# appui : cheville à moins de 2,5 cm de sa hauteur au repos (au-dessus de la racine)
+				var rest: float = float((Poses.FA.RIG[take.person].feet[0 if side < 0 else 1] as Vector3).y) if Poses.FA.RIG.has(take.person) else 0.1
+				var planted: bool = ankle.y - root.y < rest + 0.025
 				if planted:
 					list.append([t, ankle])
 				elif not list.is_empty():
 					_close_contact(info, side, list)
-				if low < -0.035: info.under.append("%.2f %s %.0fcm" % [t, "pied G" if side < 0 else "pied D", low * 100.0])
+				if ankle.y - root.y < rest - 0.06: info.under.append("%.2f %s %.0fcm" % [t, "pied G" if side < 0 else "pied D", low * 100.0])
 			for socket: String in ["hand_l", "hand_r", "head"]:
 				var p: Vector3 = visual.socket_position(socket)
 				if p.y - floor_y < -0.04: info.under.append("%.2f %s %.0fcm" % [t, socket, (p.y - floor_y) * 100.0])

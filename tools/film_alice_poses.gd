@@ -24,11 +24,11 @@ static func _runs() -> Array:
 	var out: Array = []
 	var x: float = -5.0
 	for person: String in ["Bleuette", "Elly", "Simon", "Ashura", "Lysia", "Usayuko"]:
-		var path: Array = [[0.0, Vector3(0, 0, -3.0)], [1.6, Vector3(0, 0, 3.0)]]
-		var k: Array = [[0.0, M([FA._zero(), H(0, -0.05, 0), B(0.15), C(0.1), HD(0.2)])]]
-		var plants: Array = FA.cadence(0.02, 1.6, 0.3, 0.17, -1, 0.29, 3.0 + x)
-		FA.gait(k, person, path, Vector3(0, 0, 1), plants, {"kick": 0.2, "pass": 0.2, "reach_h": 0.07, "strike": 0.15, "push": -0.7, "bob_low": 0.07, "bob_high": 0.02, "lean": 0.15, "heel": 0.3})
-		FA.pump(k, plants, {"lean": 0.1, "twist": 0.18, "head": 0.22})
+		var path: Array = [[0.0, Vector3(0, 0, -3.4)], [1.6, Vector3(0, 0, 3.4)]]
+		var k: Array = [[0.0, M([FA._zero(), H(0, -0.05, 0), B(0.28), C(0.12), HD(0.32)])]]
+		var plants: Array = FA.cadence(0.0, 1.6, 0.29, 0.16, -1, 0.3, 3.0 + x)
+		FA.gait(k, person, path, Vector3(0, 0, 1), plants, {"kick": 0.3, "pass": 0.26, "reach_h": 0.08, "strike": 0.18, "push": -0.75, "bob_low": 0.07, "bob_high": 0.03, "lean": 0.28, "heel": 0.3, "yaw": 0.16})
+		FA.pump(k, plants, {"lean": 0.12, "twist": 0.22, "head": 0.34, "front": Vector3(0.04, -0.12, 0.72), "back": Vector3(0.12, -0.55, -0.5), "flare": 0.15})
 		out.append({"person": person, "x": x, "t": 1.6, "path": path, "keys": k})
 		x += 2.0
 	return out

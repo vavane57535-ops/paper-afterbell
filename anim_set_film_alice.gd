@@ -165,7 +165,8 @@ static func hip_cap(person: String, side: int, foot: Vector3, hips: Vector3, rea
 # (bassin à l'amorti / au sommet, jambes), walk (bassin le plus haut au passage), sway (m vers
 # le pied d'appui), yaw / roll (bassin), lean (buste penché en avant, rad), hold (fin des
 # appuis : le dernier appui de chaque pied reste posé jusque-là), fx (bruits de pas),
-# reach (genou : part de la jambe tendue au plus), hips (false : pas de clés de bassin).
+# reach (genou : part de la jambe tendue au plus), hips (false : pas de clés de bassin),
+# leave ([côtés] : le dernier appui de ce pied décolle au lieu de rester posé), start (départ).
 # Rend {-1: canal du pied gauche, 1: canal du droit} posés à la fin (pour enchaîner).
 static func gait(k: Array, person: String, path: Array, dir: Vector3, plants: Array, o: Dictionary = {}) -> Dictionary:
 	var rig: Dictionary = RIG[person]
@@ -189,9 +190,62 @@ static func gait(k: Array, person: String, path: Array, dir: Vector3, plants: Ar
 	var sound: bool = bool(o.get("fx", true))
 	var reach: float = float(o.get("reach", 0.965))
 	var with_hips: bool = bool(o.get("hips", true))
+	var leave: Array = o.get("leave", [])
 	var spots: Array = []
 	for plant: Array in plants:
 		spots.append(plant_at(person, path, dir, float(plant[0]), int(plant[1]), float(plant[2]), float(plant[4]) if plant.size() > 4 else 0.0))
+	# Départ en pleine foulée : le pied qui ne se pose pas au premier appui arrive d'un appui
+	# précédent (avant le début du trajet, racine prolongée en arrière) ; on n'en garde que la
+	# fin, à partir de l'instant de départ.
+	var start: float = float(o.get("start", float(plants[0][0])))
+	var first_seen: Dictionary = {}
+	for i: int in range(plants.size()):
+		if not first_seen.has(int(plants[i][1])): first_seen[int(plants[i][1])] = i
+	# from_rest : les deux pieds partent posés au repos sous la racine (départ arrêté) ;
+	# chaque pied décolle `swing` s avant son premier appui.
+	var from_rest: bool = bool(o.get("from_rest", false))
+	var swing_rest: float = float(o.get("swing", 0.42))
+	for side: int in first_seen:
+		var i0: int = int(first_seen[side])
+		var t_first: float = float(plants[i0][0])
+		if t_first <= start + 0.01 and not from_rest: continue
+		var step: float = t_first - float(plants[0][0]) if i0 > 0 else 0.3
+		var t_prev: float = t_first - 2.0 * maxf(step, 0.12)
+		var contact: float = float(plants[i0][3])
+		var spot_prev: Vector3 = _root_back(path, t_prev) + dir * float(plants[i0][2]) + side_of(dir) * float(RIG[person].feet[0 if side < 0 else 1].x)
+		var t_off: float = t_prev + contact
+		if from_rest:
+			var rest_foot: Vector3 = RIG[person].feet[0 if side < 0 else 1]
+			spot_prev = at(path, start) + side_of(dir) * rest_foot.x - dir * rest_foot.z
+			t_off = t_first - swing_rest
+			t_prev = start - 1.0
+		var lift: float = toe * sin( - push)
+		var channel: String = "foot_l" if side < 0 else "foot_r"
+		var pitch: String = "fp_l" if side < 0 else "fp_r"
+		var land: Vector3 = foot_on(person, side, spots[i0], at(path, t_first), dir)
+		if t_off > start:
+			k.append([start, {channel: foot_on(person, side, spot_prev, _root_back(path, start), dir), pitch: 0.0}, "l"])
+			for point: Array in path:
+				if float(point[0]) > start + 0.002 and float(point[0]) < t_off - float(plants[i0][3]) * heel - 0.002:
+					k.append([float(point[0]), {channel: foot_on(person, side, spot_prev, point[1], dir)}, "l"])
+			var heel_rest: float = maxf(start + 0.01, t_off - float(plants[i0][3]) * heel)
+			k.append([heel_rest, {channel: foot_on(person, side, spot_prev, at(path, heel_rest), dir), pitch: 0.0}, "l"])
+		var off: Vector3 = foot_on(person, side, spot_prev, _root_back(path, t_off), dir, lift)
+		var swing: float = t_first - t_off
+		var marks: Array = [[t_off, off, push], [t_off + swing * 0.24, Vector3(lerpf(off.x, land.x, 0.2), kick / leg, lerpf(off.z, land.z, 0.1)), push - 0.3],
+			[t_off + swing * 0.55, Vector3(lerpf(off.x, land.x, 0.55), pass_h / leg, lerpf(off.z, land.z, 0.52)), push * 0.35],
+			[t_off + swing * 0.82, Vector3(lerpf(off.x, land.x, 0.92), reach_h / leg, lerpf(off.z, land.z, 1.03)), strike + 0.08]]
+		var placed: bool = t_off > start
+		for n: int in range(marks.size()):
+			var mark: Array = marks[n]
+			if float(mark[0]) < start - 0.001: continue
+			if not placed and n > 0:
+				# l'instant de départ tombe pendant le retour du pied : pose interpolée
+				var a: Array = marks[n - 1]
+				var u: float = (start - float(a[0])) / maxf(0.001, float(mark[0]) - float(a[0]))
+				k.append([start, {channel: (a[1] as Vector3).lerp(mark[1], u), pitch: lerpf(float(a[2]), float(mark[2]), u)}])
+				placed = true
+			k.append([float(mark[0]), {channel: mark[1], pitch: mark[2]}])
 	# canal de chaque pied au cours du temps (pour borner le bassin) : [[t, canal, posé], ...]
 	var tracks: Dictionary = {-1: [], 1: []}
 	var last: Dictionary = {}
@@ -208,7 +262,7 @@ static func gait(k: Array, person: String, path: Array, dir: Vector3, plants: Ar
 			if int(plants[j][1]) == side:
 				next = j
 				break
-		var final: bool = next < 0
+		var final: bool = next < 0 and not leave.has(side)
 		var end: float = hold if final else t_off
 		var landing: Vector3 = foot_on(person, side, spot, at(path, t0), dir)
 		k.append([t0, {channel: landing, pitch: strike}, "l"])
@@ -236,12 +290,16 @@ static func gait(k: Array, person: String, path: Array, dir: Vector3, plants: Ar
 		off.y = lift / leg
 		k.append([t_off, {channel: off, pitch: push}])
 		(tracks[side] as Array).append([t_off, off, false])
+		if next < 0:
+			# ce pied décolle et la suite est écrite à la main (trébuchement, arrêt…)
+			last[side] = off
+			continue
 		var t_land: float = float(plants[next][0])
 		var land: Vector3 = foot_on(person, side, spots[next], at(path, t_land), dir)
 		var swing: float = t_land - t_off
 		var u1: Vector3 = Vector3(lerpf(off.x, land.x, 0.2), kick / leg, lerpf(off.z, land.z, 0.1))
 		var u2: Vector3 = Vector3(lerpf(off.x, land.x, 0.55), pass_h / leg, lerpf(off.z, land.z, 0.52))
-		var u3: Vector3 = Vector3(lerpf(off.x, land.x, 0.92), reach_h / leg, lerpf(off.z, land.z, 0.96))
+		var u3: Vector3 = Vector3(lerpf(off.x, land.x, 0.92), reach_h / leg, lerpf(off.z, land.z, 1.03))
 		k.append([t_off + swing * 0.24, {channel: u1, pitch: push - 0.3}])
 		k.append([t_off + swing * 0.55, {channel: u2, pitch: push * 0.35}])
 		k.append([t_off + swing * 0.82, {channel: u3, pitch: strike + 0.08}])
@@ -277,6 +335,14 @@ static func gait(k: Array, person: String, path: Array, dir: Vector3, plants: Ar
 	return last
 
 
+# racine à l'instant t, prolongée avant le début du trajet à la vitesse du premier segment
+static func _root_back(path: Array, t: float) -> Vector3:
+	if t >= float(path[0][0]) or path.size() < 2: return at(path, t)
+	var span: float = maxf(0.001, float(path[1][0]) - float(path[0][0]))
+	var speed: Vector3 = ((path[1][1] as Vector3) - (path[0][1] as Vector3)) / span
+	return (path[0][1] as Vector3) + speed * (t - float(path[0][0]))
+
+
 # état d'une piste de pied à l'instant t : [canal, posé] (interpolation linéaire)
 static func _track_at(track: Array, t: float) -> Array:
 	if track.is_empty(): return []
@@ -284,7 +350,7 @@ static func _track_at(track: Array, t: float) -> Array:
 	for entry: Array in track:
 		if float(entry[0]) <= t: prev = entry
 		else:
-			if prev.is_empty(): return [entry[1], bool(entry[2])]
+			if prev.is_empty(): return [entry[1], false]
 			var u: float = (t - float(prev[0])) / maxf(0.0001, float(entry[0]) - float(prev[0]))
 			return [(prev[1] as Vector3).lerp(entry[1], u), bool(prev[2])]
 	return [prev[1], bool(prev[2])]
@@ -355,7 +421,188 @@ static func carve(k: Array, channels: Array, t0: float, t1: float) -> void :
 		key[1] = pose
 
 
+# ------------------------------------------------------------- ALICE (COMMUN) --
+# Alice ne court jamais : une marche longue et régulière, le buste penché, la tête qui ne bouge
+# pas, les griffes qui pendent. Les pas sont écrits comme ceux des autres (pieds posés).
+
+const ALICE_WALK: Dictionary = {"kick": 0.06, "pass": 0.07, "reach_h": 0.03, "strike": 0.22, "push": -0.42, "heel": 0.4,
+	"bob_low": 0.022, "bob_high": 0.008, "walk": true, "sway": 0.018, "yaw": 0.05, "roll": 0.025, "lean": 0.12, "reach": 0.975}
+
+static func alice_stand() -> Dictionary:
+	return M([_zero(), H(0, -0.015, 0), B(0.12), C(0.36), HD(0.3, 0.0, 0.08), L(0.4, -0.82, 0.18, 0.2), R(0.44, -0.75, 0.3, 0.25), WL(-0.35), WR(-0.3),
+		{"curl": 0.25, "curl_l": 0.3, "face": "menace"}])
+
+
+# Le haut du corps d'Alice qui marche : presque rien ne bouge. Les mains ne balancent pas,
+# elles flottent un peu en retard sur le pas ; le buste roule à peine ; la tête reste fixe
+# (tilt : inclinaison), les doigts s'ouvrent et se ferment sans rythme.
+static func alice_walk_upper(k: Array, plants: Array, o: Dictionary = {}) -> void :
+	var tilt: float = float(o.get("tilt", 0.08))
+	var look: float = float(o.get("look", 0.3))
+	for i: int in range(plants.size()):
+		var t: float = float(plants[i][0])
+		var side: int = int(plants[i][1])
+		k.append([t + 0.16, M([C(0.36 + J(i, 1.7) * 0.02, float(side) * 0.04, float(side) * 0.015), HD(look + J(i, 3.3) * 0.02, - float(side) * 0.03, tilt),
+			L(0.4 + J(i, 1.1) * 0.03, -0.82, 0.16 + float(side) * 0.05, 0.2), R(0.44, -0.75, 0.3 - float(side) * 0.05, 0.25),
+			{"curl": 0.22 + J(i, 4.4) * 0.12, "curl_l": 0.28 + J(i, 5.5) * 0.12}])])
+
+
 # ----------------------------------------------------------------- BLEUETTE --
+# « La tablette ». Bleuette court en serrant sa barre de chocolat, se retourne, se prend les
+# pieds et s'étale ; la barre glisse devant elle. Elle rampe pour la reprendre… et entend les
+# pas. Plan subjectif : Alice approche, immense. À genoux, Bleuette lui tend sa barre à deux
+# mains, tête baissée, comme une offrande à une reine. Alice la prend du bout des griffes, la
+# regarde, lève l'autre main. Noir. Alice, seule, croque dans le chocolat.
+
+const B_TRIP: float = 1.72
+const B_DROP: float = 1.97
+const B_GRAB: float = 3.92
+const B_FLIP: float = 5.0
+const B_TAKE: float = 7.82
+const B_KILL: float = 9.42
+const B_BITE: float = 10.82
+
+static func bleuette_path() -> Array:
+	return [[0.0, Vector3(0.35, 0, -1.6)], [1.78, Vector3(0.35, 0, 3.75)], [1.95, Vector3(0.36, 0, 4.18)], [2.12, Vector3(0.37, 0, 4.52)],
+		[2.3, Vector3(0.37, 0, 4.76)], [2.55, Vector3(0.37, 0, 4.9)], [2.8, Vector3(0.37, 0, 4.95)], [3.62, Vector3(0.37, 0, 4.95)],
+		[3.92, Vector3(0.37, 0, 5.1)], [B_FLIP, Vector3(0.37, 0, 5.1)], [5.6, Vector3(0.37, 0, 5.05)], [12.0, Vector3(0.37, 0, 5.05)]]
+
+static func bleuette_alice_path() -> Array:
+	return [[0.0, Vector3(-0.1, 0, -4.2)], [0.25, Vector3(-0.1, 0, -4.2)], [5.55, Vector3(0.22, 0, 3.35)], [6.0, Vector3(0.27, 0, 3.8)],
+		[6.42, Vector3(0.3, 0, 4.05)], [12.0, Vector3(0.3, 0, 4.05)]]
+
 
 static func _bleuette(c: Dictionary) -> void :
-	pass
+	var p: String = "Bleuette"
+	var path: Array = bleuette_path()
+	var fwd: Vector3 = Vector3(0, 0, 1)
+	var k: Array = []
+	# --- FUITE : petite course paniquée, la barre serrée contre la poitrine (main droite)
+	var clutch: Dictionary = M([Rt(-0.18, -0.12, 0.42, 0.45), WR(0.5, 0.3), {"curl": 0.95}])
+	k.append(K(0.0, M([_zero(), H(0, -0.06, 0), B(0.3), C(0.1), HD(0.34), clutch, Lt(0.15, -0.3, 0.5, 0.3), {"curl_l": 0.5, "face": "panic", "jaw": 0.35}])))
+	var plants: Array = cadence(0.0, 1.66, 0.265, 0.15, -1, 0.23, 11.0, {"vary": 0.07})
+	gait(k, p, path, fwd, plants, {"kick": 0.24, "pass": 0.2, "reach_h": 0.06, "strike": 0.16, "push": -0.7, "bob_low": 0.075, "bob_high": 0.03,
+		"lean": 0.3, "heel": 0.3, "yaw": 0.15, "roll": 0.05, "base": Vector3(0, -0.04, 0), "leave": [-1, 1]})
+	pump(k, plants, {"skip": "r", "lean": 0.1, "twist": 0.16, "head": 0.34, "front": Vector3(0.2, -0.15, 0.6), "back": Vector3(0.28, -0.5, -0.35), "flare": 0.55, "wild": 0.5, "curl": 0.45})
+	for n: int in range(plants.size()):
+		k.append(K(float(plants[n][0]) + 0.04, M([clutch, {"jaw": 0.25 + 0.25 * float(n % 2) + J(n, 2.0) * 0.1}])))
+	# un regard en arrière par-dessus l'épaule droite, la barre plaquée contre elle
+	carve(k, ["head", "chest"], 0.86, 1.42)
+	k.append(K(0.9, M([C(0.08, -0.32), HD(0.22, -1.05, -0.12), FACE("fear")])))
+	k.append(K(1.12, M([C(0.06, -0.38), HD(0.18, -1.15, -0.15), {"jaw": 0.6}]), "s"))
+	k.append(K(1.36, M([C(0.12, 0.08), HD(0.3, 0.12, 0.05), FACE("panic")])))
+
+	# --- CHUTE : la pointe du pied droit accroche le sol, elle part en avant
+	var trip_spot: Vector3 = at(path, B_TRIP) + Vector3(-0.1, 0, 0.02)
+	var t: float = B_TRIP
+	k.append(K(t - 0.12, M([{"foot_r": foot_on(p, 1, trip_spot, at(path, t - 0.12), fwd, 0.07), "fp_r": -0.35}])))
+	k.append(K(t, M([{"foot_r": foot_on(p, 1, trip_spot, at(path, t), fwd, 0.0), "fp_r": -0.8}, B(0.42, 0.05), C(0.12), HD(0.15), FACE("surprise"), {"jaw": 0.55}]), "l"))
+	k.append(K(t + 0.1, M([{"foot_r": foot_on(p, 1, trip_spot, at(path, t + 0.1), fwd, 0.01), "fp_r": -1.0}, H(0, -0.1, 0.05), B(0.62, 0.1, 0.05), C(0.2, 0.05), HD(0.35),
+		Rt(0.15, 0.1, 0.65, 0.4), Lt(0.3, 0.2, 0.55, 0.5), {"curl": 0.4, "curl_l": 0.1, "ev": "gasp"}])))
+	# un grand pas de rattrapage du pied gauche, trop tard
+	var catch_spot: Vector3 = at(path, B_TRIP + 0.2) + Vector3(0.0, 0, 0.42)
+	k.append(K(t - 0.02, M([{"foot_l": foot_on(p, -1, at(path, t - 0.02) + Vector3(0.1, 0, -0.14), at(path, t - 0.02), fwd, 0.03), "fp_l": -0.5}])))
+	k.append(K(t + 0.1, M([{"foot_l": foot_on(p, -1, catch_spot + Vector3(0, 0, -0.2), at(path, t + 0.1), fwd, 0.14), "fp_l": 0.1}])))
+	k.append(K(t + 0.2, M([{"foot_l": foot_on(p, -1, catch_spot, at(path, t + 0.2), fwd, 0.0), "fp_l": 0.2, "fx": "step_l"}, H(0, -0.22, 0.12), B(0.95, 0.05, 0.08), C(0.22), HD(0.5)]), "l"))
+	k.append(K(t + 0.3, M([{"foot_l": foot_on(p, -1, catch_spot, at(path, t + 0.3), fwd, 0.0), "fp_l": 0.0}, {"foot_r": foot_on(p, 1, trip_spot + Vector3(0, 0, 0.3), at(path, t + 0.3), fwd, 0.3), "fp_r": -0.9}])))
+	# les mains en avant (la barre s'échappe), puis le sol : mains, genoux, ventre
+	k.append(K(B_DROP, M([R(0.25, 0.05, 0.75, 0.3), L(0.3, 0.0, 0.75, 0.3), WR(-0.3), WL(-0.3), {"curl": 0.05, "curl_l": 0.05, "face": "panic", "jaw": 0.7}])))
+	k.append(K(t + 0.34, M([{"plant": 1.0}, H(0, -0.3, 0.2), B(1.15, 0.05, 0.08), C(0.22), HD(0.65)])))
+	k.append(K(t + 0.44, M([{"plant": 0.0, "gsnap": 0.0}, Lg(0.42, 0.55, 0.0), Rg(0.38, 0.6, 0.0), {"fx": "dust"}])))
+	k.append(K(t + 0.46, M([TL(0.4, 0.1), KL(0.7, -0.3), TR(-0.12, 0.08), KR(0.45, -0.5)])))
+	k.append(K(t + 0.5, M([{"gsnap": 1.0}, B(1.28, 0.04, 0.1), C(0.2), HD(0.75), Lg(0.48, 0.42, 0.0), Rg(0.44, 0.45, 0.0), {"sq": 0.93, "ev": "effort"}]), "s"))
+	k.append(K(t + 0.62, M([B(1.46, 0.03, 0.12), C(0.08), HD(0.7, 0.05, 0.05), Lg(0.6, 0.55, 0.0), Rg(0.55, 0.6, 0.0), TL(0.08, 0.12), KL(0.32, -0.6), TR(-0.04, 0.1), KR(0.25, -0.6),
+		{"sq": 1.0, "fx": "dust_ring", "face": "pain", "jaw": 0.4}])))
+	k.append(K(t + 0.85, M([B(1.52, 0.02, 0.1), C(-0.02), HD(0.45, 0.1, 0.1), Lg(0.65, 0.5, 0.0), Rg(0.6, 0.52, 0.0), TL(0.0, 0.12), KL(0.12, -0.8), TR(0.02, 0.1), KR(0.22, -0.8), {"jaw": 0.15}]), "s"))
+	# --- À TERRE : sonnée, le nez au sol ; elle relève la tête et voit la barre
+	k.append(K(3.05, M([C(0.0), HD(0.15, 0.15, 0.12), {"face": "hurt", "shake": 0.15}])))
+	k.append(K(3.3, M([C(0.03), HD(0.2, 0.12, 0.1)])))
+	k.append(K(3.45, M([B(1.45, 0.0, 0.05), C(-0.15), HD(0.85, 0.0, 0.0), Lg(0.55, 0.42, 0.0), Rg(0.5, 0.45, 0.0), {"face": "sad", "shake": 0.0}])))
+	blink(3.52, "sad", k, 0.1)
+	# elle tend le bras droit vers la barre et se traîne sur les coudes
+	k.append(K(3.62, M([Rg(0.25, 1.05, 0.0), WR(-0.2), {"curl": 0.15, "face": "fear"}])))
+	k.append(K(3.78, M([B(1.48, -0.05), C(-0.1, 0.06), Rg(0.2, 1.15, 0.0), Lg(0.5, 0.65, 0.0), TL(0.3, 0.15), KL(0.45, -0.7)])))
+	k.append(K(B_GRAB, M([Rg(0.22, 1.0, 0.03), {"curl": 0.95}, TL(0.0, 0.12), KL(0.15, -0.8)]), "s"))
+	# les pas d'Alice : elle se fige, ramène la barre sous elle et regarde par-dessus l'épaule
+	k.append(K(4.12, M([B(1.45, 0.0), C(-0.05), HD(0.55, -0.1), Rg(0.15, 0.4, 0.05), Lg(0.5, 0.45, 0.0), {"face": "fear"}]), "s"))
+	k.append(K(4.4, M([B(1.25, -0.1, -0.15), C(-0.2, -0.45, -0.1), HD(0.25, -1.15, -0.2), Lg(0.42, 0.3, 0.0), Rg(0.05, 0.25, 0.08), {"face": "panic", "jaw": 0.5, "shake": 0.5}])))
+	k.append(K(4.8, M([C(-0.22, -0.5, -0.1), HD(0.22, -1.25, -0.22), {"jaw": 0.7, "shake": 0.8}]), "s"))
+	# --- (hors champ, plan subjectif) elle se retourne et se met à genoux face à Alice
+	var kneel: Dictionary = M([{"plant": 0.0, "gsnap": 1.0}, H(0, -0.5, 0.0), B(0.08), C(0.12), HD(0.3), TL(1.48, 0.12), KL(2.05, -0.55), TR(1.48, 0.1), KR(2.05, -0.55)])
+	k.append(K(B_FLIP + 0.3, M([kneel, B(0.3), C(0.3), HD(0.1), Rt(-0.2, -0.25, 0.32, 0.4), Lt(-0.18, -0.3, 0.3, 0.4), WR(0.6), WL(0.6),
+		{"curl": 0.95, "curl_l": 0.8, "face": "panic", "shake": 0.9, "jaw": 0.3}])))
+	# --- à genoux, la barre serrée contre elle, elle lève les yeux vers Alice
+	k.append(K(6.0, M([kneel, B(0.18), C(0.25), HD(0.55, 0.05, 0.08), Rt(-0.22, -0.22, 0.3, 0.4), Lt(-0.2, -0.28, 0.28, 0.4), {"shake": 0.7}])))
+	k.append(K(6.4, M([B(0.12), C(0.2), HD(0.75, 0.0, 0.1), {"face": "fear", "shake": 0.85}]), "s"))
+	blink(6.55, "fear", k)
+	# --- OFFRANDE : elle se redresse sur les genoux et lui tend la barre à deux mains, tête baissée
+	var up: Dictionary = M([{"plant": 0.0, "gsnap": 1.0}, H(0, -0.28, 0.0), TL(0.35, 0.12), KL(1.75, -0.55), TR(0.35, 0.1), KR(1.75, -0.55)])
+	k.append(K(6.75, M([up, B(0.05), C(0.05), HD(0.6), R(0.0, -0.1, 0.55, 0.35), L(-0.02, -0.12, 0.55, 0.35), WR(0.3, 0.6), WL(0.3, -0.6), {"shake": 0.6}])))
+	k.append(K(7.0, M([B(0.12), C(0.2), HD(-0.35, 0.0, 0.06), R(-0.05, 0.35, 0.75, 0.3), L(-0.06, 0.32, 0.75, 0.3), WR(-0.4, 0.5), WL(-0.4, -0.5),
+		{"face": "asleep", "shake": 0.75, "jaw": 0.1}])))
+	k.append(K(7.5, M([B(0.14), C(0.22), HD(-0.4, 0.05, 0.08), R(-0.05, 0.38, 0.78, 0.3), L(-0.06, 0.35, 0.78, 0.3), {"shake": 0.95}]), "s"))
+	# Alice prend la barre : les mains restent tendues, vides, un instant
+	k.append(K(B_TAKE + 0.05, M([R(-0.04, 0.36, 0.76, 0.3), L(-0.05, 0.33, 0.76, 0.3), {"curl": 0.1, "curl_l": 0.1, "shake": 0.3}]), "s"))
+	k.append(K(8.2, M([B(0.1), C(0.18), HD(-0.2, 0.0, 0.05), R(0.02, 0.0, 0.5, 0.35), L(0.0, -0.02, 0.5, 0.35), {"face": "sad", "shake": 0.4}])))
+	k.append(K(8.5, M([up, B(0.04), C(0.08), HD(0.45, 0.05, 0.1), Rt(-0.12, -0.35, 0.32, 0.4), Lt(-0.1, -0.38, 0.3, 0.4), {"face": "surprise"}])))
+	# la griffe gauche d'Alice monte : elle la suit des yeux et se recroqueville
+	k.append(K(8.95, M([HD(0.85, 0.08, 0.12), {"face": "fear", "shake": 0.5}])))
+	k.append(K(9.2, M([B(-0.08), C(-0.05), HD(0.9, 0.3, 0.2), SH(0.35, 0.3), R(0.15, 0.25, 0.4, 0.6), L(0.1, 0.3, 0.42, 0.6), WR(0.9), WL(0.9),
+		{"face": "panic", "jaw": 0.6, "shake": 0.9, "curl": 0.6, "curl_l": 0.6}])))
+	k.append(K(B_KILL - 0.02, M([HD(0.5, 0.7, 0.3), {"face": "pain", "jaw": 0.9}]), "s"))
+	# --- (noir) elle s'effondre sur le côté
+	k.append(K(B_KILL + 0.15, M([{"gsnap": 1.0}, H(0, -0.6, 0.0), B(-0.3, 0.3, 0.8), C(0.2, 0.2), HD(0.2, 0.4, 0.3), SH(0.0, 0.0), L(0.6, -0.4, 0.3, 0.3), R(0.7, -0.2, 0.2, 0.3),
+		TL(1.2, 0.3), KL(1.6, -0.4), TR(1.0, 0.2), KR(1.8, -0.4), {"face": "dead", "jaw": 0.3, "shake": 0.0, "curl": 0.2, "curl_l": 0.3, "ev": "death"}])))
+	k.append(K(B_KILL + 0.5, M([B(-0.2, 0.4, 1.45), C(0.1, 0.1, 0.1), HD(0.0, 0.3, 0.35), Lg(0.5, 0.3, 0.0), Rg(0.8, 0.2, 0.0), TL(1.0, 0.3), KL(1.3, -0.4), TR(0.9, 0.2), KR(1.5, -0.4)]), "s"))
+	k.append(K(12.5, M([B(-0.2, 0.4, 1.46), HD(0.0, 0.3, 0.36)])))
+	c["fa_bleuette"] = _film(0.0, 12.5, k, "panic")
+	_bleuette_alice(c)
+
+
+static func _bleuette_alice(c: Dictionary) -> void :
+	var p: String = "Alice"
+	var path: Array = bleuette_alice_path()
+	var fwd: Vector3 = Vector3(0.04, 0, 1).normalized()
+	var k: Array = []
+	k.append(K(0.0, alice_stand()))
+	# immobile dans le noir, puis la marche : longue, égale, sans hâte ; elle ralentit en arrivant
+	var plants: Array = cadence(0.72, 5.5, 0.56, 0.72, 1, 0.24, 23.0, {"vary": 0.03, "width": -0.02})
+	var side_next: int = - int(plants[plants.size() - 1][1])
+	plants.append([float(plants[plants.size() - 1][0]) + 0.6, side_next, 0.2, 0.75, -0.02])
+	plants.append([float(plants[plants.size() - 1][0]) + 0.5, - side_next, 0.1, 0.6, -0.02])
+	var walk: Dictionary = ALICE_WALK.duplicate()
+	walk["from_rest"] = true
+	walk["start"] = 0.3
+	var feet: Dictionary = gait(k, p, path, fwd, plants, walk)
+	alice_walk_upper(k, plants)
+	# elle s'arrête au-dessus de Bleuette, la tête qui se penche lentement
+	var standing: Dictionary = M([{"foot_l": feet[-1], "foot_r": feet[1], "fp_l": 0.0, "fp_r": 0.0}])
+	k.append(K(6.55, M([standing, H(0, -0.015, 0), B(0.1), C(0.4), HD(0.12, 0.0, 0.1), L(0.4, -0.82, 0.14, 0.2), R(0.44, -0.75, 0.28, 0.25), {"curl": 0.2, "curl_l": 0.25}])))
+	k.append(K(7.25, M([B(0.12), C(0.44, 0.02), HD(0.05, 0.05, 0.32), {"curl": 0.45, "curl_l": 0.4}]), "s"))
+	# --- elle prend la barre du bout des griffes, sans hâte
+	k.append(K(7.5, M([C(0.5, 0.0, 0.05), HD(0.0, 0.0, 0.25), R(0.3, -0.5, 0.45, 0.4), WR(-0.2), {"curl": 0.2}])))
+	k.append(K(B_TAKE - 0.08, M([B(0.16), C(0.62), HD(-0.05, 0.0, 0.2), R(0.08, -0.38, 0.72, 0.35), WR(0.25, 0.2), {"curl": 0.35}])))
+	k.append(K(B_TAKE, M([R(0.07, -0.36, 0.74, 0.35), {"curl": 0.8}]), "s"))
+	# elle se redresse et regarde la barre de près, la tête qui bascule de l'autre côté
+	k.append(K(8.2, M([B(0.1), C(0.42), HD(0.2, -0.05, -0.1), R(0.1, 0.15, 0.32, 0.35), WR(0.6, -0.3), {"face": "calm"}])))
+	k.append(K(8.45, M([HD(0.25, -0.1, -0.28), R(0.09, 0.18, 0.3, 0.35)]), "s"))
+	blink(8.5, "calm", k)
+	# puis Bleuette : la main gauche monte, doigts écartés
+	k.append(K(8.75, M([C(0.45), HD(0.0, 0.05, 0.18), L(0.35, -0.6, 0.25, 0.4), {"face": "menace", "curl_l": 0.3}])))
+	k.append(K(9.25, M([C(0.4, -0.1), HD(-0.05, 0.1, 0.2), L(0.32, 0.45, 0.25, 0.7), WL(-0.6, 0.2), {"curl_l": 0.05, "face": "grin"}])))
+	k.append(K(B_KILL - 0.04, M([L(0.3, 0.55, 0.2, 0.75), WL(-0.8, 0.2), {"curl_l": 0.35}]), "s"))
+	k.append(K(B_KILL + 0.06, M([B(0.25), C(0.7, 0.25), HD(-0.2, 0.1, 0.1), L(-0.05, -0.55, 0.65, 0.2), WL(0.5), {"curl_l": 0.8, "fx": "claw_l trail_l", "ev": "grunt", "sq": 1.04}])))
+	k.append(K(B_KILL + 0.22, M([B(0.2), C(0.62, 0.15), L(0.05, -0.62, 0.45, 0.25), {"sq": 1.0}]), "s"))
+	# --- seule : elle se redresse, la barre devant la bouche, et croque dedans en nous regardant
+	k.append(K(9.9, M([B(0.12), C(0.45, 0.05), HD(0.1, 0.0, 0.12), L(0.4, -0.8, 0.18, 0.2), WL(-0.35), R(0.15, -0.3, 0.3, 0.35), WR(0.3), {"curl_l": 0.3, "face": "calm"}])))
+	k.append(K(10.35, M([C(0.36), HD(0.28, 0.08, 0.1), R(0.08, 0.1, 0.32, 0.3), WR(0.7, -0.2)])))
+	k.append(K(10.68, M([HD(0.32, 0.1, 0.06), R(0.02, 0.24, 0.24, 0.25), WR(1.0, -0.35), {"jaw": 0.55}]), "s"))
+	k.append(K(B_BITE, M([HD(0.22, 0.06, 0.12), R(0.04, 0.16, 0.3, 0.25), {"jaw": 0.0, "sq": 1.015}])))
+	k.append(K(B_BITE + 0.12, M([HD(0.26, 0.08, 0.1), R(0.12, -0.05, 0.34, 0.3), WR(0.45), {"sq": 1.0, "jaw": 0.12}])))
+	k.append(K(11.15, {"jaw": 0.0}))
+	k.append(K(11.32, M([HD(0.3, 0.12, 0.16), {"jaw": 0.15, "face": "grin"}])))
+	k.append(K(11.5, {"jaw": 0.02}))
+	k.append(K(11.62, {"jaw": 0.1}))
+	k.append(K(11.8, M([HD(0.32, 0.13, 0.2), {"jaw": 0.0}])))
+	k.append(K(12.5, M([HD(0.33, 0.14, 0.22)])))
+	c["fa_bleuette_alice"] = _film(0.0, 12.5, k, "menace")

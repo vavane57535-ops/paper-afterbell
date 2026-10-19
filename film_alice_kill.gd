@@ -15,6 +15,7 @@ extends Node
 
 const FA = preload("res://anim_set_film_alice.gd")
 const CharProps = preload("res://char_props.gd")
+const CharMaterials = preload("res://char_materials.gd")
 
 const FILM_STYLE: Dictionary = {"contra": 0.0, "shift_rate": 0.0, "idle_sway": 0.0, "idle_bounce": 0.0, "look_rate": 0.0}
 # bruitages des exécutions (audio/sfx/kill_*.wav), ajoutés à la banque au besoin (comme kill_scenes.gd)
@@ -129,6 +130,34 @@ func prop_mesh(prop_name: String, size: float = 1.0) -> Node3D:
 	return root
 
 
+# boîte colorée (objets du film), centrée en `at`, tournée de `turn` (radians, euler)
+func box(root: Node3D, size: Vector3, color: Color, at: Vector3 = Vector3.ZERO, turn: Vector3 = Vector3.ZERO) -> MeshInstance3D:
+	var mesh: BoxMesh = BoxMesh.new()
+	mesh.size = size
+	var node: MeshInstance3D = MeshInstance3D.new()
+	node.mesh = mesh
+	node.material_override = CharMaterials.flat(color)
+	node.position = at
+	node.rotation = turn
+	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(node)
+	return node
+
+
+# Tablette de chocolat lisible à l'écran : papier bleu à bande blanche, un bout déballé où
+# l'on voit les carrés. Longueur sur x (13 cm), épaisseur sur y.
+func bar_mesh() -> Node3D:
+	var root: Node3D = Node3D.new()
+	box(root, Vector3(0.085, 0.016, 0.062), Color("4d7fd1"), Vector3(-0.022, 0.0, 0.0))
+	box(root, Vector3(0.086, 0.017, 0.016), Color("f4f1ea"), Vector3(-0.022, 0.0, 0.0))
+	box(root, Vector3(0.05, 0.012, 0.058), Color("5a2c1d"), Vector3(0.045, 0.0, 0.0))
+	for i: int in range(2):
+		for j: int in range(2):
+			box(root, Vector3(0.021, 0.006, 0.025), Color("6e3a26"), Vector3(0.033 + 0.024 * float(i), 0.008, -0.014 + 0.028 * float(j)))
+	box(root, Vector3(0.012, 0.02, 0.066), Color("c9c3cf"), Vector3(0.018, 0.0, 0.0))
+	return root
+
+
 func _process(_delta: float) -> void :
 	if film == null or film.kind.is_empty(): return
 	var t: float = film.elapsed
@@ -177,10 +206,81 @@ func _place(entry: Dictionary, t: float) -> void :
 			var from: Vector3 = entry.get("last", node.global_position)
 			var to: Vector3 = film._world_spot(step[2])
 			node.global_position = from.lerp(to, u * u)
+		"hold":
+			# tenu dans une main : [t, "hold", acteur, "r" | "l", décalage (repère de la main), rotation]
+			var visual: PaperVisual = film.takes[clampi(int(step[2]), 0, film.takes.size() - 1)].visual
+			var hand: Variant = visual.get("_right_hand" if str(step[3]) == "r" else "_left_hand")
+			if not hand is Node3D:
+				node.visible = false
+				return
+			var frame: Transform3D = (hand as Node3D).global_transform.orthonormalized()
+			node.global_transform = frame * Transform3D(Basis.from_euler(step[5] if step.size() > 5 else Vector3.ZERO), step[4] if step.size() > 4 else Vector3.ZERO)
+			node.visible = visual.visible
 	if str(step[1]) != "fall": entry["last"] = node.global_position
 
 
 # ----------------------------------------------------------------- BLEUETTE --
 
 func _bleuette() -> void :
-	pass
+	var c: PaperCinema = film
+	var s: int = 0
+	var a: int = c.alice_index
+	path(s, FA.bleuette_path())
+	path(a, FA.bleuette_alice_path())
+	c._face(s, 0.0, "dir", Vector3(0, 0, 1))
+	c._face(s, FA.B_FLIP, "dir", Vector3(0, 0, -1))
+	c._face(a, 0.0, "dir", Vector3(0.04, 0, 1))
+	c._do(s, 0.0, "play", "fa_bleuette")
+	c._do(a, 0.0, "play", "fa_bleuette_alice")
+
+	# 1 · elle court vers nous en serrant sa barre ; Alice, loin derrière, dans le noir
+	c._shot(0.0, {"rel": {"a": s}, "eye": [Vector3(1.05, 0.62, 3.6), Vector3(0.9, 0.6, 3.1)], "look": {"a": s, "h": 0.75, "o": Vector3(-0.3, 0, -1.3)}, "fov": [42, 40], "hand": 0.5})
+	# 2 · de profil, au ras du sol : le pied accroche, elle s'étale
+	c._shot(1.62, {"eye": Vector3(2.5, 0.5, 3.9), "look": [Vector3(0.37, 0.45, 4.0), Vector3(0.37, 0.25, 4.6)], "fov": [42, 40], "hand": 0.3})
+	c._cue(FA.B_TRIP, "sound", "step", {"a": s}, 0.9, 0.7)
+	c._cue(FA.B_TRIP + 0.44, "sound", "ground_impact", {"a": s}, 0.5, 1.3)
+	c._cue(FA.B_TRIP + 0.62, "sound", "ground_impact", {"a": s}, 0.75, 1.1)
+	c._cue(FA.B_TRIP + 0.62, "shake", 0.22)
+	# 3 · au sol, face à elle : la barre au premier plan ; elle relève la tête et tend la main
+	c._shot(2.75, {"eye": [Vector3(-0.45, 0.17, 7.65), Vector3(-0.42, 0.18, 7.5)], "look": [Vector3(0.32, 0.16, 5.45), Vector3(0.32, 0.2, 5.5)], "fov": 34, "hand": 0.2})
+	# 4 · elle reprend la barre… les pas d'Alice ; elle regarde derrière elle
+	c._shot(3.95, {"eye": [Vector3(-1.65, 0.5, 6.85), Vector3(-1.6, 0.52, 6.75)], "look": [Vector3(0.3, 0.42, 4.6), Vector3(0.28, 0.5, 4.2)], "fov": 42, "hand": 0.3})
+	c._cue(4.0, "sound", "step", {"a": a}, 1.2, 0.8)
+	c._cue(4.15, "sound", "presence", {"a": a}, 0.6, 0.85)
+	c._cue(4.45, "sweat", {"a": s, "s": "head"}, 3)
+	# 5 · ce qu'elle voit : Alice qui arrive, immense, et s'arrête au-dessus d'elle
+	c._shot(4.95, {"eye": [Vector3(0.37, 0.42, 5.4), Vector3(0.37, 0.7, 5.05)], "look": [{"a": a, "h": 1.42}, {"a": a, "h": 1.5}], "fov": [48, 40], "hand": 0.6})
+	c._do(s, 4.95, "show", false)
+	c._do(s, 6.05, "show", true)
+	# 6 · de profil : à genoux, elle lui tend la barre à deux mains, tête baissée
+	c._shot(6.05, {"eye": [Vector3(3.7, 1.05, 4.5), Vector3(3.4, 1.05, 4.5)], "look": Vector3(0.33, 1.0, 4.5), "fov": [42, 40], "hand": 0.25})
+	c._cue(FA.B_TAKE, "sound", "grab", {"a": a, "s": "hand_r"}, 0.45, 1.3)
+	# 7 · Alice regarde la barre de près
+	c._shot(7.65, {"eye": [Vector3(1.05, 1.0, 5.15), Vector3(0.95, 1.05, 5.05)], "look": [{"a": a, "h": 1.35}, {"a": a, "h": 1.45}], "fov": [36, 34], "hand": 0.25})
+	# 8 · en plongée : la petite à genoux, Alice penchée sur elle, la griffe levée
+	c._shot(8.65, {"eye": [Vector3(2.3, 2.55, 6.35), Vector3(2.2, 2.6, 6.2)], "look": [Vector3(0.33, 0.75, 4.55), Vector3(0.33, 0.85, 4.5)], "fov": [40, 38], "hand": 0.3})
+	c._cue(8.9, "sound", "presence", {"a": a}, 0.7, 0.75)
+	# mise à mort hors champ : noir
+	var kill: float = FA.B_KILL
+	c._blackouts.append([kill, kill + 0.12])
+	c._cue(kill, "sound", "slash", {"a": s}, 0.8, 0.85)
+	c._cue(kill + 0.02, "sound", "kill_stab", {"a": s}, 1.0, 0.9)
+	c._cue(kill + 0.12, "frame", Color(0.55, 0.0, 0.08, 0.3), 0.12)
+	c._cue(kill + 0.12, "splash", 1.1)
+	c._cue(kill + 0.02, "shake", 0.45)
+	c._cue(kill + 0.4, "sound", "ground_impact", {"a": s}, 0.4, 0.8)
+	# 9 · Alice seule croque dans la barre en nous regardant
+	c._shot(kill + 0.12, {"eye": [Vector3(0.55, 1.05, 6.05), Vector3(0.42, 1.22, 5.55)], "look": [{"a": a, "h": 1.32}, {"a": a, "h": 1.46}], "fov": [36, 28], "hand": 0.25, "roll": [0, -2]})
+	c._cue(FA.B_BITE, "sound", "kill_crunch", {"a": a, "s": "head"}, 0.35, 1.4)
+	c._cue(11.3, "sound", "presence", {"a": a}, 0.5, 0.7)
+
+	# la barre : dans la main droite, s'échappe à la chute, glisse, reprise, puis donnée à Alice
+	var bar: Node3D = bar_mesh()
+	var grip: Vector3 = Vector3(0.0, -0.075, -0.035)
+	item(bar, [
+		[0.0, "hold", s, "r", grip, Vector3.ZERO],
+		[FA.B_DROP, "fly", {"a": s, "s": "hand_r"}, Vector3(0.27, 0.02, 5.6), 0.32, 0.25, 1.5],
+		[FA.B_DROP + 0.32, "slide", Vector3(0.27, 0.02, 5.6), Vector3(0.24, 0.02, 5.86), 0.4, 0.7],
+		[FA.B_GRAB, "hold", s, "r", grip, Vector3.ZERO],
+		[FA.B_TAKE, "hold", a, "r", Vector3(0.0, -0.08, -0.02), Vector3(0.0, 0.0, 0.3)],
+	])
