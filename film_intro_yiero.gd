@@ -1186,13 +1186,12 @@ func _write_fight() -> void :
 
 	_key("hand_px", 60.6, Vector3(30, 6.0, 46));_key("hand_px", 62.35, Vector3(12, 30, 26), "smooth");_key("hand_px", 63.2, Vector3(1.5, 4.0, 4.0), "in")
 	_key("hand_px", 64.6, Vector3(1.5, 4.0, 4.0));_key("hand_px", 66.2, Vector3(30, 6, 40), "smooth")
+	_key("lean", 62.35, 6.0);_key("lean", 63.2, 13.0, "in");_key("lean", 64.6, 13.0);_key("lean", 66.4, 6.0, "smooth")
 	_key("curl_px", 62.3, 0.25);_key("curl_px", 63.0, 0.05)
 	_key("pitch", 61.0, 0.22);_key("pitch", 63.2, 0.32)
 	_shot(61.9, {"eye": [Vector3(-12.0, 2.6, -21.0), Vector3(-11.0, 2.2, -20.0)], "look": [Vector3(1.0, 7.0, -4.0), Vector3(1.0, 3.0, -6.0)], "fov": [60, 56], "hand": 0.4, "safe": false})
 	_cue(62.95, "sfx", "sfx_whoosh", 0.7)
 	_cue(63.2, "sfx", "sfx_slam", 1.2);_cue(63.2, "shake", 0.9);_cue(63.2, "impact", 0.9, true)
-	_cue(63.22, "ink", Vector3(1.0, 0.4, -6.0), 10, 5.0);_cue(63.22, "dust_ring", Vector3(1.0, 0.05, -6.0), 2.5)
-	_ripple(63.2, Vector3(1.0, 0, -6.0), 6.0)
 	for row: Array in PROLOGUE_A.SLOW: _slowmo(float(row[0]), float(row[1]), float(row[2]))
 	_shot(63.25, {"rel": {"a": S}, "eye": [Vector3(-2.2, 0.6, -2.4), Vector3(-2.3, 0.65, -2.6)], "look": Vector3(0.5, 2.0, -6.0), "fov": [50, 48], "hand": 0.6})
 
@@ -1257,24 +1256,26 @@ func _write_fight() -> void :
 	_key("gold_s", 87.5, 1.0);_key("gold_s", 88.1, 0.45);_key("gold_s", 88.4, 0.8);_key("gold_s", 88.9, 0.35);_key("gold_s", 89.5, 0.6)
 	_key("gold_a", 87.6, 1.0);_key("gold_a", 88.2, 0.4);_key("gold_a", 88.6, 0.75);_key("gold_a", 89.1, 0.3);_key("gold_a", 89.6, 0.55)
 	_key("grin_wide", 87.3, 1.25);_key("grin_wide", 90.0, 1.1)
+	_key("y_pos", 87.0, Vector3(0, 0, 82));_key("y_pos", 91.6, Vector3(0, 0, 70), "smooth");_key("y_pos", 96.0, Vector3(0, 0, 78), "smooth");_key("y_pos", 103.5, Vector3(0, 0, 80), "smooth")
+	_key("lean", 87.0, 0.0);_key("lean", 92.2, 5.0, "smooth");_key("lean", 96.5, 0.0, "smooth")
 	_cue(87.3, "sfx", "sfx_rumble", 1.3, 0.8)
 	_shot(87.0, {"eye": [Vector3(-9, 1.8, 24), Vector3(-8.0, 1.6, 25)], "look": {"y": "eyes"}, "fov": [50, 46], "hand": 0.3, "safe": false})
-	var spikes: Array = [[89.2, Vector3(-6.0, 0, 27.0)], [89.45, Vector3(6.5, 0, 28.0)], [89.7, Vector3(-4.0, 0, 37.5)], [89.9, Vector3(5.0, 0, 36.5)]]
+	var spikes: Array = [[89.2, Vector3(-6.0, 0, 36.0)], [89.45, Vector3(6.5, 0, 37.0)], [89.7, Vector3(-4.0, 0, 46.5)], [89.9, Vector3(5.0, 0, 45.5)]]
 	for row: Array in spikes:
 		var at: Vector3 = row[1]
-		var yaw: float = atan2( - at.x, 31.0 - at.z)
+		var yaw: float = atan2( - at.x, 40.25 - at.z)
 		_spike(float(row[0]), 96.0, at, yaw, 1.0)
 		_cue(float(row[0]), "sfx", "sfx_spike", 0.8, 0.9 + 0.07 * float(spikes.find(row)))
 		_cue(float(row[0]), "shake", 0.3)
 		_ripple(float(row[0]), at, 3.0)
 	_shot(89.05, {"rel": {"mid": [S, A]}, "eye": [Vector3(-9.5, 1.5, 2.5), Vector3(-8.6, 1.4, 2.2)], "look": {"mid": [S, A], "h": 2.0}, "fov": [54, 50], "hand": 0.4, "safe": false})
 
-	_key("hand_nx", 90.4, Vector3(-29, 5.5, 45));_key("hand_nx", 92.3, Vector3(-36, 9, 40), "smooth");_key("hand_nx", 93.4, Vector3(26, 3, 24), "in");_key("hand_nx", 95.0, Vector3(-30, 4, 44), "smooth")
+	_key("hand_nx", 90.4, Vector3(-29, 5.5, 45));_key("hand_nx", 92.3, Vector3(-30, 8, 50), "smooth");_key("hand_nx", 92.9, Vector3(-4, 2, 40), "in");_key("hand_nx", 93.4, Vector3(12, 6, 34), "out");_key("hand_nx", 95.0, Vector3(-30, 4, 50), "smooth")
 	_key("curl_nx", 92.2, 0.25);_key("curl_nx", 92.8, 0.6)
 	_shot(92.0, {"rel": {"mid": [S, A]}, "eye": [Vector3(-6.5, 1.6, -1.4), Vector3(-6.0, 1.5, -1.0)], "look": {"mid": [S, A], "h": 1.2}, "fov": [46, 44], "hand": 0.6})
 	_cue(92.9, "sfx", "hit", 1.0);_cue(92.9, "sfx", "sfx_slam", 0.8, 1.2);_cue(92.9, "shake", 0.8);_cue(92.9, "impact", 0.8, true)
 	_cue(92.92, "pop", {"a": S, "h": 1.1}, Vector3(1, 0, 0), CRIMSON, 0.9)
-	_ripple(94.0, Vector3(11.5, 0, 26.0), 2.5);_cue(94.0, "sfx", "sfx_splash", 0.6, 1.2)
+	_ripple(93.85, Vector3(9.0, 0, 28.5), 2.5);_cue(93.85, "sfx", "sfx_splash", 0.6, 1.2);_ripple(94.6, Vector3(11.5, 0, 26.0), 1.2)
 	_shot(92.82, {"rel": {"a": S}, "eye": [Vector3(0.3, 1.0, -4.2), Vector3(1.6, 0.9, -4.5)], "look": {"a": S, "h": 1.0}, "fov": [42, 46], "hand": 0.8})
 	_say(93.6, "Ashura", "SIMON !", 0.6, true)
 	_shot(93.55, {"rel": {"a": A}, "eye": [Vector3(1.6, 1.08, -0.8), Vector3(1.45, 1.1, -0.7)], "look": {"a": A, "h": 1.3}, "fov": [34, 31], "hand": 0.5})
@@ -1284,17 +1285,18 @@ func _write_fight() -> void :
 	_shot(96.5, {"rel": {"a": A}, "eye": [Vector3(1.9, 0.42, 2.6), Vector3(2.0, 0.45, 1.2)], "look": {"a": A, "h": 1.0}, "fov": 46, "hand": 0.7})
 	_key("hand_px", 96.6, Vector3(30, 6, 40));_key("hand_px", 97.8, Vector3(16, 24, 30), "smooth");_key("hand_px", 98.4, Vector3(8.5, 4.0, 15.5), "in")
 	_key("curl_px", 97.7, 0.1)
-	_cue(98.4, "sfx", "sfx_slam", 1.1, 0.9);_cue(98.4, "shake", 0.8);_ripple(98.4, Vector3(8.5, 0, 9.0), 5.0);_cue(98.42, "ink", Vector3(8.0, 0.4, 11.0), 10, 4.0)
-	_shot(98.3, {"eye": [Vector3(12.0, 0.7, 26.0), Vector3(11.5, 0.8, 26.5)], "look": [{"a": A, "h": 1.0}, {"y": "hand_l"}], "fov": [48, 52], "hand": 0.7, "safe": false})
-	_key("hand_px", 98.9, Vector3(8.5, 4.0, 15.5));_key("hand_px", 99.4, Vector3(7.4, 3.2, 17.8), "smooth")
+	_cue(98.4, "sfx", "sfx_slam", 1.1, 0.9);_cue(98.4, "shake", 0.8)
+	_shot(98.3, {"eye": [Vector3(13.6, 0.9, 24.4), Vector3(13.2, 1.0, 24.9)], "look": [{"a": A, "h": 1.0}, {"y": "hand_l"}], "fov": [48, 52], "hand": 0.7, "safe": false})
+	_key("hand_px", 98.9, Vector3(8.5, 4.0, 15.5));_key("hand_px", 99.5, Vector3(7.4, 3.2, 17.8), "smooth")
 	_key("curl_px", 99.2, 0.15);_key("curl_px", 99.6, 1.05, "out")
 	_key("held", 0.0, 0.0);_key("held", 99.5, 0.0, "jump");_key("held", 99.51, 1.0, "jump");_key("held", 117.6, 1.0, "jump");_key("held", 117.61, 0.0, "jump")
 	_cue(99.45, "sfx", "grab_00", 1.0);_cue(99.45, "shake", 0.5)
-	_key("hand_px", 99.65, Vector3(7.4, 3.2, 17.8));_key("hand_px", 103.0, Vector3(4.0, 23.0, 46.0), "smooth")
+	_key("hand_px", 103.0, Vector3(4.0, 23.0, 46.0), "smooth")
 	_key("look_who", 98.0, 0.0);_key("look_who", 99.6, 1.0)
 	_key("pitch", 99.0, 0.18);_key("pitch", 103.0, 0.05)
 	_say(100.1, "Yiero", "Toi, le petit observateur… Je vais t'effacer.", 0.4)
 	_shot(99.55, {"eye": [Vector3(10.0, 2.0, 2.0), Vector3(9.5, 9.0, 6.0)], "look": [{"a": A, "h": 1.0}, {"y": "face", "h": -6.0}], "fov": [44, 52], "hand": 0.4, "ease": "smooth", "safe": false})
+	_pa_contacts()
 
 
 # --- prologue_a : acteurs écrits (anim_set_film_prologue_a.gd) ---------------------------------------
@@ -1336,6 +1338,45 @@ func _pa_cast(t0: float, t1: float) -> void :
 			var at: Vector3 = row[2]
 			_cue(t, "sfx", "sfx_ink_step", 0.42 * clampf(power, 0.2, 1.6), 0.92 + 0.16 * absf(sin(t * 12.9898 + float(i) * 4.1)))
 			if is_instance_valid(dimension): dimension.add_step(PROLOGUE_A.scaled(t), DIM + at, clampf(power, 0.2, 1.6))
+
+
+# Les gestes de Yiero qui touchent les personnages sont calés sur le modèle lui-même : la cible de la
+# main est corrigée jusqu'à ce que la prise voulue (pince, paume) tombe au bon endroit.
+func _pa_solve(track: String, t: float, socket: String, want: Vector3) -> Vector3:
+	var rows: Array = _keys[track]
+	var row: Array = []
+	for candidate: Array in rows:
+		if absf(float(candidate[0]) - t) < 0.0005: row = candidate
+	if row.is_empty(): return want
+	for name_value: String in _keys: (_keys[name_value] as Array).sort_custom( func(x: Array, y: Array) -> bool: return float(x[0]) < float(y[0]))
+	var target: Vector3 = row[1]
+	for k: int in range(10):
+		row[1] = target
+		_pose_yiero(t, _scaled(t))
+		var miss: Vector3 = want - (yiero.socket(socket) - DIM)
+		if miss.length() < 0.04: break
+		target += miss
+	row[1] = target
+	return yiero.socket(socket) - DIM
+
+func _pa_contacts() -> void :
+	var simon: RefCounted = PROLOGUE_A.actor("Simon")
+	var ashura: RefCounted = PROLOGUE_A.actor("Ashura")
+	# 63,2 : la griffe s'abat entre eux deux (là où ils couraient une seconde plus tôt).
+	var claw: Vector3 = _pa_solve("hand_px", 63.2, "pinch_l", Vector3(-0.2, -0.6, -2.4))
+	claw.y = 0.0
+	_ripple(63.2, claw, 6.0);_cue(63.22, "ink", claw + Vector3(0, 0.4, 0), 10, 5.0);_cue(63.22, "dust_ring", claw + Vector3(0, 0.05, 0), 2.5)
+	# 92,9 : le revers fauche Simon (paume sur son flanc).
+	_pa_solve("hand_nx", 92.9, "hand_r", PROLOGUE_A.root_at(simon, 92.9) + Vector3(-0.9, 1.1, 0.3))
+	# 98,4 : la main s'abat devant Ashura, entre lui et Simon ; 99,5 : la pince se referme sur lui.
+	var from: Vector3 = PROLOGUE_A.root_at(ashura, 98.35)
+	var ahead: Vector3 = (PROLOGUE_A.root_at(simon, 98.35) - from)
+	ahead.y = 0.0
+	var slam: Vector3 = from + ahead.normalized() * 3.2
+	var hit: Vector3 = _pa_solve("hand_px", 98.4, "pinch_l", slam + Vector3(0, -0.4, 0))
+	hit.y = 0.0
+	_ripple(98.4, hit, 5.0);_cue(98.42, "ink", hit + Vector3(0, 0.4, 0), 10, 4.0)
+	_pa_solve("hand_px", 99.5, "pinch_l", PROLOGUE_A.root_at(ashura, 99.5) + Vector3(0, 1.72, 0))
 
 
 # Acte IV — la défaite : Ashura est effacé de la dimension (104 → 122 s).

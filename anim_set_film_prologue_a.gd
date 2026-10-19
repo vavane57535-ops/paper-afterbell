@@ -34,8 +34,10 @@ const FILM_STYLE: Dictionary = {"contra": 0.0, "shift_rate": 0.0, "idle_sway": 0
 
 # Mesures des squelettes (PaperVisual, unités du modèle ; scale : mètres par unité).
 const RIG: Dictionary = {
-	"Simon": {"tag": "s", "reach": 0.911139, "scale": 0.767544, "foot_l": Vector3(-0.1425, 0.15586, 0.035625), "foot_r": Vector3(0.133594, 0.155859, 0.035625), "hip_y": 1.064297, "hip_x": 0.106875, "toe": 0.136239, "twist": 1.0},
-	"Ashura": {"tag": "a", "reach": 0.864776, "scale": 0.745614, "foot_l": Vector3(-0.243224, 0.114758, -0.037701), "foot_r": Vector3(0.250444, 0.097185, 0.089592), "hip_y": 0.961632, "hip_x": 0.133182, "toe": 0.056956, "twist": 1.15},
+	"Simon": {"tag": "s", "reach": 0.911139, "scale": 0.767544, "foot_l": Vector3(-0.1425, 0.15586, 0.035625), "foot_r": Vector3(0.133594, 0.155859, 0.035625), "hip_y": 1.064297, "hip_x": 0.106875, "toe": 0.136239, "twist": 1.0,
+		"sh_l": Vector3(-0.178125, 1.491797, 0.026719), "sh_r": Vector3(0.169219, 1.491797, 0.026719), "arm_l": 0.535053, "arm_r": 0.522873},
+	"Ashura": {"tag": "a", "reach": 0.864776, "scale": 0.745614, "foot_l": Vector3(-0.243224, 0.114758, -0.037701), "foot_r": Vector3(0.250444, 0.097185, 0.089592), "hip_y": 0.961632, "hip_x": 0.133182, "toe": 0.056956, "twist": 1.15,
+		"sh_l": Vector3(-0.262653, 1.550927, 0.015823), "sh_r": Vector3(0.221293, 1.592261, -0.03105), "arm_l": 0.575773, "arm_r": 0.629074},
 }
 
 # Valeurs des canaux de jeu tant qu'aucune clé ne les donne. « loco », « swing », « breath » et
@@ -61,6 +63,8 @@ class Actor:
 	var twist: float = 1.0
 	var rest: Dictionary = {}
 	var hip: Dictionary = {}
+	var shoulder: Dictionary = {}
+	var arm: Dictionary = {}
 	var root: Array = []
 	var yaw: Array = []
 	var aims: Array = []
@@ -86,6 +90,8 @@ class Actor:
 		reach = float(rig.reach);scale = float(rig.scale);toe = float(rig.toe);twist = float(rig.twist)
 		rest[-1] = rig.foot_l;rest[1] = rig.foot_r
 		hip[-1] = Vector3( - float(rig.hip_x), float(rig.hip_y), 0.0);hip[1] = Vector3(float(rig.hip_x), float(rig.hip_y), 0.0)
+		shoulder[-1] = rig.sh_l;shoulder[1] = rig.sh_r
+		arm[-1] = float(rig.arm_l);arm[1] = float(rig.arm_r)
 
 	# Clé de jeu au temps t du film (drapeaux de AnimClip : "s" arrêt, "l" linéaire, "h" tenu).
 	func key(t: float, pose: Dictionary, flag: String = "") -> void :
@@ -811,6 +817,26 @@ static func noise(seed_value: int, k: int) -> float:
 	return float(h % 10007) / 10006.0 * 2.0 - 1.0
 
 
+# Épaule (repère du film) à l'instant t, bassin décalé de `hips` (mètres, repère du corps).
+static func shoulder_world(a: Actor, t: float, side: int, hips: Vector3 = Vector3.ZERO) -> Vector3:
+	var local: Vector3 = (a.shoulder[side] as Vector3) * a.scale + hips
+	return root_at(a, t) + local.rotated(Vector3.UP, yaw_at(a, t))
+
+
+# Cible de main (canal ik_l / ik_r, longueurs de bras, repère du corps) qui pose la main sur un point du
+# film ; tronquée à `stretch` longueurs de bras (bras presque tendu).
+static func reach(a: Actor, t: float, side: int, world: Vector3, hips: Vector3 = Vector3.ZERO, stretch: float = 0.97) -> Dictionary:
+	var d: Vector3 = (world - shoulder_world(a, t, side, hips)).rotated(Vector3.UP, - yaw_at(a, t)) / ((a.arm[side] as float) * a.scale)
+	if d.length() > stretch: d = d.normalized() * stretch
+	var tag: String = "l" if side < 0 else "r"
+	return {"ik_" + tag: d, "el_" + tag: 0.0, "tf_" + tag: 0.0, "gr_" + tag: 0.0}
+
+
+# Position (repère du film) de la main pour une cible ik donnée.
+static func hand_world(a: Actor, t: float, side: int, ik: Vector3, hips: Vector3 = Vector3.ZERO) -> Vector3:
+	return shoulder_world(a, t, side, hips) + (ik * (a.arm[side] as float) * a.scale).rotated(Vector3.UP, yaw_at(a, t))
+
+
 # Orientation tête + buste pour regarder un point du film depuis la position du corps à l'instant t
 # (le buste prend `chest` du lacet, la tête le reste ; la tête lève ou baisse).
 static func look(a: Actor, t: float, target: Vector3, chest: float = 0.25, height: float = 1.5) -> Dictionary:
@@ -821,28 +847,639 @@ static func look(a: Actor, t: float, target: Vector3, chest: float = 0.25, heigh
 	return {"chest": Vector3( - up * 0.25, turn * chest, 0.0), "head": Vector3(up * 0.75, turn * (1.0 - chest), 0.0)}
 
 
-
-
 # --- Le film -------------------------------------------------------------------------------------
+
+# Trajet à vitesse de croisière : accélération sur `accel` s, freinage sur `brake` s.
+static func walk_to(a: Actor, t0: float, t1: float, to: Vector3, accel: float = 0.8, brake: float = 0.7) -> void :
+	var from: Vector3 = a.end_root()
+	if a.root.is_empty() or a.end_time() < t0 - 0.0001: a.go(t0, from)
+	var total: float = maxf(0.05, t1 - t0)
+	var ta: float = clampf(accel / total, 0.0, 0.5)
+	var tb: float = clampf(brake / total, 0.0, 0.5)
+	var cruise: float = 1.0 / maxf(0.05, 1.0 - ta * 0.5 - tb * 0.5)
+	var n: int = maxi(1, ceili(total / GRID))
+	for k: int in range(1, n + 1):
+		var u: float = float(k) / float(n)
+		var p: float = 0.0
+		if u < ta: p = cruise * u * u / (2.0 * ta)
+		elif u > 1.0 - tb: p = 1.0 - cruise * (1.0 - u) * (1.0 - u) / (2.0 * tb)
+		else: p = cruise * (u - ta * 0.5)
+		a.go(t0 + total * u, from.lerp(to, clampf(p, 0.0, 1.0)))
+
+
+# Rotation du corps entre t0 et t1 (lacet voulu) ; la racine du film suit en deux cibles pour ne jamais
+# lui demander un demi-tour d'un coup (sens ambigu).
+static func pivot(a: Actor, t0: float, t1: float, to: float, mode: String = "smooth") -> void :
+	var from: float = yaw_at(a, t0)
+	a.face(t0, from)
+	a.face(t1, to, mode)
+	if absf(to - from) > 1.2: a.aim(lerpf(t0, t1, 0.45), lerpf(from, to, 0.6))
+	a.aim(t1, to)
+
+
+static func hang_l(out: float = 0.12, fwd: float = 0.06, up: float = -0.92) -> Dictionary:
+	return L(out, up, fwd, 0.0)
+
+
+static func hang_r(out: float = 0.12, fwd: float = 0.06, up: float = -0.92) -> Dictionary:
+	return R(out, up, fwd, 0.0)
+
 
 static func _perform(s: Actor, a: Actor) -> void :
 	_act1(s, a)
+	_act2(s, a)
+	_act3(s, a)
 	for one: Actor in [s, a]:
 		if one.end_time() < HOLD_END: one.go(HOLD_END, one.end_root())
 
 
+# Acte I (0 → 30 s) : marche prudente dans l'encre, l'onde lointaine (9,4), regards, répliques, les
+# trois battements (25,0 / 26,2 / 27,4) : Simon s'arrête, fait volte-face, Ashura se retourne aussi.
 static func _act1(s: Actor, a: Actor) -> void :
-	# Départ dans le noir, côte à côte, face au fond de la dimension (+z, lacet PI).
 	s.go(0.0, Vector3(-0.75, 0, -30.0));a.go(0.0, Vector3(0.8, 0, -29.6))
 	for one: Actor in [s, a]:
 		one.face(0.0, PI);one.aim(0.0, PI)
-		one.plant(-1, 0.0, world_of(one, 0.0, Vector3(-0.1, 0, 0.02)))
-		one.plant(1, 0.0, world_of(one, 0.0, Vector3(0.11, 0, -0.03)))
-		one.cut(0.0)
-	travel(s, 3.4, 25.3, Vector3(-0.7, 0, -9.6), "smooth")
-	travel(a, 3.7, 25.6, Vector3(0.85, 0, -9.3), "smooth")
-	strides(s, 1, 3.95, 0.62, 35, {"width": 0.1, "h": 0.07, "seed": 5, "stop": 25.3})
-	strides(a, -1, 4.25, 0.66, 33, {"width": 0.12, "h": 0.065, "seed": 9, "stop": 25.6})
+		one.plant(-1, 0.0, world_of(one, 0.0, Vector3(-0.1, 0, 0.03)))
+		one.plant(1, 0.0, world_of(one, 0.0, Vector3(0.11, 0, -0.04)))
+		for t: float in [0.0, 12.0, 17.0, 24.0, 30.0]: one.cut(t)
+
+	# Simon : marche, s'arrête net à l'onde lointaine, repart, freine au premier battement.
+	walk_to(s, 3.35, 9.75, Vector3(-0.73, 0, -24.55), 0.9, 0.75)
+	strides(s, 1, 3.9, 0.6, 10, {"width": 0.1, "h": 0.07, "seed": 5, "stop": 9.75})
+	walk_to(s, 10.7, 25.15, Vector3(-0.7, 0, -10.65), 0.75, 0.8)
+	strides(s, 1, 11.12, 0.6, 24, {"width": 0.1, "h": 0.07, "seed": 6, "stop": 25.15})
+	# Ashura : même chemin, plus posé ; il ralentit à peine quand Simon s'arrête.
+	walk_to(a, 3.7, 10.05, Vector3(0.82, 0, -24.35), 0.9, 0.85)
+	strides(a, -1, 4.28, 0.66, 9, {"width": 0.12, "h": 0.06, "seed": 9, "stop": 10.05})
+	walk_to(a, 10.55, 25.55, Vector3(0.85, 0, -10.35), 0.8, 0.9)
+	strides(a, 1, 11.02, 0.66, 22, {"width": 0.12, "h": 0.06, "seed": 10, "stop": 25.55})
+
+	# --- Simon : posture de marche (épaules un peu hautes, poings à demi serrés), regard qui balaie.
+	var s_walk: Dictionary = M([{"loco": 1.0, "swing": 0.55, "curl": 0.55, "curl_l": 0.5}, B(0.05), C(0.07), hang_l(0.15, 0.1, -0.88), hang_r(0.15, 0.1, -0.88), WL(0.15, 0.0, -0.1), WR(0.15, 0.0, 0.1)])
+	s.key(0.0, M([s_walk, {"loco": 0.0, "swing": 0.0, "face": "focus"}, HD(-0.05, 0.0, 0.0)]))
+	s.key(3.3, M([{"loco": 0.0, "swing": 0.0}, HD(-0.05, 0.05)]))
+	s.key(3.9, M([{"loco": 1.0, "swing": 0.55}, HD(-0.02, 0.18)]))
+	s.key(5.6, M([HD(0.0, -0.22, 0.03)]))
+	s.key(7.4, M([HD(-0.04, 0.08)]))
+	s.key(8.6, M([HD(-0.03, -0.05)]))
+	# 9,4 : l'encre frémit au loin. Arrêt, tête qui se lève vers l'avant-droite, bras qui se figent.
+	s.key(9.45, M([HD(-0.02, -0.05), {"face": "focus"}]))
+	s.key(9.7, M([HD(0.1, -0.32, -0.06), C(0.04, -0.06), {"swing": 0.0, "face": "surprise"}]))
+	s.key(9.95, M([{"loco": 0.3}, hang_l(0.18, 0.18, -0.82), hang_r(0.18, 0.2, -0.8), {"curl": 0.7, "curl_l": 0.65, "ev": "gasp"}]))
+	s.key(10.4, M([HD(0.08, -0.36, -0.05), {"face": "fear"}]))
+	s.key(10.75, M([HD(0.0, -0.12, 0.0), C(0.07, 0.0), {"loco": 1.0}]))
+	s.key(11.15, M([{"swing": 0.45}, hang_l(0.15, 0.12, -0.86), hang_r(0.15, 0.12, -0.86)]))
+	s.key(12.2, M([HD(-0.06, 0.12), {"face": "focus"}]))
+	s.key(14.0, M([HD(-0.03, -0.1)]))
+	s.key(15.6, M([HD(-0.05, 0.06)]))
+	# 17 → 24 : plan à deux de face. Le regard balaie, s'accroche à Ashura quand il parle.
+	s.key(16.9, M([HD(-0.02, 0.32, 0.04), C(0.07, 0.08), {"face": "sad"}]))
+	s.key(18.05, M([HD(0.02, 0.36, 0.05)]))
+	s.key(18.6, M([HD(-0.04, -0.42, -0.04), C(0.07, -0.1)]))
+	s.key(19.55, M([HD(-0.02, -0.36, -0.03)]))
+	s.key(20.0, M([HD(-0.05, -0.02, 0.0), C(0.07, 0.0)]))
+	s.key(20.95, M([HD(-0.06, 0.5, 0.06), C(0.06, 0.12), {"face": "fear"}]))
+	s.key(22.4, M([HD(-0.05, 0.42, 0.05)]))
+	s.key(22.85, M([HD(-0.03, -0.04, 0.0), C(0.07, 0.0), {"face": "sad"}]))
+	s.key(23.7, M([HD(-0.01, -0.2)]))
+	# 25,0 : premier battement. Simon freine, se fige, tête qui se penche pour écouter.
+	s.key(24.7, M([HD(-0.02, -0.05)]))
+	s.key(25.05, M([HD(0.03, 0.1, 0.1), {"face": "surprise", "swing": 0.2}, hang_l(0.18, 0.16, -0.84), hang_r(0.18, 0.16, -0.84), {"curl": 0.75, "curl_l": 0.7}]))
+	s.key(25.5, M([HD(0.05, 0.18, 0.16), C(0.04, 0.05), B(0.03), H(0.0, -0.025, 0.0), {"loco": 0.0, "swing": 0.0, "shake": 0.15}]))
+	s.key(26.15, M([HD(0.04, 0.2, 0.14), H(0.0, -0.03, 0.0), {"face": "fear"}]))
+	# 26,2 : deuxième battement. Volte-face vers la gauche (vers Ashura et le chemin parcouru), en deux pas.
+	pivot(s, 26.2, 26.82, 2.0 * PI, "out")
+	step_to(s, 1, 26.24, 26.52, Vector3(0.1, 0, 0.06), 0.09, {"fall": 0.8, "heel": 0.2})
+	step_to(s, -1, 26.44, 26.78, Vector3(-0.12, 0, -0.03), 0.07, {"fall": 0.6, "heel": 0.25})
+	s.key(26.2, M([HD(0.06, 0.55, 0.06), C(0.05, 0.15), H(0.0, -0.05, 0.0), {"ev": "gasp", "shake": 0.0}]))
+	s.key(26.36, M([HD(0.0, 0.35, 0.0), C(0.02, 0.2), B(0.0, 0.1), H(0.0, -0.07, 0.02), L(0.32, -0.62, 0.15, 0.3), R(0.3, -0.55, 0.3, 0.3), {"curl": 0.4, "curl_l": 0.4, "face": "surprise"}]))
+	s.key(26.6, M([HD(-0.02, 0.05, -0.03), C(0.06, 0.05), B(0.04, 0.0), H(0.0, -0.06, 0.0), L(0.22, -0.55, 0.32, 0.2), R(0.18, -0.5, 0.38, 0.2), {"curl": 0.7, "curl_l": 0.7}]))
+	s.key(26.85, M([HD(-0.04, -0.62, -0.04), C(0.06, -0.12), {"face": "fear"}]))
+	# « Hé… T'as entendu ? » : il parle à Ashura (à sa droite maintenant), sans lâcher le noir des yeux.
+	s.key(27.15, M([HD(-0.03, -0.7, -0.05)]))
+	s.key(27.4, M([HD(0.04, -0.6, 0.0), H(0.0, -0.09, 0.0), C(0.12, -0.1), B(0.06), L(0.25, -0.45, 0.35, 0.3), R(0.22, -0.4, 0.42, 0.3), {"ev": "gasp", "shake": 0.35, "curl": 0.85, "curl_l": 0.85}]))
+	s.key(27.75, M([HD(-0.02, -0.25, 0.0), H(0.0, -0.07, 0.0), C(0.09, -0.04), {"shake": 0.25, "breath": 1.0, "bf": 1.1}]))
+	s.key(28.4, M([HD(-0.03, 0.18, 0.02)]))
+	s.key(29.0, M([HD(-0.04, -0.06, 0.0), {"shake": 0.2}]))
+	s.key(29.6, M([HD(-0.05, 0.08, 0.0), {"breath": 0.6, "bf": 0.9}]))
+
+	# --- Ashura : marche posée, bras qui balancent peu ; le drone (appareil) consulté pendant sa réplique.
+	var a_walk: Dictionary = M([{"loco": 1.0, "swing": 0.35, "curl": 0.4, "curl_l": 0.35}, B(0.02), C(0.03), hang_l(0.1, 0.04, -0.93), hang_r(0.1, 0.04, -0.93)])
+	a.key(0.0, M([a_walk, {"loco": 0.0, "swing": 0.0, "face": "focus"}, HD(-0.06, 0.0)]))
+	a.key(3.65, M([{"loco": 0.0, "swing": 0.0}]))
+	a.key(4.25, M([{"loco": 1.0, "swing": 0.35}, HD(-0.04, -0.06)]))
+	a.key(6.8, M([HD(-0.05, 0.05)]))
+	a.key(9.55, M([HD(-0.05, 0.0)]))
+	a.key(9.9, M([HD(0.04, -0.16), {"swing": 0.1}]))
+	a.key(10.3, M([HD(0.03, -0.2), {"loco": 0.5}]))
+	a.key(10.9, M([HD(-0.04, -0.04), {"loco": 1.0, "swing": 0.35}]))
+	a.key(13.5, M([HD(-0.06, 0.06)]))
+	a.key(16.8, M([HD(-0.05, -0.04), {"face": "focus"}]))
+	# 20,3 → 23,1 : il sort l'appareil, le consulte, tapote, le range.
+	a.key(19.95, M([hang_r(0.1, 0.04, -0.93), WR(0.0), {"curl": 0.4, "swing": 0.35}]))
+	a.key(20.35, M([R(0.05, -0.62, 0.3, 0.15), WR(0.4, 0.0, 0.0), {"swing": 0.0, "curl": 0.55, "prop": "camera"}, HD(-0.12, -0.1)]))
+	a.key(20.7, M([R(-0.05, -0.42, 0.4, 0.2), WR(0.7, -0.2, 0.0), HD(-0.42, -0.14), C(0.08, -0.08), {"curl": 0.62}]))
+	a.key(21.5, M([HD(-0.45, -0.12), {"curl": 0.5}]))
+	a.key(21.65, M([{"curl": 0.66}]))
+	a.key(21.9, M([HD(-0.4, -0.13), {"curl": 0.55}]))
+	a.key(22.35, M([R(-0.04, -0.44, 0.38, 0.2), HD(-0.2, -0.05), {"face": "calm"}]))
+	a.key(22.75, M([R(0.04, -0.6, 0.28, 0.12), WR(0.4), HD(-0.05, 0.02), C(0.03, 0.0)]))
+	a.key(23.15, M([hang_r(0.1, 0.04, -0.93), WR(0.0), {"curl": 0.4, "swing": 0.35, "prop": ""}, {"face": "focus"}]))
+	a.key(24.4, M([HD(-0.04, 0.05)]))
+	# Battements : il s'arrête un pas après Simon, tête droite, écoute ; se retourne au troisième.
+	a.key(25.1, M([HD(0.02, -0.1), {"swing": 0.15}]))
+	a.key(25.6, M([HD(0.03, -0.18, -0.04), {"loco": 0.0, "swing": 0.0, "curl": 0.55, "curl_l": 0.5}, hang_l(0.14, 0.12, -0.88), hang_r(0.14, 0.12, -0.88)]))
+	a.key(26.3, M([HD(0.0, -0.42, -0.05), C(0.03, -0.15), {"face": "surprise"}]))
+	a.key(26.7, M([HD(-0.02, -0.55, -0.04), C(0.03, -0.18), {"face": "focus"}]))
+	pivot(a, 26.95, 27.55, 0.0, "smooth")
+	step_to(a, 1, 26.98, 27.3, Vector3(0.13, 0, 0.05), 0.06, {"fall": 0.6, "heel": 0.3})
+	step_to(a, -1, 27.2, 27.55, Vector3(-0.13, 0, -0.02), 0.06, {"fall": 0.5, "heel": 0.3})
+	a.key(27.0, M([HD(-0.02, -0.3), C(0.03, -0.1)]))
+	a.key(27.42, M([HD(0.05, 0.1, 0.0), C(0.06, 0.0), H(0.0, -0.06, 0.0), L(0.2, -0.6, 0.25, 0.2), R(0.2, -0.58, 0.28, 0.2), {"curl": 0.85, "curl_l": 0.8, "ev": "grunt"}]))
+	a.key(27.9, M([HD(0.0, 0.12), H(0.0, -0.04, 0.0), C(0.04, 0.0), L(0.18, -0.66, 0.2, 0.15), R(0.18, -0.64, 0.22, 0.15)]))
+	a.key(28.6, M([HD(0.02, -0.15)]))
+	a.key(29.5, M([HD(0.01, 0.08)]))
+
+
+# Acte II (30 → 59,45 s) : les yeux s'ouvrent derrière Simon, volte-face, le sourire, la taille du démon,
+# le rugissement (50,2), la résistance au souffle, les répliques, les poings qui s'embrasent (56,95).
+static func _act2(s: Actor, a: Actor) -> void :
 	for one: Actor in [s, a]:
-		one.key(0.0, M([{"loco": 1.0, "swing": 0.6, "curl": 0.55, "curl_l": 0.55, "face": "focus"}]))
-		one.cut(12.0);one.cut(17.0);one.cut(24.0)
+		for t: float in [34.0, 40.0, 46.0, 51.0, 55.3]: one.cut(t)
+	var yiero_eyes: Vector3 = Vector3(0, 30, 84)
+	# --- Simon : figé face au noir, les yeux s'ouvrent derrière lui. Il le sent, se retourne lentement,
+	# puis d'un coup.
+	s.key(30.0, M([HD(-0.06, 0.04, 0.0), C(0.09, 0.0), H(0.0, -0.06, 0.0), {"shake": 0.18, "breath": 0.5, "bf": 0.8, "face": "fear"}]))
+	s.key(30.9, M([HD(-0.07, -0.05, -0.02)]))
+	s.key(31.3, M([HD(-0.12, -0.02, 0.0), {"jaw": 0.12}]))
+	s.key(31.55, M([HD(-0.05, -0.03, 0.0), {"jaw": 0.0}]))
+	s.key(32.0, M([HD(0.0, -0.04, 0.0), {"breath": 0.0, "shake": 0.1, "ev": "gasp", "face": "panic"}, L(0.24, -0.55, 0.25, 0.2), R(0.22, -0.52, 0.3, 0.2)]))
+	s.key(32.6, M([HD(0.0, -0.18, -0.05), C(0.07, -0.05)]))
+	s.key(33.15, M([HD(0.02, -0.75, -0.1), C(0.05, -0.32), B(0.02, -0.08)]))
+	pivot(s, 33.3, 33.95, PI, "in")
+	step_to(s, 1, 33.4, 33.72, Vector3(0.14, 0, 0.1), 0.08, {"fall": 0.7, "heel": 0.2})
+	step_to(s, -1, 33.62, 33.95, Vector3(-0.14, 0, 0.0), 0.07, {"fall": 0.6, "heel": 0.2})
+	s.key(33.55, M([HD(0.12, -0.3, -0.05), C(0.0, -0.2), B(-0.04, -0.12), H(0.0, -0.05, 0.05)]))
+	var look34: Dictionary = look(s, 34.5, yiero_eyes, 0.2, 1.45)
+	s.key(34.0, M([look34, B(-0.06), H(0.0, -0.08, 0.06), L(0.3, -0.5, 0.2, 0.3), R(0.3, -0.48, 0.25, 0.3), {"curl": 0.8, "curl_l": 0.8, "shake": 0.3, "face": "panic"}]))
+	# 36,0 → 38,0 : le rire, le sourire qui se fend. Simon recule d'un demi-pas au coup sourd.
+	s.key(36.0, M([{"shake": 0.22, "breath": 0.8, "bf": 1.4}]))
+	s.key(37.9, M([H(0.0, -0.08, 0.06)]))
+	s.key(38.05, M([H(0.0, -0.12, 0.12), B(-0.1), C(-0.04), {"ev": "gasp", "shake": 0.5}]))
+	walk_to(s, 38.02, 38.3, s.end_root() + Vector3(0, 0, -0.11), 0.12, 0.12)
+	shuffle(s, 1, 38.02, 38.3, Vector3(0.02, 0, 0.22), 0.05)
+	s.key(38.6, M([H(0.0, -0.09, 0.07), B(-0.05), C(0.02), {"shake": 0.3}]))
+	# 40 → 46 : la tête monte, il recule de deux pas, sursaute aux mains qui sortent de l'encre.
+	s.key(40.6, M([look(s, 40.6, Vector3(0, 40, 84), 0.25, 1.45)]))
+	walk_to(s, 41.1, 42.15, s.end_root() + Vector3(0, 0, -0.31), 0.4, 0.4)
+	shuffle(s, -1, 41.1, 41.55, Vector3(0.0, 0, 0.32), 0.05)
+	shuffle(s, 1, 41.7, 42.15, Vector3(0.0, 0, 0.3), 0.05)
+	s.key(42.5, M([look(s, 42.5, Vector3(0, 48, 82), 0.25, 1.45)]))
+	s.key(42.75, M([look(s, 42.75, Vector3(-30, 10, 40), 0.3, 1.45), H(0.0, -0.11, 0.05), {"ev": "gasp", "shake": 0.45}]))
+	s.key(43.5, M([look(s, 43.5, Vector3(29, 10, 40), 0.3, 1.45), {"shake": 0.4}]))
+	s.key(44.4, M([look(s, 44.4, Vector3(0, 55, 80), 0.25, 1.45), H(0.0, -0.08, 0.04)]))
+	walk_to(s, 44.6, 45.05, s.end_root() + Vector3(0, 0, -0.14), 0.2, 0.2)
+	shuffle(s, -1, 44.6, 45.05, Vector3(0.0, 0, 0.28), 0.05)
+	s.key(45.6, M([look(s, 45.6, Vector3(0, 60, 78), 0.25, 1.45), {"shake": 0.3}]))
+	s.key(48.0, M([look(s, 48.0, Vector3(0, 52, 74), 0.25, 1.45)]))
+	s.key(49.9, M([look(s, 49.9, Vector3(0, 45, 70), 0.25, 1.45), H(0.0, -0.1, 0.06), {"breath": 0.0}]))
+	# 50,28 : le souffle. Projeté en arrière, deux pas qui rattrapent, avant-bras devant le visage.
+	s.key(50.28, M([HD(0.25, 0.0, 0.0), C(-0.2, 0.0), B(-0.18), H(0.0, -0.1, 0.18), L(0.15, 0.15, 0.4, 0.6), R(0.1, 0.2, 0.42, 0.7), {"shake": 0.8, "ev": "hurt", "face": "pain", "curl": 0.6, "curl_l": 0.6}]))
+	walk_to(s, 50.3, 50.9, s.end_root() + Vector3(0.02, 0, -0.44), 0.05, 0.3)
+	shuffle(s, -1, 50.32, 50.62, Vector3(0.0, 0, 0.45), 0.08, {"fall": 1.2})
+	shuffle(s, 1, 50.55, 50.9, Vector3(0.05, 0, 0.42), 0.08, {"fall": 1.2})
+	s.key(50.7, M([HD(0.05, 0.1, 0.05), C(0.1, 0.05), B(0.12), H(0.0, -0.16, 0.0), {"shake": 0.65}]))
+	# 51 → 55,3 : le vent en pleine face. Buste penché dedans, bras qui protègent, plissement des yeux.
+	var brace_s: Dictionary = M([HD(-0.12, 0.08, 0.04), C(0.22, 0.04), B(0.18), H(0.0, -0.14, 0.0), Lt(0.05, 0.5, 0.42, 0.75), Rt(-0.05, 0.42, 0.48, 0.8), WL(0.3), WR(0.3), {"shake": 0.55, "face": "pain", "curl": 0.7, "curl_l": 0.7}])
+	s.key(51.05, brace_s)
+	s.key(52.0, M([HD(-0.14, 0.12, 0.06), {"shake": 0.5}]))
+	s.key(52.6, M([HD(-0.06, 0.25, 0.04), {"face": "hurt"}]))
+	s.key(53.6, M([HD(-0.1, 0.18, 0.05), {"shake": 0.4}]))
+	# 54,4 : il baisse le bras, regarde le démon en face.
+	s.key(54.35, M([Lt(0.05, 0.48, 0.42, 0.75), Rt(-0.05, 0.4, 0.46, 0.8), HD(-0.08, 0.1)]))
+	s.key(54.8, M([L(0.22, -0.45, 0.28, 0.25), R(0.2, -0.42, 0.32, 0.25), WL(0.1), WR(0.1), HD(0.12, 0.0), C(0.12, 0.0), B(0.1), H(0.0, -0.1, 0.02), {"shake": 0.2, "face": "determined", "curl": 0.9, "curl_l": 0.9}]))
+	# 55,45 : « Ouais ! On le renvoie d'où il vient ! » — poing droit dans la paume gauche.
+	s.key(55.4, M([HD(0.1, 0.0, 0.0), C(0.08, 0.0), L(0.22, -0.45, 0.28, 0.25), R(0.2, -0.42, 0.32, 0.25)]))
+	s.key(55.7, M([HD(0.14, 0.05, 0.03), C(0.1, -0.08), B(0.12, -0.05), Lt(-0.05, -0.32, 0.42, 0.3), Rt(0.18, -0.15, 0.25, 0.45), WL(-0.2, 0.0, 0.3), {"curl_l": 0.2, "curl": 1.0}]))
+	s.key(55.96, M([Rt(0.0, -0.28, 0.44, 0.2), Lt(-0.08, -0.34, 0.45, 0.3), C(0.14, 0.06), HD(0.1, -0.04), {"ev": "effort", "shake": 0.15}]), "s")
+	s.key(56.25, M([Rt(0.02, -0.27, 0.43, 0.2), Lt(-0.07, -0.33, 0.44, 0.3), HD(0.12, 0.0)]))
+	# 56,75 : gros plan sur la main droite qui se referme, tremble… et s'embrase (56,95).
+	s.key(56.6, M([R(0.25, -0.35, 0.35, 0.3), L(0.25, -0.5, 0.25, 0.25), WR(0.2, 0.3), {"curl": 0.8, "curl_l": 0.85}]))
+	s.key(56.85, M([R(0.27, -0.32, 0.36, 0.3), WR(0.35, 0.35), {"curl": 1.0, "shake": 0.45}]))
+	s.key(56.95, M([R(0.3, -0.3, 0.38, 0.35), WR(0.1, 0.2), C(0.04, 0.0), HD(0.05, 0.0), {"shake": 0.0, "ev": "effort", "face": "angry"}]), "s")
+	s.key(57.3, M([R(0.28, -0.28, 0.38, 0.3), WR(0.15, 0.25), {"face": "determined"}]))
+	# 57,75 → 59,45 : garde de boxeur, un pas en avant, sautille sur la pointe des pieds.
+	s.key(57.8, M([Lt(0.02, 0.1, 0.45, 0.3), Rt(0.0, 0.05, 0.38, 0.3), WL(0.25), WR(0.25), HD(0.08, 0.0), C(0.12), B(0.1), H(0.0, -0.1, 0.0), {"curl": 1.0, "curl_l": 1.0}]))
+	walk_to(s, 57.85, 58.2, s.end_root() + Vector3(0, 0, 0.19), 0.15, 0.15)
+	shuffle(s, -1, 57.85, 58.2, Vector3(0.02, 0, -0.38), 0.07, {"fall": 1.0})
+	s.key(58.3, M([H(0.0, -0.14, -0.06), B(0.14), {"face": "determined"}]))
+	s.key(58.6, M([H(0.0, -0.11, -0.04)]))
+	s.key(59.0, M([H(0.0, -0.13, -0.05), HD(0.12, 0.0)]))
+
+	# --- Ashura : il se retourne en même temps que Simon, se place devant lui, bras tendu.
+	a.key(30.0, M([HD(0.0, -0.04), H(0.0, -0.04, 0.0), {"face": "focus", "curl": 0.8, "curl_l": 0.75}]))
+	a.key(31.5, M([HD(0.0, 0.1)]))
+	a.key(32.4, M([HD(0.02, 0.0), {"face": "surprise"}]))
+	a.key(33.3, M([HD(0.06, 0.55, 0.06), C(0.03, 0.2)]))
+	pivot(a, 33.55, 34.2, PI, "smooth")
+	step_to(a, -1, 33.6, 33.92, Vector3(-0.14, 0, 0.08), 0.06, {"fall": 0.6, "heel": 0.3})
+	step_to(a, 1, 33.82, 34.2, Vector3(0.13, 0, -0.02), 0.06, {"fall": 0.5, "heel": 0.3})
+	a.key(34.3, M([look(a, 34.3, Vector3(0, 30, 84), 0.2, 1.4), H(0.0, -0.06, 0.0), {"face": "fear"}]))
+	a.key(36.4, M([look(a, 36.4, Vector3(0, 32, 84), 0.2, 1.4), {"face": "focus"}]))
+	# 36,8 → 37,6 : un pas vers Simon, en travers de lui, bras droit tendu devant lui.
+	walk_to(a, 36.85, 37.6, a.end_root() + Vector3(-0.5, 0, 0.3), 0.3, 0.3)
+	step_to(a, 1, 36.85, 37.3, Vector3(0.13, 0, -0.02), 0.07, {"fall": 0.8})
+	step_to(a, -1, 37.15, 37.6, Vector3(-0.12, 0, 0.02), 0.06, {"fall": 0.6})
+	a.key(37.0, M([C(0.04, 0.1), hang_r(0.15, 0.1, -0.85)]))
+	a.key(37.5, M([R(0.85, -0.22, 0.3, 0.1), WR(0.0, 0.0, 0.2), C(0.04, 0.18), B(0.0, 0.08), {"curl": 0.25, "face": "determined"}]))
+	a.key(38.05, M([H(0.0, -0.1, 0.06), B(-0.06, 0.08), {"ev": "grunt", "shake": 0.25}]))
+	a.key(38.4, M([H(0.0, -0.07, 0.03), B(0.0, 0.08), {"shake": 0.1}]))
+	a.key(40.6, M([look(a, 40.6, Vector3(0, 40, 84), 0.25, 1.4), R(0.85, -0.25, 0.28, 0.1)]))
+	walk_to(a, 41.25, 42.3, a.end_root() + Vector3(0, 0, -0.3), 0.4, 0.4)
+	shuffle(a, 1, 41.25, 41.7, Vector3(0.0, 0, 0.3), 0.05)
+	shuffle(a, -1, 41.85, 42.3, Vector3(0.0, 0, 0.3), 0.05)
+	a.key(42.7, M([look(a, 42.7, Vector3(-30, 10, 40), 0.3, 1.4), H(0.0, -0.09, 0.0), {"ev": "grunt"}]))
+	a.key(43.55, M([look(a, 43.55, Vector3(29, 10, 40), 0.35, 1.4)]))
+	a.key(44.4, M([look(a, 44.4, Vector3(0, 55, 80), 0.25, 1.4), R(0.7, -0.4, 0.25, 0.1), {"face": "fear"}]))
+	walk_to(a, 44.75, 45.2, a.end_root() + Vector3(0, 0, -0.13), 0.2, 0.2)
+	shuffle(a, 1, 44.75, 45.2, Vector3(0.0, 0, 0.26), 0.05)
+	a.key(45.8, M([look(a, 45.8, Vector3(0, 60, 78), 0.25, 1.4), {"face": "focus"}]))
+	a.key(49.9, M([look(a, 49.9, Vector3(0, 45, 70), 0.25, 1.4), H(0.0, -0.08, 0.0)]))
+	a.key(50.3, M([HD(0.22, 0.0), C(-0.18, 0.0), B(-0.16), H(0.0, -0.1, 0.16), L(0.1, 0.25, 0.42, 0.7), R(0.15, 0.15, 0.4, 0.6), {"shake": 0.7, "ev": "hurt", "face": "pain"}]))
+	walk_to(a, 50.34, 50.95, a.end_root() + Vector3(-0.02, 0, -0.39), 0.05, 0.3)
+	shuffle(a, 1, 50.36, 50.66, Vector3(0.0, 0, 0.42), 0.08, {"fall": 1.2})
+	shuffle(a, -1, 50.6, 50.95, Vector3(-0.05, 0, 0.36), 0.08, {"fall": 1.2})
+	a.key(50.75, M([HD(0.05, -0.05), C(0.1, -0.05), B(0.12), H(0.0, -0.15, 0.0), {"shake": 0.6}]))
+	var brace_a: Dictionary = M([HD(-0.1, -0.06, -0.03), C(0.2, -0.04), B(0.16), H(0.0, -0.13, 0.0), Lt(-0.05, 0.38, 0.46, 0.8), Rt(0.05, 0.48, 0.42, 0.7), WL(0.3), WR(0.3), {"shake": 0.5, "face": "pain", "curl": 0.75, "curl_l": 0.7}])
+	a.key(51.05, brace_a)
+	a.key(51.8, M([HD(-0.12, -0.08, -0.04), {"shake": 0.45}]))
+	# 52,2 : il baisse le bras le premier, se redresse, tourne la tête vers Simon (à sa droite).
+	a.key(52.2, M([Lt(-0.05, 0.36, 0.44, 0.8), HD(-0.06, -0.04), {"face": "hurt"}]))
+	a.key(52.55, M([L(0.15, -0.6, 0.2, 0.15), R(0.15, -0.62, 0.18, 0.15), WL(0.0), WR(0.0), C(0.14, -0.12), B(0.12), HD(0.02, -0.55, -0.04), H(0.0, -0.11, 0.0), {"shake": 0.25, "face": "determined", "curl": 0.9, "curl_l": 0.9}]))
+	a.key(53.6, M([HD(0.0, -0.5, -0.03)]))
+	a.key(54.1, M([HD(0.05, -0.1, 0.0), C(0.14, 0.0), {"shake": 0.15}]))
+	a.key(55.2, M([HD(0.08, -0.05)]))
+	# 56,95 : il serre les poings le long du corps, la lumière jaillit ; il prend sa garde.
+	a.key(56.7, M([L(0.16, -0.62, 0.15, 0.2), R(0.16, -0.62, 0.15, 0.2), {"curl": 1.0, "curl_l": 1.0, "shake": 0.3}]))
+	a.key(56.95, M([L(0.22, -0.66, 0.12, 0.3), R(0.22, -0.66, 0.12, 0.3), C(0.1, 0.0), HD(0.1, 0.0), {"shake": 0.0, "ev": "effort", "face": "angry"}]), "s")
+	a.key(57.75, M([Lt(0.0, -0.05, 0.5, 0.2), Rt(0.15, -0.35, 0.12, 0.3), WL(0.15), WR(0.2), HD(0.1, 0.05), C(0.1, 0.2), B(0.08, 0.15), H(0.0, -0.12, 0.0), {"face": "determined"}]))
+	walk_to(a, 57.8, 58.15, a.end_root() + Vector3(0, 0, 0.16), 0.15, 0.15)
+	shuffle(a, 1, 57.8, 58.15, Vector3(0.05, 0, -0.32), 0.06, {"fall": 1.0})
+	a.key(58.4, M([H(0.0, -0.15, -0.04), B(0.1, 0.2)]))
+	a.key(59.2, M([HD(0.14, 0.04)]))
+
+	# Simon s'accroche à l'avant-bras qu'Ashura tend devant lui (main gauche), puis le lâche au souffle.
+	var arm_a: Vector3 = Vector3(0.85, -0.22, -0.3)
+	var sleeve: Vector3 = hand_world(a, 39.3, 1, arm_a).lerp(shoulder_world(a, 39.3, 1), 0.28)
+	s.key(38.9, M([L(0.3, -0.5, 0.2, 0.3)]))
+	s.key(39.3, M([reach(s, 39.3, -1, sleeve + Vector3(0, -0.02, -0.03), H(0.0, -0.09, 0.07).hips), WL(0.35, 0.0, -0.25), {"curl_l": 0.95}]))
+	var sleeve2: Vector3 = hand_world(a, 42.3, 1, Vector3(0.85, -0.25, -0.28)).lerp(shoulder_world(a, 42.3, 1), 0.28)
+	s.key(42.3, M([reach(s, 42.3, -1, sleeve2 + Vector3(0, -0.02, -0.03), Vector3(0, -0.08, 0.04))]))
+	var sleeve3: Vector3 = hand_world(a, 45.2, 1, Vector3(0.7, -0.4, -0.25)).lerp(shoulder_world(a, 45.2, 1), 0.28)
+	s.key(45.2, M([reach(s, 45.2, -1, sleeve3 + Vector3(0, -0.02, -0.03), Vector3(0, -0.08, 0.04))]))
+	s.key(49.9, M([reach(s, 49.9, -1, sleeve3 + Vector3(0, -0.02, -0.03), Vector3(0, -0.1, 0.06)), {"curl_l": 0.95}]))
+	s.key(50.2, M([{"curl_l": 0.4}]))
+
+
+# Saut : la racine décrit un arc (hauteur `h` au-dessus de la droite entre départ et arrivée).
+static func leap(a: Actor, t0: float, t1: float, to: Vector3, h: float, mode: String = "linear") -> void :
+	var from: Vector3 = a.end_root()
+	if a.root.is_empty() or a.end_time() < t0 - 0.0001: a.go(t0, from)
+	var n: int = maxi(2, ceili((t1 - t0) / (GRID * 0.5)))
+	for k: int in range(1, n + 1):
+		var u: float = float(k) / float(n)
+		var p: Vector3 = from.lerp(to, ease_u(u, mode))
+		p.y = lerpf(from.y, to.y, u) + 4.0 * h * u * (1.0 - u)
+		a.go(t0 + (t1 - t0) * u, p)
+
+
+# Pied libre qui part exactement de son appui : première clé = position du pied posé à `lift`.
+static func air_from(a: Actor, side: int, lift: float, keys: Array, pitch: float = -0.3) -> void :
+	var rows: Array = a.feet[side]
+	var spot: Vector3 = a.last_spot(side)
+	var first: Vector3 = local_of(a, lift, spot)
+	var list: Array = [[lift, first, pitch]]
+	for row: Array in keys:
+		if float(row[0]) > lift + 0.02: list.append(row)
+	a.air(side, list, lift)
+
+
+# Glisse en rollers : les pieds roulent avec le corps (pieds libres, repère du corps). Chaque pied
+# pousse en diagonale vers l'extérieur-arrière puis revient sous la hanche ; le bassin passe sur le
+# pied qui glisse. `period` : durée d'une poussée (un pied).
+static func skate(a: Actor, t0: float, t1: float, first: int, period: float, o: Dictionary = {}) -> void :
+	var width: float = float(o.get("width", 0.11))
+	var push: float = float(o.get("push", 0.36))
+	var lift: float = float(o.get("lift", 0.07))
+	var keys: Dictionary = {-1: [], 1: []}
+	var t: float = t0
+	var k: int = 0
+	var side: int = first
+	while t < t1 - 0.05:
+		var w: float = noise(int(o.get("seed", 21)), k)
+		var p: float = period * (1.0 + 0.06 * w)
+		var x: float = float(side) * width
+		var reach_x: float = float(side) * (width + push * 0.75)
+		# Poussée (pied au sol qui part en diagonale), dégagement, retour sous la hanche.
+		(keys[side] as Array).append([t, Vector3(x, 0.0, 0.02), 0.0])
+		(keys[side] as Array).append([t + p * 0.55, Vector3(reach_x, 0.0, push * 0.9), -0.1])
+		(keys[side] as Array).append([t + p * 0.75, Vector3(reach_x * 0.8, lift, push * 0.6), -0.2])
+		(keys[side] as Array).append([t + p * 1.0, Vector3(x * 1.1, lift * 0.6, -0.04), 0.05])
+		var other: int = - side
+		(keys[other] as Array).append([t, Vector3(float(other) * width * 0.8, 0.0, -0.06), 0.0])
+		(keys[other] as Array).append([t + p * 0.9, Vector3(float(other) * width, 0.0, 0.04), 0.0])
+		t += p
+		k += 1
+		side = - side
+	for one: int in [-1, 1]:
+		var list: Array = keys[one]
+		list.sort_custom( func(x: Array, y: Array) -> bool: return float(x[0]) < float(y[0]))
+		var clean: Array = []
+		for row: Array in list:
+			if not clean.is_empty() and float(row[0]) - float(clean[clean.size() - 1][0]) < 0.02: clean[clean.size() - 1] = row
+			else: clean.append(row)
+		a.air(one, clean)
+
+
+# Acte III (59,45 → 104 s) : charge, griffe (63,2), plongeon, course éclair, saut et flashbang (68,4),
+# rollers et drone (74,6), double coup de poing (79,0), rire, piques, revers (92,9), saisie (99,4).
+static func _act3(s: Actor, a: Actor) -> void :
+	for one: Actor in [s, a]:
+		for t: float in [59.45, 61.9, 65.45, 68.25, 72.9, 77.75, 80.3, 84.6, 89.05, 92.82, 96.5, 99.55]: one.cut(t)
+	var chin: Vector3 = Vector3(-0.37, 13.8, 61.2)
+
+	# --- 59,45 : poses héroïques, puis la charge vers le démon (61,0 → 62,9).
+	s.key(59.45, M([HD(0.16, 0.02), C(0.1, 0.02), B(0.1), H(0.0, -0.13, -0.05), Lt(0.02, 0.12, 0.45, 0.3), Rt(0.0, 0.06, 0.38, 0.3), {"face": "determined", "curl": 1.0, "curl_l": 1.0}]))
+	s.key(60.2, M([H(0.0, -0.11, -0.05), HD(0.18, 0.0)]))
+	s.key(60.6, M([H(0.0, -0.14, -0.06)]))
+	s.key(61.0, M([H(0.0, -0.17, -0.02), B(0.22), C(0.12), {"ev": "effort"}]))
+	a.key(59.45, M([HD(0.16, 0.04), C(0.1, 0.2), B(0.08, 0.15), H(0.0, -0.14, -0.04), Lt(0.0, -0.05, 0.5, 0.2), Rt(0.15, -0.35, 0.12, 0.3), {"face": "determined", "curl": 1.0, "curl_l": 1.0}]))
+	a.key(60.8, M([HD(0.17, 0.0), C(0.12, 0.1), B(0.1, 0.05), H(0.0, -0.16, -0.02)]))
+	walk_to(s, 61.0, 62.92, s.end_root() + Vector3(-0.25, 0, 6.6), 0.9, 0.05)
+	strides(s, 1, 61.25, 0.27, 7, {"stance": 0.42, "width": 0.09, "h": 0.1, "kick": 0.12, "seed": 31, "heel": 0.3})
+	s.key(61.3, M([{"loco": 1.0, "swing": 0.0}, B(0.3), C(0.1), HD(0.22, 0.0), Lt(0.05, 0.05, 0.5, 0.35), Rt(0.02, 0.0, 0.45, 0.35)]))
+	s.key(62.3, M([HD(0.3, 0.05), {"face": "determined"}]))
+	s.key(62.62, M([HD(0.55, 0.1), C(0.0, 0.1), B(0.12), {"face": "surprise"}]))
+	walk_to(a, 61.1, 62.88, a.end_root() + Vector3(0.2, 0, 6.6), 1.0, 0.05)
+	skate(a, 61.15, 62.88, 1, 0.5, {"width": 0.12, "push": 0.34, "seed": 4})
+	a.key(61.3, M([{"loco": 1.0, "swing": 0.0}, B(0.36, 0.0), C(0.1), HD(0.25, 0.0), H(0.0, -0.2, 0.0), Lt(0.1, -0.3, 0.3, 0.3), Rt(0.15, -0.5, -0.1, 0.3)]))
+	a.key(62.6, M([HD(0.55, -0.1), C(0.0, -0.1), {"face": "surprise"}]))
+
+	# --- 62,95 : la griffe arrive. Simon plonge sur sa droite (ralenti 63,2 → 63,9), roule, se relève accroupi.
+	var s0: Vector3 = s.end_root()
+	travel(s, 62.95, 63.2, s0 + Vector3(-1.9, 0.55, -0.25), "out")
+	travel(s, 63.2, 63.9, s0 + Vector3(-3.0, 0.62, -0.38), "linear")
+	travel(s, 63.9, 64.22, s0 + Vector3(-4.05, 0.0, -0.5), "in")
+	travel(s, 64.22, 64.75, s0 + Vector3(-4.85, 0.0, -0.6), "out")
+	s.face(62.95, PI);s.face(63.3, PI - 0.25);s.face(64.2, PI - 0.15);s.face(64.75, PI)
+	air_from(s, -1, 63.0, [[63.2, Vector3(-0.7, 0.18, 0.25), -0.6], [63.9, Vector3(-0.78, 0.22, 0.3), -0.6], [64.12, Vector3(-0.35, 0.12, 0.15), -0.3]])
+	air_from(s, 1, 63.06, [[63.2, Vector3(-0.42, 0.02, 0.1), -0.5], [63.9, Vector3(-0.5, 0.05, 0.12), -0.5], [64.12, Vector3(-0.1, 0.05, 0.05), -0.3]])
+	step_to(s, -1, 64.2, 64.42, Vector3(-0.2, 0, 0.12), 0.08, {"fall": 1.0, "heel": 0.1})
+	step_to(s, 1, 64.3, 64.62, Vector3(0.18, 0, -0.18), 0.08, {"fall": 0.8, "heel": 0.1})
+	s.key(62.95, M([H(0.0, -0.22, 0.0), B(0.25, 0.0, 0.2), C(0.1, 0.0, 0.1), HD(0.3, 0.2, 0.0), {"ev": "effort", "loco": 0.0, "face": "angry"}]))
+	s.key(63.15, M([H(0.0, -0.35, 0.0), B(0.45, 0.0, -1.05), C(0.1, 0.0, -0.25), HD(0.25, -0.5, 0.35), R(0.85, -0.25, 0.25, 0.4), L(0.25, 0.6, 0.35, 0.5), {"curl": 0.4, "curl_l": 0.3}]))
+	s.key(63.6, M([B(0.42, 0.0, -1.18), HD(0.2, -0.65, 0.4), C(0.12, -0.05, -0.3)]))
+	s.key(63.9, M([H(0.0, -0.4, 0.0), B(0.4, 0.0, -1.25), R(0.9, -0.45, 0.3, 0.4), L(0.3, 0.45, 0.4, 0.5)]))
+	s.key(64.05, M([H(0.0, -0.55, 0.0), B(0.6, 0.0, -0.85), C(0.3, 0.0, -0.2), HD(-0.05, -0.35, 0.2), Rg(0.55, 0.15), Lg(0.35, 0.45), {"gsnap": 1.0, "ev": "grunt"}]))
+	s.key(64.25, M([H(0.0, -0.5, 0.0), B(0.5, 0.0, -0.3), C(0.2, 0.0, 0.0), HD(0.1, -0.1, 0.0), Rg(0.4, 0.35), L(0.4, -0.4, 0.4, 0.3), {"gsnap": 0.0}]))
+	s.key(64.6, M([H(0.0, -0.42, 0.05), B(0.3), C(0.12), HD(0.3, 0.05), R(0.25, -0.75, 0.5, 0.2), Lt(0.05, -0.05, 0.42, 0.3), {"face": "determined", "curl": 0.6, "curl_l": 1.0}]))
+	s.key(65.1, M([H(0.0, -0.4, 0.06), HD(0.32, -0.05), {"curl": 1.0}]))
+	s.key(65.38, M([H(0.0, -0.46, 0.1), B(0.45), C(0.2), HD(0.2, 0.0), R(0.2, -0.6, -0.2, 0.3), L(0.2, -0.6, -0.2, 0.3), {"ev": "effort", "face": "angry"}]))
+	# Ashura : poussée latérale sur les rollers, glisse, dérapage d'arrêt face à la griffe.
+	var a0: Vector3 = a.end_root()
+	travel_curve(a, 62.9, 63.9, a0 + Vector3(2.6, 0, 0.6), a0 + Vector3(3.9, 0, 0.2), "out")
+	travel(a, 63.9, 64.7, a0 + Vector3(4.7, 0, -0.5), "out")
+	a.face(62.9, PI);a.face(63.3, PI + 0.5);a.face(64.7, PI + 0.15);a.aim(63.3, PI + 0.4);a.aim(64.7, PI)
+	a.air(-1, [[62.9, Vector3(-0.12, 0, 0.0), 0.0], [63.1, Vector3(-0.16, 0, -0.08), 0.0], [63.9, Vector3(-0.2, 0, -0.12), 0.0], [64.4, Vector3(-0.3, 0, -0.2), 0.0], [64.7, Vector3(-0.3, 0, -0.2), 0.0]])
+	a.air(1, [[62.9, Vector3(0.12, 0, 0.0), 0.0], [63.1, Vector3(0.45, 0, 0.3), -0.1], [63.25, Vector3(0.42, 0.12, 0.22), -0.2], [63.9, Vector3(0.3, 0.1, 0.1), 0.0], [64.15, Vector3(0.28, 0, 0.12), 0.0], [64.7, Vector3(0.28, 0, 0.12), 0.0]])
+	a.key(62.9, M([H(0.0, -0.26, 0.0), B(0.45, 0.4, -0.15), C(0.1, 0.1), HD(0.35, -0.3), Lt(0.2, -0.2, 0.4, 0.3), R(0.5, -0.5, -0.3, 0.3), {"face": "angry", "ev": "effort"}]))
+	a.key(63.5, M([H(0.0, -0.32, 0.0), B(0.5, 0.45, -0.2), HD(0.3, -0.6)]))
+	a.key(64.2, M([H(0.0, -0.36, 0.0), B(0.3, 0.2, 0.25), C(0.1, -0.2), HD(0.25, -0.4), {"fx": "skid"}]))
+	a.key(64.7, M([H(0.0, -0.3, 0.0), B(0.2, 0.0, 0.0), C(0.1, 0.0), HD(0.3, -0.1), Lt(0.0, -0.05, 0.5, 0.2), Rt(0.15, -0.35, 0.12, 0.3), {"face": "determined"}]))
+
+	# --- 65,45 → 68,3 : course éclair (buste plongé, bras tendus en arrière, foulées immenses).
+	var start: Vector3 = s.end_root()
+	var run_to: Vector3 = Vector3(-3.5, 0, 14.0)
+	walk_to(s, 65.45, 68.28, run_to, 0.55, 0.0)
+	step_to(s, 1, 65.42, 65.6, Vector3(0.1, 0, -0.35), 0.08, {"fall": 1.2, "heel": 0.0})
+	step_to(s, -1, 65.52, 65.76, Vector3(-0.1, 0, -0.55), 0.12, {"fall": 1.2, "heel": 0.0, "kick": 0.1})
+	strides(s, 1, 65.95, 0.19, 12, {"stance": 0.33, "width": 0.07, "h": 0.16, "kick": 0.32, "seed": 41, "heel": 0.0, "land": 0.0, "fall": 1.4})
+	s.key(65.45, M([{"loco": 0.6, "swing": 0.0}, H(0.0, -0.3, 0.12), B(0.62), C(0.18), HD(-0.05, 0.0), R(0.25, -0.55, -0.55, 0.2), L(0.25, -0.5, -0.5, 0.2), {"face": "angry"}]))
+	s.key(65.9, M([H(0.0, -0.18, 0.18), B(0.78), C(0.2), HD(-0.42, 0.0), R(0.22, -0.32, -0.92, 0.0), L(0.22, -0.3, -0.92, 0.0), WR(-0.5), WL(-0.5), {"curl": 0.2, "curl_l": 0.2, "loco": 0.8}]))
+	s.key(67.6, M([HD(-0.38, 0.05), {"face": "determined"}]))
+	# 68,0 : appel ; 68,3 → 69,4 : saut, armé, lancer de la flashbang vers l'œil (68,6).
+	s.key(67.95, M([B(0.6), HD(-0.1, 0.0), R(0.25, -0.45, -0.6, 0.2), {"prop": "flash", "curl": 0.75}]))
+	s.key(68.18, M([H(0.0, -0.28, 0.05), B(0.35), C(0.0), HD(0.25, 0.0), R(0.35, -0.2, -0.45, 0.3), L(0.3, 0.1, 0.4, 0.4), {"loco": 0.0, "ev": "effort"}]))
+	leap(s, 68.3, 69.38, Vector3(-3.0, 0, 20.5), 3.4, "linear")
+	air_from(s, -1, 68.3, [[68.5, Vector3(-0.12, 0.28, 0.25), -0.5], [68.95, Vector3(-0.14, 0.36, 0.1), -0.3], [69.3, Vector3(-0.13, 0.05, -0.1), 0.15]], -0.7)
+	air_from(s, 1, 68.0, [[68.2, Vector3(0.12, 0.3, -0.1), -0.2], [68.5, Vector3(0.12, 0.45, -0.18), -0.2], [68.95, Vector3(0.14, 0.3, -0.05), 0.0], [69.3, Vector3(0.13, 0.06, 0.05), 0.15]], -0.6)
+	step_to(s, -1, 69.3, 69.38, Vector3(-0.13, 0, -0.08), 0.02, {"fall": 1.5, "heel": 0.2})
+	step_to(s, 1, 69.32, 69.42, Vector3(0.14, 0, 0.12), 0.02, {"fall": 1.2, "heel": 0.2})
+	s.key(68.35, M([H(0.0, -0.05, 0.0), B(-0.15), C(-0.22, 0.2), HD(0.4, -0.15), R(0.55, 0.45, -0.35, 0.6), WR(-0.6), L(0.35, 0.3, 0.55, 0.4), {"face": "angry"}]))
+	s.key(68.56, M([C(-0.3, 0.3), B(-0.2, 0.15), R(0.4, 0.7, -0.2, 0.7), WR(-0.8)]))
+	s.key(68.64, M([C(0.25, -0.3), B(0.05, -0.15), HD(0.35, 0.05), R(0.05, 0.4, 0.85, 0.3), WR(0.4), L(0.4, -0.2, -0.2, 0.3), {"prop": "", "curl": 0.1, "ev": "effort"}]))
+	s.key(68.85, M([C(0.15, -0.15), B(0.1, -0.05), R(0.2, -0.1, 0.55, 0.2), WR(0.1), {"curl": 0.6}]))
+	s.key(69.25, M([B(0.2), C(0.1), HD(0.15, 0.0), R(0.4, 0.0, 0.3, 0.4), L(0.45, 0.05, 0.3, 0.4)]))
+	s.key(69.45, M([H(0.0, -0.38, 0.0), B(0.42), C(0.22), HD(-0.05, 0.0), Rg(0.35, 0.3), L(0.5, -0.2, 0.2, 0.4), {"sq": 0.94, "ev": "grunt"}]))
+	s.key(69.7, M([H(0.0, -0.42, 0.04), B(0.38), C(0.15), HD(0.25, 0.0), Rg(0.35, 0.3), {"sq": 1.0}]))
+	s.key(70.3, M([H(0.0, -0.32, 0.03), B(0.25), HD(0.35, 0.05), R(0.2, -0.6, 0.35, 0.2), {"face": "determined"}]))
+	s.key(70.9, M([H(0.0, -0.08, 0.0), B(0.08), C(0.05), HD(0.3, -0.1), L(0.18, -0.65, 0.25, 0.2), R(0.18, -0.65, 0.25, 0.2), {"curl": 1.0, "curl_l": 1.0}]))
+	s.key(72.0, M([HD(0.32, -0.3), C(0.06, -0.15)]))
+	s.key(73.5, M([HD(0.3, -0.55), C(0.06, -0.25)]))
+	# 75,1 : « Il recule ! » — poing serré qui monte, rire nerveux.
+	s.key(74.8, M([HD(0.32, -0.2), C(0.06, -0.08), {"face": "surprise"}]))
+	s.key(75.25, M([HD(0.4, 0.05), C(-0.05, 0.0), B(-0.04), R(0.15, 0.2, 0.3, 0.6), WR(0.3), {"face": "grin", "ev": "effort"}]))
+	s.key(75.55, M([R(0.18, 0.5, 0.25, 0.7)]))
+	s.key(75.8, M([R(0.16, 0.12, 0.32, 0.6), HD(0.3, -0.25)]))
+	s.key(76.2, M([R(0.18, 0.45, 0.25, 0.7), HD(0.25, -0.45), C(0.0, -0.15), {"face": "grin"}]))
+	s.key(76.8, M([R(0.2, -0.35, 0.3, 0.3), HD(0.2, -0.5), {"face": "determined"}]))
+	s.key(77.2, M([HD(0.25, -0.35), C(0.08, -0.1), H(0.0, -0.1, 0.0), {"face": "angry"}]))
+	# 77,3 : course, appel à 77,9, saut immense jusqu'au menton : coup de poing droit (79,0).
+	s.key(77.32, M([H(0.0, -0.28, 0.1), B(0.5), C(0.15), HD(0.1, 0.0), R(0.3, -0.5, -0.5, 0.2), L(0.3, -0.5, 0.35, 0.3), {"loco": 0.6, "ev": "effort"}]))
+	walk_to(s, 77.3, 77.85, Vector3(-1.8, 0, 25.0), 0.15, 0.0)
+	step_to(s, 1, 77.3, 77.48, Vector3(0.1, 0, -0.4), 0.1, {"fall": 1.3, "heel": 0.0})
+	step_to(s, -1, 77.42, 77.62, Vector3(-0.1, 0, -0.5), 0.14, {"fall": 1.3, "heel": 0.0, "kick": 0.12})
+	step_to(s, 1, 77.58, 77.8, Vector3(0.1, 0, -0.3), 0.12, {"fall": 1.6, "heel": 0.0})
+	s.key(77.78, M([H(0.0, -0.36, 0.05), B(0.4), C(0.1), HD(0.45, 0.0), R(0.35, -0.4, -0.45, 0.3), L(0.3, -0.4, -0.4, 0.3), {"loco": 0.0}]))
+	leap(s, 77.9, 79.0, chin + Vector3(-0.6, -1.35, -0.9), 3.0, "out")
+	air_from(s, -1, 77.84, [[78.1, Vector3(-0.12, 0.25, 0.35), -0.6], [78.7, Vector3(-0.14, 0.4, 0.2), -0.4], [79.0, Vector3(-0.14, 0.32, 0.25), -0.5]], -0.6)
+	air_from(s, 1, 77.9, [[78.1, Vector3(0.12, 0.1, 0.45), -0.7], [78.7, Vector3(0.14, 0.15, 0.55), -0.7], [79.0, Vector3(0.14, 0.05, 0.6), -0.7]], -0.6)
+	s.key(77.95, M([H(0.0, -0.05, 0.0), B(0.1), C(-0.1), HD(0.55, 0.0), R(0.4, -0.2, -0.5, 0.3), L(0.35, 0.3, 0.4, 0.4), {"face": "angry", "ev": "effort"}]))
+	s.key(78.55, M([B(-0.05, -0.2), C(-0.15, -0.35), HD(0.5, 0.25), R(0.55, 0.25, -0.45, 0.6), WR(-0.3), L(0.25, 0.45, 0.55, 0.4), {"curl": 1.0}]))
+	s.key(78.82, M([B(-0.1, -0.35), C(-0.2, -0.5), HD(0.45, 0.35), R(0.6, 0.35, -0.55, 0.7)]))
+	s.key(79.0, M([B(0.15, 0.25), C(0.1, 0.45), HD(0.4, -0.2), R(-0.05, 0.62, 0.72, 0.2), WR(0.1), L(0.55, -0.1, -0.35, 0.4), {"ev": "roar", "sq": 0.96}]), "s")
+	s.key(80.2, M([B(0.25, 0.32), C(0.18, 0.55), HD(0.35, -0.25), R(-0.08, 0.66, 0.78, 0.2), {"sq": 1.0}]))
+	# Rebond sur la mâchoire : chute en arrière, réception en trois appuis (81,6), se relève.
+	leap(s, 80.2, 81.6, Vector3(-2.5, 0, 40.0), 2.5, "out")
+	s.air(-1, [[80.2, Vector3(-0.14, 0.32, 0.25), -0.5], [80.7, Vector3(-0.2, 0.45, -0.25), -0.2], [81.4, Vector3(-0.16, 0.15, -0.2), 0.1]])
+	s.air(1, [[80.2, Vector3(0.14, 0.05, 0.6), -0.7], [80.7, Vector3(0.2, 0.35, -0.1), -0.2], [81.4, Vector3(0.16, 0.12, 0.05), 0.1]])
+	step_to(s, -1, 81.45, 81.6, Vector3(-0.2, 0, -0.3), 0.03, {"fall": 1.6, "heel": 0.0})
+	step_to(s, 1, 81.48, 81.62, Vector3(0.18, 0, 0.35), 0.03, {"fall": 1.2, "heel": 0.0})
+	s.face(80.2, PI);s.face(81.0, PI + 0.2);s.face(81.6, PI)
+	s.key(80.45, M([B(-0.6, 0.1), C(-0.3, 0.2), HD(0.2, -0.1), R(0.5, 0.4, 0.2, 0.5), L(0.6, 0.3, 0.1, 0.5), {"face": "pain", "ev": "hurt"}]))
+	s.key(81.0, M([B(-0.2, 0.0), C(0.1), HD(-0.1, 0.0), R(0.4, -0.2, 0.3, 0.4), L(0.45, -0.1, 0.25, 0.4), {"face": "determined"}]))
+	s.key(81.6, M([H(0.0, -0.5, 0.1), B(0.45), C(0.25), HD(-0.1, 0.0), Rg(0.3, 0.35), L(0.55, -0.3, -0.1, 0.4), {"sq": 0.92, "fx": "dust_ring", "ev": "grunt"}]))
+	s.key(81.85, M([H(0.0, -0.52, 0.1), HD(0.15, 0.0), {"sq": 1.0}]))
+	s.key(82.3, M([H(0.0, -0.3, 0.05), B(0.25), C(0.1), HD(0.4, 0.0), R(0.25, -0.6, 0.3, 0.2), {"face": "surprise"}]))
+	s.key(82.9, M([H(0.0, -0.1, 0.0), B(0.06), C(0.04), HD(0.5, 0.05), L(0.2, -0.6, 0.25, 0.2), R(0.2, -0.6, 0.25, 0.2), {"curl": 0.9, "curl_l": 0.9}]))
+
+	# --- Ashura : il regarde Simon foncer, puis s'élance en rollers (71,0), drone (74,55), rejoint Simon.
+	a.key(65.6, M([HD(0.25, 0.4), C(0.08, 0.15)]))
+	a.key(68.3, M([HD(0.35, 0.25)]))
+	a.key(69.5, M([HD(0.3, 0.1), {"face": "focus"}]))
+	a.key(70.5, M([H(0.0, -0.32, 0.0), B(0.3), C(0.1), HD(0.15, 0.0), {"ev": "effort"}]))
+	var b0: Vector3 = a.end_root()
+	walk_to(a, 70.8, 74.6, Vector3(8.0, 0, 12.0), 1.0, 0.3)
+	a.face(70.8, PI);a.face(71.6, angle_to(b0, Vector3(8.0, 0, 12.0)));a.aim(71.6, angle_to(b0, Vector3(8.0, 0, 12.0)))
+	skate(a, 70.85, 74.4, -1, 0.56, {"width": 0.12, "push": 0.38, "seed": 8})
+	a.key(71.0, M([{"loco": 1.0}, H(0.0, -0.24, 0.0), B(0.42), C(0.12), HD(0.15, 0.0), L(0.35, -0.55, -0.25, 0.3), Rt(0.15, -0.4, 0.25, 0.3), {"face": "determined"}]))
+	a.key(72.5, M([L(0.4, -0.5, 0.2, 0.3), Rt(0.1, -0.45, -0.2, 0.3)]))
+	a.key(73.3, M([L(0.35, -0.55, -0.25, 0.3), Rt(0.15, -0.4, 0.25, 0.3)]))
+	# Lancer du drone (main droite, par-dessus l'épaule), le drone part vers les dents à 74,7.
+	a.key(74.1, M([HD(0.4, 0.0), C(0.0, -0.2), B(0.25, -0.1), R(0.5, 0.35, -0.35, 0.6), WR(-0.5), L(0.35, 0.1, 0.45, 0.3), {"curl": 0.65, "loco": 0.4}]))
+	a.key(74.45, M([C(-0.15, -0.35), B(0.1, -0.2), R(0.45, 0.65, -0.25, 0.7), WR(-0.8), HD(0.45, 0.1)]))
+	a.key(74.7, M([C(0.25, 0.3), B(0.3, 0.15), R(0.0, 0.45, 0.85, 0.3), WR(0.4), L(0.4, -0.3, -0.3, 0.3), HD(0.4, -0.05), {"curl": 0.15, "ev": "effort"}]))
+	a.key(75.1, M([C(0.12, 0.1), B(0.2, 0.0), R(0.2, -0.3, 0.4, 0.2), WR(0.0), HD(0.45, 0.0), {"curl": 0.8, "face": "focus", "loco": 1.0}]))
+	var c0: Vector3 = Vector3(8.0, 0, 12.0)
+	travel_curve(a, 74.6, 77.25, Vector3(6.5, 0, 19.5), Vector3(2.4, 0, 21.8), "smooth")
+	a.face(74.6, angle_to(b0, c0));a.face(77.2, PI);a.aim(76.0, (angle_to(b0, c0) + PI) * 0.5);a.aim(77.2, PI)
+	skate(a, 74.75, 77.15, 1, 0.62, {"width": 0.12, "push": 0.3, "seed": 12})
+	a.key(76.2, M([HD(0.4, 0.3), C(0.1, 0.15), {"face": "determined"}]))
+	# 77,2 : « Ensemble ! Vise la mâchoire ! » — 77,3 élan, 77,9 saut, coup du gauche (79,0).
+	a.key(77.15, M([HD(0.35, 0.4), C(0.05, 0.2), Lt(0.1, 0.2, 0.4, 0.4), {"face": "angry", "ev": "effort"}]))
+	walk_to(a, 77.3, 77.85, Vector3(2.0, 0, 25.0), 0.1, 0.0)
+	a.key(77.4, M([H(0.0, -0.3, 0.08), B(0.48), C(0.1), HD(0.15, 0.0), L(0.3, -0.5, -0.45, 0.2), R(0.35, -0.5, 0.35, 0.3), {"loco": 0.3}]))
+	a.key(77.78, M([H(0.0, -0.38, 0.05), B(0.42), HD(0.45, 0.0), L(0.35, -0.4, -0.45, 0.3), R(0.3, -0.4, -0.4, 0.3), {"loco": 0.0}]))
+	leap(a, 77.88, 79.0, chin + Vector3(0.6, -1.4, -0.9), 3.1, "out")
+	a.air(-1, [[77.8, Vector3(-0.12, 0.0, -0.05), -0.5], [78.1, Vector3(-0.14, 0.1, 0.4), -0.6], [78.7, Vector3(-0.16, 0.12, 0.5), -0.6], [79.0, Vector3(-0.16, 0.05, 0.55), -0.6]])
+	a.air(1, [[77.86, Vector3(0.12, 0.0, 0.05), -0.5], [78.1, Vector3(0.14, 0.28, 0.3), -0.5], [78.7, Vector3(0.16, 0.42, 0.15), -0.4], [79.0, Vector3(0.16, 0.35, 0.2), -0.5]])
+	a.key(77.95, M([H(0.0, -0.05, 0.0), B(0.1), C(-0.1), HD(0.55, 0.0), L(0.4, -0.2, -0.5, 0.3), R(0.35, 0.3, 0.4, 0.4), {"face": "angry"}]))
+	a.key(78.55, M([B(-0.05, 0.2), C(-0.15, 0.35), HD(0.5, -0.25), L(0.55, 0.25, -0.45, 0.6), WL(-0.3), R(0.25, 0.45, 0.55, 0.4), {"curl_l": 1.0, "curl": 1.0}]))
+	a.key(78.84, M([B(-0.1, 0.35), C(-0.2, 0.5), HD(0.45, -0.35), L(0.6, 0.35, -0.55, 0.7)]))
+	a.key(79.0, M([B(0.15, -0.25), C(0.1, -0.45), HD(0.4, 0.2), L(-0.05, 0.62, 0.72, 0.2), WL(0.1), R(0.55, -0.1, -0.35, 0.4), {"ev": "roar", "sq": 0.96}]), "s")
+	a.key(80.2, M([B(0.25, -0.32), C(0.18, -0.55), HD(0.35, 0.25), L(-0.08, 0.66, 0.78, 0.2), {"sq": 1.0}]))
+	leap(a, 80.2, 81.62, Vector3(2.5, 0, 40.5), 2.4, "out")
+	a.air(-1, [[80.2, Vector3(-0.16, 0.05, 0.55), -0.6], [80.7, Vector3(-0.2, 0.35, -0.1), -0.2], [81.45, Vector3(-0.16, 0.12, 0.05), 0.1]])
+	a.air(1, [[80.2, Vector3(0.16, 0.35, 0.2), -0.5], [80.7, Vector3(0.2, 0.45, -0.25), -0.2], [81.45, Vector3(0.16, 0.15, -0.2), 0.1]])
+	step_to(a, 1, 81.5, 81.62, Vector3(0.22, 0, -0.32), 0.03, {"fall": 1.6, "heel": 0.0})
+	step_to(a, -1, 81.52, 81.66, Vector3(-0.2, 0, 0.35), 0.03, {"fall": 1.2, "heel": 0.0})
+	a.key(80.45, M([B(-0.6, -0.1), C(-0.3, -0.2), HD(0.2, 0.1), R(0.6, 0.3, 0.1, 0.5), L(0.5, 0.4, 0.2, 0.5), {"face": "pain", "ev": "hurt"}]))
+	a.key(81.0, M([B(-0.2, 0.0), C(0.1), HD(-0.1, 0.0), R(0.45, -0.1, 0.25, 0.4), L(0.4, -0.2, 0.3, 0.4), {"face": "determined"}]))
+	a.key(81.62, M([H(0.0, -0.48, 0.1), B(0.42), C(0.22), HD(-0.08, 0.0), Lg(0.3, 0.35), R(0.55, -0.3, -0.1, 0.4), {"sq": 0.92, "fx": "dust_ring", "ev": "grunt"}]))
+	a.key(81.9, M([H(0.0, -0.5, 0.1), HD(0.15, 0.0), {"sq": 1.0}]))
+	a.key(82.4, M([H(0.0, -0.28, 0.05), B(0.22), C(0.1), HD(0.4, 0.0), L(0.25, -0.6, 0.3, 0.2), {"face": "surprise"}]))
+	a.key(83.0, M([H(0.0, -0.1, 0.0), B(0.05), C(0.04), HD(0.5, -0.05), L(0.2, -0.6, 0.22, 0.2), R(0.2, -0.6, 0.22, 0.2), {"curl": 0.9, "curl_l": 0.9}]))
+
+	# --- 83 → 89 : le rire. Ils se redressent, la peur revient, un pas en arrière.
+	s.key(83.6, M([HD(0.5, 0.0), {"face": "surprise"}]))
+	s.key(84.5, M([HD(0.45, 0.05), C(0.06), H(0.0, -0.06, 0.04), {"face": "fear", "shake": 0.2}]))
+	walk_to(s, 84.7, 85.2, s.end_root() + Vector3(0, 0, -0.15), 0.2, 0.2)
+	shuffle(s, 1, 84.7, 85.15, Vector3(0.02, 0, 0.3), 0.05)
+	s.key(86.4, M([HD(0.42, 0.1), {"shake": 0.3}]))
+	a.key(83.6, M([HD(0.5, 0.0), {"face": "surprise"}]))
+	a.key(84.6, M([HD(0.46, -0.05), C(0.06), H(0.0, -0.08, 0.03), {"face": "fear"}]))
+	walk_to(a, 84.9, 85.4, a.end_root() + Vector3(0, 0, -0.14), 0.2, 0.2)
+	shuffle(a, -1, 84.9, 85.35, Vector3(-0.02, 0, 0.28), 0.05)
+	a.key(86.6, M([HD(0.44, -0.08), {"face": "focus"}]))
+	# 87,3 : « Votre petite lumière… » — la lumière vacille, ils serrent les poings, regardent les yeux.
+	s.key(87.6, M([HD(0.48, 0.0), C(0.1), H(0.0, -0.12, 0.0), Lt(0.02, 0.1, 0.45, 0.3), Rt(0.0, 0.05, 0.38, 0.3), {"face": "determined", "curl": 1.0, "curl_l": 1.0, "shake": 0.25}]))
+	s.key(88.6, M([HD(0.5, 0.05), {"face": "fear"}]))
+	a.key(87.7, M([HD(0.48, 0.0), C(0.1, 0.2), H(0.0, -0.13, 0.0), Lt(0.0, -0.05, 0.5, 0.2), Rt(0.15, -0.35, 0.12, 0.3), {"face": "determined", "curl": 1.0, "curl_l": 1.0}]))
+	# 89,2 → 89,9 : les piques jaillissent autour d'eux ; sursauts, ils se resserrent épaule contre épaule.
+	var spike1: Vector3 = Vector3(-6.0, 0, 36.0)
+	var spike2: Vector3 = Vector3(6.5, 0, 37.0)
+	var spike3: Vector3 = Vector3(-4.0, 0, 46.5)
+	var spike4: Vector3 = Vector3(5.0, 0, 45.5)
+	s.key(89.18, M([HD(0.4, 0.0)]))
+	s.key(89.3, M([look(s, 89.3, spike1 + Vector3(0, 3, 0), 0.4, 1.4), B(0.0, 0.0, 0.12), H(0.05, -0.1, 0.0), {"ev": "gasp", "face": "panic", "shake": 0.5}]))
+	walk_to(s, 89.25, 90.4, s.end_root() + Vector3(1.4, 0, 0.1), 0.25, 0.4)
+	step_to(s, -1, 89.28, 89.55, Vector3(-0.12, 0, 0.0), 0.06, {"fall": 1.0})
+	step_to(s, 1, 89.5, 89.85, Vector3(0.12, 0, 0.05), 0.06, {"fall": 0.8})
+	step_to(s, -1, 89.95, 90.38, Vector3(-0.14, 0, -0.04), 0.05, {"fall": 0.7})
+	s.key(89.75, M([look(s, 89.75, spike3 + Vector3(0, 3, 0), 0.35, 1.4), {"ev": "gasp"}]))
+	s.key(90.4, M([HD(0.3, 0.3), C(0.08, 0.1), H(0.0, -0.14, 0.0), {"shake": 0.35}]))
+	s.key(91.2, M([HD(0.32, 0.55), C(0.08, 0.3)]))
+	s.key(91.9, M([HD(0.25, 0.75), C(0.06, 0.45), {"face": "fear"}]))
+	a.key(89.25, M([HD(0.42, 0.1), {"shake": 0.2}]))
+	a.key(89.52, M([look(a, 89.52, spike2 + Vector3(0, 3, 0), 0.4, 1.4), B(0.0, 0.0, -0.12), H(-0.05, -0.12, 0.0), {"ev": "grunt", "face": "fear"}]))
+	walk_to(a, 89.5, 90.5, a.end_root() + Vector3(-1.4, 0, 0.0), 0.25, 0.4)
+	step_to(a, 1, 89.52, 89.82, Vector3(0.13, 0, 0.0), 0.06, {"fall": 1.0})
+	step_to(a, -1, 89.75, 90.12, Vector3(-0.12, 0, 0.03), 0.06, {"fall": 0.8})
+	step_to(a, 1, 90.1, 90.5, Vector3(0.14, 0, -0.03), 0.05, {"fall": 0.7})
+	a.key(89.95, M([look(a, 89.95, spike4 + Vector3(0, 3, 0), 0.35, 1.4)]))
+	a.key(90.5, M([HD(0.3, -0.35), C(0.08, -0.12), H(0.0, -0.15, 0.0), {"face": "determined"}]))
+	a.key(91.3, M([HD(0.32, -0.6), C(0.08, -0.3)]))
+	a.key(92.0, M([HD(0.3, -0.2), C(0.08, -0.1)]))
+	# 92,3 : la main arrive par la gauche du film (côté de Simon) ; il fait un pas vers elle, poing armé…
+	s.key(92.35, M([HD(0.2, 0.95), C(0.06, 0.55), B(0.0, 0.25), {"face": "panic", "ev": "gasp"}]))
+	s.key(92.6, M([HD(0.15, 1.05), C(0.12, 0.6), B(0.1, 0.35), H(0.0, -0.16, 0.0), R(0.4, 0.1, -0.35, 0.6), Lt(0.1, 0.1, 0.45, 0.3), {"face": "angry", "ev": "effort"}]))
+	# 92,9 : le revers. Choc (ralenti 92,9 → 93,4), Simon plié, projeté au loin, retombe et glisse.
+	var hit: Vector3 = s.end_root()
+	s.key(92.9, M([HD(-0.35, 0.6, -0.5), C(0.45, 0.3, -0.4), B(0.25, 0.2, -0.6), H(0.0, -0.08, 0.0), R(0.6, 0.35, 0.25, 0.7), L(0.5, 0.3, 0.45, 0.6), {"face": "pain", "ev": "hurt", "sq": 0.9, "curl": 0.3, "curl_l": 0.3}]), "s")
+	s.key(93.2, M([HD(-0.45, 0.4, -0.6), C(0.5, 0.2, -0.5), B(0.3, 0.1, -0.85), {"sq": 1.0}]))
+	travel(s, 92.9, 93.4, hit + Vector3(0.9, 0.35, -0.6), "linear")
+	leap(s, 93.4, 93.85, Vector3(9.0, 0, 28.5), 1.6, "out")
+	air_from(s, -1, 92.92, [[93.2, Vector3(-0.2, 0.3, 0.3), -0.4], [93.6, Vector3(-0.35, 0.6, -0.1), -0.2], [93.85, Vector3(-0.4, 0.3, -0.3), 0.0]], -0.4)
+	air_from(s, 1, 92.92, [[93.2, Vector3(0.1, 0.1, 0.4), -0.4], [93.6, Vector3(0.2, 0.7, 0.2), -0.2], [93.85, Vector3(0.1, 0.35, -0.2), 0.0]], -0.4)
+	s.face(92.9, yaw_at(s, 92.9));s.face(93.4, yaw_at(s, 92.9) - 0.6);s.face(93.85, yaw_at(s, 92.9) - 1.5)
+	s.key(93.55, M([HD(0.3, 0.2, 0.4), C(-0.3, 0.0, 0.4), B(-0.9, 0.0, -1.2), R(0.8, 0.5, 0.1, 0.6), L(0.85, 0.4, -0.1, 0.6), {"ev": "hurt"}]))
+	s.key(93.85, M([HD(0.15, -0.2, 0.3), C(0.1, 0.0, 0.2), B(-1.3, 0.0, -0.4), H(0.0, -0.55, 0.0), Rg(0.7, 0.1), Lg(0.75, -0.2), {"gsnap": 1.0, "fx": "dust_ring", "ev": "grunt"}]))
+	travel(s, 93.85, 94.6, Vector3(11.5, 0, 26.0), "out")
+	s.face(94.6, yaw_at(s, 92.9) - 1.75, "out")
+	s.aim(93.4, yaw_at(s, 92.9) - 0.8);s.aim(94.6, yaw_at(s, 92.9) - 1.75)
+	s.air(-1, [[94.0, Vector3(-0.45, 0.2, -0.3), 0.0], [94.6, Vector3(-0.42, 0.18, -0.55), 0.1]])
+	s.air(1, [[94.0, Vector3(0.1, 0.25, -0.35), 0.0], [94.6, Vector3(0.18, 0.2, -0.6), 0.1]])
+	s.key(94.2, M([B(-1.45, 0.0, -0.25), C(0.05, 0.0, 0.1), HD(0.25, -0.1, 0.2), {"face": "dazed", "fx": "skid"}]))
+	# Au sol (94,6 → 104) : sonné, il se tourne, s'appuie sur un coude, cherche Ashura, tend la main.
+	var lie: Dictionary = M([H(0.0, -0.62, 0.0), B(-1.5, 0.0, -0.2), C(0.05, 0.0, 0.05), HD(0.15, -0.15, 0.25), Rg(0.75, 0.05), Lg(0.7, -0.25), {"gsnap": 1.0, "curl": 0.25, "curl_l": 0.3, "face": "dazed"}])
+	s.key(94.7, lie)
+	s.key(96.0, M([HD(0.2, -0.2, 0.25), {"ev": "hurt", "face": "pain"}]))
+	s.key(97.2, M([HD(0.35, 0.15, 0.1), C(0.2, 0.1, 0.1), B(-1.2, 0.0, -0.35), Lg(0.55, 0.1), {"face": "hurt"}]))
+	s.key(98.4, M([HD(0.4, 0.35, 0.05), B(-1.05, 0.1, -0.45), C(0.3, 0.2, 0.1), {"ev": "gasp", "face": "fear"}]))
+	s.key(99.5, M([HD(0.55, 0.5, 0.0), C(0.35, 0.25, 0.1), B(-0.95, 0.15, -0.5), Lg(0.5, 0.15), {"face": "panic"}]))
+	s.key(101.0, M([HD(0.6, 0.55, 0.0), B(-0.85, 0.18, -0.55), C(0.4, 0.3, 0.1), {"face": "panic"}]))
+	s.key(102.6, M([R(0.35, 0.55, 0.55, 0.3), WR(-0.2), {"curl": 0.2, "gr_r": 0.0}]))
+	s.key(103.8, M([R(0.32, 0.62, 0.62, 0.3), HD(0.65, 0.55, 0.0), {"face": "pain"}]))
+	# --- Ashura : il se baisse sous la main, cherche Simon des yeux, crie, charge ses rollers et fonce.
+	s.cut(94.6)
+	a.key(92.75, M([HD(0.35, 0.3), {"face": "surprise"}]))
+	a.key(92.95, M([H(0.0, -0.32, 0.0), B(0.35, 0.0, 0.1), C(0.2), HD(-0.1, 0.4), Lt(0.2, 0.3, 0.35, 0.6), Rt(0.15, 0.35, 0.3, 0.6), {"ev": "grunt", "face": "pain"}]))
+	a.key(93.4, M([H(0.0, -0.22, 0.0), B(0.2), C(0.1), HD(0.1, -0.5), {"face": "panic"}]))
+	var target_s: Vector3 = Vector3(11.5, 0, 26.0)
+	var a1: Vector3 = a.end_root()
+	pivot(a, 93.45, 93.95, angle_to(a1, target_s), "out")
+	step_to(a, 1, 93.48, 93.75, Vector3(0.13, 0, 0.0), 0.06, {"fall": 0.8})
+	step_to(a, -1, 93.66, 93.98, Vector3(-0.12, 0, 0.02), 0.06, {"fall": 0.6})
+	a.key(93.6, M([HD(0.15, 0.0), C(0.18, 0.0), B(0.15), H(0.0, -0.18, 0.0), L(0.35, -0.4, 0.45, 0.3), R(0.35, -0.4, 0.45, 0.3), {"face": "panic", "ev": "roar", "curl": 0.6, "curl_l": 0.6}]))
+	a.key(94.4, M([HD(-0.05, 0.0), C(0.12), H(0.0, -0.12, 0.0), L(0.2, -0.6, 0.25, 0.2), R(0.2, -0.6, 0.25, 0.2), {"face": "sad", "breath": 1.0, "bf": 1.2}]))
+	a.key(95.0, M([HD(0.35, 0.45), C(0.08, 0.2), {"face": "angry", "breath": 0.5}]))
+	a.key(95.4, M([H(0.0, -0.45, 0.05), B(0.55), C(0.2), HD(0.05, 0.0), Lg(0.35, 0.45), R(0.3, -0.5, -0.4, 0.3), {"face": "angry", "ev": "effort", "curl": 1.0, "curl_l": 0.4, "breath": 0.0}]))
+	a.key(96.2, M([H(0.0, -0.5, 0.06), B(0.6), {"shake": 0.4}]))
+	a.key(96.6, M([H(0.0, -0.32, 0.0), B(0.5), C(0.1), HD(0.05, 0.0), L(0.4, -0.5, -0.5, 0.3), R(0.4, -0.5, -0.5, 0.3), {"shake": 0.0, "ev": "roar", "loco": 1.0}]))
+	walk_to(a, 96.6, 98.35, a.end_root() + (target_s - a1).normalized() * 11.0, 0.7, 0.0)
+	skate(a, 96.62, 98.3, 1, 0.42, {"width": 0.12, "push": 0.42, "seed": 17})
+	# 98,4 : la main s'abat devant lui. Dérapage, recul, il lève les yeux… et la main se referme (99,4).
+	var a2: Vector3 = a.end_root()
+	var away: Vector3 = (a1 - target_s).normalized()
+	travel(a, 98.35, 98.9, a2 + (target_s - a1).normalized() * 0.9, "out")
+	travel(a, 98.9, 99.45, a2 + (target_s - a1).normalized() * 0.9 + away * 0.6, "smooth")
+	a.face(98.35, angle_to(a1, target_s));a.face(98.6, angle_to(a1, target_s) + 0.7, "out");a.face(99.4, angle_to(a1, target_s) + 0.35)
+	a.aim(98.6, angle_to(a1, target_s) + 0.5)
+	a.air(-1, [[98.36, Vector3(-0.15, 0, 0.0), 0.0], [98.6, Vector3(-0.32, 0, -0.25), 0.0], [98.9, Vector3(-0.3, 0, -0.2), 0.0]])
+	a.air(1, [[98.36, Vector3(0.15, 0, 0.0), 0.0], [98.6, Vector3(0.3, 0, 0.3), 0.0], [98.9, Vector3(0.28, 0, 0.25), 0.0]])
+	step_to(a, 1, 98.95, 99.2, Vector3(0.15, 0, 0.1), 0.05, {"fall": 0.6})
+	step_to(a, -1, 99.0, 99.25, Vector3(-0.15, 0, -0.05), 0.05, {"fall": 0.5})
+	a.key(98.4, M([H(0.0, -0.4, 0.0), B(0.1, 0.5, 0.25), C(-0.1, 0.3), HD(0.35, -0.3), L(0.6, 0.0, 0.2, 0.5), R(0.5, -0.2, -0.2, 0.4), {"fx": "skid", "ev": "gasp", "face": "panic", "loco": 0.0}]))
+	a.key(98.9, M([H(0.0, -0.2, 0.0), B(-0.1, 0.2), C(-0.1, 0.1), HD(0.55, 0.0), L(0.3, 0.2, 0.4, 0.5), R(0.3, 0.2, 0.4, 0.5), {"face": "fear"}]))
+	a.key(99.3, M([HD(0.65, 0.0), C(-0.15), B(-0.12), Lt(0.1, 0.55, 0.35, 0.5), Rt(0.1, 0.6, 0.3, 0.5), {"face": "panic", "curl": 0.3, "curl_l": 0.3}]))
+	# Tenu dans la griffe (99,5 → 104) : il se débat, mains agrippées aux doigts, jambes qui battent.
+	a.key(99.52, M([HD(-0.2, 0.0), C(0.15), B(0.15), H(0.0, 0.0, 0.0), Lt(0.05, 0.92, 0.1, 0.3), Rt(0.05, 0.95, 0.05, 0.3), WL(-0.4), WR(-0.4), {"ev": "hurt", "face": "pain", "curl": 0.9, "curl_l": 0.9, "sq": 1.06}]), "s")
+	a.key(99.8, M([HD(-0.35, 0.2), {"sq": 1.0}]))
+	a.key(100.6, M([HD(-0.4, 0.35), C(0.12, 0.1), B(0.1, 0.1), {"face": "sad"}]))
+	a.key(101.4, M([HD(0.25, -0.1), C(0.2, -0.1), B(0.2, -0.1), {"face": "angry", "ev": "effort"}]))
+	a.key(102.2, M([HD(0.3, 0.05), C(-0.05, 0.1), B(-0.1, 0.15), {"ev": "effort"}]))
+	a.key(103.1, M([HD(0.4, 0.0), C(0.1), B(0.05), {"face": "determined"}]))
+	a.air(-1, [[99.5, Vector3(-0.12, 0.0, 0.0), 0.2], [99.9, Vector3(-0.1, 0.25, -0.35), 0.4], [100.3, Vector3(-0.12, 0.05, 0.15), -0.3], [100.8, Vector3(-0.1, 0.3, -0.3), 0.3], [101.6, Vector3(-0.12, 0.08, 0.1), -0.2], [102.4, Vector3(-0.1, 0.2, -0.2), 0.2], [103.5, Vector3(-0.12, 0.02, 0.05), -0.4], [105.0, Vector3(-0.12, 0.0, 0.05), -0.5]], 99.46)
+	a.air(1, [[99.5, Vector3(0.12, 0.02, 0.05), 0.2], [99.75, Vector3(0.1, 0.05, 0.2), -0.3], [100.15, Vector3(0.12, 0.32, -0.3), 0.4], [100.6, Vector3(0.1, 0.06, 0.15), -0.3], [101.2, Vector3(0.12, 0.28, -0.25), 0.3], [102.0, Vector3(0.1, 0.1, 0.1), -0.2], [103.0, Vector3(0.12, 0.05, 0.0), -0.4], [105.0, Vector3(0.12, 0.0, 0.0), -0.5]], 99.46)
+	a.cut(99.55)
+
