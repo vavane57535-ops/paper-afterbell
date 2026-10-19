@@ -45,7 +45,9 @@ def _block_job(args):
         return None
     v, f, _nrm, _val = marching_cubes(vol.astype(np.float32), level=0.0, spacing=(res, res, res),
                                       gradient_direction="ascent", allow_degenerate=False)
-    return v.astype(np.float64) + b0, f.astype(np.int64)
+    # skimage (gradient « ascent ») enroule les faces dans le sens horaire vu de l'extérieur :
+    # on les retourne pour que la face avant (sens trigonométrique) regarde vers l'extérieur.
+    return v.astype(np.float64) + b0, f[:, [0, 2, 1]].astype(np.int64)
 
 
 def mesh_sdf(shape, res=0.22, block=48, coarse=2.0, verbose=True, workers=3):
@@ -132,6 +134,13 @@ def main():
     for sx in (-1, 1):
         eyes.append([ys.EYE_X * sx, ys.EYE_Y, ys.EYE_Z, ys.EYE_R])
     extra["eyes"] = np.array(eyes)
+    fringe = ys.make_fringe(shape)
+    vs, fs, off = [], [], 0
+    for it in fringe:
+        vs.append(it["verts"]);fs.append(it["faces"] + off);off += len(it["verts"])
+    extra["fringe_v"] = np.concatenate(vs)
+    extra["fringe_f"] = np.concatenate(fs)
+    print("frange : %d pointes, %d triangles" % (len(fringe), len(extra["fringe_f"])))
     np.savez_compressed(args.out, verts=verts, faces=faces, res=args.res, **extra)
     print("écrit", args.out, "en %.1f s" % (time.time() - t0))
 
