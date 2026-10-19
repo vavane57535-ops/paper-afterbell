@@ -265,9 +265,10 @@ func _infirmary() -> void :
 		for z in [12.5, 15.5]:
 			K.deco(Vector3(0.05, 2.6, 0.05), Vector3(x + 1.6, 1.3, z), "metal")
 			K.deco(Vector3(0.42, 0.04, 0.06), Vector3(x + 1.6, 0.02, z), "metal")
-	K.solid(Vector3(3.0, 2.2, 0.6), Vector3(-26, 1.1, 17.4), "chalk")
-	K.deco(Vector3(0.9, 0.24, 0.04), Vector3(-26, 1.7, 17.08), "red")
-	K.deco(Vector3(0.24, 0.9, 0.04), Vector3(-26, 1.7, 17.08), "red")
+	# 0.17 : l'armoire à pharmacie mordait de 50 cm sur la porte du gymnase ; elle est poussée contre le mur à côté
+	K.solid(Vector3(3.0, 2.2, 0.6), Vector3(-24, 1.1, 17.4), "chalk")
+	K.deco(Vector3(0.9, 0.24, 0.04), Vector3(-24, 1.7, 17.08), "red")
+	K.deco(Vector3(0.24, 0.9, 0.04), Vector3(-24, 1.7, 17.08), "red")
 	K.table(Vector3(-32, 0, 6), Vector2(2.4, 1.2), "cream")
 	K.chair(Vector3(-32, 0, 7.2), "n")
 	K.sign_text("INFIRMERIE", Vector3(-36, 3.2, 0.3), "s", 38, Color("f0c9cf"))
@@ -361,7 +362,8 @@ func _lab() -> void :
 	K.blob(Vector3(22, 5.25, 40), Vector3(0.6, 0.4, 0.6), "yellow")
 	for x in [34.0, 46.0]:
 		K.plant(Vector3(x, 0, 40.6), 1.1)
-	K.chalkboard(Vector3(18.25, 2.3, 24), "e", 7, "MISS BLOOMIE · SCIENCES\nOBSERVER · COMPRENDRE")
+	# 0.17 : le tableau débordait de 60 cm sur l'huisserie de la porte du hall
+	K.chalkboard(Vector3(18.25, 2.3, 22.6), "e", 7, "MISS BLOOMIE · SCIENCES\nOBSERVER · COMPRENDRE")
 	K.sign_text("LABORATOIRE", Vector3(53.7, 6.2, 30), "w", 56, Color("cfe6d4"))
 	for x in [28.0, 42.0]:
 		K.window(Vector3(x, 7.2, 41.75), "n", 5.0, 2.6)
@@ -534,6 +536,7 @@ func _forecourt(door: Vector3) -> void :
 	var paving: StandardMaterial3D = S._mat(Color("8c8f97"))
 	S._finish(paving, "stone", 0.8, Vector3(4, 4, 4))
 	var court: Rect2 = Rect2(-14, 42.25, 28, 16)
+	L.outside_walkable.append(court)
 	L._box(Vector3(court.size.x, 0.4, court.size.y), Vector3(0, -0.2, court.get_center().y), paving, true, false)
 	for z in range(44, 58, 2):
 		K.deco(Vector3(27.6, 0.012, 0.05), Vector3(0, 0.006, z), "trim")
@@ -597,7 +600,8 @@ func _gameplay_points() -> void :
 	for i in range(6):
 		S.spawn_points.append(Vector3(-6 + (i % 3) * 6, 0.1, 34 + (i / 3) * 4))
 	S.killer_spawn = Vector3(-36, UP + 0.1, -31)
-	S.objectives.assign([Vector3(-39, 0.05, -30), Vector3(0, 0.05, -34), Vector3(36, 0.05, -35.5), Vector3(-30, UP + 0.05, 9), Vector3(36, UP + 0.05, -29)])
+	# 0.17 : les meubles d'archive reposent sur le sol (ils flottaient à 5 cm)
+	S.objectives.assign([Vector3(-39, 0.0, -30), Vector3(0, 0.0, -34), Vector3(36, 0.0, -35.5), Vector3(-30, UP, 9), Vector3(36, UP, -29)])
 	S.patrol_points.assign([Vector3(0, 0, 9), Vector3(-15, 0, 0), Vector3(15, 0, 0), Vector3(0, 0, -15), Vector3(-36, 0, -30), Vector3(0, 0, -26), Vector3(36, 0, -29), Vector3(-36, 0, -9), Vector3(-36, 0, 9), Vector3(36, 0, -9), Vector3(36, 0, 9), Vector3(-34, 0, 28), Vector3(34, 0, 29), Vector3(0, 0, 30), Vector3(-15, UP, 0), Vector3(15, UP, 0), Vector3(0, UP, -30), Vector3(-36, UP, 6), Vector3(36, UP, 6), Vector3(36, UP, -29)])
 	L.upper_targets.assign([Vector3(-15, UP, 0), Vector3(15, UP, 0), Vector3(0, UP, -30), Vector3(-36, UP, 6)])
 	S.menu_spawn = Vector3(0, 0.05, 24.5)

@@ -11,6 +11,7 @@ extends Node
 #   enterré      : pièce cachée sous le sol, ou enfoncée aux trois quarts ;
 #   traverse     : deux objets différents qui s'interpénètrent de plus de 12 cm ;
 #   arbre        : arbre qui pousse dans un bâtiment, un toit, un chemin bloqué ;
+#   archive_pose : meuble d'archive qui ne repose pas exactement sur le sol ou le tapis dessous ;
 #   porte        : objet dans le passage d'une porte, porte qui donne sur un mur ou sur le vide ;
 #   escalier     : rampe dont un bout ne donne sur aucun sol ;
 #   texte        : panneau qui flotte loin de tout mur, ou tourné face au mur ;
@@ -33,7 +34,7 @@ class AuditSchool extends PaperSchool:
 			var source: String = str(frame.source).get_file()
 			if source == "map_kit.gd" and kit.is_empty(): kit = str(frame.function)
 			if source.begins_with("map_") and source != "map_kit.gd" and source != "map_audit.gd":
-				return "%s:%d%s" % [source, int(frame.line), (" " + kit) if not kit.is_empty() else ""]
+				return "%s:%d%s @%s" % [source, int(frame.line), (" " + kit) if not kit.is_empty() else "", str(frame.function)]
 		for frame: Dictionary in frames:
 			var source: String = str(frame.source).get_file()
 			if source not in ["school.gd", "map_audit.gd", "om_maps.gd", "map_kit.gd"]:
@@ -149,6 +150,7 @@ func _audit_map(map_id: String) -> void :
 	_sunk()
 	_crossing()
 	_trees()
+	_archives()
 	_doors()
 	_stairs()
 	_labels()
@@ -282,6 +284,8 @@ func _register(piece: Dictionary) -> void :
 	pieces.append(piece)
 
 func _is_ground(node: MeshInstance3D, aabb: AABB) -> bool:
+	# sol de décor autour de la zone jouable (map_bounds.gd) : on ne peut pas y aller, mais le décor y repose
+	if node.has_meta("map_ground"): return true
 	if node.mesh is ArrayMesh and node.get_child_count() > 0:
 		for ramp: Dictionary in layout.ramps:
 			if Rect2(aabb.position.x, aabb.position.z, aabb.size.x, aabb.size.z).grow(0.1).encloses(ramp.rect):
@@ -314,18 +318,19 @@ func _contacts() -> void :
 			if other < 0 or other == index: continue
 			if not piece.contacts.has(other): piece.contacts.append(other)
 			if not pieces[other].contacts.has(index): pieces[other].contacts.append(index)
-	# objets : pièces créées à la suite par la même ligne du constructeur et qui se touchent
+	# objets : pièces créées à la suite par la même fonction du constructeur, à quelques lignes d'écart
+	# (un lit et ses matelas, une haie et sa boule, un toit et son faîtage), et qui se touchent
 	var group: int = 0
 	var members: Dictionary = {}
-	var current_site: String = ""
+	var group_site: Array = []
 	for index: int in range(pieces.size()):
 		var piece: Dictionary = pieces[index]
 		if piece.kind == "tree_crown":
 			piece.group = pieces[index - 1].group
 			continue
-		var site: String = _site_of(piece)
+		var site: Array = _assembly_of(piece)
 		var joined: bool = false
-		if not piece.ground and site == current_site:
+		if not piece.ground and _same_assembly(site, group_site):
 			for other: int in piece.contacts:
 				if members.has(other):
 					joined = true
@@ -333,13 +338,18 @@ func _contacts() -> void :
 		if not joined:
 			group += 1
 			members.clear()
-			current_site = site
+			group_site = site
 		piece.group = group
 		members[index] = true
 
-func _site_of(piece: Dictionary) -> String:
-	if piece.node != null: return str(piece.node.get_meta("audit_site", "?")).get_slice(" ", 0)
-	return str(piece.label).get_slice("]", 0)
+# [fichier, fonction, ligne] du constructeur de carte qui a créé la pièce
+func _assembly_of(piece: Dictionary) -> Array:
+	var text: String = str(piece.node.get_meta("audit_site", "?")) if piece.node != null else str(piece.label).get_slice("]", 0).trim_prefix("[")
+	var where: String = text.get_slice(" ", 0)
+	return [where.get_slice(":", 0), text.get_slice("@", 1) if text.contains("@") else "", int(where.get_slice(":", 1))]
+
+func _same_assembly(a: Array, b: Array) -> bool:
+	return not b.is_empty() and a[0] != "?" and a[0] == b[0] and a[1] == b[1] and absi(int(a[2]) - int(b[2])) <= 8
 
 func _floor_below(p: Vector3, above: float = 0.3) -> float:
 	var best: float = -INF
@@ -417,8 +427,9 @@ func _floating() -> void :
 		var piece: Dictionary = pieces[index]
 		if piece.ground or piece.flat or not reached.has(index) or piece.kind != "mesh": continue
 		var aabb: AABB = piece.aabb
+		# une barre, une tringle ou une étagère murale (moins de 15 cm) tient par sa fixation ; on cherche les meubles
 		var thin: float = minf(aabb.size.x, minf(aabb.size.y, aabb.size.z))
-		if thin < 0.1: continue
+		if thin < 0.15: continue
 		var floor_y: float = _floor_below(Vector3(aabb.get_center().x, aabb.position.y, aabb.get_center().z), 0.05)
 		if floor_y == -INF or aabb.position.y - floor_y < 0.06 or aabb.position.y - floor_y > 1.6: continue
 		var supported: bool = false
@@ -439,9 +450,10 @@ func _xz_overlap(a: AABB, b: AABB) -> float:
 	return minf(x, z)
 
 func _sunk() -> void :
+	# blocs de terrain pleins (plateaux) ; pas les rampes, dont la boîte englobe les nez de marches posés dessus
 	var masses: Array[AABB] = []
 	for piece: Dictionary in pieces:
-		if piece.ground and piece.aabb.size.y > 1.0: masses.append(piece.aabb)
+		if piece.ground and piece.aabb.size.y > 1.0 and piece.node is MeshInstance3D and (piece.node as MeshInstance3D).mesh is BoxMesh: masses.append(piece.aabb)
 	for piece: Dictionary in pieces:
 		if piece.ground or piece.kind != "mesh": continue
 		var aabb: AABB = piece.aabb
@@ -457,7 +469,15 @@ func _sunk() -> void :
 		if aabb.end.y < floor_y - 0.005 and aabb.end.y > floor_y - 1.5:
 			_finding("enterre", center, "entièrement sous le sol (%.2f m) · %s" % [floor_y - aabb.end.y, piece.label])
 		elif aabb.position.y < floor_y - 0.12 and (aabb.end.y - floor_y) < aabb.size.y * 0.35 and aabb.size.y > 0.2:
+			# bandeau de rive ou planche cassée : la pièce dépasse du bord de la dalle, on la voit de côté
+			if _overhangs_floor(aabb, floor_y): continue
 			_finding("enfonce", center, "%.0f %% sous le sol · %s" % [100.0 * (floor_y - aabb.position.y) / aabb.size.y, piece.label])
+
+func _overhangs_floor(aabb: AABB, floor_y: float) -> bool:
+	var c: Vector3 = aabb.get_center()
+	for offset: Vector3 in [Vector3(aabb.size.x * 0.48, 0, 0), Vector3(-aabb.size.x * 0.48, 0, 0), Vector3(0, 0, aabb.size.z * 0.48), Vector3(0, 0, -aabb.size.z * 0.48)]:
+		if _floor_below(Vector3(c.x, floor_y + 0.05, c.z) + offset, 0.0) < floor_y - 0.05: return true
+	return false
 
 func _crossing() -> void :
 	var reported: Dictionary = {}
@@ -528,6 +548,10 @@ func _trees() -> void :
 		if piece.kind != "tree_trunk": continue
 		var base: Vector3 = piece.base
 		var floor_y: float = _floor_below(base, 0.05)
+		if floor_y == -INF or absf(base.y - floor_y) > 0.08:
+			# sol de décor hors de la carte, jardinière, terre-plein : ce qui est vraiment sous le tronc
+			var support: float = _support_below(base, [piece.rid, pieces[index + 1].rid])
+			if support != -INF and absf(base.y - support) <= 0.08: floor_y = support
 		var outside: bool = not layout.bounds.has_point(Vector2(base.x, base.z))
 		if floor_y == -INF:
 			_finding("arbre_sans_sol" if not outside else "arbre_hors_carte_sans_sol", base, piece.label)
@@ -544,6 +568,23 @@ func _trees() -> void :
 				if _deep(pieces[part], o, 0.15):
 					_finding("arbre_traverse", o.aabb.get_center(), "%s ⟷ %s" % [piece.label, o.label])
 					break
+
+func _support_below(p: Vector3, exclude: Array[RID]) -> float:
+	var query: PhysicsRayQueryParameters3D = PhysicsRayQueryParameters3D.create(p + Vector3.UP * 0.3, p + Vector3.DOWN * 0.6, PROXY_LAYER | 1)
+	query.exclude = exclude
+	var hit: Dictionary = space.intersect_ray(query)
+	return -INF if hit.is_empty() else float(hit.position.y)
+
+# Meubles d'archive : le bas du meuble doit reposer sur ce qui est dessous (sol, tapis, plancher), au mm près
+func _archives() -> void :
+	for piece: Dictionary in pieces:
+		if piece.kind != "archive": continue
+		var aabb: AABB = piece.aabb
+		var bottom: Vector3 = Vector3(aabb.get_center().x, aabb.position.y, aabb.get_center().z)
+		var support: float = _support_below(bottom, [piece.rid])
+		# il peut s'enfoncer de 1 à 2 cm dans une latte ou un tapis fin, pas flotter
+		if support == -INF or bottom.y - support > 0.012 or bottom.y - support < -0.025:
+			_finding("archive_pose", bottom, "meuble d'archive : %s · %s" % ["rien dessous" if support == -INF else "%.3f m au-dessus de ce qui le porte" % (bottom.y - support), piece.label])
 
 func _doors() -> void :
 	for door: Dictionary in school.doors:

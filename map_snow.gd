@@ -26,6 +26,7 @@ var K: RefCounted
 
 
 var ridge: Rect2 = Rect2(-70, -68, 140, 30)
+const LANTERNS: Array[Vector3] = [Vector3(-7.3, 0, 30), Vector3(8, 0, 30), Vector3(-24, 0, 0), Vector3(24, 0, -8), Vector3(-26, 0, 30), Vector3(28, 0, 32), Vector3(-58, 0, -12), Vector3(58, 0, -12), Vector3(-6, HIGH, -44), Vector3(28, HIGH, -52), Vector3(-44, 0, 26)]
 var clear_rects: Array[Rect2] = []
 
 func build(layout: RefCounted) -> void :
@@ -78,7 +79,8 @@ func _chalet() -> void :
 	L._ramp(Vector3(9, 0, 10), Vector3(9, HIGH, -6), 4, L._wood)
 	L._rail(Vector3(6, HIGH, -6), Vector3(6, HIGH, 12))
 	L._partition(Vector3(-12, SLAB, -12), Vector3(12, SLAB, -12), [0.0], 4.25, 4.0, L._wood, 3.0)
-	L._partition(Vector3(-12, SLAB, 12), Vector3(12, SLAB, 12), [-6.0], 4.25, 4.0, L._wood, 3.0)
+	# 0.17 : la porte du balcon donnait sur le pied d'un lit superposé ; elle ouvre sur l'allée entre les lits
+	L._partition(Vector3(-12, SLAB, 12), Vector3(12, SLAB, 12), [-4.0], 4.25, 4.0, L._wood, 3.0)
 	L._partition(Vector3(-12, SLAB, -12), Vector3(-12, SLAB, 12), [], 4.25, 4.0, L._wood)
 	L._partition(Vector3(12, SLAB, -12), Vector3(12, SLAB, 12), [-9.0], 4.25, 4.0, L._wood, 3.0)
 
@@ -126,7 +128,7 @@ func _chalet() -> void :
 	for i in range(5):
 		var ski: MeshInstance3D = K.deco(Vector3(0.12, 2.2, 0.04), Vector3(-10 + i * 0.5, HIGH + 1.1, -11.7), ["red", "blue", "yellow", "red", "blue"][i])
 		ski.rotation.z = 0.08
-	K.sign_text("DORTOIR · SILENCE", Vector3(-4, HIGH + 3.2, 11.7), "n", 30, Color("e8d9c0"))
+	K.sign_text("DORTOIR · SILENCE", Vector3(-4, HIGH + 3.4, 11.7), "n", 30, Color("e8d9c0"))
 	K.ceiling_lamp(Vector3(-4, HIGH + 3.8, 0), 0.6, 13)
 	for x in [-6.0, 6.0]:
 		K.window(Vector3(-10.0 if x < 0.0 else x, HIGH + 2.0, 12.25), "s", 2.4, 1.6)
@@ -313,7 +315,7 @@ func _population() -> void :
 		accepted.append(p2)
 		# 0.17 : la place reste dans le tirage, mais pas d'arbre dans un fort de neige, un rocher ou un mur
 		var tree_height: float = rng.randf_range(10, 15)
-		if _crowded_by_solid(Vector3(p2.x, height, p2.y), tree_height):
+		if _crowded_by_solid(Vector3(p2.x, height, p2.y), tree_height) or _over_lantern(Vector3(p2.x, height, p2.y), tree_height):
 			continue
 		K.tree(Vector3(p2.x, height, p2.y), tree_height, accepted.size() % 3)
 	for i in range(60):
@@ -324,8 +326,26 @@ func _population() -> void :
 		var p: Vector3 = Vector3(cos(angle) * radius, 0, sin(angle) * radius * 0.85)
 		if L.bounds.grow(3.0).has_point(Vector2(p.x, p.z)):
 			continue
+		# ni dans un rocher du pourtour, ni collé au pied de la crête (le feuillage entrait dans la roche)
+		var ring_height: float = 13 + fposmod(float(i) * 3.1, 6.0)
+		if _in_perimeter_rock(p, ring_height) or absf(p.z + 38.0) < 3.0:
+			continue
 		p.y = HIGH if p.z < -38.0 else 0.0
-		K.tree(p, 13 + fposmod(float(i) * 3.1, 6.0), i % 3, false)
+		K.tree(p, ring_height, i % 3, false)
+
+# 0.17 : pas de lanterne dans les branches basses d'un sapin (la lampe était cachée dans le feuillage)
+func _over_lantern(base: Vector3, height: float) -> bool:
+	for lantern: Vector3 in LANTERNS:
+		if absf(lantern.y - base.y) < 1.0 and Vector2(lantern.x - base.x, lantern.z - base.z).length() < height * 0.24 + 0.5:
+			return true
+	return false
+
+func _in_perimeter_rock(p: Vector3, height: float) -> bool:
+	for rock: Array in _perimeter_rocks():
+		var reach: float = maxf(rock[1].x, rock[1].z) * 0.58 + height * 0.04 + 0.3
+		if Vector2(p.x - rock[0].x, p.z - rock[0].z).length() < reach:
+			return true
+	return false
 
 func _crowded_by_solid(base: Vector3, height: float) -> bool:
 	var reach: float = height * 0.046 + 0.35
@@ -342,7 +362,7 @@ func _paths() -> void :
 
 func _lights() -> void :
 	var warm: Color = Color("ffc27a")
-	for p in [Vector3(-7.3, 0, 30), Vector3(8, 0, 30), Vector3(-24, 0, 0), Vector3(24, 0, -8), Vector3(-26, 0, 30), Vector3(28, 0, 32), Vector3(-58, 0, -12), Vector3(58, 0, -12), Vector3(-6, HIGH, -44), Vector3(28, HIGH, -52), Vector3(-44, 0, 26)]:
+	for p: Vector3 in LANTERNS:
 		K.lantern(p, 0.75, warm)
 	K.accent_light(Vector3(-4, HIGH + 2.5, 0), Color("ffcf94"), 0.5, 11)
 	K.accent_light(Vector3(44, 2.4, 0), Color("ffcf94"), 0.45, 8)
@@ -352,12 +372,19 @@ func _perimeter() -> void :
 	for wall in [[Vector3(0, 6, -68.5), Vector3(144, 12, 1)], [Vector3(0, 6, 61.5), Vector3(144, 12, 1)], [Vector3(-71.5, 6, -4), Vector3(1, 12, 130)], [Vector3(71.5, 6, -4), Vector3(1, 12, 130)]]:
 		K.blocker(wall[1], wall[0])
 	var tint: Color = Color("758b99")
+	for rock: Array in _perimeter_rocks():
+		S._rock(rock[0], rock[1], false, tint)
+
+# [position, dimensions] des gros rochers hors de la carte (même ordre qu'avant : mêmes tirages aléatoires)
+func _perimeter_rocks() -> Array:
+	var rocks: Array = []
 	for x in range(-66, 67, 12):
-		S._rock(Vector3(x, HIGH, -72), Vector3(10, 10, 6), false, tint)
-		S._rock(Vector3(x, 0, 64), Vector3(10, 6, 5), false, tint)
+		rocks.append([Vector3(x, HIGH, -72), Vector3(10, 10, 6)])
+		rocks.append([Vector3(x, 0, 64), Vector3(10, 6, 5)])
 	for z in range(-54, 55, 12):
 		for x in [-74.0, 74.0]:
-			S._rock(Vector3(x, HIGH if z < -38 else 0.0, z), Vector3(6, 9, 10), false, tint)
+			rocks.append([Vector3(x, HIGH if z < -38 else 0.0, z), Vector3(6, 9, 10)])
+	return rocks
 
 func _zones() -> void :
 	L._zone("Dortoir du chalet", Rect2(-12, -12, 24, 24), HIGH)
@@ -380,7 +407,8 @@ func _gameplay_points() -> void :
 	for i in range(6):
 		S.spawn_points.append(Vector3(-6 + (i % 3) * 6, 0.1, 46 + (i / 3) * 4))
 	S.killer_spawn = Vector3(50, HIGH + 0.1, -44)
-	S.objectives.assign([Vector3(-4, 0.05, -8), Vector3(-4, HIGH + 0.05, 6), Vector3(44, 0.05, 0), Vector3(-44, 0.05, -25), Vector3(46, 0.05, 40)])
+	# 0.17 : les meubles d'archive reposent sur le plancher (ils flottaient de 3 à 5 cm)
+	S.objectives.assign([Vector3(-4, 0.024, -8), Vector3(-4, HIGH, 6), Vector3(44, 0.024, 0), Vector3(-44, 0.024, -25), Vector3(46, 0.024, 40)])
 	S.patrol_points.assign([Vector3(0, 0, 26), Vector3(-22, 0, 4), Vector3(24, 0, -4), Vector3(-44, 0, 0), Vector3(44, 0, -24), Vector3(44, 0, 24), Vector3(0, 0, -28), Vector3(-56, 0, -10), Vector3(56, 0, -10), Vector3(0, HIGH, -44), Vector3(-30, HIGH, -46), Vector3(30, HIGH, -50), Vector3(-15, HIGH, 0), Vector3(0, HIGH, 14), Vector3(-4, HIGH, -2), Vector3(40, 0, 30)])
 	L.upper_targets.assign([Vector3(-15, HIGH, 0), Vector3(0, HIGH, -44), Vector3(-4, HIGH, -2), Vector3(30, HIGH, -50)])
 	S.menu_spawn = Vector3(0, 0.05, 41)

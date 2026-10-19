@@ -9,7 +9,8 @@ extends RefCounted
 #   pourtour reposent sur quelque chose au lieu de flotter au-dessus du vide ; à l'école, il entoure le
 #   parvis (pelouse, trottoir, rue) qui donnait sur le vide.
 # - Garde-fou, chez l'hôte : un acteur vivant qui passerait quand même sous la carte ou hors des limites
-#   est reposé sur le nœud du graphe des bots le plus proche.
+#   (rectangle des bots, plus les sols praticables déclarés par la carte, comme le parvis de l'école
+#   où Alice peut sortir quand la porte est ouverte) est reposé sur le nœud du graphe le plus proche.
 # Les sorties et la place où courent les élèves pendant les films ne sont pas touchées.
 
 const SLAB_BOTTOM: float = -6.0
@@ -37,7 +38,9 @@ func build(layout: RefCounted) -> void :
 	var guard: FallGuard = FallGuard.new()
 	guard.name = "Garde-fou des bords"
 	guard.school = S
-	guard.bounds = L.bounds
+	guard.areas.append(L.bounds.grow(2.0))
+	for rect: Rect2 in L.outside_walkable:
+		guard.areas.append(rect.grow(1.0))
 	S.add_child(guard)
 
 # Murs invisibles juste à l'extérieur du rectangle jouable (leur face intérieure suit le bord du sol).
@@ -78,6 +81,7 @@ func _ground_piece(size: Vector3, pos: Vector3, material: Material) -> MeshInsta
 	var piece: MeshInstance3D = L._box(size, pos, material, false)
 	piece.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	piece.set_meta("paper_unbatched", true)
+	piece.set_meta("map_ground", true)
 	return piece
 
 # École : le parvis donnait sur le vide derrière les haies et la grille. Pelouse autour du bâtiment,
@@ -103,7 +107,7 @@ func _school_grounds() -> void :
 # ou hors des limites ; sinon il le repose sur le graphe des bots. Avec les murs, il ne devrait jamais servir.
 class FallGuard extends Node:
 	var school: Node3D
-	var bounds: Rect2
+	var areas: Array[Rect2] = []
 	var _clock: float = 0.0
 
 	func _physics_process(delta: float) -> void :
@@ -118,10 +122,16 @@ class FallGuard extends Node:
 		for actor: Variant in world.actors.values():
 			if not is_instance_valid(actor) or not actor.alive or bool(actor.effects.get("escaped", false)): continue
 			var p: Vector3 = actor.global_position
-			if p.y > -8.0 and bounds.grow(2.0).has_point(Vector2(p.x, p.z)): continue
+			if p.y > -8.0 and _inside(Vector2(p.x, p.z)): continue
+			var bounds: Rect2 = areas[0]
 			var probe: Vector3 = Vector3(clampf(p.x, bounds.position.x, bounds.end.x), 0.0, clampf(p.z, bounds.position.y, bounds.end.y))
 			var safe: Vector3 = layout.graph.get_point_position(layout._closest_point(probe)) + Vector3.UP * 0.1
 			actor.global_position = safe
 			actor.velocity = Vector3.ZERO
 			actor.reset_physics_interpolation()
 			print("CARTE_GARDE_FOU ", actor.character, " repêché en ", safe, " (était en ", p, ")")
+
+	func _inside(p: Vector2) -> bool:
+		for rect: Rect2 in areas:
+			if rect.has_point(p): return true
+		return false

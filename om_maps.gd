@@ -18,6 +18,8 @@ var upper_targets: Array[Vector3] = []
 var rooms_audit: Array[Dictionary] = []
 var jump_links: Array[Dictionary] = []
 var lamp_fixtures: Array[Dictionary] = []
+# 0.17 : sols praticables hors du rectangle des bots (parvis de l'école derrière la sortie)
+var outside_walkable: Array[Rect2] = []
 
 
 var exit_point: Vector3 = Vector3.ZERO

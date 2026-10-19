@@ -376,8 +376,19 @@ func _population() -> void :
 		# dans le potager et sous le plateau) et pousse sur le sol de décor, haut au nord
 		if L.bounds.grow(3.0).has_point(Vector2(p.x, p.z)):
 			continue
+		# ni dans un rocher du pourtour, ni collé au pied de la falaise du nord (le feuillage entrait dedans)
+		var ring_height: float = 14 + fposmod(float(i) * 3.1, 6.0)
+		if _in_perimeter_rock(p, ring_height) or absf(p.z + 44.0) < 3.0:
+			continue
 		p.y = HIGH if p.z < -44.0 else 0.0
-		K.tree(p, 14 + fposmod(float(i) * 3.1, 6.0), i % 3, false)
+		K.tree(p, ring_height, i % 3, false)
+
+func _in_perimeter_rock(p: Vector3, height: float) -> bool:
+	for rock: Array in _perimeter_rocks():
+		var reach: float = maxf(rock[1].x, rock[1].z) * 0.58 + height * 0.04 + 0.3
+		if Vector2(p.x - rock[0].x, p.z - rock[0].z).length() < reach:
+			return true
+	return false
 
 
 func _crowded_by_solid(base: Vector3, height: float) -> bool:
@@ -427,13 +438,20 @@ func _perimeter() -> void :
 	for wall in [[Vector3(0, 6, -70.5), Vector3(152, 12, 1)], [Vector3(0, 6, 65.5), Vector3(152, 12, 1)], [Vector3(-75.5, 6, -3), Vector3(1, 12, 138)], [Vector3(75.5, 6, -3), Vector3(1, 12, 138)]]:
 		K.blocker(wall[1], wall[0])
 	var tint: Color = Color("758b99") if snow else Color("4b5d56")
+	for rock: Array in _perimeter_rocks():
+		S._rock(rock[0], rock[1], false, tint)
+
+# [position, dimensions] des gros rochers hors de la carte (même ordre qu'avant : mêmes tirages aléatoires)
+func _perimeter_rocks() -> Array:
+	var rocks: Array = []
 	for x in range(-72, 73, 12):
-		S._rock(Vector3(x, HIGH, -75), Vector3(10, 9, 6), false, tint)
+		rocks.append([Vector3(x, HIGH, -75), Vector3(10, 9, 6)])
 	for z in range(-60, 61, 12):
 		for x in [-78.0, 78.0]:
-			S._rock(Vector3(x, HIGH if z < -44 else 0.0, z), Vector3(6, 9, 10), false, tint)
+			rocks.append([Vector3(x, HIGH if z < -44 else 0.0, z), Vector3(6, 9, 10)])
 	for x in [-66.0, -54.0, 54.0, 66.0]:
-		S._rock(Vector3(x, 0, 68), Vector3(10, 7, 6), false, tint)
+		rocks.append([Vector3(x, 0, 68), Vector3(10, 7, 6)])
+	return rocks
 
 func _zones() -> void :
 	L._zone("Cabane des élèves", Rect2(24, -43, 14, 30), TREEHOUSE)
@@ -456,7 +474,9 @@ func _gameplay_points() -> void :
 	for i in range(6):
 		S.spawn_points.append(Vector3(-6 + (i % 3) * 6, 0.1, 46 + (i / 3) * 4))
 	S.killer_spawn = Vector3(24, HIGH + 0.1, -52)
-	S.objectives.assign([Vector3(-38, HIGH + 0.05, -32), Vector3(-9, 0.05, -28), Vector3(31, TREEHOUSE + 0.05, -18), Vector3(-64, 0.05, 14), Vector3(60, 0.05, 40)])
+	# 0.17 : les meubles d'archive reposent sur ce qui est dessous (herbe du plateau, tapis jaune de la fosse,
+	# plancher de la cabane et de la remise)
+	S.objectives.assign([Vector3(-38, HIGH + 0.015, -32), Vector3(-9, 0.022, -28), Vector3(31, TREEHOUSE, -18), Vector3(-64, 0.024, 14), Vector3(60, 0.0, 40)])
 	S.patrol_points.assign([Vector3(0, 0, 30), Vector3(0, 0, -20), Vector3(-36, 0, 20), Vector3(44, 0, 20), Vector3(-62, 0, -8), Vector3(62, 0, -8), Vector3(-36, HIGH, -4), Vector3(40, HIGH, -8), Vector3(0, HIGH, -50), Vector3(-40, HIGH, -46), Vector3(42, HIGH, -46), Vector3(-64, 0, 26), Vector3(58, 0, 36), Vector3(-28, 0, 50), Vector3(28, 0, 50), Vector3(31, TREEHOUSE, -18)])
 	L.upper_targets.assign([Vector3(-36, HIGH, -4), Vector3(40, HIGH, -8), Vector3(0, HIGH, -50), Vector3(31, TREEHOUSE, -18)])
 	S.menu_spawn = Vector3(0, 0.05, 42)
