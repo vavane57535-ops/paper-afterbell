@@ -267,7 +267,7 @@ func _host_process() -> void :
 			_trial["swing_real"] = _wall()
 			var victim: PaperActor = world.actors.get(other)
 			_trial["victim_at_swing"] = [victim.global_position.x, victim.global_position.z]
-			_trial["followed"] = bool(victim.get("net_follow"))
+			_trial["followed"] = victim.get("net_follow") == true
 			var lag: Variant = world.get("net_lag")
 			if lag != null: _trial["lag_before"] = lag.stats.duplicate()
 			_trial["used"] = world.combat.use(alice, 0)
@@ -540,7 +540,7 @@ func _client_physics(delta: float) -> void :
 	var view: float = float(sync.view_time()) if sync != null and sync.has_method("view_time") else -1.0
 	var m: Variant = _motion(me)
 	var correction: float = (m.correction as Vector3).length() if m != null else 0.0
-	client_ticks.append([float(Engine.get_physics_frames()) / float(Engine.physics_ticks_per_second), me.global_position.x, me.global_position.y, me.global_position.z, alice.global_position.x, alice.global_position.z, view, correction, 1 if bool(me.get("net_predicted")) else 0, _wall(), 1 if float(me.effects.get("stun", 0.0)) > 0.0 else 0])
+	client_ticks.append([float(Engine.get_physics_frames()) / float(Engine.physics_ticks_per_second), me.global_position.x, me.global_position.y, me.global_position.z, alice.global_position.x, alice.global_position.z, view, correction, 1 if me.get("net_predicted") == true else 0, _wall(), 1 if float(me.effects.get("stun", 0.0)) > 0.0 else 0])
 	if _cheat.get("kind", "") == "speed" and float(_cheat.t) < float(_cheat.duration):
 		var flat: Vector3 = Vector3(me.velocity.x, 0.0, me.velocity.z)
 		if flat.length_squared() > 0.01: me.move_and_collide(flat * delta)
@@ -559,7 +559,7 @@ func _client_process(delta: float) -> void :
 	var sync: Variant = world.get("net_sync")
 	if sync != null and sync.has_method("view_time"): t_view = float(sync.view_time())
 	var acting: bool = alice.visual.is_performing_action()
-	client_frames.append([now, shown.x, shown.y, shown.z, alice_shown.x, alice_shown.z, 1 if acting else 0, t_view, float(world.clock), 1 if bool(me.get("net_predicted")) else 0])
+	client_frames.append([now, shown.x, shown.y, shown.z, alice_shown.x, alice_shown.z, 1 if acting else 0, t_view, float(world.clock), 1 if me.get("net_predicted") == true else 0])
 	# Captures rendues (--lag-frames DIR), pour juger à l'œil : le zigzag (une image tous les 0,15 s),
 	# puis chaque image autour du premier étourdissement et de la première esquive à δ = 0,14 s.
 	if not frames_dir.is_empty() and not _capturing:

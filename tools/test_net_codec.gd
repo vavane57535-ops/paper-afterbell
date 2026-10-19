@@ -75,10 +75,13 @@ func _round_trip() -> void :
 	# Message du client : aller-retour.
 	var me: PaperActor = world.local_actor()
 	if me != null:
-		var bytes: PackedByteArray = PaperNetCodec.encode_report(513, 7, 7, 12.5, 11.75, me.global_position, me.velocity, Vector3(0.5, 0, -0.5), me.aim, 3, 4)
+		var bytes: PackedByteArray = PaperNetCodec.encode_report(513, 7, 7, 750, 11.75, me.global_position, me.velocity, Vector3(0.5, 0, -0.5), me.aim, 3, 4)
 		report_sizes.append(bytes.size())
 		var r: Dictionary = PaperNetCodec.decode_report(bytes)
 		if r.is_empty() or int(r.seq) != 513 or int(r.epoch) != 7 or not bool(r.has_position) or Vector3(r.pos).distance_to(me.global_position) > 0.0001 or int(r.jumps) != 3 or int(r.rolls) != 4: _fail("message client")
+		elif absf(float(r.tc) - 750.0 / float(Engine.physics_ticks_per_second)) > 0.000001 or absf(float(r.tv) - 11.75) > 0.0001: _fail("horodatage du message client")
+		var still: Dictionary = PaperNetCodec.decode_report(PaperNetCodec.encode_report(9, 1, 0, 751, 11.8, Vector3.ZERO, Vector3.ZERO, Vector3.ZERO, me.aim, 0, 0))
+		if still.is_empty() or bool(still.has_position): _fail("message client sans position")
 
 
 func _finish() -> void :

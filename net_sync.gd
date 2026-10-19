@@ -80,7 +80,8 @@ func view_delay() -> float:
 	return _buffer
 
 
-# Hôte : état où l'hôte garde la main sur le mouvement de l'acteur.
+# État où l'hôte garde la main sur le mouvement de l'acteur (même lecture chez l'hôte et chez le
+# client, qui la fait sur les effets reçus).
 func _owned(a: PaperActor) -> bool:
 	if not a.alive or not a.active(): return true
 	var fx: Dictionary = a.effects
@@ -176,23 +177,10 @@ func _align_carried(me: PaperActor) -> void :
 		a.net_exact = true
 
 
-func _client_owned(a: PaperActor) -> bool:
-	if not a.alive or not a.active(): return true
-	var fx: Dictionary = a.effects
-	for key: String in OWNED_TIMERS:
-		var value: Variant = fx.get(key, 0.0)
-		if (value is float or value is int or value is bool) and float(value) > 0.0: return true
-	for key: String in OWNED_FLAGS:
-		if bool(fx.get(key, false)): return true
-	for key: String in OWNED_IDS:
-		if int(fx.get(key, -1)) >= 0: return true
-	return a.killer and float(world.clock) < 5.0 and not bool(world.training)
-
-
 # Client : le joueur local prédit-il son mouvement, ou suit-il l'hôte ?
 func _local_mode(me: PaperActor, delta: float) -> void :
 	var m: PaperNetMotion = me.net_motion
-	var can: bool = m.host_followed and not m.host_owned and m.host_epoch >= 0 and not me.bot and not _client_owned(me)
+	var can: bool = m.host_followed and not m.host_owned and m.host_epoch >= 0 and not me.bot and not _owned(me)
 	if can and not me.net_predicted:
 		me.net_predicted = true;me.net_exact = false;m.follow_blend = false
 		m.epoch = m.host_epoch
@@ -275,8 +263,7 @@ func _send_report(delta: float) -> void :
 	if bool(input[2]): flags |= PaperNetMotion.REPORT_FLAG_SPRINT
 	# Horodatage sur l'horloge physique (régulière : un pas = 1/60 s), pas sur l'heure d'exécution
 	# du pas, qui arrive par paquets quand une image est lente.
-	var tc: float = float(Engine.get_physics_frames()) / float(Engine.physics_ticks_per_second)
-	var packed: PackedByteArray = PaperNetCodec.encode_report(m.seq, m.epoch, flags, tc, view_time(), position, me.velocity, input[0], input[1], m.local_jumps, m.local_rolls)
+	var packed: PackedByteArray = PaperNetCodec.encode_report(m.seq, m.epoch, flags, Engine.get_physics_frames(), view_time(), position, me.velocity, input[0], input[1], m.local_jumps, m.local_rolls)
 	_last_report_pos = position
 	rx_report.rpc_id(1, packed)
 	stats.reports_sent += 1;stats.report_bytes += packed.size()

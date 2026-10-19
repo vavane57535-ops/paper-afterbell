@@ -217,13 +217,14 @@ static func decode_snapshot(packed: PackedByteArray) -> Dictionary:
 
 # --- Message de mouvement du client -------------------------------------------------------------
 
-static func encode_report(seq: int, epoch: int, flags: int, tc: float, tv: float, pos: Vector3, vel: Vector3, move: Vector3, aim: Vector3, jumps: int, rolls: int) -> PackedByteArray:
+# frame : numéro du pas physique du client (son horloge, exacte) ; tv : instant de l'hôte affiché.
+static func encode_report(seq: int, epoch: int, flags: int, frame: int, tv: float, pos: Vector3, vel: Vector3, move: Vector3, aim: Vector3, jumps: int, rolls: int) -> PackedByteArray:
 	var buffer: StreamPeerBuffer = StreamPeerBuffer.new()
 	buffer.put_u16(seq & 0xFFFF)
 	buffer.put_u8(epoch & 255)
 	buffer.put_u8(flags)
-	buffer.put_double(tc)
-	buffer.put_double(tv)
+	buffer.put_u32(frame & 0xFFFFFFFF)
+	buffer.put_float(tv)
 	if flags & PaperNetMotion.REPORT_FLAG_POSITION:
 		_put_pos(buffer, pos)
 		_put_vel(buffer, vel)
@@ -236,18 +237,19 @@ static func encode_report(seq: int, epoch: int, flags: int, tc: float, tv: float
 
 
 static func decode_report(packed: PackedByteArray) -> Dictionary:
-	if packed.size() < 26 or packed.size() > 96: return {}
+	if packed.size() < 22 or packed.size() > 96: return {}
 	var buffer: StreamPeerBuffer = StreamPeerBuffer.new()
 	buffer.data_array = packed
 	var report: Dictionary = {}
 	report.seq = buffer.get_u16()
 	report.epoch = buffer.get_u8()
 	report.flags = buffer.get_u8()
-	report.tc = buffer.get_double()
-	report.tv = buffer.get_double()
+	report.frame = buffer.get_u32()
+	report.tc = float(report.frame) / float(Engine.physics_ticks_per_second)
+	report.tv = float(buffer.get_float())
 	report.has_position = (int(report.flags) & PaperNetMotion.REPORT_FLAG_POSITION) != 0
 	if report.has_position:
-		if packed.size() < 48: return {}
+		if packed.size() < 40: return {}
 		report.pos = _get_pos(buffer)
 		report.vel = _get_vel(buffer)
 	else:
