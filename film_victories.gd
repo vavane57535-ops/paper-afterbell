@@ -26,7 +26,7 @@ const FV = preload("res://anim_set_film_victory.gd")
 # coupés ; « grounded »: false coupe les pas que la démarche du jeu compterait
 # pendant un déplacement. Tout est rendu à l'arrêt du film.
 const FILM_STYLE: Dictionary = {"contra": 0.0, "shift_rate": 0.0, "idle_sway": 0.0, "idle_bounce": 0.0, "look_rate": 0.0}
-const AUTHORED: Array[String] = ["Usayuko", "Simon", "Ashura", "Lysia"]
+const AUTHORED: Array[String] = ["Usayuko", "Simon", "Ashura", "Lysia", "Elly"]
 
 const TV_Y: float = 70.0
 const INK_Y: float = 125.0
@@ -965,87 +965,113 @@ func _write_lysia() -> void :
 
 
 # ----------------------------------------------------------------- ELLY ---
-# Soin et arme à feu : blessée, elle se soigne, esquive la griffe et arrête
-# Alice net d'un tir de fusil à pompe.
+# Soin, esquive, fusil. Blessée, un genou à terre, elle se soigne ; elle lève
+# les yeux, se relève, plonge sous la griffe (5,2), décroche son fusil et tire
+# (6,15). Elle souffle sur la fumée, cale le fusil sur l'épaule et s'en va vers
+# la porte, avec un regard par-dessus l'épaule.
 func _write_elly() -> void :
 	var c: Node3D = cinema
+	var mint: Color = Color("8ff0d2")
 	c._put(s, _r(0.0, 0.0))
 	c._face(s, 0.0, "dir", Vector3(0, 0, 1))
-	c._do(s, 0.0, "state", {"lms": true, "second_life": true})
-	c._do(s, 0.0, "mood", "hurt")
-	c._put(a, _r(0.3, 6.5))
-	c._face(a, 0.0, "at", s)
-	c._do(a, 0.0, "mood", "menace")
-	# A · hurt, the heal zone blooms
-	c._do(s, 3.32, "trigger", "zone de soin")
-	_later(3.5, "cue", {"who": s, "cue": "heal_ring"})
-	c._cue(3.5, "sound", "heal", {"a": s}, 0.9, 1.0)
+	var near: Vector3 = _r(0.3, 2.4)
+	c._put(a, near + Vector3(0, 0, FV.EA_WALK_SPEED * (FV.EA_WALK_END - 3.3)))
+	c._face(a, 0.0, "dir", Vector3(-0.1, 0, -1))
+	_play(s, "fv_elly_rain")
+	_play(a, "fv_elly_alice_rain")
+	c._move(a, 3.3, FV.EA_WALK_END, near, "linear")
+	c._move(a, FV.EA_WALK_END, FV.EA_WALK_END + 0.1, near + Vector3(0, 0, -0.05), "out")
+	# A1 · à genoux, la trousse sur la plaie : la lumière du soin sur son visage
+	c._shot(3.32, {"rel": {"a": s}, "eye": [Vector3(0.95, 0.75, 1.3), Vector3(0.82, 0.78, 1.12)], "look": {"a": s, "h": 0.78}, "fov": [40, 36], "hand": 0.35})
+	_later(FV.E_HEAL, "cue", {"who": s, "cue": "heal_ring"})
+	_later(FV.E_HEAL + 0.05, "cue", {"who": s, "cue": "heal_l"})
+	_later(3.72, "cue", {"who": s, "cue": "heal_l"})
+	c._cue(FV.E_HEAL, "sound", "heal", {"a": s}, 0.9, 1.0)
 	c._cue(3.6, "pulse", Color(0.45, 1.0, 0.75, 0.25), 0.8)
-	c._shot(3.4, {"rel": {"a": s}, "eye": [Vector3(1.3, 0.55, 1.6), Vector3(1.1, 0.7, 1.35)], "look": {"a": s, "h": 1.0}, "fov": [40, 36], "hand": 0.35})
-	# B · she rises: eyes
-	c._do(s, 4.4, "unset", ["second_life"])
-	c._do(s, 4.4, "mood", "determined")
-	c._move(a, 4.2, 5.0, _r(0.2, 2.6), "smooth")
-	# she is still bowed when the shot starts: a low angle finds her eyes under the fringe
-	_closeup(4.5, s, Vector3(0, 0, 1), 1.0, 1.3, 30.0, -0.32)
-	_glint(4.55, 5.1, s, 1.1)
-	# C · the claw, the dodge
-	var swing: float = 5.2
-	c._move(a, swing - 0.15, swing + 0.05, _r(0.1, 1.5), "dash")
-	c._do(a, swing, "trigger", "slash")
-	c._do(s, swing + 0.02, "trigger", "dodge")
-	c._move(s, swing + 0.02, swing + 0.34, _r(-1.3, -0.9), "out")
-	c._cue(swing + 0.02, "event", "dodge", {"position": {"a": s}})
-	c._cue(swing + 0.12, "word", "miss", {"a": s, "h": 2.2}, PAPER, 0.9)
-	_smear(swing, swing + 0.25, Vector2(-0.04, 0.0))
-	c._shot(swing - 0.15, {"rel": {"mid": [s, a]}, "eye": [Vector3(-3.0, 1.1, 0.4), Vector3(-2.7, 1.15, 0.1)], "look": {"mid": [s, a], "h": 1.2}, "fov": [44, 42], "hand": 0.6})
-	# D · aim, close on the barrel
-	var aim: float = 5.75
-	c._face(s, aim - 0.2, "at", a)
-	c._shot(aim, {"rel": {"a": s}, "eye": [Vector3(0.55, 1.45, 0.55), Vector3(0.45, 1.42, 0.45)], "look": {"a": a, "h": 1.3}, "fov": [30, 26], "hand": 0.3})
-	_glint(aim + 0.05, aim + 0.5, s, 0.9)
-	# E · BANG
-	var bang: float = 6.15
-	c._do(s, bang - 0.16, "trigger", "shotgun")
-	c._cue(bang, "event", "tracer", {"from": {"a": s, "h": 1.3, "o": Vector3(0, 0, 0.6)}, "to": {"a": a, "h": 1.2}, "duration": 0.2})
-	c._blow(bang + 0.02, a, s, "gun", Color("ffe6a0"), 1.5)
+	# A2 · derrière elle : Alice arrive
+	c._shot(3.95, {"rel": {"a": s}, "eye": [Vector3(-0.72, 1.0, -1.1), Vector3(-0.62, 0.98, -0.95)], "look": {"a": a, "h": 1.05}, "fov": [44, 42], "hand": 0.3})
+	_bolt(4.15, 0.22, 0.9)
+	# B · les yeux montent sous la frange, et brillent
+	_closeup(FV.E_RISE, s, Vector3(0, 0, 1), 1.0, 1.25, 30.0, -0.3)
+	_glint(4.55, 5.05, s, 1.1)
+	# C · la griffe, l'esquive : vue de côté
+	var dodge: float = FV.E_DODGE
+	var lunge: Vector3 = _r(0.12, 1.5)
+	c._move(a, FV.EA_LUNGE, dodge, lunge, "dash")
+	c._move(a, dodge, 5.46, _r(0.06, 1.18), "out")
+	var hop: Vector3 = _r(-0.5, 0.0)
+	var spot: Vector3 = _r(-0.6, -0.45)
+	c._move(s, dodge, 5.33, hop, "out")
+	c._move(s, 5.38, 5.47, spot, "out")
+	c._cue(dodge, "event", "dodge", {"position": {"a": s}})
+	c._cue(dodge, "sound", "slash", {"a": a}, 0.8, 1.0)
+	c._cue(dodge + 0.08, "word", "miss", {"a": s, "h": 2.2}, PAPER, 0.9)
+	_smear(dodge - 0.04, dodge + 0.2, Vector2(-0.04, 0.0))
+	c._shot(FV.EA_LUNGE, {"rel": {"mid": [s, a]}, "eye": [Vector3(-3.0, 1.1, 0.3), Vector3(-2.75, 1.12, 0.12)], "look": {"mid": [s, a], "h": 1.15}, "fov": [44, 42], "hand": 0.55})
+	# elle se retourne vers Elly, gronde, revient d'un pas (6,08)
+	var close: Vector3 = _r(0.0, 0.98)
+	c._face(a, 5.5, "at", s)
+	c._move(a, 5.92, 6.08, close, "out")
+	c._face(s, 5.42, "at", a)
+	# D · en joue, le long du canon : la pompe claque sur les clics
+	var line: Vector3 = (close - spot)
+	line.y = 0.0
+	line = line.normalized()
+	var across: Vector3 = Vector3(line.z, 0.0, - line.x)
+	c._shot(FV.E_AIM - 0.04, {"eye": [spot - line * 0.5 - across * 0.32 + Vector3(0, 1.52, 0), spot - line * 0.42 - across * 0.3 + Vector3(0, 1.5, 0)], "look": {"a": a, "h": 1.3}, "fov": [32, 28], "hand": 0.3})
+	for t: float in [5.8, 5.93]: c._cue(t, "sound", "camera_place", {"a": s}, 0.6, 0.8)
+	_glint(5.8, 6.1, s, 0.9)
+	# E · BANG : Alice est soufflée en arrière
+	var bang: float = FV.E_BANG
+	var fall: Vector3 = close + line * 3.4
+	c._cue(bang, "event", "tracer", {"from": {"a": s, "h": 1.35, "o": line * 0.6}, "to": {"a": a, "h": 1.2}, "duration": 0.2})
 	c._cue(bang, "sound", "shotgun", {"a": s}, 1.0, 0.95)
 	c._cue(bang, "frame", Color(1.0, 0.95, 0.8, 0.35), 0.08)
 	c._cue(bang, "shake", 0.7)
+	c._cue(bang, "impact", 0.7, true)
+	c._cue(bang + 0.02, "pop", {"a": a, "h": 1.15}, line, Color("ffe6a0"), 1.4)
+	c._cue(bang + 0.04, "stars", {"a": a, "s": "over"}, 3)
 	_flash(bang, 0.08, Color(1.0, 0.92, 0.7))
-	c._do(a, bang + 0.02, "state", {"blind": 3.0})
-	c._knock(a, bang + 0.02, 4.0, Vector3(0, 0, 1))
-	c._stun(a, bang + 0.5, 3.0)
-	_rain_burst(bang, _r(-0.4, 1.0, 1.3), 0.6)
-	_burst(bang + 0.03, _r(-1.0, -0.6, 1.25), Vector3(1, 0.8, -0.3), 2, 2.6, {"spread": 0.3, "lift": 2.0, "gravity": 9.0, "life": 1.2, "size": 0.06, "colors": [Color("c2462e"), Color("d9a43a")]})
-	_burst(bang + 0.02, _r(0.0, 2.2, 1.2), Vector3(0, 0.2, 1), 20, 6.0, {"spread": 0.6, "lift": 1.2, "gravity": 6.0, "life": 1.4, "size": 0.1})
-	c._shot(bang - 0.2, {"rel": {"a": s}, "eye": [Vector3(-1.6, 1.25, -1.4), Vector3(-1.9, 1.2, -1.9)], "look": {"a": s, "h": 1.25, "o": Vector3(0, 0, 1.2)}, "fov": [40, 46], "hand": 0.8})
-	# F · smoke from the barrel, a nod
-	var cool: float = 7.15
-	c._do(s, cool, "mood", "smile")
-	for k: int in range(3): _later(cool + 0.1 + 0.25 * float(k), "smoke", {"who": s})
-	_closeup(cool, s, Vector3(0, 0, 1), -1.0, 1.9, 34.0)
-	_glint(cool + 0.1, cool + 0.8, s, 1.0)
-	# G · walking off, healing pluses, Alice down
-	var leave: float = 7.85
-	c._do(s, leave, "emote", "thumbsup")
-	c._shot(leave, {"rel": {"a": s}, "eye": [Vector3(1.1, 0.4, 2.9), Vector3(0.9, 0.45, 2.5)], "look": {"a": s, "h": 1.5}, "fov": [44, 40], "hand": 0.4})
-	_later(leave + 0.3, "pluses", {"at": {"a": s, "h": 1.4}, "count": 4})
-	_bolt(leave + 0.4, 0.28, 1.2)
+	_rain_burst(bang, close + Vector3(0, 1.2, 0) - line * 0.4, 0.6)
+	_burst(bang + 0.03, spot + Vector3(0, 1.25, 0) + across * 0.2, Vector3(0, 0.8, 0) + across, 2, 2.6, {"spread": 0.3, "lift": 2.0, "gravity": 9.0, "life": 1.2, "size": 0.06, "colors": [Color("c2462e"), Color("d9a43a")]})
+	_burst(bang + 0.02, close + Vector3(0, 1.2, 0), line + Vector3(0, 0.2, 0), 20, 6.0, {"spread": 0.6, "lift": 1.2, "gravity": 6.0, "life": 1.4, "size": 0.1})
+	c._move(a, bang, 6.4, close + line * 2.4 + Vector3(0, 0.45, 0), "out")
+	c._move(a, 6.4, FV.EA_LAND, fall, "in")
+	c._move(a, FV.EA_LAND, 6.75, fall + line * 0.4, "out")
+	_tilt(bang, 6.4, a, Vector3.ZERO, Vector3(0.9, 0.0, 0.1), "out")
+	_tilt(6.4, FV.EA_LAND, a, Vector3(0.9, 0.0, 0.1), Vector3.ZERO, "smooth")
+	c._cue(FV.EA_LAND, "dust_ring", {"a": a}, 1.1)
+	c._cue(FV.EA_LAND, "sound", "ground_impact", {"a": a}, 0.9, 0.9)
+	c._cue(FV.EA_LAND, "shake", 0.3)
+	var mid: Vector3 = (spot + close) * 0.5
+	c._shot(bang - 0.12, {"eye": [mid - across * 3.3 + line * 0.4 + Vector3(0, 1.15, 0), mid - across * 3.6 + line * 1.4 + Vector3(0, 1.2, 0)], "look": [mid + Vector3(0, 1.1, 0), mid + line * 1.6 + Vector3(0, 0.9, 0)], "fov": [42, 46], "hand": 0.7})
+	# F · la fumée du canon, le fusil sur l'épaule
+	var cool: float = FV.E_COOL
+	c._shot(6.75, {"eye": [spot + line * 1.55 - across * 0.55 + Vector3(0, 1.42, 0), spot + line * 1.4 - across * 0.5 + Vector3(0, 1.46, 0)], "look": [spot + Vector3(0, 1.4, 0), spot + Vector3(0, 1.48, 0)], "fov": [36, 33], "hand": 0.3})
+	for k: int in range(3): _later(cool + 0.05 + 0.12 * float(k), "smoke", {"who": s})
+	_later(7.38, "smoke", {"who": s})
+	_glint(7.4, 7.7, s, 0.9)
+	# G · elle s'en va vers la porte, vers nous ; un regard par-dessus l'épaule
+	var leave: float = FV.E_LEAVE
+	var home: Vector3 = Vector3(-0.1, 0, -1)
+	c._face(s, leave, "dir", home)
+	var walk_to: Vector3 = spot + home.normalized() * FV.E_WALK_SPEED * (t_ink + 0.05 - FV.E_WALK)
+	c._move(s, FV.E_WALK, t_ink + 0.05, walk_to, "linear")
+	c._shot(leave, {"eye": [spot + Vector3(0.42, 1.28, -2.35), spot + Vector3(0.36, 1.32, -2.15)], "look": [spot + Vector3(0, 1.3, -0.2), walk_to + Vector3(0, 1.45, 0)], "fov": [40, 36], "hand": 0.35})
+	_later(8.4, "pluses", {"at": {"a": s, "h": 1.4}, "count": 3})
+	_glint(8.72, 8.94, s, 1.0)
+	_bolt(8.1, 0.28, 1.2)
 	_flash(t_ink - 0.06, 0.12)
-	# INK · the shot, frozen: muzzle blast and Alice thrown back
+	# PAPIER · le coup de feu figé : le recul, Alice soufflée en arrière
 	var ink: float = t_ink
-	c._do(s, ink, "emote", "")
 	_jump(s, ink, _ink(-1.4, 0, 0.0))
 	_jump(a, ink, _ink(1.25, 0.25, 0.0))
 	c._face(s, ink, "dir", Vector3(1, 0, 0))
 	c._face(a, ink, "dir", Vector3(-1, 0, 0))
-	c._do(s, ink - 0.02, "trigger", "shotgun")
-	_hold_pose(s, ink + 0.01, ink + 2.6)
-	c._do(a, ink, "stun", false)
-	c._do(a, ink, "state", {"forced_time": 3.0, "force_name": "knock", "grounded": false})
+	_play(s, "fv_elly_ink", ink)
+	_play(a, "fv_elly_alice_ink", ink)
 	c._move(a, ink + 0.01, ink + 2.5, _ink(2.1, 0.55, 0.0), "out")
-	_tilt(ink, ink + 2.6, a, Vector3(0, 0, -0.4), Vector3(0, 0, -0.75))
+	_tilt(ink, ink + 2.6, a, Vector3(0, 0, -0.3), Vector3(0, 0, -0.6))
 	_burst(ink, _ink(-0.2, 1.3, 0.0), Vector3(1, 0.05, 0), 30, 4.5, {"spread": 0.35, "lift": 0.2, "gravity": 0.3, "drag": 1.6, "life": 2.6, "size": 0.07})
 	_burst(ink + 0.02, _ink(-0.9, 1.35, 0.0), Vector3(-0.3, 1, 0.2), 2, 2.2, {"spread": 0.2, "lift": 1.2, "gravity": 3.0, "drag": 0.3, "life": 2.6, "size": 0.08})
 	c._shot(ink, {"eye": [_ink(0.0, 1.15, 6.4), _ink(0.05, 1.15, 6.0)], "look": [_ink(0.0, 1.05, 0.0), _ink(0.1, 1.05, 0.0)], "fov": 42, "hand": 0.1, "safe": false})

@@ -25,6 +25,7 @@ static func add(c: Dictionary) -> void :
 	_simon(c)
 	_ashura(c)
 	_lysia(c)
+	_elly(c)
 
 
 # ------------------------------------------------------------------- OUTILS --
@@ -1003,3 +1004,199 @@ static func _lysia_alice(c: Dictionary) -> void :
 	ink.append(K(1.3, M([B(-0.62), HD(0.6, 0.0, 0.12), TL(0.8, 0.12), KL(0.55), TR(0.55, 0.12), KR(0.85), Rt(0.28, 0.45, 0.68, 0.5), Lt(0.28, 0.4, 0.72, 0.5)])))
 	ink.append(K(2.6, M([B(-0.68), HD(0.62, 0.0, 0.14), TL(0.9, 0.12), KL(0.5), TR(0.65, 0.12), KR(0.8), Rt(0.3, 0.5, 0.66, 0.5), Lt(0.3, 0.45, 0.7, 0.5)])))
 	c["fv_lysia_alice_ink"] = _film(0.0, 2.7, ink, "pain")
+
+
+
+# --------------------------------------------------------------------- ELLY --
+# Soin, esquive, fusil. Un genou à terre, blessée, la main droite sur les
+# côtes ; sur le glissando de harpe elle sort sa trousse et la plaque sur la
+# plaie (3,5), respire sur le battement de cœur (3,75). Alice approche : Elly
+# lève les yeux (4,4 → 4,55), se relève en poussant sur son genou. La griffe
+# part (5,05) : elle plonge sous le coup (5,2), deux petits sauts en arrière sur
+# les pizzicati, et décroche le fusil de son dos (5,45 → 5,75). Pompe sur les
+# clics (5,8 · 5,93), BANG (6,15) : le recul lui fait reculer l'épaule. Elle
+# souffle sur la fumée (7,38), cale le fusil sur l'épaule (7,6), tourne les
+# talons ; un regard par-dessus l'épaule (8,4), un sourire.
+
+const E_HEAL: float = 3.5
+const E_RISE: float = 4.4
+const E_DODGE: float = 5.2
+const E_AIM: float = 5.75
+const E_BANG: float = 6.15
+const E_COOL: float = 7.15
+const E_LEAVE: float = 7.85
+const E_WALK: float = 7.98
+const E_WALK_PERIOD: float = 0.47
+const E_WALK_SPEED: float = 1.15
+# Alice
+const EA_WALK_SPEED: float = 1.25
+const EA_WALK_END: float = 4.5
+const EA_LUNGE: float = 5.05
+const EA_LAND: float = 6.55
+
+
+# visée au fusil, épaule droite : le buste se met de profil, la tête revient
+# sur la mire. Les poignets reprennent l'orientation mesurée qui aligne le
+# fusil du jeu avec le regard ; `pump` recule la main gauche sur la pompe.
+static func _e_aim(pump: float = 0.0) -> Dictionary:
+	return M([FL(0.05, 0.16), FR(0.08, -0.14), H(0, -0.08, 0.03), B(0.1, -0.6), C(0.05, -0.3), HD(-0.1, 0.86, -0.1),
+		Rt(-0.43, 0.21, 0.39, 0.55), WR(-0.85, -0.06, 1.85), Lt(0.1, 0.17, 0.75 - pump, 0.0), WL(0.14, 1.82, -0.15),
+		{"prop": "shotgun", "curl": 1.0, "curl_l": 0.8}])
+
+
+static func _elly(c: Dictionary) -> void :
+	var k: Array = []
+	var leg: float = float(LEG.Elly)
+	var kneel_h: float = (0.55 - 0.969) / leg
+	# A · 3,3 · un genou (le gauche) à terre, la main droite plaquée sur les côtes
+	var hurt: Dictionary = M([FR(0.06, 0.46), FL(0.1, -0.5), H(0, kneel_h, -0.02), B(0.28, 0.08, 0.06), C(0.18, 0.05), HD(-0.3, 0.1, 0.12),
+		Rt(-0.38, -0.3, 0.22, 0.3), WR(0.6, 0.0, -0.3), L(0.3, -0.62, 0.3, 0.3), WL(0.3), {"fp_r": 0.0, "fp_l": -1.1, "curl": 0.5, "curl_l": 0.45}])
+	k.append(K(3.3, M([_zero(), hurt, FACE("hurt")])))
+	# 3,42 · la main gauche plonge dans la poche de la blouse, sort la trousse…
+	k.append(K(3.38, M([Lt(-0.05, -0.42, 0.05, 0.4), WL(0.5), {"curl_l": 0.9}])))
+	k.append(K(3.44, M([Lt(-0.15, -0.3, 0.35, 0.3), WL(-0.3), {"prop": "heal"}])))
+	# 3,5 · … et la plaque sur la plaie ; la main droite s'écarte, le buste se plie
+	k.append(K(E_HEAL, M([Lt(-0.34, -0.28, 0.22, 0.2), WL(-0.4, 0.3, 0.2), Rt(0.05, -0.45, 0.3, 0.3), WR(0.2), B(0.34, 0.1, 0.08), HD(-0.38, 0.12, 0.14), {"sq": 0.97, "face": "pain"}]), "s"))
+	k.append(K(3.62, M([HD(-0.22, 0.08, 0.06), B(0.3, 0.08, 0.06), {"sq": 1.0, "face": "hurt"}])))
+	# 3,75 · le battement de cœur : une grande inspiration, les yeux se ferment
+	k.append(K(3.75, M([C(0.08, 0.05), SH(0.12, 0.12), HD(-0.1, 0.06, 0.0), {"face": "calm"}])))
+	k.append(K(3.86, FACE("asleep")))
+	k.append(K(4.05, M([C(0.2, 0.05), SH(-0.04, -0.04), HD(-0.26, 0.05, 0.06)])))
+	k.append(K(4.12, FACE("calm")))
+	# 4,15 → 4,35 · la trousse retourne dans la poche
+	k.append(K(4.2, M([Lt(-0.1, -0.4, 0.08, 0.35), WL(0.4)])))
+	k.append(K(4.3, M([Lt(0.05, -0.5, 0.0, 0.3), WL(0.4), {"prop": "", "curl_l": 0.5}])))
+	# B · 4,4 · elle lève les yeux vers Alice, puis se relève en poussant sur son genou
+	k.append(K(E_RISE, M([HD(-0.05, 0.0, 0.04), B(0.24, 0.04, 0.02), C(0.12), Rt(0.12, -0.55, 0.42, 0.3), WR(0.6), L(0.3, -0.6, 0.15, 0.3), {"face": "determined"}])))
+	k.append(K(4.56, M([HD(0.12, 0.0, 0.02), B(0.3), {"curl": 0.8}])))
+	k.append(K(4.7, M([H(0, kneel_h + 0.12, 0.04), B(0.38), C(0.15), FL(0.1, -0.42, 0.02), {"fp_l": -0.7}])))
+	k.append(K(4.84, M([H(0, -0.18, 0.02), B(0.18), C(0.08), HD(0.1), FL(0.08, -0.22, 0.1), Rt(0.1, -0.5, 0.25, 0.3), {"fp_l": -0.3}])))
+	k.append(K(4.95, M([FL(0.08, -0.12), FR(0.08, 0.2), H(0, -0.08, 0.0), B(0.05), C(0.03), HD(0.06), R(0.3, -0.7, 0.12, 0.25), L(0.3, -0.7, 0.12, 0.25),
+		{"fp_l": 0.0, "fp_r": 0.0, "curl": 0.4, "curl_l": 0.4}]), "s"))
+	# C · 5,05 · la griffe part : elle la voit venir…
+	k.append(K(5.1, M([H(0, -0.12, -0.02), B(0.02, 0.0, 0.0), HD(0.12, 0.0, 0.0), SH(0.1, 0.1), {"face": "surprise"}])))
+	# 5,2 · … et plonge dessous, sur le côté (le film la décale en l'air)
+	var duck: Dictionary = M([FL(0.08, -0.05, 0.12), FR(0.1, 0.1, 0.16), H(0.1, -0.34, 0.02), B(0.55, 0.0, 0.35), C(0.2, 0.0, 0.1), HD(0.25, 0.2, 0.0),
+		L(0.55, -0.2, 0.2, 0.5), R(0.6, -0.1, -0.1, 0.5), SH(0.0, 0.0), {"fp_l": 0.0, "fp_r": 0.0, "face": "determined", "ev": "gasp"}])
+	k.append(K(E_DODGE, duck, "s"))
+	k.append(K(5.33, M([FL(0.1, -0.02), FR(0.12, 0.16), H(0.05, -0.3, 0.0), B(0.35, 0.0, 0.15), C(0.12), HD(0.2, 0.15), {"sq": 0.95}]), "s"))
+	# 5,38 → 5,54 · deux petits sauts en arrière (pizzicati), elle se redresse
+	k.append(K(5.4, M([FL(0.08, 0.0, 0.08), FR(0.1, 0.12, 0.1), H(0, -0.12, -0.04), B(0.12, 0.0, 0.05), {"sq": 1.03}])))
+	k.append(K(5.47, M([FL(0.08, 0.04), FR(0.1, 0.1), H(0, -0.16, 0.0), {"sq": 0.97}]), "s"))
+	# 5,45 → 5,75 · la main droite décroche le fusil par-dessus l'épaule et
+	# l'amène en arc devant elle ; la gauche vient chercher la pompe
+	k.append(K(5.45, M([Rt(0.15, 0.62, -0.12, 0.6), WR(0.4, 0.0, 0.3), {"curl": 0.9}])))
+	k.append(K(5.5, M([Rt(0.1, 0.65, -0.18, 0.6), {"prop": "shotgun"}])))
+	k.append(K(5.54, M([FL(0.06, 0.12), FR(0.08, -0.08), H(0, -0.1, 0.02), B(0.1, -0.3), C(0.05, -0.15), HD(0.0, 0.45),
+		Rt(-0.1, 0.45, 0.35, 0.55), WR(-0.5, -0.1, 1.2), Lt(0.2, 0.0, 0.55, 0.2), WL(0.1, 1.2, 0.0), {"sq": 1.0}]), "s"))
+	k.append(K(5.66, M([B(0.1, -0.52), C(0.05, -0.26), HD(-0.05, 0.75, -0.06), Rt(-0.35, 0.25, 0.4, 0.55), WR(-0.8, -0.06, 1.7), Lt(0.12, 0.12, 0.72, 0.0), WL(0.14, 1.7, -0.1)])))
+	# D · 5,75 · en joue ; la pompe sur les clics (5,8 en arrière, 5,93 en avant)
+	k.append(K(E_AIM, _e_aim(), "s"))
+	k.append(K(5.8, _e_aim(0.17), "s"))
+	k.append(K(5.93, _e_aim(0.0), "s"))
+	k.append(K(6.03, M([HD(-0.14, 0.86, -0.12), H(0, -0.09, 0.04)]), "s"))
+	# E · 6,15 · BANG : l'épaule recule, le canon se relève, le buste encaisse
+	var recoil: Dictionary = M([H(0, -0.06, -0.06), B(-0.08, -0.66), C(-0.12, -0.34), HD(0.12, 0.8, -0.06), Rt(-0.38, 0.3, 0.32, 0.55), WR(-1.0, -0.02, 1.62),
+		Lt(0.06, 0.32, 0.72, 0.0), WL(0.12, 1.5, -0.4), FR(0.08, -0.22), {"fp_l": 0.3, "sq": 1.05, "fx": "muzzle", "ev": "grunt", "jaw": 0.2}])
+	k.append(K(E_BANG, recoil, "s"))
+	k.append(K(6.28, M([H(0, -0.08, -0.08), B(-0.12, -0.66), C(-0.12, -0.34), HD(0.18, 0.78, -0.04), WR(-0.95, 0.0, 1.55), {"sq": 1.0, "jaw": 0.0}]), "s"))
+	# elle tient la visée, puis abaisse le canon et souffle
+	k.append(K(6.55, M([_e_aim(0.0), H(0, -0.08, 0.0), B(0.05, -0.6), {"fp_l": 0.0}])))
+	k.append(K(6.9, M([B(0.08, -0.5), C(0.06, -0.25), HD(-0.05, 0.7, -0.05), Rt(-0.3, 0.05, 0.35, 0.5), WR(-0.9, -0.2, 1.6), Lt(0.15, 0.0, 0.6, 0.1), {"face": "calm"}])))
+	# F · 7,15 · la fumée : elle relève le canon devant son visage…
+	k.append(K(E_COOL, M([B(0.0, -0.35), C(0.0, -0.15), HD(0.05, 0.3, 0.0), Rt(-0.05, 0.42, 0.25, 0.4), WR(-1.5, -0.3, 1.2), L(0.35, -0.65, 0.12, 0.3), WL(0.2, 0.0, 0.0),
+		{"curl_l": 0.4, "face": "smile"}])))
+	# … souffle dessus (7,38)…
+	k.append(K(7.32, M([HD(0.1, 0.22, 0.05), {"jaw": 0.0}])))
+	k.append(K(7.38, M([HD(0.14, 0.2, 0.05), {"jaw": 0.3}]), "s"))
+	k.append(K(7.5, M([HD(0.08, 0.15, 0.08), {"jaw": 0.0}])))
+	blink(7.46, "smile", k, 0.07)
+	# … et le cale sur l'épaule (7,56 → 7,74)
+	k.append(K(7.62, M([Rt(0.12, 0.72, 0.0, 0.5), WR(-1.2, 0.2, 0.4), B(0.0, -0.2), C(-0.02, -0.08), HD(0.06, 0.15, 0.06)])))
+	k.append(K(7.74, M([Rt(0.18, 0.62, -0.12, 0.5), WR(-0.6, 0.3, 0.2), {"sq": 0.99}]), "s"))
+	# G · 7,85 · elle tourne les talons (le film la fait pivoter) et s'en va
+	var shoulder: Dictionary = M([Rt(0.18, 0.62, -0.12, 0.5), WR(-0.6, 0.3, 0.2), L(0.3, -0.72, 0.12, 0.25), WL(0.2), {"prop": "shotgun", "curl": 1.0, "curl_l": 0.35}])
+	k.append(K(E_LEAVE, M([shoulder, B(0.04, 0.0), C(0.0), HD(0.0, 0.0, 0.04), FL(0.06, 0.05), FR(0.08, -0.04), H(0, -0.05, 0.0), {"fp_l": 0.0, "fp_r": 0.0, "sq": 1.0}])))
+	var walk: Dictionary = {"stance": 0.56, "reach": 0.3, "kick": 0.12, "knee": 0.08, "strike": 0.18, "push": -0.35, "bob": 0.02, "up": 0.0, "hips": Vector3(0.0, -0.05, 0.0), "width": 0.04}
+	# premier pas depuis l'arrêt : le pied gauche décolle pendant le demi-tour ;
+	# le droit reste posé (il recule avec le corps qui démarre) puis repasse devant
+	k.append(K(7.88, M([FL(0.06, 0.02, 0.08), {"fp_l": -0.2}])))
+	k.append(K(7.93, M([FL(0.06, 0.2, 0.1), {"fp_l": 0.1}])))
+	k.append(K(E_WALK, FR(0.08, -0.04), "l"))
+	k.append(K(8.16, M([FR(0.08, -0.04 - E_WALK_SPEED * 0.18 / leg), {"fp_r": -0.35}])))
+	k.append(K(8.26, M([FR(0.08, -0.15, 0.12), {"fp_r": -0.6}])))
+	k.append(K(8.36, M([FR(0.08, 0.12, 0.09), {"fp_r": 0.1}])))
+	_strides("Elly", k, E_WALK, 3, E_WALK_PERIOD, E_WALK_SPEED, true, walk)
+	# le bras libre balance un peu, la blouse suit
+	k.append(K(8.2, M([L(0.3, -0.72, -0.08, 0.25)])))
+	k.append(K(8.68, M([L(0.3, -0.72, 0.18, 0.25)])))
+	# 8,4 · un regard par-dessus l'épaule, vers Alice ; puis elle regarde devant elle
+	k.append(K(8.3, M([HD(0.02, 0.5, 0.04), C(0.0, 0.12)])))
+	k.append(K(8.42, M([HD(0.05, 0.95, 0.06), C(0.0, 0.25), {"face": "smile"}]), "s"))
+	k.append(K(8.62, M([HD(0.04, 0.9, 0.06)])))
+	k.append(K(8.76, M([HD(0.02, 0.05, 0.02), C(0.0, 0.0), {"face": "calm"}])))
+	c["fv_elly_rain"] = _film(3.3, 9.0, k, "hurt")
+
+	# PAPIER · le coup de feu figé : le recul, le canon qui se relève
+	var ink: Array = []
+	ink.append(K(0.0, M([_zero(), recoil, {"fx": "", "ev": "", "face": "determined"}])))
+	ink.append(K(1.3, M([B(-0.1, -0.66), HD(0.14, 0.79, -0.05), WR(-1.02, -0.02, 1.6)])))
+	ink.append(K(2.6, M([B(-0.12, -0.66), HD(0.16, 0.78, -0.04), WR(-1.05, -0.02, 1.58)])))
+	c["fv_elly_ink"] = _film(0.0, 2.7, ink, "determined")
+
+	_elly_alice(c)
+
+
+static func _elly_alice(c: Dictionary) -> void :
+	var k: Array = []
+	# A · 3,3 → 4,6 · elle marche sur la blessée, sans se presser
+	var prowl: Dictionary = M([H(0, -0.03, 0.0), B(0.1), C(0.18), HD(0.12, 0.0, 0.18),
+		L(0.3, -0.8, 0.18, 0.25), R(0.36, -0.7, 0.32, 0.3), WL(-0.3), WR(-0.5), {"curl": 0.15, "curl_l": 0.3}])
+	k.append(K(3.3, _no_feet(M([_zero(), prowl, FACE("menace")]))))
+	var walk: Dictionary = {"stance": 0.66, "reach": 0.34, "kick": 0.1, "knee": 0.07, "strike": 0.16, "push": -0.32, "bob": 0.015, "up": 0.0, "hips": Vector3(0.0, -0.03, 0.0), "width": 0.03}
+	_stride_in("Alice", k, 3.3, 3.4, 0.55, EA_WALK_SPEED, true, walk)
+	_strides("Alice", k, 3.4, 3, 0.55, EA_WALK_SPEED, true, walk)
+	k.append(K(3.9, M([HD(0.08, 0.04, 0.24), {"curl": 0.35}])))
+	k.append(K(4.35, M([HD(0.14, -0.03, 0.14), {"curl": 0.1}])))
+	# 4,6 → 5,0 · elle s'arrête au-dessus d'elle, arme la griffe droite haut
+	k.append(K(4.6, M([FL(0.05, 0.1), FR(0.06, -0.08), H(0, -0.03, 0.0), {"fp_l": 0.0, "fp_r": 0.0}])))
+	k.append(K(4.85, M([B(-0.05, -0.15), C(-0.05, -0.2), HD(0.05, 0.1, 0.1), R(0.45, 0.85, -0.25, 0.8), WR(-0.8), {"curl": 0.0, "jaw": 0.3, "face": "grin"}])))
+	k.append(K(5.0, M([B(-0.1, -0.25), C(-0.1, -0.28), HD(0.08, 0.15, 0.05), R(0.5, 0.95, -0.35, 0.8), {"jaw": 0.6, "face": "angry"}]), "s"))
+	# C · 5,05 · le pas et la griffe qui fauche (5,2)… dans le vide
+	k.append(K(5.12, M([FL(0.05, 0.38, 0.08), H(0, -0.06, 0.12), B(0.2, 0.2), C(0.15, 0.25), R(0.35, 0.4, 0.55, 0.5), {"jaw": 0.9}])))
+	k.append(K(E_DODGE, M([FL(0.05, 0.5), H(0, -0.16, 0.25), B(0.5, 0.55), C(0.3, 0.4), HD(-0.1, 0.3), R(0.05, -0.2, 0.85, 0.3), WR(0.5), {"ev": "roar", "fx": "trail_r", "fp_l": 0.0}]), "s"))
+	# l'élan l'emporte : un pas pour se rattraper, le corps qui tourne
+	k.append(K(5.36, M([FR(0.06, 0.25, 0.1), H(0, -0.12, 0.2), B(0.35, 0.65), C(0.2, 0.35), HD(0.1, -0.2, 0.1), R(0.3, -0.3, 0.4, 0.4), {"face": "surprise", "jaw": 0.4, "fp_r": -0.3}])))
+	k.append(K(5.46, M([FR(0.06, 0.32), H(0, -0.1, 0.18), {"fp_r": 0.0, "sq": 0.97}]), "s"))
+	# 5,5 → 6,1 · elle se retourne vers Elly, gronde et revient
+	k.append(K(5.7, M([B(0.15, 0.15), C(0.1, 0.1), HD(0.05, 0.25, 0.0), R(0.45, 0.2, 0.35, 0.6), L(0.4, 0.1, 0.35, 0.6), WR(-0.6), WL(-0.6), {"face": "angry", "jaw": 0.7, "curl": 0.0, "curl_l": 0.0}])))
+	k.append(K(5.95, M([FL(0.05, 0.3, 0.1), H(0, -0.08, 0.1), B(0.3, 0.0), C(0.15), HD(-0.1, 0.0), R(0.4, 0.45, 0.4, 0.7), L(0.4, 0.4, 0.42, 0.7), {"jaw": 0.9}])))
+	k.append(K(6.08, M([FL(0.05, 0.42), H(0, -0.1, 0.15), {"fp_l": 0.0}]), "s"))
+	# 6,15 · la décharge du fusil : bras jetés en l'air, elle décolle en arrière
+	var shot: Dictionary = M([{"plant": 0.0}, H(0, 0.05, -0.3), B(-0.5, 0.0, 0.1), C(-0.3), HD(0.6, 0.1, 0.15),
+		TL(0.6, 0.12), KL(0.5), TR(0.35, 0.12), KR(0.8), R(0.75, 0.6, 0.25, 0.8), L(0.7, 0.65, 0.2, 0.8), WR(0.4), WL(0.4),
+		{"sq": 0.9, "jaw": 1.0, "face": "pain", "ev": "hurt", "curl": 0.0, "curl_l": 0.0}])
+	k.append(K(E_BANG, shot, "h"))
+	k.append(K(E_BANG + 0.08, M([shot, {"sq": 1.0}])))
+	k.append(K(6.4, M([H(0, 0.0, -0.32), B(-0.65, 0.0, 0.12), HD(0.65, -0.1, 0.12), TL(0.95, 0.15), KL(0.4), TR(0.75, 0.15), KR(0.6)])))
+	# 6,55 · sur le dos, les jambes rebondissent
+	var down: Dictionary = M([{"plant": 0.0, "gsnap": 1.0}, H(0, 0.0, -0.45), {"body": V(1.5, 0.12, 0.0), "chest": V(-0.12, 0.12, 0.06), "head": V(-0.3, 0.7, 0.1)},
+		TL(0.4, 0.12, -0.15), KL(0.6), TR(0.2, 0.12, 0.15), KR(0.35), {"l_arm": V(1.2, 0.0, -0.5), "r_arm": V(1.2, 0.0, 0.5)}, Lg(0.95, -0.2), Rg(0.9, 0.15),
+		{"el_l": 0.6, "el_r": 0.7, "face": "dazed", "jaw": 0.4, "sq": 1.0, "curl": 0.3, "curl_l": 0.3}])
+	k.append(K(EA_LAND, M([down, TL(1.0, 0.12, -0.15), KL(0.4), TR(0.8, 0.12, 0.15), KR(0.3), {"sq": 0.9, "ev": "hurt"}]), "s"))
+	k.append(K(6.68, M([TL(1.2, 0.12, -0.15), KL(0.6), TR(1.05, 0.12, 0.15), KR(0.5), {"sq": 1.03}])))
+	k.append(K(6.9, down))
+	# 7,9 · elle relève la tête… qui retombe (8,35)
+	k.append(K(7.85, M([{"head": V(-0.3, 0.7, 0.1)}])))
+	k.append(K(8.05, M([{"head": V(0.25, 0.3, 0.05), "chest": V(0.15, 0.1, 0.05)}, {"face": "angry", "jaw": 0.2}])))
+	k.append(K(8.22, M([{"head": V(0.28, 0.25, 0.05)}])))
+	k.append(K(8.36, M([{"head": V(-0.35, 0.75, 0.12), "chest": V(-0.12, 0.12, 0.06)}, {"face": "dead", "jaw": 0.35}]), "s"))
+	k.append(K(8.46, M([{"head": V(-0.28, 0.72, 0.1)}])))
+	c["fv_elly_alice_rain"] = _film(3.3, 9.0, k, "menace")
+
+	# PAPIER · cueillie par la décharge, elle part en arrière
+	var ink: Array = []
+	ink.append(K(0.0, M([_zero(), shot, {"ev": ""}])))
+	ink.append(K(1.3, M([B(-0.56, 0.0, 0.12), HD(0.62, 0.1, 0.16), TL(0.7, 0.12), KL(0.45), TR(0.45, 0.12), KR(0.75), R(0.8, 0.66, 0.24, 0.8), L(0.75, 0.7, 0.18, 0.8)])))
+	ink.append(K(2.6, M([B(-0.62, 0.0, 0.14), HD(0.64, 0.1, 0.18), TL(0.8, 0.12), KL(0.42), TR(0.55, 0.12), KR(0.7), R(0.84, 0.7, 0.22, 0.8), L(0.8, 0.74, 0.16, 0.8)])))
+	c["fv_elly_alice_ink"] = _film(0.0, 2.7, ink, "pain")
