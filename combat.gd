@@ -1181,7 +1181,7 @@ func _bleuette(actor, slot: int, target_id: int) -> bool:
 					target.effects["next_heal"] = 2.0
 					line = "Elly, t-tu nous sauves la vie ! Ton prochain soin comptera double."
 				_:
-					_message(actor, "Ce personnage n'a pas de bonus Boost défini. Utilise Je crois en toi.")
+					_message(actor, "Pas d’encouragement prévu pour ce perso. Essaie plutôt « Je crois en toi ».")
 					return false
 			_set_cd(actor, 0, 40.0)
 			_message(actor, line, {"target": target.id})

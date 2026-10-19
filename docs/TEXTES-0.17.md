@@ -5,6 +5,17 @@ sonnerie »). Cette passe reprend **tous les textes visibles hors films** : menu
 répliques de Bleuette, fiches des persos et des capacités, boutique, cinémathèque (catalogue), réseau, terrain
 d'essai, aides. Les films (prologue, victoires LMS, fins, blocus) appartiennent à leurs propres lots.
 
+## Deuxième passe (reprise)
+
+La première passe avait couvert presque tout. La reprise a relu chaque écran en captures, FR et EN, et corrigé ce
+qui restait : les 63 descriptions des fuites en équipe (« Puis l’équipe s’échappe » même pour un survivant seul),
+l’écran Crédits (notes de mixage brutes, en français même en anglais), le paragraphe hors sujet de l’onglet
+Accessibilité, le passif d’Elly (elle entend aussi les pas d’Alice, et sur toutes les cartes), Alice vouvoyée
+(« EMPÊCHEZ LEUR FUITE »), trois messages du service en ligne trop administratifs, et le ménage des traductions
+(copies masquées et entrées mortes). `tools/test_textes.gd` gagne trois contrôles : `--tx-catalogue` (anglais de
+toute la cinémathèque), `--tx-data` (fiches des persos telles que les montre la préparation) et les pages
+défilées des crédits.
+
 ## La règle suivie
 
 - **Dire ce que ça fait**, en phrases courtes. Vocabulaire d'école quand ça colle (grilles, cours, bulletin de
@@ -66,7 +77,13 @@ d'essai, aides. Les films (prologue, victoires LMS, fins, blocus) appartiennent 
 | Bleuette encourage Elly | C'est si soulageant de vous avoir à nos côtés, monsieur ! | Elly, t-tu nous sauves la vie ! Ton prochain soin comptera double. | Elly, y-you're a lifesaver! Your next heal will count double. |
 | Bleuette encourage Usayuko | Heureusement que t'es là pour nous protéger, frangin ! | M-merci d'être là, Usayuko… Ton prochain stun dure 1,5 s de plus. | Th-thanks for being here, Usayuko… Your next stun lasts 1.5 s longer. |
 | Archive (QTE) | ARCHIVE · CONTRÔLE D'INTÉGRITÉ | ARCHIVE · APPUIE SUR LA BONNE TOUCHE | ARCHIVE · PRESS THE RIGHT KEY |
-| Crédits, musique du menu | « La dernière sonnerie » | « Fin des cours » | — |
+| Crédits, musique du menu | « La dernière sonnerie » | « Fin des cours » | “End of Class” |
+| Cinémathèque, fuite en solo | Ashura envoie son drone. Puis l’équipe s’échappe. | Ashura envoie son drone, puis se sauve. | Ashura launches his drone, then makes a run for it. |
+| Cinémathèque, fuite à plusieurs | Simon lance sa flashbang ; Ashura envoie son drone ; Elly soigne le groupe. Puis l’équipe s’échappe. | Simon lance sa flashbang, Ashura envoie son drone et Elly soigne ceux qui en ont besoin. Puis tout le monde se sauve. | Simon throws his flashbang, Ashura launches his drone and Elly heals whoever needs it. Then everyone makes a run for it. |
+| Côté Alice, objectif | EMPÊCHEZ LEUR FUITE | EMPÊCHE-LES DE FUIR | STOP THEIR ESCAPE |
+| Passif d’Elly | Entend les actions d'Alice partout dans l'école. | Tu entends les pas et les capacités d’Alice partout sur la carte. | You hear Alice's footsteps and abilities anywhere on the map. |
+| Réglages, onglet Accessibilité | un rappel de jeu (roue d’émotes, Simon, aura) sans rapport avec l’onglet | Tu peux aussi couper les secousses de caméra, les onomatopées et les effets d’écran dans l’onglet JEU. | You can also turn off camera shake, comic words and screen effects in the GAME tab. |
+| Crédits audio | notes de mixage (LUFS, dB, encodage), noms de fichiers bruts, tout en français même en anglais | crédits écrits pour les joueurs, toutes les attributions gardées | version anglaise `audio/CREDITS.en.txt` |
 
 Exemple de capacité (Usayuko, Block / contre) — mêmes chiffres, dit comme on le dirait à un pote :
 
@@ -88,8 +105,13 @@ Exemple de capacité (Usayuko, Block / contre) — mêmes chiffres, dit comme on
 - Les anciens modèles « La dernière tentative de %s échoue… » (4 dans `localization_016.gd`, 1 clé et 1 bloc
   `DISPLAY_TEMPLATES` dans `localization.gd`) et « %s · duel final » sont retirés : plus rien ne les produit.
 - Anglais : apostrophe droite (comme la grande majorité des traductions existantes).
-- Aucune clé en double dans un même dictionnaire ; aucune nouvelle clé partagée entre dictionnaires (les clés
-  déjà présentes à la fois en texte exact et en modèle `DISPLAY_TEMPLATES` existaient avant et sont voulues).
+- Aucune clé en double dans un même dictionnaire. Entre dictionnaires, les 43 copies masquées héritées des
+  versions précédentes (même texte dans V12, V11 et TEXT : seule la première était lue) sont retirées ; quand
+  deux copies différaient, la meilleure traduction est gardée (« Consommation » → « Discharge », comme sur la
+  fiche de Lysia ; « ARCHIVE · TOUCHE %s » → « TAP », c’est l’écran tactile). Restent seulement les paires voulues
+  « texte exact + modèle `DISPLAY_TEMPLATES` » (le gabarit avant formatage et le texte déjà formaté).
+- Retirées aussi : 8 entrées mortes qui recollaient les anciens passifs au rappel d’aura (le passif et le rappel
+  sont traduits séparément par `PaperLanguage._translate`).
 - En passant : « PRÊT POUR LA RENTRÉE » (réglages) était traduit « READY FOR AFTERBELL » → « BACK TO SCHOOL ».
 
 ## Vérifications
@@ -164,11 +186,11 @@ Toutes les entrées, par fichier (« Après » = texte affiché en français, «
 | 115 PV + 50 surPV soignables. Protège les alliés collés à lui (1,5 m) : la griffe d’Alice ne touche que lui. Peut bloquer ou contrer. Chaque protection remplit l’aura. | 115 PV + 50 surPV soignables. Les alliés collés à toi (1,5 m) sont à l’abri : la griffe d’Alice ne touche que toi. Tu peux bloquer ou contrer, et chaque protection remplit ton aura. | 115 HP + 50 healable bonus HP. Allies right next to you (1.5 m) are safe: Alice's claw only hits you. You can block or counter, and every save fills your aura. |
 | Invisible au Shadow reveal. Après un coup : +30 % vitesse 5 s. Esquive : 10 %. LMS : recharges améliorées. | Le Shadow reveal ne te montre pas. Après un coup : +30 % de vitesse pendant 5 s. 10 % de chances d’esquiver. En LMS : recharges plus courtes. | Shadow reveal doesn't show you. After a hit: +30% speed for 5 s. 10% chance to dodge. In LMS: shorter cooldowns. |
 | Armure 200. Mange les épaves de drone au contact : +7 PV. Se recharge aux prises. Les soins d’Elly ne fonctionnent pas sur elle. Explose à sa mort : Alice étourdie 5 s dans un rayon de 7 m. Ne peut pas être réanimée. | 200 d’armure. Tu manges les épaves de drone au contact (+7 PV) et tu te recharges aux prises. Les soins d’Elly ne marchent pas sur toi. À ta mort, tu exploses : Alice est étourdie 5 s si elle est à moins de 7 m. Personne ne peut te réanimer. | 200 armour. You eat drone wrecks on contact (+7 HP) and recharge at outlets. Elly's heals don't work on you. When you die, you explode: Alice is stunned for 5 s if she's within 7 m. Nobody can revive you. |
-| Entend les actions d'Alice partout dans l'école. LMS : Shotgun unique. | Tu entends les capacités d’Alice partout dans l’école. En LMS : un tir de Shotgun, une seule fois. | You hear Alice's abilities anywhere in the school. In LMS: one Shotgun blast, just once. |
+| Entend les actions d'Alice partout dans l'école. LMS : Shotgun unique. | Tu entends les pas et les capacités d’Alice partout sur la carte. En LMS : un tir de Shotgun, une seule fois. | You hear Alice's footsteps and abilities anywhere on the map. In LMS: one Shotgun blast, just once. |
 | Après un coup : vitesse ×2 pendant 3 s. LMS : hausse des ressources. | Après un coup : vitesse ×2 pendant 3 s. En LMS : « Je peux le faire » se débloque. | After a hit: speed ×2 for 3 s. In LMS: “I can do it” unlocks. |
 | Une seule porte condamnée à la fois. Traverse ses propres piques. Après chaque stun : aura rouge et protection contre les stuns pendant 5 s. | Une seule porte condamnée à la fois. Tu traverses tes propres piques. Après chaque stun : aura rouge, et plus aucun stun pendant 5 s. | Only one door sealed at a time. You pass through your own spikes. After each stun: red aura, and no more stuns for 5 s. |
 
-### `ui.gd` (46)
+### `ui.gd` (48)
 
 | Avant | Après | Anglais |
 |---|---|---|
@@ -208,7 +230,9 @@ Toutes les entrées, par fichier (« Après » = texte affiché en français, «
 | Suivi amorti derrière le personnage. | La caméra suit ton perso en douceur. | The camera follows your character smoothly. |
 | Tremblement lors des coups et des impacts. | L’écran tremble quand ça cogne. | The screen shakes when things hit hard. |
 | Objectif : atteindre la sortie lorsqu’elle s’ouvre à 01:20. Le dernier survivant a un LMS de la durée de sa musique. Alice ferme la sortie et suspend le chrono pendant sa True Form, une seule fois après 15 stuns. Simon et Ashura : maintenir la capacité 2 pour charger, puis relâcher. Le boost dure 3, 4 ou 6 s selon la charge. | Le but : atteindre la sortie quand elle s’ouvre, à 01:20. Le dernier survivant a droit à un LMS qui dure le temps de sa musique. Après 15 stuns, Alice peut passer en True Form, une seule fois : sortie fermée et chrono en pause. Simon et Ashura chargent leur capacité 2 en la maintenant ; selon la charge, le boost dure 3, 4 ou 6 s. | The goal: reach the exit when it opens, at 01:20. The last survivor gets an LMS that lasts as long as their music. After 15 stuns, Alice can go True Form, once: exit closed and timer paused. Simon and Ashura charge ability 2 by holding it; depending on the charge, the boost lasts 3, 4 or 6 s. |
-| G · roue d’émotes. Simon OM : 3 alterne lancer et coup éclair. L’aura récompense les actions utiles ; 100 points débloquent les bonus pendant le LMS. | G ouvre la roue d’émotes. Avec Simon, 3 passe du lancer au coup éclair. Ton aura se remplit quand tu aides ; à 100, tes bonus de LMS se débloquent. | G opens the emote wheel. As Simon, 3 switches between throw and flash punch. Your aura fills up when you help; at 100, your LMS bonuses unlock. |
+| G · roue d’émotes. Simon OM : 3 alterne lancer et coup éclair. L’aura récompense les actions utiles ; 100 points débloquent les bonus pendant le LMS. (onglet Accessibilité) | Tu peux aussi couper les secousses de caméra, les onomatopées et les effets d’écran dans l’onglet JEU. | You can also turn off camera shake, comic words and screen effects in the GAME tab. |
+| 15 étourdissements débloquent la True Form d’Alice : 30 secondes, chrono suspendu, sortie fermée. (astuce) | Après 15 stuns, Alice peut passer en True Form, une seule fois : 30 s, chrono en pause et sortie fermée. | After 15 stuns, Alice can go True Form, just once: 30 s, timer paused and exit closed. |
+| Elly entend les capacités d’Alice partout dans l’école. (astuce) | Elly entend les pas et les capacités d’Alice partout sur la carte. | Elly hears Alice's footsteps and abilities anywhere on the map. |
 | LES HISTOIRES APRÈS LA CLOCHE | TOUS LES FILMS DU JEU | EVERY FILM IN THE GAME |
 | Revois le prologue et choisis qui affronte Alice. Les fins d’équipe s’adaptent aux survivants présents. | Revois le prologue et toutes les fins. Pour les fuites en équipe, choisis qui s’en sort : la scène change avec. | Rewatch the prologue and every ending. For team escapes, pick who makes it out: the scene changes to match. |
 | Coche les personnages qui ont survécu pour voir leur fin exacte. Sans sélection, les 63 compositions sont affichées. | Coche les survivants pour voir leur fin. Sans rien cocher, les 63 combinaisons s’affichent. | Tick the survivors to see their ending. With nothing ticked, all 63 combinations show up. |
@@ -250,10 +274,11 @@ Toutes les entrées, par fichier (« Après » = texte affiché en français, «
 | %s · duel final | %s contre Alice | %s vs Alice |
 | DERNIÈRE PRÉSENCE / « X · duel final » | DERNIER SURVIVANT ou DERNIÈRE SURVIVANTE / « X contre Alice » | LAST ONE STANDING / "X vs Alice" |
 
-### `combat.gd` (18)
+### `combat.gd` (19)
 
 | Avant | Après | Anglais |
 |---|---|---|
+| Ce personnage n'a pas de bonus Boost défini. Utilise Je crois en toi. | Pas d’encouragement prévu pour ce perso. Essaie plutôt « Je crois en toi ». | No cheer planned for this character. Try “I believe in you” instead. |
 | DERNIÈRE PRÉSENCE · +%d PV (maximum 150) | LMS · +%d PV (150 max) | LMS · +%d HP (150 max) |
 | AURA ÉVEILLÉE · Dernière chance : tiens jusqu'à la sonnerie ! | AURA PLEINE · Tiens jusqu’à la fin de ta musique ! | AURA FULL · Hold on until your music ends! |
 | AURA ÉVEILLÉE · 4 : Dropkick unique (5 s de stun) | AURA PLEINE · 4 : un Dropkick (5 s de stun) | AURA FULL · 4: one Dropkick (5 s stun) |
@@ -273,7 +298,7 @@ Toutes les entrées, par fichier (« Après » = texte affiché en français, «
 | SOIN · pose-toi au sol pour soigner. | SOIN · pas en plein saut : attends d’atterrir. | HEAL · not mid-jump: wait until you land. |
 | oriente ton regard vers Alice | tourne-toi vers Alice | turn to face Alice |
 
-### `ui_hud.gd` (8)
+### `ui_hud.gd` (10)
 
 | Avant | Après | Anglais |
 |---|---|---|
@@ -285,8 +310,10 @@ Toutes les entrées, par fichier (« Après » = texte affiché en français, «
 | OMBRE PORTÉE · ÉMERGENCE DERRIÈRE LA CIBLE… | OMBRES · TU VAS SURGIR DERRIÈRE UN ÉLÈVE AU HASARD | SHADOWS · YOU'LL POP UP BEHIND A RANDOM STUDENT |
 | Les élèves prennent de l'avance… | Les élèves ont quelques secondes d’avance. | The students get a few seconds' head start. |
 | TRUE FORM · %.0f s · COMPÉTENCE 4 : BONDIR | TRUE FORM · %.0f s · CAPACITÉ 4 : BONDIR | TRUE FORM · %.0f s · ABILITY 4: POUNCE |
+| EMPÊCHEZ LEUR FUITE (objectif d’Alice) | EMPÊCHE-LES DE FUIR | STOP THEIR ESCAPE |
+| SORTIE OUVERTE · EMPÊCHEZ LEUR FUITE | SORTIE OUVERTE · EMPÊCHE-LES DE FUIR | EXIT OPEN · STOP THEIR ESCAPE |
 
-### `online_menu.gd` (10)
+### `online_menu.gd` (13)
 
 | Avant | Après | Anglais |
 |---|---|---|
@@ -300,6 +327,9 @@ Toutes les entrées, par fichier (« Après » = texte affiché en français, «
 | Un serveur dédié exécute la simulation. Les bots complètent l’équipe. Ordinateurs et Android rejoignent le même groupe. | La partie tourne sur un serveur dédié. Des bots complètent l’équipe, et PC et Android peuvent jouer dans le même groupe. | The match runs on a dedicated server. Bots fill out the team, and PC and Android can play in the same party. |
 | Forêt enneigée | Classe de neige | Ski trip |
 | Forêt | Bois | Woods |
+| Aucun serveur régional public n’est fourni pour l’instant. Le solo reste disponible. L’administrateur devra fournir l’adresse HTTPS du service. | Pas encore de serveur régional public. Le solo marche toujours. Pour le reste, il faut l’adresse HTTPS du service : demande-la à l’admin. | No public regional server yet. Solo still works. For everything else, you need the service's HTTPS address: ask the admin for it. |
+| Sans hébergement configuré, les comptes et les parties régionales restent indisponibles. Utilise la même adresse sur ordinateur et Android. | Sans cette adresse, pas de comptes ni de parties régionales. Mets la même sur PC et sur Android. | Without this address, there are no accounts or regional matches. Use the same one on PC and Android. |
+| Aucune région n’est hébergée pour l’instant. Les parties régionales deviendront disponibles quand un administrateur déploiera le serveur. | Aucune région n’est hébergée pour l’instant. Les parties régionales arriveront quand un admin aura mis le serveur en ligne. | No region is hosted yet. Regional matches will show up once an admin puts the server online. |
 
 ### `controls_menu.gd` (1)
 
@@ -325,12 +355,13 @@ Toutes les entrées, par fichier (« Après » = texte affiché en français, «
 | Blessure fatale appliquée : première chute, ou mort définitive après une réanimation. Lysia ne peut pas être relevée. | Tu tombes : la première fois, un allié peut te relever ; la deuxième, c’est fini. Lysia, elle, ne se relève jamais. | You go down: the first time, an ally can revive you; the second time, you're out. Lysia never gets back up. |
 | True Form prête · ferme le panneau et active la compétence 6. | True Form prête · ferme le panneau et lance la capacité 6. | True Form ready · close the panel and use ability 6. |
 
-### `cinematics.gd` (2)
+### `cinematics.gd` (3)
 
 | Avant | Après | Anglais |
 |---|---|---|
 | Le film du premier lancement : Simon et Ashura affrontent Yiero dans une dimension ténébreuse… puis Simon atterrit à l’école en plein combat. | Le film du premier lancement. Simon et Ashura tombent sur Yiero, un démon géant, au milieu d’une mer d’encre. Simon finit par atterrir à l’école, en pleine bagarre contre Alice. | The film from the very first launch. Simon and Ashura run into Yiero, a giant demon, in the middle of a sea of ink. Simon ends up crash-landing at school, right in a fight with Alice. |
 | La dernière tentative de/d’ X échoue. Alice le/la rattrape, frappe et l’achève au sol. | X est le dernier / la dernière encore debout. Alice finit par le / la rattraper. | X is the last one still standing. Alice catches up with him / her in the end. |
+| 63 fuites en équipe : « A ; B ; C. Puis l’équipe s’échappe. » (même pour un survivant seul) | Seul : « A, puis se sauve. » À deux : « A et B. Puis les deux se sauvent. » À trois et plus : « A, B et C. Puis tout le monde se sauve. » Elly en groupe : « soigne ceux qui en ont besoin », Bleuette en groupe : « encourage l’équipe ». | Solo: “A, then makes a run for it.” Two: “A and B. Then they both make a run for it.” Three or more: “A, B and C. Then everyone makes a run for it.” |
 
 ### `escape_flow.gd` (1)
 
@@ -338,11 +369,26 @@ Toutes les entrées, par fichier (« Après » = texte affiché en français, «
 |---|---|---|
 | LMS · AURA COMPLÈTE, SORTIE MAINTENUE | LMS · AURA PLEINE : LA SORTIE RESTE OUVERTE | LMS · AURA FULL: THE EXIT STAYS OPEN |
 
-### `audio/CREDITS.txt` (1)
+### `exit_alarm.gd` (1)
 
 | Avant | Après | Anglais |
 |---|---|---|
-| music_menu.ogg « La dernière sonnerie » | music_menu.ogg « Fin des cours » | (fichier en français seulement) |
+| EMPÊCHEZ LEUR FUITE (bannière d’Alice à l’ouverture de la sortie) | EMPÊCHE-LES DE FUIR | STOP THEIR ESCAPE |
+
+### `audio/CREDITS.txt` et `audio/CREDITS.en.txt`
+
+L’écran Crédits affichait le fichier tel quel : notes de mixage (gains en dB, −17,5 LUFS, Ogg q8, 320 kbit/s),
+nom de fichier brut (« Simon OST final mais vrmt final… .mp3 »), un ancien LMS qui n’est plus dans le jeu, et tout
+en français même avec le jeu en anglais. Il est réécrit pour les joueurs :
+
+- **toutes les attributions sont gardées mot pour mot** (« “Red” by Scott Buckley — released under CC-BY 4.0. »,
+  liens, auteurs freesound et licences CC BY / CC0), avec la mention des modifications demandée par CC BY
+  (« coupés, raccordés et remis à niveau », Juggernaut ralenti en True Form) ;
+- les musiques composées pour le jeu sont toutes citées (« Fin des cours », « Sous les pins d’encre »,
+  « Craie et givre », « Retenue », danses, victoires LMS, prologue, blocus, « Course vers la sortie ») ;
+- le détail technique reste dans `docs/AUDIO-CREDITS.md` et `docs/AUDIO-SOURCES.json` ;
+- `audio/CREDITS.en.txt` (nouveau) est la version anglaise ; `ui.gd` la charge quand le jeu est en anglais
+  (`*.txt` est déjà dans le filtre d’export).
 
 ### `localization.gd (anglais seul)` (1)
 

@@ -1151,7 +1151,7 @@ const TEXT: Dictionary = {
 	"M-merci d’être là, Usayuko… Ton prochain stun dure 1,5 s de plus.": "Th-thanks for being here, Usayuko… Your next stun lasts 1.5 s longer.", 
 	"On… on va y arriver, Lysia ! Ta prochaine recharge sera 25 % plus courte.": "We… we can do this, Lysia! Your next recharge will be 25% shorter.", 
 	"Elly, t-tu nous sauves la vie ! Ton prochain soin comptera double.": "Elly, y-you're a lifesaver! Your next heal will count double.", 
-	"Ce personnage n'a pas de bonus Boost défini. Utilise Je crois en toi.": "This character has no Encourage bonus. Use I Believe in You.", 
+	"Pas d’encouragement prévu pour ce perso. Essaie plutôt « Je crois en toi ».": "No cheer planned for this character. Try “I believe in you” instead.", 
 	"J-je crois en toi ! Capacité rechargée.": "I-I believe in you! Ability recharged.", 
 	"JE PEUX LE FAIRE ! +30 PV, +40 endurance": "I CAN DO IT! +30 HP, +40 stamina", 
 	"Alice est absente": "Alice is absent", 
