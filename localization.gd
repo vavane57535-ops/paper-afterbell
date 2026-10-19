@@ -960,7 +960,7 @@ const TEXT: Dictionary = {
 	"Qui veut rester après les cours ?": "Who wants to stay after school?", 
 	"Lance un drone autonome : batterie 10 s. Au contact d’Alice : stun 2 s, flash 1 s, puis recharge 40 s. Une épave reste 15 s, recyclable par Lysia.": "Launch an autonomous drone with a 10 s battery. Hitting Alice stuns for 2 s and blinds for 1 s, then starts a 40 s cooldown. Wreckage stays for 15 s and can be recycled by Lysia.", 
 	"Vitesse ×1,55 pendant 3 s. Moins puissant que le boost de Simon.": "Speed ×1.55 for 3 s. Less powerful than Simon's boost.", 
-	"Tu fonces 4 s droit devant. Si tu touches Alice, tu l’embarques ; écrase-la contre un mur et elle est stun 3 s.": "You charge straight ahead for 4 s. Hit Alice and you carry her off; slam her into a wall for a 3 s stun.", 
+	"Tu fonces 4 s là où tu vises. Si tu touches Alice, tu l’embarques ; écrase-la contre un mur et elle est stun 3 s.": "You charge for 4 s wherever you're aiming. Hit Alice and you carry her off; slam her into a wall for a 3 s stun.", 
 	"Block / contre": "Block / counter", 
 	"Garde de 1,5 s. Si Alice tape dedans, réappuie vite pour contrer : stun 4 s. Après un blocage réussi, la recharge n’est que de 20 s.": "Guard for 1.5 s. If Alice hits it, press again quickly to counter: 4 s stun. After a successful block, the cooldown is only 20 s.", 
 	"Un bon coup de poing : Alice est étourdie 2 s.": "A solid punch: Alice is stunned for 2 s.", 
