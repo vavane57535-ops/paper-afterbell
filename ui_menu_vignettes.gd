@@ -284,7 +284,8 @@ func _apply_look(scene: MenuScene, alpha: float) -> void :
 	_composite.set_shader_parameter("styled", scene.styled)
 	_composite.set_shader_parameter("masked", scene.masked)
 	_composite.set_shader_parameter("fade", alpha)
-	_composite.set_shader_parameter("dip", float(look.get("dip", 0.0)))
+	# Fondu au noir : étalonnage de la scène, ou raccord de boucle du temps fort en cours.
+	_composite.set_shader_parameter("dip", maxf(float(look.get("dip", 0.0)), scene.fade_dip))
 	_composite.set_shader_parameter("flash", float(look.get("flash", 0.0)) * (0.35 if ui and bool(ui.get("reduced_motion")) else 1.0))
 	_composite.set_shader_parameter("lift", look.get("lift", Vector3.ZERO))
 	_composite.set_shader_parameter("gain", look.get("gain", Vector3.ONE))
