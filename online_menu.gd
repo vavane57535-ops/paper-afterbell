@@ -201,7 +201,7 @@ func _post(path: String, body: Dictionary, success_page: String = "") -> Diction
 	return reply
 
 func show_friends() -> void :
-	var epoch: int = _clear("friends", "La bande après les cours")
+	var epoch: int = _clear("friends", "Ta bande")
 	if not _require_account(): return
 	_status("Recherche des amis et invitations…")
 	var friends: Dictionary = await client.api("/v1/friends"); var invitations: Dictionary = await client.api("/v1/invites"); var current: Dictionary = await client.api("/v1/parties/current")

@@ -232,7 +232,7 @@ const V11_TEXT: Dictionary = {
 	"Seules les parties sur serveur dédié comptent ici. Le solo et le bac à sable ne changent rien.": "Only matches on dedicated servers count here. Solo and sandbox don't change anything.", 
 	"Se déconnecter": "Sign out", 
 	"C’est fait.": "Done.", 
-	"La bande après les cours": "The after-school crew", 
+	"Ta bande": "Your crew", 
 	"Recherche des amis et invitations…": "Loading friends and invitations…", 
 	"Retrouver un ami": "Find a friend", 
 	"Entre l’identifiant de son compte.": "Enter their account username.", 
