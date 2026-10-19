@@ -1103,9 +1103,9 @@ func _write_void_intro() -> void :
 	_key("gold_s", 0.0, 0.12);_key("gold_a", 0.0, 0.12)
 	_cue(25.0, "sfx", "sfx_thump", 0.45);_cue(26.2, "sfx", "sfx_thump", 0.65);_cue(27.4, "sfx", "sfx_thump", 0.85)
 	_cue(26.4, "sweat", {"a": S, "s": "head"}, 2)
-	_say(17.6, "Simon", "C'est calme… beaucoup trop calme.", 0.9)
-	_say(20.9, "Ashura", "Mes drones ne captent rien. Pas un seul écho.", 0.9)
-	_say(26.8, "Simon", "Hé… T'as entendu ça ?", 0.8)
+	_say(17.6, "Simon", "Y a rien. Même pas un bruit. On se croirait en perm.", 0.9)
+	_say(20.9, "Ashura", "Le drone capte rien non plus. Pas un écho.", 0.9)
+	_say(26.8, "Simon", "Attends. T'as entendu, là ?", 0.8)
 
 	_key("y_pos", 0.0, Vector3(0, 0, 84));_key("y_yaw", 0.0, PI);_key("rise", 0.0, 0.0);_key("rise", 28.6, 0.0);_key("rise", 30.0, 0.8);_key("reveal", 0.0, 0.0)
 	_key("eye_open", 0.0, 0.0);_key("eye_open", 30.4, 0.0)
@@ -1117,24 +1117,24 @@ func _write_void_intro() -> void :
 	_key("curl_px", 0.0, 1.0);_key("curl_nx", 0.0, 1.0)
 	_key("fog", 0.0, 0.55);_key("storm", 0.0, 0.0);_key("sky_storm", 0.0, 0.0)
 
-	_shot(0.0, {"eye": [Vector3(-22, 21, -66), Vector3(-15, 9, -55)], "look": [Vector3(0, 7, 20), Vector3(0, 3, 6)], "fov": [50, 46], "hand": 0.2, "ease": "smooth", "safe": false})
+	_shot(0.0, {"eye": [Vector3(-22, 21, -66), Vector3(-9, 4.0, -45)], "look": [Vector3(0, 7, 20), Vector3(0, 1.2, -6)], "fov": [50, 44], "hand": 0.2, "ease": "smooth", "safe": false})
 	_shot(12.0, {"rel": {"a": S}, "eye": [Vector3(-2.7, 0.28, 1.0), Vector3(-2.5, 0.3, -0.6)], "look": {"a": S, "h": 0.3, "o": Vector3(1.3, 0, 0.4)}, "fov": 40, "hand": 0.3})
-	_shot(17.0, {"rel": {"mid": [S, A]}, "eye": [Vector3(0.1, 1.45, 4.6), Vector3(0.05, 1.4, 3.4)], "look": {"mid": [S, A], "h": 1.25}, "fov": [40, 36], "hand": 0.3})
-	_shot(24.0, {"rel": {"a": A}, "eye": [Vector3(0.7, 1.75, -1.4), Vector3(0.6, 1.72, -1.15)], "look": {"a": A, "h": 1.5, "o": Vector3(-1.4, 0, 12)}, "fov": [44, 40], "hand": 0.3})
-	_shot(26.55, {"rel": {"a": S}, "eye": [Vector3(0.9, 1.42, -2.3), Vector3(0.75, 1.44, -2.0)], "look": {"a": S, "h": 1.36}, "fov": [36, 33], "hand": 0.4})
+	_shot(17.0, {"rel": {"mid": [S, A]}, "eye": [Vector3(0.15, 1.3, 3.1), Vector3(0.1, 1.27, 2.55)], "look": {"mid": [S, A], "h": 1.05}, "fov": [38, 36], "hand": 0.3})
+	_shot(24.0, {"rel": {"mid": [S, A]}, "eye": [Vector3(0.08, 1.48, -2.5), Vector3(0.06, 1.45, -2.1)], "look": {"mid": [S, A], "h": 1.15, "o": Vector3(-0.25, 0, 6.0)}, "fov": [48, 46], "hand": 0.3})
+	_shot(26.85, {"rel": {"a": S}, "eye": [Vector3(0.35, 1.3, -1.8), Vector3(0.32, 1.3, -1.6)], "look": {"a": S, "h": 1.08, "o": Vector3(0.3, 0, 0.3)}, "fov": [40, 38], "hand": 0.4})
 
 
 # Acte II — l'apparition de Yiero (30 → 59,45 s).
 func _write_apparition() -> void :
 	_pa_cast(30.0, 59.45)
-	_shot(30.0, {"rel": {"a": S}, "eye": [Vector3(0.38, 1.05, -1.35), Vector3(0.32, 1.05, -1.15)], "look": {"a": S, "h": 1.18}, "fov": [36, 32], "hand": 0.25})
+	_shot(30.0, {"rel": {"a": S}, "eye": [Vector3(0.55, 1.2, -1.45), Vector3(0.5, 1.2, -1.2)], "look": {"a": S, "h": 1.2, "o": Vector3(0.55, 0.9, 6.0)}, "fov": [38, 35], "hand": 0.25})
 	_key("eye_open", 32.8, 1.0, "out");_key("eye_glow", 30.4, 0.55);_key("eye_glow", 33.2, 1.0)
 	_cue(30.3, "sfx", "sfx_drop", 0.9)
 
-	_shot(34.0, {"eye": [Vector3(0.6, 0.55, -19.5), Vector3(0.3, 0.5, -18.0)], "look": {"y": "eyes", "h": -7.0}, "fov": [46, 42], "hand": 0.25, "safe": false})
+	_shot(34.0, {"eye": [Vector3(0.6, 0.55, -19.5), Vector3(0.2, 0.7, -15.4)], "look": [{"y": "eyes", "h": -7.0}, {"y": "eyes", "h": -12.0}], "fov": [46, 42], "hand": 0.25, "safe": false})
 	_key("grin", 35.3, 0.0);_key("grin", 37.9, 0.45, "smooth");_key("grin", 38.12, 1.0, "out")
 	_cue(38.0, "shake", 0.3);_key("tremble", 37.95, 0.1);_key("tremble", 38.06, 0.65, "out");_key("tremble", 39.6, 0.2)
-	_say(36.0, "Yiero", "Hm hm hm… Deux petites lumières…", 0.6)
+	_say(36.0, "Yiero", "Coucou, les petites lumières.", 0.6)
 	_cue(35.3, "sfx", "sfx_creak", 0.8)
 
 	_shot(40.0, {"eye": [Vector3(3.6, 0.9, -14.0), Vector3(4.2, 0.6, -13.0)], "look": [{"mid": [S, A], "h": 1.3}, {"y": "head", "h": 4.0}], "fov": [50, 60], "hand": 0.3, "ease": "smooth", "safe": false})
@@ -1152,7 +1152,7 @@ func _write_apparition() -> void :
 	_shot(46.0, {"eye": [Vector3(-0.9, 0.14, -7.0), Vector3(-0.8, 0.16, -6.0)], "look": {"y": "face", "h": -3.0}, "fov": [64, 56], "hand": 0.3, "safe": false})
 	_key("y_pos", 46.0, Vector3(0, 0, 84));_key("y_pos", 50.0, Vector3(0, 0, 70), "smooth")
 	_key("pitch", 46.0, 0.0);_key("pitch", 50.0, 0.22);_key("lean", 46.0, 0.0);_key("lean", 50.0, 6.0)
-	_say(46.4, "Yiero", "…perdues dans MA dimension.", 0.3)
+	_say(46.4, "Yiero", "Alors, on s'est perdus ?", 0.3)
 	_key("jaw", 50.0, 0.0);_key("jaw", 50.32, 1.05, "out");_key("jaw", 51.7, 1.0);_key("jaw", 52.5, 0.22)
 	_cue(50.05, "sfx", "sfx_roar", 1.25)
 	_cue(50.2, "shake", 1.0);_cue(50.9, "shake", 0.6);_cue(50.2, "impact", 0.9, true);_cue(50.2, "pulse", Color(0.8, 0.04, 0.05, 0.42), 2.0)
@@ -1163,10 +1163,10 @@ func _write_apparition() -> void :
 	_key("sky_flash", 50.2, 0.0);_key("sky_flash", 50.35, 0.35, "out");_key("sky_flash", 51.2, 0.0)
 	_key("tremble", 50.2, 0.9);_key("tremble", 52.6, 0.25)
 
-	_shot(51.0, {"rel": {"mid": [S, A]}, "eye": [Vector3(0.5, 1.25, 3.5), Vector3(0.4, 1.3, 3.1)], "look": {"mid": [S, A], "h": 1.35}, "fov": [40, 37], "hand": 0.8})
-	_say(52.4, "Ashura", "Simon. Les armes bénies. Maintenant.", 0.4)
-	_shot(55.3, {"rel": {"a": S}, "eye": [Vector3(0.6, 1.42, 2.0), Vector3(0.55, 1.42, 1.8)], "look": {"a": S, "h": 1.36}, "fov": [36, 34], "hand": 0.5})
-	_say(55.45, "Simon", "Ouais ! On le renvoie d'où il vient !", 0.5, true)
+	_shot(51.0, {"rel": {"mid": [S, A]}, "eye": [Vector3(-0.15, 1.25, 3.3), Vector3(-0.12, 1.3, 3.0)], "look": {"mid": [S, A], "h": 1.3}, "fov": [40, 37], "hand": 0.8})
+	_say(52.4, "Ashura", "Simon. Les poings. Maintenant.", 0.4)
+	_shot(55.3, {"rel": {"a": S}, "eye": [Vector3(-0.55, 1.32, 1.95), Vector3(-0.5, 1.32, 1.75)], "look": {"a": S, "h": 1.22, "o": Vector3(0.12, 0, 0)}, "fov": [36, 34], "hand": 0.5})
+	_say(55.45, "Simon", "OK ! Mais si je meurs, c'est ta faute !", 0.5, true)
 	_key("gold_s", 56.9, 0.12);_key("gold_s", 57.2, 1.0, "out");_key("gold_a", 56.95, 0.12);_key("gold_a", 57.25, 1.0, "out")
 	_cue(56.85, "sfx", "sfx_ignite", 0.85)
 	_flash(56.95, Color(1.0, 0.85, 0.4, 0.3), 0.05, 0.5)
@@ -1174,8 +1174,8 @@ func _write_apparition() -> void :
 		_cue(57.0, "pillars", {"a": i}, GOLD, 5, 0.6)
 		_cue(57.05, "sparkles", {"a": i, "s": "hand_r"}, GOLD, 3, 1.0)
 	_cue(57.0, "shake", 0.35)
-	_shot(56.75, {"rel": {"a": S}, "eye": [Vector3(1.0, 1.05, 1.5), Vector3(0.85, 1.1, 1.3)], "look": {"a": S, "s": "hand_r"}, "fov": [34, 30], "hand": 0.4})
-	_shot(57.75, {"rel": {"mid": [S, A]}, "eye": [Vector3(-1.6, 0.45, 3.2), Vector3(-1.2, 0.5, 2.8)], "look": {"mid": [S, A], "h": 1.5}, "fov": [44, 41], "hand": 0.4})
+	_shot(56.75, {"rel": {"a": S, "s": "hand_r"}, "eye": [Vector3(-0.32, 0.02, 0.78), Vector3(-0.26, 0.05, 0.66)], "look": {"a": S, "s": "hand_r", "h": 0.14}, "fov": [32, 28], "hand": 0.35})
+	_shot(57.12, {"rel": {"mid": [S, A]}, "eye": [Vector3(-1.7, 0.45, 3.3), Vector3(-1.2, 0.5, 2.8)], "look": {"mid": [S, A], "h": 1.5}, "fov": [44, 41], "hand": 0.4})
 
 
 # Acte III — le combat épique (59,45 → 104 s).
@@ -1219,9 +1219,9 @@ func _write_fight() -> void :
 	_key("hurt", 76.0, 0.0);_key("hurt", 76.05, 0.35);_key("hurt", 76.7, 0.0)
 	_key("jaw", 76.0, 0.15);_key("jaw", 76.2, 0.35, "out");_key("jaw", 77.0, 0.1)
 	_key("y_pos", 76.0, Vector3(0, 0, 73));_key("y_pos", 77.5, Vector3(0, 0, 76), "out")
-	_say(75.1, "Simon", "Il recule ! Ashura, il recule !", 0.4, true)
+	_say(75.1, "Simon", "Il recule ! T'as vu ça ?", 0.4, true)
 	_shot(76.25, {"rel": {"a": S}, "eye": [Vector3(0.6, 1.42, 2.0), Vector3(0.55, 1.42, 1.8)], "look": {"a": S, "h": 1.36}, "fov": [36, 34], "hand": 0.4})
-	_say(77.2, "Ashura", "Ensemble ! Vise la mâchoire !", 0.4, true)
+	_say(77.2, "Ashura", "Avec moi. La mâchoire !", 0.4, true)
 
 	for i: int in [S, A]:
 		_cue(77.9, "trail", i, "hand_r", GOLD, 1.2);_cue(78.3, "trail", i, "hand_l", GOLD, 1.0)
@@ -1245,12 +1245,12 @@ func _write_fight() -> void :
 	_key("laugh", 82.9, 0.0);_key("laugh", 83.3, 1.0);_key("laugh", 86.2, 1.0);_key("laugh", 86.6, 0.0)
 	_key("grin_wide", 83.0, 1.0);_key("grin_wide", 86.6, 1.25, "smooth")
 	_key("tremble", 83.0, 0.45)
-	_say(83.0, "Yiero", "Ha… Ha ha ha ha. C'est tout ?", 0.4)
+	_say(83.0, "Yiero", "Ha ! C'est tout ? Ça chatouille.", 0.4)
 	_cue(83.0, "sfx", "sfx_laugh", 1.0)
 	_shot(82.0, {"eye": [Vector3(-38, 54, 106), Vector3(-36, 52, 103)], "look": {"mid": [S, A], "h": 1.0}, "fov": [26, 24], "hand": 0.3, "safe": false})
 	_shot(84.6, {"rel": {"y": "mouth"}, "eye": [Vector3(-7.0, -4.0, -24.0), Vector3(-5.5, -3.2, -20.0)], "look": {"y": "mouth"}, "fov": [42, 40], "hand": 0.4, "safe": false})
 
-	_say(87.3, "Yiero", "Votre petite lumière… je vais l'ÉTEINDRE.", 0.4)
+	_say(87.3, "Yiero", "Allez, au lit. On éteint la lumière.", 0.4)
 	_key("fury", 87.3, 0.15);_key("fury", 89.0, 1.0, "smooth");_key("eye_glow", 87.3, 1.0);_key("eye_glow", 89.0, 1.7)
 	_key("sky_storm", 87.3, 0.3);_key("sky_storm", 89.5, 1.0);_key("sky_dim", 87.3, 1.0);_key("sky_dim", 89.5, 0.62);_key("fog_mul", 87.3, 1.0);_key("fog_mul", 89.5, 1.7)
 	_key("gold_s", 87.5, 1.0);_key("gold_s", 88.1, 0.45);_key("gold_s", 88.4, 0.8);_key("gold_s", 88.9, 0.35);_key("gold_s", 89.5, 0.6)
@@ -1294,7 +1294,7 @@ func _write_fight() -> void :
 	_key("hand_px", 103.0, Vector3(4.0, 23.0, 46.0), "smooth")
 	_key("look_who", 98.0, 0.0);_key("look_who", 99.6, 1.0)
 	_key("pitch", 99.0, 0.18);_key("pitch", 103.0, 0.05)
-	_say(100.1, "Yiero", "Toi, le petit observateur… Je vais t'effacer.", 0.4)
+	_say(100.1, "Yiero", "Toi, le malin au drone… je vais t'effacer.", 0.4)
 	_shot(99.55, {"eye": [Vector3(10.0, 2.0, 2.0), Vector3(9.5, 9.0, 6.0)], "look": [{"a": A, "h": 1.0}, {"y": "face", "h": -6.0}], "fov": [44, 52], "hand": 0.4, "ease": "smooth", "safe": false})
 	_pa_contacts()
 

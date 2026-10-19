@@ -923,7 +923,7 @@ static func _perform(s: Actor, a: Actor) -> void :
 # Acte I (0 → 30 s) : marche prudente dans l'encre, l'onde lointaine (9,4), regards, répliques, les
 # trois battements (25,0 / 26,2 / 27,4) : Simon s'arrête, fait volte-face, Ashura se retourne aussi.
 static func _act1(s: Actor, a: Actor) -> void :
-	s.go(0.0, Vector3(-0.75, 0, -30.0));a.go(0.0, Vector3(0.8, 0, -29.6))
+	s.go(0.0, Vector3(-0.55, 0, -30.0));a.go(0.0, Vector3(0.55, 0, -29.45))
 	for one: Actor in [s, a]:
 		one.face(0.0, PI);one.aim(0.0, PI)
 		one.plant(-1, 0.0, world_of(one, 0.0, Vector3(-0.1, 0, 0.03)))
@@ -931,14 +931,14 @@ static func _act1(s: Actor, a: Actor) -> void :
 		for t: float in [0.0, 12.0, 17.0, 24.0, 30.0]: one.cut(t)
 
 	# Simon : marche, s'arrête net à l'onde lointaine, repart, freine au premier battement.
-	walk_to(s, 3.35, 9.75, Vector3(-0.73, 0, -24.55), 0.9, 0.75)
+	walk_to(s, 3.35, 9.75, Vector3(-0.53, 0, -24.55), 0.9, 0.75)
 	strides(s, 1, 3.9, 0.6, 10, {"width": 0.1, "h": 0.07, "seed": 5, "stop": 9.75})
-	walk_to(s, 10.7, 25.15, Vector3(-0.7, 0, -10.65), 0.75, 0.8)
+	walk_to(s, 10.7, 25.15, Vector3(-0.5, 0, -10.65), 0.75, 0.8)
 	strides(s, 1, 11.12, 0.6, 24, {"width": 0.1, "h": 0.07, "seed": 6, "stop": 25.15})
 	# Ashura : même chemin, plus posé ; il ralentit à peine quand Simon s'arrête.
-	walk_to(a, 3.7, 10.05, Vector3(0.82, 0, -24.35), 0.9, 0.85)
+	walk_to(a, 3.7, 10.05, Vector3(0.57, 0, -24.0), 0.9, 0.85)
 	strides(a, -1, 4.28, 0.66, 9, {"width": 0.12, "h": 0.06, "seed": 9, "stop": 10.05})
-	walk_to(a, 10.55, 25.55, Vector3(0.85, 0, -10.35), 0.8, 0.9)
+	walk_to(a, 10.55, 25.55, Vector3(0.6, 0, -10.0), 0.8, 0.9)
 	strides(a, 1, 11.02, 0.66, 22, {"width": 0.12, "h": 0.06, "seed": 10, "stop": 25.55})
 
 	# --- Simon : posture de marche (épaules un peu hautes, poings à demi serrés), regard qui balaie.
@@ -982,13 +982,19 @@ static func _act1(s: Actor, a: Actor) -> void :
 	s.key(26.36, M([HD(0.0, 0.35, 0.0), C(0.02, 0.2), B(0.0, 0.1), H(0.0, -0.07, 0.02), L(0.32, -0.62, 0.15, 0.3), R(0.3, -0.55, 0.3, 0.3), {"curl": 0.4, "curl_l": 0.4, "face": "surprise"}]))
 	s.key(26.6, M([HD(-0.02, 0.05, -0.03), C(0.06, 0.05), B(0.04, 0.0), H(0.0, -0.06, 0.0), L(0.22, -0.55, 0.32, 0.2), R(0.18, -0.5, 0.38, 0.2), {"curl": 0.7, "curl_l": 0.7}]))
 	s.key(26.85, M([HD(-0.04, -0.62, -0.04), C(0.06, -0.12), {"face": "fear"}]))
-	# « Hé… T'as entendu ? » : il parle à Ashura (à sa droite maintenant), sans lâcher le noir des yeux.
-	s.key(27.15, M([HD(-0.03, -0.7, -0.05)]))
-	s.key(27.4, M([HD(0.04, -0.6, 0.0), H(0.0, -0.09, 0.0), C(0.12, -0.1), B(0.06), L(0.25, -0.45, 0.35, 0.3), R(0.22, -0.4, 0.42, 0.3), {"ev": "gasp", "shake": 0.35, "curl": 0.85, "curl_l": 0.85}]))
-	s.key(27.75, M([HD(-0.02, -0.25, 0.0), H(0.0, -0.07, 0.0), C(0.09, -0.04), {"shake": 0.25, "breath": 1.0, "bf": 1.1}]))
-	s.key(28.4, M([HD(-0.03, 0.18, 0.02)]))
-	s.key(29.0, M([HD(-0.04, -0.06, 0.0), {"shake": 0.2}]))
-	s.key(29.6, M([HD(-0.05, 0.08, 0.0), {"breath": 0.6, "bf": 0.9}]))
+	# « Attends. » : main droite levée, paume vers Ashura (à sa droite maintenant). 27,4 : troisième
+	# battement, il sursaute, tête rentrée. « T'as entendu, là ? » : main au casque, tête penchée pour
+	# écouter, l'autre main agrippée au sweat ; puis le silence (29 → 30) : il ne respire plus.
+	s.key(26.98, M([R(0.3, -0.2, 0.36, 0.25), WR(-0.35, 0.0, 0.2), {"curl": 0.35}]))
+	s.key(27.15, M([HD(-0.03, -0.7, -0.05), R(0.38, -0.08, 0.42, 0.2), WR(-0.75, 0.0, 0.25), {"curl": 0.08}]))
+	s.key(27.32, M([R(0.37, -0.07, 0.43, 0.2), WR(-0.7, 0.0, 0.25)]))
+	s.key(27.4, M([HD(-0.12, -0.42, 0.04), H(0.0, -0.1, 0.0), C(0.14, -0.08), B(0.06), L(0.14, -0.3, 0.32, 0.35), R(0.12, -0.22, 0.3, 0.4), WR(0.2), {"ev": "gasp", "shake": 0.4, "curl": 0.8, "curl_l": 0.85}]), "s")
+	s.key(27.62, M([HD(-0.08, -0.3, 0.06), H(0.0, -0.08, 0.0), C(0.1, -0.05), {"shake": 0.3}]))
+	s.key(27.95, M([HD(-0.02, -0.16, 0.2), C(0.08, -0.04), Rt(0.04, 0.44, 0.1, 0.75), WR(0.35, 0.2, 0.0), Lt(-0.02, -0.28, 0.32, 0.2), WL(0.2), {"curl": 0.45, "curl_l": 0.95, "shake": 0.22, "breath": 1.0, "bf": 1.1}]))
+	s.key(28.45, M([HD(0.0, 0.12, 0.22), Rt(0.05, 0.46, 0.08, 0.75)]))
+	s.key(28.9, M([HD(-0.03, 0.2, 0.16), {"shake": 0.16}]))
+	s.key(29.15, M([HD(-0.05, 0.02, 0.1), Rt(0.06, 0.42, 0.1, 0.7), {"breath": 0.0, "shake": 0.12}]))
+	s.key(29.7, M([HD(-0.06, 0.04, 0.05)]))
 
 	# --- Ashura : marche posée, bras qui balancent peu ; le drone (appareil) consulté pendant sa réplique.
 	var a_walk: Dictionary = M([{"loco": 1.0, "swing": 0.35, "curl": 0.4, "curl_l": 0.35}, B(0.02), C(0.03), hang_l(0.1, 0.04, -0.93), hang_r(0.1, 0.04, -0.93)])
@@ -1037,6 +1043,8 @@ static func _act2(s: Actor, a: Actor) -> void :
 	# --- Simon : figé face au noir, les yeux s'ouvrent derrière lui. Il le sent, se retourne lentement,
 	# puis d'un coup.
 	s.key(30.0, M([HD(-0.06, 0.04, 0.0), C(0.09, 0.0), H(0.0, -0.06, 0.0), {"shake": 0.18, "breath": 0.5, "bf": 0.8, "face": "fear"}]))
+	s.key(30.45, M([Rt(0.08, 0.3, 0.14, 0.6), WR(0.2)]))
+	s.key(31.0, M([R(0.2, -0.42, 0.3, 0.25), WR(0.1), Lt(-0.02, -0.3, 0.3, 0.2), {"curl": 0.75}]))
 	s.key(30.9, M([HD(-0.07, -0.05, -0.02)]))
 	s.key(31.3, M([HD(-0.12, -0.02, 0.0), {"jaw": 0.12}]))
 	s.key(31.55, M([HD(-0.05, -0.03, 0.0), {"jaw": 0.0}]))
@@ -1114,7 +1122,7 @@ static func _act2(s: Actor, a: Actor) -> void :
 	a.key(34.3, M([look(a, 34.3, Vector3(0, 30, 84), 0.2, 1.4), H(0.0, -0.06, 0.0), {"face": "fear"}]))
 	a.key(36.4, M([look(a, 36.4, Vector3(0, 32, 84), 0.2, 1.4), {"face": "focus"}]))
 	# 36,8 → 37,6 : un pas vers Simon, en travers de lui, bras droit tendu devant lui.
-	walk_to(a, 36.85, 37.6, a.end_root() + Vector3(-0.5, 0, 0.3), 0.3, 0.3)
+	walk_to(a, 36.85, 37.6, a.end_root() + Vector3(-0.42, 0, -0.35), 0.3, 0.3)
 	step_to(a, 1, 36.85, 37.3, Vector3(0.13, 0, -0.02), 0.07, {"fall": 0.8})
 	step_to(a, -1, 37.15, 37.6, Vector3(-0.12, 0, 0.02), 0.06, {"fall": 0.6})
 	a.key(37.0, M([C(0.04, 0.1), hang_r(0.15, 0.1, -0.85)]))
