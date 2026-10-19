@@ -1174,7 +1174,7 @@ func _write_apparition() -> void :
 		_cue(57.0, "pillars", {"a": i}, GOLD, 5, 0.6)
 		_cue(57.05, "sparkles", {"a": i, "s": "hand_r"}, GOLD, 3, 1.0)
 	_cue(57.0, "shake", 0.35)
-	_shot(56.75, {"rel": {"a": S, "s": "hand_r"}, "eye": [Vector3(-0.32, 0.02, 0.78), Vector3(-0.26, 0.05, 0.66)], "look": {"a": S, "s": "hand_r", "h": 0.14}, "fov": [32, 28], "hand": 0.35})
+	_shot(56.75, {"rel": {"a": S, "s": "hand_r"}, "eye": [Vector3(-0.3, 0.0, 0.75), Vector3(-0.24, 0.02, 0.62)], "look": {"a": S, "s": "hand_r", "h": 0.05}, "fov": [32, 28], "hand": 0.35})
 	_shot(57.12, {"rel": {"mid": [S, A]}, "eye": [Vector3(-1.7, 0.45, 3.3), Vector3(-1.2, 0.5, 2.8)], "look": {"mid": [S, A], "h": 1.5}, "fov": [44, 41], "hand": 0.4})
 
 
@@ -1222,7 +1222,7 @@ func _write_fight() -> void :
 	_key("y_pos", 76.0, Vector3(0, 0, 73));_key("y_pos", 77.5, Vector3(0, 0, 76), "out")
 	_say(75.1, "Simon", "Il recule ! T'as vu ça ?", 0.4, true)
 	_shot(76.25, {"rel": {"a": S}, "eye": [Vector3(0.65, 1.12, 1.85), Vector3(0.58, 1.12, 1.65)], "look": {"a": S, "h": 1.18, "o": Vector3(-0.15, 0.1, 0)}, "fov": [38, 36], "hand": 0.4})
-	_shot(77.12, {"rel": {"a": A}, "eye": [Vector3(-1.4, 1.05, 1.9), Vector3(-1.2, 1.0, 1.7)], "look": {"a": A, "h": 1.2}, "fov": [40, 38], "hand": 0.5})
+	_shot(77.12, {"rel": {"a": A}, "eye": [Vector3(-1.3, 0.62, 2.1), Vector3(-1.15, 0.5, 1.9)], "look": {"a": A, "h": 1.05}, "fov": [40, 38], "hand": 0.5})
 	_say(77.2, "Ashura", "Avec moi. La mâchoire !", 0.4, true)
 
 	for i: int in [S, A]:
@@ -1249,7 +1249,7 @@ func _write_fight() -> void :
 	_key("tremble", 83.0, 0.45)
 	_say(83.0, "Yiero", "Ha ! C'est tout ? Ça chatouille.", 0.4)
 	_cue(83.0, "sfx", "sfx_laugh", 1.0)
-	_shot(82.0, {"rel": {"mid": [S, A]}, "eye": [Vector3(-1.9, 0.45, -3.6), Vector3(-1.6, 0.5, -3.1)], "look": {"y": "mouth", "h": -3.0}, "fov": [52, 50], "hand": 0.3, "safe": false})
+	_shot(82.0, {"rel": {"mid": [S, A]}, "eye": [Vector3(-2.2, 1.0, -4.6), Vector3(-1.9, 1.05, -4.1)], "look": {"y": "mouth", "h": -9.0}, "fov": [52, 50], "hand": 0.3, "safe": false})
 	_shot(84.6, {"rel": {"y": "mouth"}, "eye": [Vector3(-7.0, -4.0, -24.0), Vector3(-5.5, -3.2, -20.0)], "look": {"y": "mouth"}, "fov": [42, 40], "hand": 0.4, "safe": false})
 
 	_say(87.3, "Yiero", "Allez, au lit. On éteint la lumière.", 0.4)
@@ -1270,7 +1270,7 @@ func _write_fight() -> void :
 		_cue(float(row[0]), "sfx", "sfx_spike", 0.8, 0.9 + 0.07 * float(spikes.find(row)))
 		_cue(float(row[0]), "shake", 0.3)
 		_ripple(float(row[0]), at, 3.0)
-	_shot(89.05, {"eye": [Vector3(-6.0, 6.5, 47.0), Vector3(-5.0, 5.6, 46.2)], "look": Vector3(0.0, 0.6, 40.2), "fov": [54, 52], "hand": 0.4, "safe": false})
+	_shot(89.05, {"eye": [Vector3(0.3, 0.7, 34.0), Vector3(0.25, 0.75, 34.6)], "look": Vector3(0.0, 4.0, 46.0), "fov": [62, 60], "hand": 0.4, "safe": false})
 
 	_key("hand_nx", 90.4, Vector3(-29, 5.5, 45));_key("hand_nx", 92.3, Vector3(-30, 8, 50), "smooth");_key("hand_nx", 92.9, Vector3(-4, 2, 40), "in");_key("hand_nx", 93.4, Vector3(12, 6, 34), "out");_key("hand_nx", 95.0, Vector3(-30, 4, 50), "smooth")
 	_key("curl_nx", 92.2, 0.25);_key("curl_nx", 92.8, 0.6)
