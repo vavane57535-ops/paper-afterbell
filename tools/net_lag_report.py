@@ -56,6 +56,26 @@ def flat(a, b):
 	return math.hypot(a[0] - b[0], a[-1] - b[-1])
 
 
+def stutter(times, points, start, end):
+	"""À-coups d'une trajectoire : écart moyen entre la vitesse pas à pas et sa médiane glissante
+	(7 pas), rapporté à la vitesse moyenne. 0 = mouvement parfaitement régulier."""
+	rows = [(t, p) for t, p in zip(times, points) if start <= t <= end]
+	speeds = []
+	for (t0, p0), (t1, p1) in zip(rows, rows[1:]):
+		if t1 - t0 > 1e-4: speeds.append(flat(p0, p1) / (t1 - t0))
+	if len(speeds) < 10: return None
+	devs = []
+	moving = []
+	for i in range(3, len(speeds) - 3):
+		window = sorted(speeds[i - 3:i + 4])
+		med = window[3]
+		if med < 1.0: continue
+		devs.append(abs(speeds[i] - med))
+		moving.append(med)
+	if not moving: return None
+	return {"index": sum(devs) / len(devs) / (sum(moving) / len(moving)), "mean_speed": sum(moving) / len(moving), "n": len(devs)}
+
+
 def main():
 	parser = argparse.ArgumentParser()
 	parser.add_argument("folder")
@@ -124,6 +144,10 @@ def main():
 	result["judge_gap_m"] = stats(jgaps)
 	result["view_time"] = "mesuré (t_view)" if has_view else "estimé"
 
+	# 1 bis. Fluidité : Alice (acteur distant) chez le client, et le client chez l'hôte.
+	result["remote_on_client_stutter"] = stutter([f[0] for f in frames], [(f[4], 0.0, f[5]) for f in frames], track[0] + 0.5, track[-1] - 0.3)
+	result["client_on_host_stutter"] = stutter([r[0] for r in ticks], [(r[2], r[3], r[4]) for r in ticks], track[0] + 0.5, track[-1] - 0.3)
+
 	# 3. Réactivité.
 	delays = [r["delay_ms"] for r in client.get("reactions", []) if r.get("delay_ms", -1) >= 0]
 	host_delays = []
@@ -168,11 +192,18 @@ def main():
 	print("=== %s · ping %s ms · jitter %s ms ===" % (args.label, args.ping, args.jitter))
 	print("Écart instantané hitbox/écran (m) :", fmt(result["instant_gap_m"]), "· décalage optimal %s ms" % result["instant_shift_ms"])
 	print("Écart de jugement (m) [%s, temps d'écran %s] :" % (result["judge_source"], result["view_time"]), fmt(result["judge_gap_m"]))
+	for key, text in [("remote_on_client_stutter", "Fluidité d'Alice chez le client"), ("client_on_host_stutter", "Fluidité du client chez l'hôte")]:
+		value = result[key]
+		print("%s : indice d'à-coups %s" % (text, "%.3f (vitesse moy %.1f m/s, n=%d)" % (value["index"], value["mean_speed"], value["n"]) if value else "n/a"))
 	print("Appui → mouvement à l'écran (ms) :", fmt(result["input_to_screen_ms"], scale=1.0))
 	print("Appui → mouvement de la hitbox (ms) :", fmt(result["input_to_hitbox_ms"], scale=1.0))
 	print("Esquives :", ", ".join("%s=%d" % kv for kv in counts.items()))
 	for d, dodge, hit, inside, kind, lateral in sorted(rows):
 		print("  δ=%.2f %s → hôte %s · écran %s · %s (écart latéral min %.2f m)" % (d, "esquive" if dodge else "témoin ", "TOUCHÉ" if hit else "raté  ", "dedans" if inside else "dehors" if inside is not None else "?", kind, float(lateral) if lateral not in (None, "inf") and lateral != float("inf") else -1))
+	motion = host.get("motion", {})
+	if motion:
+		result["motion"] = motion
+		print("Suivi hôte : refus=%s recalages=%s tampon anti-jitter=%.0f ms retard d'écran du client=%.0f ms · coups jugés : %s" % (motion.get("rejections"), motion.get("resyncs"), float(motion.get("delay", 0)) * 1000, float(motion.get("view_lag", 0)) * 1000, motion.get("lag", {})))
 	net = result["enet_host"]
 	if net:
 		print("ENet hôte : envoi %.0f o/s (%.0f paquets/s), réception %.0f o/s (%.0f paquets/s)" % (net.get("sent_bytes_per_s", 0), net.get("sent_packets_per_s", 0), net.get("received_bytes_per_s", 0), net.get("received_packets_per_s", 0)))

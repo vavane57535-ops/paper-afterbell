@@ -84,12 +84,12 @@ func receive(report: Dictionary, arrival: float) -> void :
 	var low: float = INF
 	for sample: Array in offsets: low = minf(low, float(sample[1]))
 	# Décalage d'horloge client → hôte suivi sur le paquet le plus rapide, ré-estimé en douceur.
-	offset_min = low if offset_min == INF or absf(low - offset_min) > 0.25 else move_toward(offset_min, low, 0.0005)
+	offset_min = low if offset_min == INF or absf(low - offset_min) > 0.25 else move_toward(offset_min, low, 0.0001)
 	var spread: Array = []
 	for sample: Array in offsets: spread.append(float(sample[1]) - low)
 	spread.sort()
 	var wanted: float = clampf(float(spread[int(spread.size() * 0.9)]) + 0.004, 0.004, 0.08)
-	delay = move_toward(delay, wanted, 0.002 if wanted > delay else 0.0004)
+	delay = move_toward(delay, wanted, 0.001 if wanted > delay else 0.0002)
 	last_arrival = arrival
 	var tv: float = float(report.tv)
 	view_lag = arrival - tv if views.is_empty() else lerpf(view_lag, arrival - tv, 0.1)

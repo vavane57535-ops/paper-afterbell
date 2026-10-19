@@ -1132,15 +1132,22 @@ func _elly(actor, slot: int, target_id: int) -> bool:
 			actor.effects["shotgun_used"] = true
 			var target = world.killer_actor()
 			if target != null:
-				var offset: Vector3 = _flat(target.position - actor.position)
-				var forward: float = offset.dot(_aim(actor))
-				var lateral: float = (offset - _aim(actor) * forward).length()
-				var spread: float = 2.5 if offset.length() < 4.0 else 0.8
-				if forward >= 0.0 and forward <= 25.0 and lateral <= spread and _los(actor.position, target.position):
+				var muzzle_at: Vector3 = actor.position
+				var aim: Vector3 = _aim(actor)
+				var touch: Callable = func(at: Vector3) -> bool:
+					var offset: Vector3 = _flat(at - muzzle_at)
+					var forward: float = offset.dot(aim)
+					var lateral: float = (offset - aim * forward).length()
+					var spread: float = 2.5 if offset.length() < 4.0 else 0.8
+					return forward >= 0.0 and forward <= 25.0 and lateral <= spread and _los(muzzle_at, at)
+				var blast: Callable = func():
 					damage(target, 203.0, actor, false, "shotgun")
 					stun(target, 3.0, actor)
 					target.effects["blind"] = maxf(_effect(target, "blind"), 2.0)
 					world.event("flash", {"actor": target.id, "duration": 2.0, "position": target.position})
+				# Compensation du retard (net_lag.gd) : ce que voyait Elly et ce que voyait Alice.
+				var lag = world.get("net_lag")
+				if (lag == null or not lag.judge(actor, target, touch, blast)) and touch.call(target.position): blast.call()
 
 			var muzzle: Vector3 = actor.position + Vector3.UP
 			world.event("tracer", {"actor": actor.id, "from": muzzle, "to": _ray_endpoint(actor.position, _aim(actor), 25.0) + Vector3.UP, "color": "ffda89", "duration": 0.2, "kind": "shotgun"})
@@ -1633,7 +1640,9 @@ func _tick_minions(delta: float):
 			var strike_from: Vector3 = body.position
 			world.event("minion", {"action": "attack", "id": minion.id, "owner": minion.owner, "position": strike_from, "target": target.id})
 
-			damage(target, 10.0, source, true, "shadow", strike_from)
+			var lag = world.get("net_lag")
+			var strike: Callable = func(): damage(target, 10.0, source, true, "shadow", strike_from)
+			if lag == null or not lag.judge(null, target, func(at: Vector3) -> bool: return strike_from.distance_to(at) <= 1.45 and _los(strike_from, at), strike): strike.call()
 
 func _remove_minion(index: int, reason: String = "dispel"):
 	if index < 0 or index >= world.minions.size(): return
@@ -1749,12 +1758,15 @@ func _explode_grenade(projectile: Dictionary, source):
 	var pos: Vector3 = projectile.position
 	var ground: Vector3 = pos - Vector3.UP * 1.1
 	var target = world.killer_actor()
-	if target != null and (target.position.distance_to(pos) if _om(source) else _flat(target.position - pos).length()) <= 4.5 and _los(ground, target.position):
+	var touch: Callable = func(at: Vector3) -> bool: return (at.distance_to(pos) if _om(source) else _flat(at - pos).length()) <= 4.5 and _los(ground, at)
+	var flash: Callable = func():
 		var distance: float = _flat(target.position - pos).length()
 		var duration: float = lerpf(4.0, 2.0, clampf(distance / 4.5, 0.0, 1.0))
 		stun(target, duration, source)
 		target.effects["blind"] = maxf(_effect(target, "blind"), 1.4)
 		world.event("flash", {"actor": target.id, "position": pos, "duration": 1.4})
+	var lag = world.get("net_lag")
+	if target != null and (lag == null or not lag.judge(null, target, touch, flash)) and touch.call(target.position): flash.call()
 	_dispel_radius(ground, 4.5, int(projectile.owner))
 	world.event("grenade", {"action": "explode", "id": projectile.id, "actor": projectile.owner, "position": pos})
 
@@ -2294,18 +2306,27 @@ func _tick_spike_waves(delta: float):
 				cell.shown = true
 				world.event("spike", {"actor": source.id, "from": cell.from, "to": cell.to, "width": 2.8, "duration": 0.65, "telegraph": false, "segment": true, "cast_id": wave.cast_id})
 			if float(wave.age) > float(cell.at) + 0.2: continue
-			var segment: Vector3 = cell.to - cell.from
 			for target in world.actors.values():
 				if not _can_act(target) or target.killer or wave.hit.has(target.id): continue
-				var t: float = clampf((target.position - cell.from).dot(segment) / maxf(segment.length_squared(), 0.001), 0.0, 1.0)
-				var closest: Vector3 = cell.from + segment * t
-				if _flat(target.position - closest).length() > 1.78 or target.position.y - closest.y > 1.3 or target.position.y - closest.y < -0.6: continue
-				if not _los(closest, target.position): continue
-				wave.hit[target.id] = true
-				var health: float = target.hp
-				damage(target, 20.0, source, false, "spike")
-				if target.alive and target.hp < health: _slow(target, 0.85, 3.0)
+				# Compensation du retard : voir net_lag.gd (l'esquive d'un joueur distant compte).
+				var lag = world.get("net_lag")
+				if lag != null and lag.judge(source, target, _spike_touch.bind(cell), _spike_hit.bind(wave, source, target)): continue
+				if _spike_touch(target.position, cell): _spike_hit(wave, source, target)
 		if float(wave.age) > 1.0: _spike_waves.remove_at(index)
+
+func _spike_touch(at: Vector3, cell: Dictionary) -> bool:
+	var segment: Vector3 = cell.to - cell.from
+	var t: float = clampf((at - cell.from).dot(segment) / maxf(segment.length_squared(), 0.001), 0.0, 1.0)
+	var closest: Vector3 = cell.from + segment * t
+	if _flat(at - closest).length() > 1.78 or at.y - closest.y > 1.3 or at.y - closest.y < -0.6: return false
+	return _los(closest, at)
+
+func _spike_hit(wave: Dictionary, source, target):
+	if wave.hit.has(target.id) or not _can_act(target): return
+	wave.hit[target.id] = true
+	var health: float = target.hp
+	damage(target, 20.0, source, false, "spike")
+	if target.alive and target.hp < health: _slow(target, 0.85, 3.0)
 
 func _om_slide(actor, motion: Vector3, delta: float) -> bool:
 

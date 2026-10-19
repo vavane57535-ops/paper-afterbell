@@ -48,6 +48,10 @@ var _script: Array = []
 var _react: Dictionary = {}
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var only_trials: bool = false
+var frames_dir: String = ""
+var _frame_clock: float = -1.0
+var _frame_index: int = 0
+var _capturing: bool = false
 
 
 func setup(owner: Node) -> void :
@@ -61,6 +65,7 @@ func setup(owner: Node) -> void :
 			"--lag-out": out = value
 			"--lag-label": label = value
 			"--lag-only-trials": only_trials = true
+			"--lag-frames": frames_dir = value
 	DirAccess.make_dir_recursive_absolute(out)
 	_rng.seed = 1717
 	_begin.call_deferred()
@@ -161,7 +166,11 @@ func _host_process() -> void :
 			marks["track"] = [_wall()]
 			_go("track")
 		"track":
+			# Alice fait des allers-retours en marchant : fluidité d'un acteur distant chez le client.
+			var lane: int = int(floor(step_clock / 0.7)) % 2
+			_press(["left"] if lane == 0 else ["right"])
 			if step_clock < 13.0: return
+			_press([])
 			marks.track.append(_wall())
 			_place(Vector3.ZERO, false)
 			rpc_client.rpc_id(other, "react", {})
@@ -232,7 +241,15 @@ func _host_process() -> void :
 			_go("trial_next")
 		"finish":
 			if step_clock < 2.5: return
-			_write({"role": "host", "label": label, "ticks": host_ticks, "judged": judged, "trials": trials, "net": net_stats, "marks": marks, "center": [center.x, center.y, center.z], "forward": [forward.x, forward.z]})
+			var motion: Dictionary = {}
+			var victim: PaperActor = world.actors.get(other)
+			if victim != null and "net_motion" in victim:
+				motion = {"rejections": victim.net_motion.rejections, "resyncs": victim.net_motion.resyncs, "delay": victim.net_motion.delay, "view_lag": victim.net_motion.view_lag}
+			var sync: Variant = world.get("net_sync")
+			if sync != null: motion["sync"] = sync.stats.duplicate()
+			var lag: Variant = world.get("net_lag")
+			if lag != null: motion["lag"] = lag.stats.duplicate()
+			_write({"role": "host", "label": label, "ticks": host_ticks, "judged": judged, "trials": trials, "net": net_stats, "marks": marks, "motion": motion, "center": [center.x, center.y, center.z], "forward": [forward.x, forward.z]})
 			_end()
 
 
@@ -356,6 +373,12 @@ func _client_process(delta: float) -> void :
 	if sync != null and sync.has_method("view_time"): t_view = float(sync.view_time())
 	var acting: bool = alice.visual.is_performing_action()
 	client_frames.append([now, shown.x, shown.y, shown.z, alice_shown.x, alice_shown.z, 1 if acting else 0, t_view, float(world.clock)])
+	# Captures rendues pendant le suivi (une image tous les 0,1 s), pour juger à l'œil.
+	if not frames_dir.is_empty() and _script_t >= 0.0 and not _capturing:
+		_frame_clock += delta
+		if _frame_clock >= 0.1 and _frame_index < 60:
+			_frame_clock = 0.0
+			_capture_frame()
 	# Suivi : script de touches.
 	if _script_t >= 0.0:
 		_script_t += delta
@@ -392,6 +415,17 @@ func _client_process(delta: float) -> void :
 			var lateral: float = absf(offset.dot(aim.cross(Vector3.UP)))
 			_trial["min_lateral"] = minf(float(_trial.min_lateral), lateral)
 			if lateral <= CLAW_SIZE.x * 0.5 + 0.38 and absf(offset.dot(aim)) <= CLAW_SIZE.z * 0.5 + 0.38 and absf(offset.y) <= CLAW_SIZE.y * 0.5 + 0.9: _trial["inside"] = true
+
+
+func _capture_frame() -> void :
+	_capturing = true
+	await RenderingServer.frame_post_draw
+	var image: Image = get_viewport().get_texture().get_image()
+	if image != null:
+		DirAccess.make_dir_recursive_absolute(frames_dir)
+		image.save_png(frames_dir.path_join("f_%03d.png" % _frame_index))
+	_frame_index += 1
+	_capturing = false
 
 
 func _write(data: Dictionary) -> void :

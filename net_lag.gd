@@ -9,7 +9,8 @@ extends RefCounted
 #      son client a envoyées, repérées par l'instant de l'hôte qu'il affichait).
 # Si les deux ne sont pas d'accord, l'esquive gagne. Pour un joueur distant, la seconde vérification
 # attend ses messages (MAX_REWIND au plus), puis tranche avec la position la plus récente connue.
-# Les bots et le joueur de l'hôte sont jugés sur l'état de l'hôte, comme avant.
+# Le joueur de l'hôte se voit tel que l'hôte le simule. Un bot ne voit rien : seule compte la vue
+# de l'attaquant. Sans attaquant distant ni cible distante, rien ne change.
 
 const MAX_REWIND: float = 0.2
 const BODY_HISTORY: float = 0.8
@@ -87,24 +88,22 @@ func judge_box(combat: Object, attack: Dictionary, origin: Vector3, source: Pape
 	if not active(): return false
 	var now: float = float(world.clock)
 	var rewind: float = rewind_for(source)
-	var candidates: Array = []
-	var remote: bool = false
+	var fixed: Dictionary = {}
+	var remote: Array = []
 	for target: PaperActor in world.actors.values():
 		if target.killer == source.killer or attack.hit.has(target.id) or bool(target.effects.get("shadow_hide", false)): continue
 		var seen: Vector3 = body_at(target, now - rewind) if rewind > 0.0 else target.global_position
 		if not combat._inside_box(origin, attack.aim, attack.size, target, seen): continue
-		candidates.append(target.id)
-		if is_followed(target): remote = true
-	if not remote and rewind <= 0.0: return false
-	if candidates.is_empty(): return true
-	if not remote:
-		var current: Dictionary = {}
-		for id: int in candidates: current[id] = (world.actors[id] as PaperActor).global_position
+		if is_followed(target): remote.append(target.id)
+		else: fixed[target.id] = seen if target.bot else target.global_position
+	if remote.is_empty() and rewind <= 0.0: return false
+	if remote.is_empty() and fixed.is_empty(): return true
+	if remote.is_empty():
 		stats.immediate += 1
-		combat._sample_contacts(attack, origin, source, current)
+		combat._sample_contacts(attack, origin, source, fixed)
 		return true
 	stats.deferred += 1
-	_queue.append({"kind": "box", "combat": combat, "attack": attack, "origin": origin, "source": source.id, "at": now, "targets": candidates})
+	_queue.append({"kind": "box", "combat": combat, "attack": attack, "origin": origin, "source": source.id, "at": now, "targets": remote, "fixed": fixed})
 	return true
 
 
@@ -116,10 +115,11 @@ func judge(source: Variant, target: PaperActor, touch: Callable, strike: Callabl
 	var remote: bool = is_followed(target)
 	if not remote and rewind <= 0.0: return false
 	var now: float = float(world.clock)
-	if rewind > 0.0 and not touch.call(body_at(target, now - rewind)): return true
+	var seen: Vector3 = body_at(target, now - rewind) if rewind > 0.0 else target.global_position
+	if rewind > 0.0 and not touch.call(seen): return true
 	if not remote:
 		stats.immediate += 1
-		if touch.call(target.global_position): strike.call()
+		if touch.call(seen if target.bot else target.global_position): strike.call()
 		return true
 	stats.deferred += 1
 	_queue.append({"kind": "one", "target": target.id, "at": now, "touch": touch, "strike": strike})
@@ -137,7 +137,7 @@ func tick() -> void :
 		var at: float = float(entry.at)
 		var late: bool = now - at >= MAX_REWIND
 		var ids: Array = entry.targets if entry.kind == "box" else [entry.target]
-		var views: Dictionary = {}
+		var views: Dictionary = (entry.fixed as Dictionary).duplicate() if entry.has("fixed") else {}
 		var ready: bool = true
 		for id: int in ids:
 			var target: PaperActor = world.actors.get(id)

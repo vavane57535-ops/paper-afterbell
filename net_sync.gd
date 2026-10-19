@@ -12,7 +12,7 @@ extends Node
 # - Instantanés à 30 par seconde dans un format binaire compact (net_codec.gd).
 
 const SNAPSHOT_INTERVAL: float = 1.0 / 30.0
-const IDLE_REPORT_INTERVAL: float = 0.1
+const IDLE_REPORT_INTERVAL: float = 1.0 / 30.0
 const FOLLOW_REPORT_INTERVAL: float = 1.0 / 30.0
 # Effets que le joueur local calcule lui-même pendant la prédiction (l'hôte ne les écrase pas).
 const PREDICTED_KEYS: Array[String] = ["jump_cd", "jump_pending", "land_roll_time", "landing_boost_time", "roll_dash_time", "roll_direction", "grind_jump", "airborne", "air_time", "air_peak_delta", "running"]
@@ -217,7 +217,10 @@ func _send_report(delta: float) -> void :
 	if with_position: flags |= PaperNetMotion.REPORT_FLAG_POSITION
 	if me.is_on_floor(): flags |= PaperNetMotion.REPORT_FLAG_FLOOR
 	if bool(input[2]): flags |= PaperNetMotion.REPORT_FLAG_SPRINT
-	var packed: PackedByteArray = PaperNetCodec.encode_report(m.seq, m.epoch, flags, _now(), view_time(), me.global_position, me.velocity, input[0], input[1], m.local_jumps, m.local_rolls)
+	# Horodatage sur l'horloge physique (régulière : un pas = 1/60 s), pas sur l'heure d'exécution
+	# du pas, qui arrive par paquets quand une image est lente.
+	var tc: float = float(Engine.get_physics_frames()) / float(Engine.physics_ticks_per_second)
+	var packed: PackedByteArray = PaperNetCodec.encode_report(m.seq, m.epoch, flags, tc, view_time(), me.global_position, me.velocity, input[0], input[1], m.local_jumps, m.local_rolls)
 	_last_report_pos = me.global_position
 	rx_report.rpc_id(1, packed)
 	stats.reports_sent += 1;stats.report_bytes += packed.size()
