@@ -61,19 +61,19 @@ func body_at(actor: PaperActor, t: float) -> Vector3:
 
 
 # Position de l'acteur telle qu'il la voyait lui-même quand son écran montrait l'instant t de
-# l'hôte. ok = false tant que ses messages ne couvrent pas encore cet instant.
+# l'hôte. Pour un joueur distant : l'instant de son horloge où son écran montrait t (ses messages),
+# puis la position que l'hôte a VALIDÉE en rejouant cet instant (vitesse, murs) : un client modifié
+# ne peut pas esquiver en annonçant une fausse position, ni en annonçant un instant plus ancien que
+# celui que l'hôte rejouait déjà à t. ok = false tant que le rejeu n'en est pas là.
 func own_view_at(actor: PaperActor, t: float) -> Dictionary:
 	if not is_followed(actor): return {"ok": true, "position": body_at(actor, t)}
-	var views: Array = actor.net_motion.views
-	if views.is_empty(): return {"ok": false, "position": actor.global_position}
-	var last: Array = views[-1]
-	if float(last[0]) < t: return {"ok": false, "position": last[1]}
-	if t <= float(views[0][0]): return {"ok": true, "position": views[0][1]}
-	var i: int = views.size() - 2
-	while i > 0 and float(views[i][0]) > t: i -= 1
-	var a: Array = views[i]
-	var b: Array = views[i + 1]
-	return {"ok": true, "position": Vector3(a[1]).lerp(b[1], clampf((t - float(a[0])) / maxf(float(b[0]) - float(a[0]), 0.0001), 0.0, 1.0))}
+	var m: PaperNetMotion = actor.net_motion
+	var tc: float = m.client_time_seen(t)
+	if tc < 0.0: return {"ok": false, "position": actor.global_position}
+	tc = maxf(tc, m.played_at_host(t))
+	var seen: Dictionary = m.position_played(tc)
+	if not bool(seen.ok): return {"ok": false, "position": actor.global_position}
+	return {"ok": true, "position": seen.position}
 
 
 # Retard de l'écran d'un attaquant distant : de combien rembobiner pour voir ce qu'il voyait.

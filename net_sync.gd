@@ -232,8 +232,11 @@ func _send_report(delta: float) -> void :
 	var me: PaperActor = world.local_actor()
 	if me == null: return
 	var m: PaperNetMotion = me.net_motion
-	var with_position: bool = me.net_predicted and m.correction.length() < 0.15
-	var moving: bool = (input[0] as Vector3).length_squared() > 0.0001 or me.velocity.length_squared() > 0.0025 or (with_position and me.global_position.distance_squared_to(_last_report_pos) > 0.000025)
+	var with_position: bool = me.net_predicted
+	# Pendant un recalage en douceur, le corps affiché rejoint peu à peu la position corrigée : on
+	# annonce directement la position corrigée (corps + reste de la correction), l'hôte n'attend pas.
+	var position: Vector3 = me.global_position + m.correction
+	var moving: bool = (input[0] as Vector3).length_squared() > 0.0001 or me.velocity.length_squared() > 0.0025 or (with_position and position.distance_squared_to(_last_report_pos) > 0.000025)
 	_report_wait -= delta
 	# En mouvement : un message par pas physique (60 par seconde) ; à l'arrêt ou en suivant l'hôte, moins.
 	if not (with_position and moving) and _report_wait > 0.0: return
@@ -246,8 +249,8 @@ func _send_report(delta: float) -> void :
 	# Horodatage sur l'horloge physique (régulière : un pas = 1/60 s), pas sur l'heure d'exécution
 	# du pas, qui arrive par paquets quand une image est lente.
 	var tc: float = float(Engine.get_physics_frames()) / float(Engine.physics_ticks_per_second)
-	var packed: PackedByteArray = PaperNetCodec.encode_report(m.seq, m.epoch, flags, tc, view_time(), me.global_position, me.velocity, input[0], input[1], m.local_jumps, m.local_rolls)
-	_last_report_pos = me.global_position
+	var packed: PackedByteArray = PaperNetCodec.encode_report(m.seq, m.epoch, flags, tc, view_time(), position, me.velocity, input[0], input[1], m.local_jumps, m.local_rolls)
+	_last_report_pos = position
 	rx_report.rpc_id(1, packed)
 	stats.reports_sent += 1;stats.report_bytes += packed.size()
 

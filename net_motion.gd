@@ -18,7 +18,11 @@ const HOLD_LIMIT: float = 1.0
 const REJECT_DISTANCE: float = 0.45
 const SPEED_TOLERANCE: float = 1.2
 const SPEED_SLACK: float = 0.6
-const BUDGET_SECONDS: float = 0.35
+# Réserve de déplacement : au plus 0,15 s de course d'avance (rattrapage après un paquet en retard),
+# dépensée au plus à 1,6 fois la vitesse permise : un rattrapage est un court glissé, pas un saut, et
+# un client modifié ne peut pas « se téléporter » après être resté immobile.
+const BUDGET_SECONDS: float = 0.15
+const CATCH_UP: float = 1.6
 const VIEW_HISTORY: float = 1.2
 const JUMP_HEIGHT: float = PaperRules.OM_JUMP_VELOCITY * PaperRules.OM_JUMP_VELOCITY / (2.0 * PaperRules.OM_GRAVITY)
 
@@ -39,7 +43,11 @@ var anchor_y: float = 0.0
 var last_pos: Vector3 = Vector3.ZERO
 var follow_frame: int = -10
 var view_lag: float = 0.0
+# [tv, tc] : l'écran du client montrait l'instant tv de l'hôte à l'instant tc de son horloge.
 var views: Array = []
+# [tc, position, horloge de l'hôte] : position validée par l'hôte quand il a rejoué l'instant tc du
+# client. C'est elle (et jamais la position annoncée) qui sert à juger les coups.
+var played: Array = []
 var jumps: int = -1
 var rolls: int = -1
 var roll_until: float = 0.0
@@ -84,32 +92,81 @@ func receive(report: Dictionary, arrival: float) -> void :
 	while offsets.size() > 1 and arrival - float(offsets[0][0]) > 2.0: offsets.pop_front()
 	var low: float = INF
 	for sample: Array in offsets: low = minf(low, float(sample[1]))
-	# Décalage d'horloge client → hôte suivi sur le paquet le plus rapide, ré-estimé en douceur.
-	offset_min = low if offset_min == INF or absf(low - offset_min) > 0.25 else move_toward(offset_min, low, 0.0001)
+	# Décalage d'horloge client → hôte, pris sur le paquet le plus rapide des 2 dernières secondes.
+	# Un paquet plus rapide est adopté vite (la première estimation vient souvent d'un paquet
+	# retardé par le chargement) ; une hausse (dérive, route plus lente) est suivie plus lentement.
+	if offset_min == INF or absf(low - offset_min) > 0.25: offset_min = low
+	else: offset_min = move_toward(offset_min, low, 0.0015 if low < offset_min else 0.0003)
+	# Tampon anti-jitter, mesuré par rapport au décalage réellement utilisé pour rejouer : 95 % des
+	# messages arrivent avant leur instant de rejeu.
 	var spread: Array = []
-	for sample: Array in offsets: spread.append(float(sample[1]) - low)
+	for sample: Array in offsets: spread.append(maxf(0.0, float(sample[1]) - offset_min))
 	spread.sort()
-	var wanted: float = clampf(float(spread[int(spread.size() * 0.9)]) + 0.004, 0.004, 0.08)
+	var wanted: float = clampf(float(spread[int(spread.size() * 0.95)]) + 0.004, 0.004, 0.08)
 	delay = move_toward(delay, wanted, 0.001 if wanted > delay else 0.0002)
 	last_arrival = arrival
-	var tv: float = float(report.tv)
+	# Ce que montrait l'écran du client : l'instant tv de l'hôte (jamais dans le futur de l'hôte).
+	var tv: float = minf(float(report.tv), arrival)
 	view_lag = arrival - tv if views.is_empty() else lerpf(view_lag, arrival - tv, 0.1)
+	if views.is_empty() or (tv > float(views[-1][0]) and tc > float(views[-1][1])):
+		views.append([tv, tc])
+		while views.size() > 2 and tv - float(views[0][0]) > VIEW_HISTORY: views.pop_front()
 	if not bool(report.has_position): return
 	if not reports.is_empty() and tc <= float(reports[-1].tc): return
 	reports.append(report)
 	while reports.size() > 48: reports.pop_front()
-	# Ce que le joueur voyait de lui-même quand son écran montrait l'instant tv de l'hôte.
-	tv = minf(tv, arrival)
-	if views.is_empty() or tv > float(views[-1][0]):
-		views.append([tv, report.pos])
-		while views.size() > 2 and tv - float(views[0][0]) > VIEW_HISTORY: views.pop_front()
 
 
-# Hôte : position du client à rejouer maintenant (interpolée entre deux messages, en retard de
-# `delay` sur le paquet le plus rapide pour absorber le jitter). Vide s'il n'y a rien à rejouer.
-func playback(now: float) -> Dictionary:
-	if reports.is_empty(): return {}
-	var play: float = now - offset_min - delay
+# Hôte : instant du rejeu (horloge du client) qui correspond à l'instant `now` de l'hôte.
+func play_time(now: float) -> float:
+	return now - offset_min - delay if offset_min != INF else -INF
+
+
+# Hôte, à chaque pas suivi : la position que l'hôte a validée pour l'instant `play` du client.
+func note_played(play: float, pos: Vector3, now: float) -> void :
+	if not is_finite(play): return
+	if not played.is_empty() and play <= float(played[-1][0]):
+		if play < float(played[-1][0]) - 0.05: played.clear()
+		else: return
+	played.append([play, pos, now])
+	while played.size() > 2 and now - float(played[0][2]) > VIEW_HISTORY: played.pop_front()
+
+
+# Hôte : instant (horloge du client) où l'écran du client montrait l'instant t de l'hôte ;
+# -1 tant que ses messages ne couvrent pas encore t.
+func client_time_seen(t: float) -> float:
+	if views.is_empty() or float(views[-1][0]) < t: return -1.0
+	if t <= float(views[0][0]): return float(views[0][1])
+	var i: int = views.size() - 2
+	while i > 0 and float(views[i][0]) > t: i -= 1
+	var a: Array = views[i]
+	var b: Array = views[i + 1]
+	return lerpf(float(a[1]), float(b[1]), clampf((t - float(a[0])) / maxf(float(b[0]) - float(a[0]), 0.0001), 0.0, 1.0))
+
+
+# Hôte : instant du client que l'hôte rejouait à son instant t (-INF si inconnu).
+func played_at_host(t: float) -> float:
+	for i: int in range(played.size() - 1, -1, -1):
+		if float(played[i][2]) <= t: return float(played[i][0])
+	return -INF
+
+
+# Hôte : position validée pour l'instant tc du client ; ok = false tant que le rejeu n'y est pas.
+func position_played(tc: float) -> Dictionary:
+	if played.is_empty() or float(played[-1][0]) < tc: return {"ok": false}
+	if tc <= float(played[0][0]): return {"ok": true, "position": played[0][1]}
+	var i: int = played.size() - 2
+	while i > 0 and float(played[i][0]) > tc: i -= 1
+	var a: Array = played[i]
+	var b: Array = played[i + 1]
+	return {"ok": true, "position": Vector3(a[1]).lerp(b[1], clampf((tc - float(a[0])) / maxf(float(b[0]) - float(a[0]), 0.0001), 0.0, 1.0))}
+
+
+# Hôte : position du client à l'instant `play` de son horloge (play_time : en retard de `delay` sur
+# le paquet le plus rapide, pour absorber le jitter), interpolée entre deux messages. Vide s'il
+# n'y a rien à rejouer.
+func playback(play: float) -> Dictionary:
+	if reports.is_empty() or not is_finite(play): return {}
 	var last: Dictionary = reports[-1]
 	if play >= float(last.tc):
 		var ahead: float = minf(play - float(last.tc), 0.05)
@@ -150,7 +207,8 @@ static func follow(actor: PaperActor, delta: float) -> bool:
 	# vient de rendre la main : le client doit se recaler sur cette position.
 	if frame - m.follow_frame > 1 or actor.global_position.distance_to(m.last_pos) > 0.02: m.resync(actor)
 	m.follow_frame = frame
-	var sample: Dictionary = m.playback(now)
+	var play: float = m.play_time(now)
+	var sample: Dictionary = m.playback(play)
 	if sample.is_empty() or float(sample.get("stale", 0.0)) > HOLD_LIMIT:
 		if now - m.last_arrival > HOLD_LIMIT:
 			m.last_pos = actor.global_position
@@ -158,6 +216,7 @@ static func follow(actor: PaperActor, delta: float) -> bool:
 		actor.velocity = Vector3.ZERO
 		m.budget = minf(m.budget + max_speed(actor) * SPEED_TOLERANCE * delta, max_speed(actor) * BUDGET_SECONDS + 0.25)
 		m.last_pos = actor.global_position
+		m.note_played(play, actor.global_position, now)
 		return true
 	var speed: float = max_speed(actor)
 	if now < m.roll_until: speed = maxf(speed, 13.0)
@@ -171,9 +230,10 @@ static func follow(actor: PaperActor, delta: float) -> bool:
 	var target: Vector3 = sample.pos
 	var flat: Vector3 = Vector3(target.x - start.x, 0.0, target.z - start.z)
 	var refused: bool = false
-	if flat.length() > m.budget:
+	var step_cap: float = minf(m.budget, allowed * CATCH_UP * delta + 0.02)
+	if flat.length() > step_cap:
 		refused = flat.length() - m.budget > REJECT_DISTANCE
-		flat = flat.normalized() * m.budget
+		flat = flat.normalized() * step_cap
 		target = Vector3(start.x + flat.x, target.y, start.z + flat.z)
 	m.budget = maxf(0.0, m.budget - flat.length())
 	if actor.is_on_floor(): m.anchor_y = start.y
@@ -193,6 +253,7 @@ static func follow(actor: PaperActor, delta: float) -> bool:
 	m.air_peak = maxf(m.air_peak, actor.global_position.y) if airborne else actor.global_position.y
 	actor.effects["airborne"] = airborne;actor.effects["air_time"] = m.air_time;actor.effects["air_peak_delta"] = maxf(0.0, m.air_peak - actor.global_position.y)
 	m.last_pos = actor.global_position
+	m.note_played(play, actor.global_position, now)
 	return true
 
 
