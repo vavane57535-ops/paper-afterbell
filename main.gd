@@ -29,6 +29,7 @@ var emote_wheel: PaperEmoteWheel
 var emote_sync: PaperEmoteSync
 var net_sync: PaperNetSync
 var net_lag: PaperNetLag
+var lan_port: int = PORT
 var bindings: PaperBindings
 var controls_menu: PaperControlsMenu
 var exit_flow: PaperEscapeFlow
@@ -171,7 +172,6 @@ var _ping_timer: float = 0.0
 var _ping_sequence: int = 0
 var _ping_pending: Dictionary = {}
 var _ping_last_reply: int = 0
-var lan_port: int = PORT
 const MAP_NAMES: Dictionary = {"school": "L'école après la cloche", "forest": "La forêt des murmures", "snow": "Le silence de l'hiver"}
 
 func _ready() -> void :

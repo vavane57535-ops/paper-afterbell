@@ -14,8 +14,10 @@ extends Node
 const SNAPSHOT_INTERVAL: float = 1.0 / 30.0
 const IDLE_REPORT_INTERVAL: float = 1.0 / 30.0
 const FOLLOW_REPORT_INTERVAL: float = 1.0 / 30.0
-# Vitesse (1/s) à laquelle le joueur local rejoint l'hôte quand celui-ci reprend la main.
+# Vitesse (1/s) à laquelle le joueur local rejoint l'hôte quand celui-ci reprend la main, et vitesse
+# maximale de ce recalage (m/s) : jamais plus vite qu'un sprint, même avec beaucoup de ping.
 const FOLLOW_BLEND: float = 10.0
+const FOLLOW_MAX_CORRECTION: float = 12.0
 # Effets que le joueur local calcule lui-même pendant la prédiction (l'hôte ne les écrase pas).
 const PREDICTED_KEYS: Array[String] = ["jump_cd", "jump_pending", "land_roll_time", "landing_boost_time", "roll_dash_time", "roll_direction", "grind_jump", "airborne", "air_time", "air_peak_delta", "running"]
 # États où l'hôte garde la main sur le mouvement (le client le suit au lieu de prédire).
@@ -145,7 +147,7 @@ func _client_pre_tick(delta: float) -> void :
 # Joueur local qui suit l'hôte (étourdi, poussé, à terre…) : il rejoint la dernière position connue
 # de l'hôte (pas le tampon : il ne recule pas d'un tampon entier), en douceur. Juste après la
 # prédiction, l'hôte le voyait un aller-retour plus tôt : ce recul se lit comme un pas en arrière
-# (au plus ~0,15 m par image en pleine course) et non comme un saut.
+# (au plus 0,2 m par pas physique) et non comme un saut.
 func _follow_host(a: PaperActor, delta: float) -> void :
 	var m: PaperNetMotion = a.net_motion
 	if not m.follow_blend: m.shown = a.global_position;m.follow_blend = true
@@ -153,8 +155,9 @@ func _follow_host(a: PaperActor, delta: float) -> void :
 	# avance à la même vitesse et ne rattrape en douceur que l'écart (pas de traîne en mouvement).
 	var target: Vector3 = m.last_row_pos + m.host_vel * clampf(_now() - m.host_at, 0.0, 0.1)
 	m.shown += m.host_vel * delta
-	if m.shown.distance_to(target) > PaperActor.REMOTE_SNAP_DISTANCE: m.shown = target
-	else: m.shown = m.shown.lerp(target, 1.0 - exp(- FOLLOW_BLEND * delta))
+	var error: Vector3 = target - m.shown
+	if error.length() > PaperActor.REMOTE_SNAP_DISTANCE: m.shown = target
+	else: m.shown += (error * (1.0 - exp(- FOLLOW_BLEND * delta))).limit_length(FOLLOW_MAX_CORRECTION * delta)
 	a.net_position = m.shown;a.net_velocity = m.host_vel;a.net_exact = true
 
 

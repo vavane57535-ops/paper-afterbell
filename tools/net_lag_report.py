@@ -132,6 +132,19 @@ def main():
 				if best is None or m < best[1]: best = (shift_ms, m)
 		result["instant_gap_m"] = stats(gaps)
 		result["instant_shift_ms"] = best[0] if best else None
+		# Retard d'affichage des autres : Alice (simulée par l'hôte) telle que le client la dessine.
+		alice_shown = Series([f[0] for f in frames], [(f[4], 0.0, f[5]) for f in frames])
+		best_alice = None
+		for shift_ms in range(0, 401, 5):
+			s = shift_ms / 1000.0
+			err = []
+			for r in window[::3]:
+				d = alice_shown.at(r[0] + s)
+				if d is not None: err.append(flat((r[5], 0.0, r[6]), d))
+			if err:
+				m = sum(err) / len(err)
+				if best_alice is None or m < best_alice[1]: best_alice = (shift_ms, m)
+		result["others_delay_ms"] = best_alice[0] if best_alice else None
 		# 2. Écart de jugement : l'hôte juge un coup porté à l'instant H avec J(H) ; le client se
 		#    voyait en D quand son écran montrait H (t_view mesuré si disponible, sinon estimé :
 		#    dernier instantané reçu − 55 ms de lissage, ce que faisait l'ancien code).
@@ -156,6 +169,7 @@ def main():
 		result["view_time"] = "mesuré (t_view)" if has_view else "estimé"
 		print("Écart instantané hitbox/écran (m) :", fmt(result["instant_gap_m"]), "· décalage optimal %s ms (négatif = la hitbox suit l'écran du client)" % result["instant_shift_ms"])
 		print("Écart de jugement (m) [%s, temps d'écran %s] :" % (result["judge_source"], result["view_time"]), fmt(result["judge_gap_m"]))
+		print("Retard d'affichage des autres acteurs chez le client (aller simple + tampon d'interpolation) : %s ms" % result["others_delay_ms"])
 		# 1 bis. Fluidité, mesurée à chaque pas physique.
 		smooth = {}
 		hw = window_rows(ticks, 0, w0, w1)
