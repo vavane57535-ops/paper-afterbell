@@ -146,6 +146,8 @@ class Performer extends RefCounted:
 	# Va de la fin actuelle jusqu'à `to` entre end_t et t1 (Hermite : vitesses de départ et d'arrivée).
 	func go(t1: float, to: Vector3, v1: Vector3 = Vector3.ZERO) -> void :
 		if t1 <= end_t + 0.001:
+			if OS.is_debug_build() and to.distance_to(end_p) > 0.05:
+				print("FILM_ESCAPE late go %s %.2f <= %.2f (%.2f m)" % [person, t1, end_t, to.distance_to(end_p)])
 			end_p = to;end_v = v1
 			return
 		segments.append({"k": "curve", "t0": end_t, "t1": t1, "p0": end_p, "p1": to, "v0": end_v, "v1": v1})
@@ -371,6 +373,8 @@ class Performer extends RefCounted:
 		var over: float = local.distance_to(h) - float(limb[side]) * 0.995
 		if over > overreach:
 			overreach = over;overreach_t = t
+			if OS.get_environment("ESC_FEET") == person and over > 0.3:
+				print("REACH %s side=%d t=%.2f over=%.2f local=%s root=%s theta=%.2f" % [person, side, t, over, local, at(t), theta(t)])
 
 
 # ============================================================ locomotion --
@@ -409,8 +413,15 @@ static func run(p: Performer, t0: float, t1: float, opts: Dictionary = {}) -> Di
 	var count: int = 0
 	while true:
 		var v_now: float = maxf(p.speed(maxf(t, t0)), 0.0)
-		var cadence: float = _cadence(st, v_now) * cad_mul * (1.0 + 0.045 * n1(seed_value, count))
+		var jitter: float = 1.0 + 0.045 * n1(seed_value, count)
+		var cadence: float = _cadence(st, v_now) * cad_mul * jitter
 		var land: float = t + 1.0 / cadence
+		# départ arrêté ou freinage : la cadence suit la vitesse pendant le pas, pas celle du début
+		for iteration: int in range(3):
+			var v_mid: float = maxf(p.speed(clampf((t + land) * 0.5, t0, t1)), 0.0)
+			var v_end: float = maxf(p.speed(clampf(land, t0, t1)), 0.0)
+			cadence = _cadence(st, maxf(v_mid, v_end * 0.85)) * cad_mul * jitter
+			land = t + 1.0 / cadence
 		if stop and (land > t_stop - 0.04 or (land > t0 + 0.3 and p.speed(land) < 0.9)): break
 		if not stop and land > t1 + 0.0001: break
 		var v_land: float = maxf(p.speed(land), 0.0)
@@ -488,9 +499,11 @@ static func run(p: Performer, t0: float, t1: float, opts: Dictionary = {}) -> Di
 	var lean_base: float = float(st.lean) * float(opts.get("lean", 1.0))
 	var arms: float = float(st.arms) * float(opts.get("arms", 1.0))
 	var bob: float = float(st.bob) * leg
+	var upper_until: float = float(opts.get("upper_until", INF))
 	for j: int in range(steps.size()):
 		var s: Dictionary = steps[j]
 		if bool(s.get("settle", false)): continue
+		if float(s.land) > upper_until: continue
 		var sd: int = int(s.side)
 		var v: float = float(s.speed)
 		var run_w: float = smoothstep(1.2, 4.5, v)
@@ -1128,7 +1141,7 @@ static func legup(c: Performer, b: Performer, t: float, lane: float, side: float
 	# l'aide arrive à sa place (de profil, face au couloir de la grimpeuse)
 	var b_spot: Vector3 = Vector3(lane + side * 0.62, 0.0, -0.66)
 	var b_theta: float = heading_of(Vector3( - side, 0.0, 0.0))
-	step_to(b, t - 0.62, t - 0.12, b_spot, b_theta, {"seed": 41})
+	step_to(b, minf(maxf(t - 0.62, b.end_t), t - 0.4), t - 0.12, b_spot, b_theta, {"seed": 41})
 	var t_step: float = t + 0.3
 	var t_lift: float = t + 0.36
 	var t_top: float = t + 0.62
@@ -1193,7 +1206,7 @@ static func legup(c: Performer, b: Performer, t: float, lane: float, side: float
 		[1.16, M([H(0, -0.34, -0.04), B(0.45), C(0.2), HD(0.4, 0.0, 0.08), L(0.4, -0.45, 0.4, 0.4), R(0.4, -0.45, 0.4, 0.4), {"sq": 1.0, "face": "surprise"}]), "s"],
 		[1.42, M([H(0, -0.1, 0), B(0.14), C(0.08), HD(0.1), L(0.25, -0.75, 0.15, 0.2), R(0.25, -0.75, 0.15, 0.2), {"face": "grin"}])],
 	])
-	return {"foot": [t_step + 0.02, t_top + 0.02], "land": t_land, "out": t_land + 0.5, "spot": land + Vector3(0, 0, 0.25), "free": t + 1.3, "b_spot": b_spot, "b_theta": b_theta}
+	return {"foot": [t_step + 0.02, t_top + 0.02], "top": t_top, "land": t_land, "out": t_land + 0.5, "spot": land + Vector3(0, 0, 0.25), "free": t + 1.3, "b_spot": b_spot, "b_theta": b_theta}
 
 
 # Lysia traverse les piques sans ralentir : pas lourds, les piques cassent contre son armure.
@@ -1676,4 +1689,274 @@ static func alice_rage(a: Performer, t0: float, t1: float) -> void :
 		[1.9, M([H(0, -0.1, 0.0), B(0.25), C(0.15), HD(0.05, 0.0, -0.15), claws(0.0), {"jaw": 0.0, "shake": 0.0, "face": "menace"}])],
 		[2.6, M([B(0.28), HD(0.02, 0.1, -0.2)])],
 		[3.3, M([B(0.25), HD(0.0, -0.05, -0.18)])],
+	])
+
+
+# ============================================================ modules 0.17 (suite) --
+
+# Piques courbes du Shadow spike du jeu (même dessin qu'effects.gd), hauteur 1 : chaque pique
+# est mise à l'échelle par la haie.
+static func thorn_mesh(height: float, lean: float) -> ArrayMesh:
+	var surface: SurfaceTool = SurfaceTool.new();surface.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var rings: Array = []
+	for level: int in range(5):
+		var fraction: float = float(level) / 4.0
+		var radius: float = (1.0 - fraction) * 0.31 + 0.006
+		var ring: Array[Vector3] = []
+		for i: int in range(7):
+			var angle: float = float(i) / 7.0 * TAU
+			ring.append(Vector3(cos(angle) * radius + fraction * fraction * lean * 0.17, fraction * height, sin(angle) * radius - fraction * fraction * 0.32))
+		rings.append(ring)
+	for level: int in range(4):
+		for i: int in range(7):
+			var j: int = (i + 1) % 7
+			for vertex: Vector3 in [rings[level][i], rings[level + 1][i], rings[level][j], rings[level][j], rings[level + 1][i], rings[level + 1][j]]: surface.add_vertex(vertex)
+	surface.generate_normals()
+	return surface.commit()
+
+
+# Vol d'un pied d'un appui à l'autre (petit pas), pour les modules qui posent leurs pieds à la main.
+static func swing_to(p: Performer, side: int, t0: float, from_w: Vector3, t1: float, to_w: Vector3, v: float = 0.8) -> void :
+	_swing(p, side, t0, from_w, t1, to_w, v, -0.3, 21 + side, style(p.person), p.seed)
+
+
+# Les piques jaillissent devant eux : sursaut propre à chacun pendant le freinage (la course ne
+# pilote plus le haut du corps après `brake`), puis on se fige, essoufflé.
+static func brake_upper(p: Performer, brake: float, stop: float) -> void :
+	var flinch: Dictionary
+	var brace: Dictionary
+	var settle: Dictionary = tense(p.person)
+	match p.person:
+		"Simon":
+			flinch = M([H(0, -0.06, -0.05), B(-0.3, 0.06), C(-0.2), HD(-0.12, 0.3, 0.12), Lt(0.04, 0.4, 0.32, 0.6), Rt(0.1, 0.32, 0.36, 0.6), WL(0.7), WR(0.7), {"curl": 0.15, "curl_l": 0.15, "face": "panic"}])
+			brace = M([H(0, -0.16, -0.08), B(-0.16, -0.05), C(-0.06), HD(0.02, 0.12), L(0.45, -0.32, 0.3, 0.5), R(0.48, -0.26, 0.26, 0.5), {"curl": 0.3, "curl_l": 0.3}])
+		"Bleuette":
+			flinch = M([H(0, -0.14, -0.02), B(0.05), C(0.18), HD(-0.3, -0.1, 0.1), Lt(-0.06, 0.3, 0.3, 0.3), Rt(-0.05, 0.32, 0.28, 0.3), WL(1.0), WR(1.0), {"curl": 0.5, "curl_l": 0.5, "face": "fear", "shake": 0.4}])
+			brace = M([H(0, -0.18, -0.02), B(0.1), C(0.16), HD(-0.18, 0.05, 0.08), Lt(-0.05, 0.12, 0.38, 0.3), Rt(-0.04, 0.15, 0.37, 0.3), WL(0.8), WR(0.8), {"shake": 0.3}])
+		"Elly":
+			flinch = M([H(0, -0.08, -0.04), B(-0.2, -0.12), C(-0.1), HD(-0.05, 0.2), L(0.75, -0.05, 0.25, 0.3), Rt(-0.1, -0.15, 0.3, 0.3), WL(-0.3), {"curl_l": 0.1, "curl": 0.5, "face": "surprise"}])
+			brace = M([H(0, -0.14, -0.06), B(-0.08, -0.06), C(-0.03), HD(0.0, 0.15), L(0.6, -0.25, 0.25, 0.3), Rt(-0.12, -0.2, 0.32, 0.3), {"curl_l": 0.2}])
+		"Ashura":
+			flinch = M([H(0, -0.1, -0.06), B(-0.22, 0.08), C(-0.08), HD(0.04, -0.1), L(0.55, -0.1, 0.1, 0.4), R(0.5, -0.05, 0.15, 0.4), {"curl": 0.5, "curl_l": 0.5, "face": "surprise"}])
+			brace = M([H(0, -0.2, -0.1), B(-0.1, 0.04), C(-0.02), HD(0.06, -0.05), L(0.42, -0.45, 0.12, 0.3), R(0.4, -0.42, 0.18, 0.3), {"curl": 0.6, "curl_l": 0.6, "face": "determined"}])
+		"Lysia":
+			flinch = M([H(0, -0.04, -0.03), B(-0.12), C(-0.04), HD(0.0, 0.0, 0.2), L(0.32, -0.6, 0.2, 0.2), R(0.32, -0.6, 0.2, 0.2), {"curl": 0.1, "curl_l": 0.1, "face": "surprise", "shake": 0.5}])
+			brace = M([H(0, -0.06, -0.02), B(-0.03), C(0.0), HD(0.0, 0.0, 0.08), L(0.2, -0.85, 0.08, 0.1), R(0.2, -0.85, 0.08, 0.1), {"shake": 0.0, "face": "focus"}])
+		"Usayuko":
+			flinch = M([H(0, -0.14, -0.06), B(-0.18, -0.1), C(-0.05, -0.1), HD(0.0, 0.1), Lt(0.08, -0.05, 0.45, 0.5), Rt(0.25, -0.3, 0.25, 0.5), WL(0.3), {"curl": 1.0, "curl_l": 1.0, "face": "angry"}])
+			brace = M([H(0, -0.2, -0.08), B(-0.06, -0.05), C(0.02), HD(0.02, 0.06), Lt(0.06, -0.12, 0.42, 0.5), Rt(0.14, -0.3, 0.35, 0.5), {"face": "determined"}])
+		_:
+			flinch = M([H(0, -0.08, -0.04), B(-0.2), C(-0.08), HD(-0.05), L(0.5, -0.1, 0.25, 0.3), R(0.5, -0.1, 0.25, 0.3), {"face": "surprise"}])
+			brace = M([H(0, -0.14, -0.06), B(-0.08), L(0.4, -0.4, 0.2, 0.3), R(0.4, -0.4, 0.2, 0.3)])
+	var seed_value: int = p.seed + 41
+	var span: float = maxf(stop - brake, 0.3)
+	keys(p, brake, [
+		[0.0, M([{"ev": "gasp"}])],
+		[0.1 + 0.03 * n1(seed_value, 0), flinch, "s"],
+		[span * 0.55 + 0.05, brace],
+		[span + 0.12, M([settle, {"face": "fear"}])],
+	])
+	# le souffle court après l'arrêt : épaules qui montent et retombent
+	for k: int in range(3):
+		var tt: float = stop + 0.22 + 0.3 * float(k) + 0.04 * n1(seed_value, k + 1)
+		p.pose(tt, {"chest": (settle.get("chest", Vector3.ZERO) as Vector3) + Vector3(-0.045 if k % 2 == 0 else 0.0, 0.0, 0.0)})
+
+
+# Seul(e) contre Alice : elle frappe, on plonge de côté sous la griffe, on se relève tendu(e).
+static func dodge(p: Performer, t: float, theta: float) -> void :
+	var s: Vector3 = p.end_p
+	var away: float = 1.0 if p.person == "Elly" else -1.0
+	var to: Vector3 = s + leftward(theta) * (0.5 * away) - ahead(theta) * 0.12
+	p.hold(t + 0.08)
+	p.turn(t, p.theta(t), "s")
+	p.turn(t + 0.16, theta, "s")
+	p.go(t + 0.32, to, Vector3.ZERO)
+	p.hold(t + 0.62)
+	run(p, t + 0.04, t + 0.62, {"stop": true, "first": 1 if away > 0.0 else -1, "no_upper": true, "seed": 3})
+	keys(p, t, [
+		[0.0, {"face": "fear"}],
+		[0.12, M([H(0.1 * away, -0.32, 0), B(0.35, 0.0, 0.18 * away), C(0.15), HD(-0.3, 0.0, 0.12 * away), Lt(0.0, 0.42, 0.22, 0.6), Rt(0.0, 0.46, 0.22, 0.6), WL(0.8), WR(0.8), {"curl": 0.4, "curl_l": 0.4, "ev": "gasp", "face": "panic"}]), "s"],
+		[0.3, M([H(0.08 * away, -0.36, 0), B(0.4, 0.0, 0.1 * away), HD(-0.22, 0.12 * away, 0.1 * away), {"shake": 0.45}])],
+		[0.6, M([tense(p.person), {"shake": 0.0, "face": "fear"}])],
+	])
+
+
+# Alice a le temps : elle se fige comme une statue, puis des à-coups de tête d'oiseau, les
+# griffes qui se referment une à une, une épaule qui roule. Jamais deux fois le même geste.
+static func alice_wait(a: Performer, t0: float, t1: float) -> void :
+	var span: float = t1 - t0
+	if span < 0.12: return
+	a.hold(t1)
+	for side: int in [-1, 1]:
+		if float(a.foot_free[side]) < t1 - 0.02:
+			var at: Vector3 = a.foot_at[side] if (a.foot_at[side] as Vector3) != Vector3.ZERO else a.rest_foot(side, t0)
+			a.plant(side, a.foot_free[side], t1, at)
+	var beats: int = maxi(1, int(span / 0.5))
+	var seed_value: int = a.seed + int(t0 * 37.0)
+	for k: int in range(beats + 1):
+		var u: float = float(k) / float(beats)
+		var tt: float = minf(t1 - 0.02, t0 + span * u + 0.07 * n1(seed_value, k))
+		var tilt: float = 0.28 * n1(seed_value + 3, k)
+		var yaw: float = 0.22 * n1(seed_value + 5, k)
+		var curl_r: float = 0.45 + 0.4 * absf(n1(seed_value + 7, k))
+		var curl_l: float = 0.45 + 0.4 * absf(n1(seed_value + 9, k))
+		var pose: Dictionary = M([H(0, -0.05 - 0.03 * absf(n1(seed_value + 11, k)), 0.02), B(0.18 + 0.05 * n1(seed_value + 13, k)), C(0.12, 0.06 * n1(seed_value + 15, k)), HD(0.02 + 0.06 * n1(seed_value + 17, k), yaw, tilt), claws(0.04 * n1(seed_value + 19, k)), {"curl": curl_r, "curl_l": curl_l, "face": "menace"}])
+		# la tête s'arrête net (« s ») : des à-coups, pas une oscillation
+		a.pose(tt, pose, "s")
+		if k < beats: a.pose(tt + minf(0.22, span / float(beats) * 0.45), {"head": HD(0.02 + 0.06 * n1(seed_value + 17, k), yaw, tilt).head}, "s")
+
+
+# On tire un ami par-dessus la haie. L'aide (h), déjà dehors, vient se planter face à la haie dans
+# le couloir de son ami, se penche et tend les deux mains ; l'ami (c) prend deux pas d'élan,
+# attrape les mains au-dessus des piques, fléchit et saute ; l'aide se jette en arrière en tirant
+# (un grand pas de recul) et le rattrape à l'arrivée.
+# Rend {grab, release, land, out}.
+static func haul(c: Performer, h: Performer, t: float, lane: float) -> Dictionary:
+	var spot: Vector3 = Vector3(lane + 0.06, 0.0, 0.8)
+	step_to(h, maxf(t - 0.55, h.end_t), maxf(t - 0.06, h.end_t + 0.3), spot, PI, {"seed": 43})
+	var st_c: Dictionary = style(c.person)
+	var leg_c: float = c.leg
+	var t_grab: float = t + 0.3
+	var t_jump: float = t + 0.46
+	var t_land: float = t + 0.94
+	# --- l'aide : pied gauche avancé contre la haie, il se penche, tire, recule d'un pas
+	var front: Vector3 = w(spot, PI, -0.13, 0.17)
+	var spot2: Vector3 = spot + Vector3(0.0, 0.0, 0.52)
+	var back2: Vector3 = w(spot2, PI, -0.13, -0.04)
+	var right2: Vector3 = w(spot2, PI, 0.14, 0.02)
+	h.hold(t + 0.48)
+	h.go(t + 0.64, spot + Vector3(0.0, 0.0, 0.26), Vector3(0, 0, 1.1))
+	h.go(t + 0.86, spot2, Vector3.ZERO)
+	h.hold(t + 1.5)
+	var h_start: float = h.foot_free[-1]
+	h.plant(-1, h_start, t + 0.02, h.foot_at[-1])
+	swing_to(h, -1, t + 0.02, h.foot_at[-1], t + 0.15, front)
+	h.plant(-1, t + 0.15, t + 0.62, front, 0.0, -0.4)
+	swing_to(h, -1, t + 0.62, front, t + 0.8, back2, 1.4)
+	h.plant(-1, t + 0.8, t + 1.5, back2)
+	var r_at: Vector3 = h.foot_at[1]
+	h.plant(1, h.foot_free[1], t + 0.86, r_at, 0.0, -0.3)
+	swing_to(h, 1, t + 0.86, r_at, t + 1.02, right2)
+	h.plant(1, t + 1.02, t + 1.5, right2)
+	keys(h, t - 0.06, [
+		[0.0, M([H(0, -0.06, 0.02), B(0.2), C(0.08), HD(-0.12), L(0.18, -0.4, 0.55, 0.3), R(0.18, -0.4, 0.55, 0.3), {"curl": 0.2, "curl_l": 0.2, "face": "determined"}])],
+		[0.14, M([H(0, -0.12, 0.08), B(0.48), C(0.16), HD(-0.2, 0.0, 0.04), L(0.12, -0.12, 0.88, 0.25), R(0.12, -0.1, 0.9, 0.25), WL(0.2), WR(0.2), {"curl": 0.12, "curl_l": 0.12}])],
+		[0.34, M([HD(-0.16, 0.0, -0.03), {"curl": 0.95, "curl_l": 0.95, "ev": "effort"}])],
+		[0.5, M([H(0, -0.2, -0.02), B(0.26), C(0.08), HD(-0.05), L(0.1, -0.06, 0.8, 0.3), R(0.1, -0.05, 0.8, 0.3)]), "s"],
+		[0.66, M([H(0, -0.26, -0.18), B(-0.32), C(-0.16), HD(0.22, 0.0, 0.05), L(0.12, 0.04, 0.55, 0.45), R(0.12, 0.05, 0.55, 0.45), {"ev": "grunt", "face": "angry"}])],
+		[0.86, M([H(0, -0.2, -0.1), B(-0.16), C(-0.08), HD(0.12), L(0.15, -0.08, 0.45, 0.4), R(0.15, -0.08, 0.45, 0.4)])],
+		[1.04, M([H(0, -0.14, 0.0), B(0.12), C(0.04), HD(-0.05, 0.0, 0.08), L(0.22, -0.28, 0.42, 0.3), R(0.22, -0.26, 0.42, 0.3), {"curl": 0.6, "curl_l": 0.6, "face": "surprise"}])],
+		[1.3, M([neutral(h.person), HD(0.04, 0.12, 0.1), {"face": "laugh"}])],
+		[1.56, M([neutral(h.person), HD(0.0, 0.05, 0.04), {"face": "grin"}])],
+	])
+	# --- l'ami : deux pas d'élan, il attrape les mains, fléchit, saute groupé, se reçoit
+	var s: Vector3 = c.end_p
+	c.hold(t)
+	c.turn(t, c.theta(t), "s")
+	c.turn(t + 0.12, 0.0, "s")
+	c.go(t + 0.3, Vector3(lane, 0.0, -0.8), Vector3(0, 0, 1.3))
+	c.go(t_jump, Vector3(lane, 0.0, -0.7), Vector3(0, 0, 0.4))
+	c.leap(t_land, Vector3(lane + 0.04, 0.0, 0.6), 0.68, Vector3(0, 0, 1.4))
+	c.go(t_land + 0.24, Vector3(lane + 0.04, 0.0, 0.8), Vector3.ZERO)
+	c.hold(t + 1.45)
+	var r1: Vector3 = Vector3(lane - 0.09, 0.0, -1.12)
+	var r2: Vector3 = Vector3(lane - 0.1, 0.0, -0.76)
+	var l1: Vector3 = Vector3(lane + 0.1, 0.0, -0.74)
+	c.plant(1, c.foot_free[1], t + 0.03, c.foot_at[1], 0.0, -0.3)
+	_swing(c, 1, t + 0.03, c.foot_at[1], t + 0.16, r1, 1.4, -0.3, 31, st_c, c.seed)
+	c.plant(1, t + 0.16, t + 0.28, r1, 0.05, -0.5)
+	_swing(c, 1, t + 0.28, r1, t + 0.4, r2, 1.0, -0.4, 32, st_c, c.seed)
+	c.plant(1, t + 0.4, t_jump + 0.05, r2, 0.05, -0.9)
+	c.plant(-1, c.foot_free[-1], t + 0.13, c.foot_at[-1], 0.0, -0.3)
+	_swing(c, -1, t + 0.13, c.foot_at[-1], t + 0.27, l1, 1.4, -0.3, 33, st_c, c.seed)
+	c.plant(-1, t + 0.27, t_jump + 0.04, l1, 0.05, -0.9)
+	var tuck: Array = _tuck(c, "tuck")
+	for k: int in range(3):
+		var tt: float = t_jump + (t_land - t_jump) * [0.25, 0.5, 0.78][k]
+		c.foot_l(tt, -1, (tuck[k] as Array)[0], float((tuck[k] as Array)[2]))
+		c.foot_l(tt, 1, (tuck[k] as Array)[1], float((tuck[k] as Array)[3]))
+	c.plant(-1, t_land, t + 1.45, Vector3(lane + 0.16, 0.0, 0.64), 0.12, 0.0)
+	c.plant(1, t_land + 0.04, t + 1.45, Vector3(lane - 0.08, 0.0, 0.8), 0.12, 0.0)
+	keys(c, t, [
+		[0.0, M([H(0, -0.05, 0.02), B(0.18), C(0.06), HD(0.1), L(0.14, -0.2, 0.7, 0.3), R(0.14, -0.18, 0.72, 0.3), {"curl": 0.2, "curl_l": 0.2, "face": "determined"}])],
+		[0.16, M([H(0, -0.08, 0.04), B(0.24), HD(0.22), L(0.1, 0.02, 0.88, 0.25), R(0.1, 0.04, 0.88, 0.25), {"curl": 0.1, "curl_l": 0.1}])],
+		[0.3, M([{"curl": 0.95, "curl_l": 0.95, "ev": "effort"}])],
+		[0.46, M([H(0, -0.3, 0.06), B(0.42), C(0.12), HD(0.28), L(0.1, -0.06, 0.74, 0.3), R(0.1, -0.05, 0.74, 0.3)]), "s"],
+		[0.54, M([H(0, -0.04, 0.08), B(0.52), HD(0.38)])],
+		[0.7, M([H(0, 0.04, 0.1), B(0.82), C(0.12), HD(0.6), L(0.1, 0.2, 0.55, 0.4), R(0.1, 0.22, 0.55, 0.4), {"face": "fear", "jaw": 0.5}])],
+		[0.86, M([H(0, -0.04, 0.04), B(0.48), HD(0.36), {"jaw": 0.2}])],
+		[0.94, M([H(0, -0.3, 0.0), B(0.42), C(0.14), HD(0.3), L(0.2, -0.2, 0.5, 0.4), R(0.2, -0.2, 0.5, 0.4), {"fx": "dust", "sq": 0.96}]), "s"],
+		[1.06, M([H(0, -0.38, -0.02), B(0.36), C(0.12), HD(0.25, 0.0, 0.06), L(0.3, -0.5, 0.35, 0.3), R(0.3, -0.5, 0.36, 0.3), {"sq": 1.0, "curl": 0.4, "curl_l": 0.4, "face": "surprise"}])],
+		[1.3, M([H(0, -0.12, 0.0), B(0.12), C(0.06), HD(0.1, -0.15, 0.08), L(0.24, -0.78, 0.15, 0.2), R(0.24, -0.78, 0.15, 0.2), {"face": "laugh"}])],
+		[1.45, M([neutral(c.person), HD(0.06, -0.1, 0.06), {"face": "grin"}])],
+	])
+	return {"grab": t_grab, "release": t_land + 0.06, "land": t_land, "out": t + 1.45}
+
+
+# Le dernier passe par la brèche de Lysia : trois foulées d'élan, il se laisse tomber en glissade
+# sur la hanche (jambe droite tendue, gauche repliée, une main qui frotte le sol), passe sous les
+# moignons de piques et se relève d'un coup de reins de l'autre côté.
+# Rend {through (instant où il passe le plan de la porte), out}.
+static func slide(p: Performer, t: float, lane: float) -> Dictionary:
+	var leg: float = p.leg
+	var t_drop: float = t + 0.46
+	p.hold(t)
+	p.turn(t, p.theta(t), "s")
+	p.turn(t + 0.14, 0.0, "s")
+	p.go(t_drop, Vector3(lane, 0.0, -1.0), Vector3(0, 0, 5.0))
+	p.go(t + 1.0, Vector3(lane, 0.0, 1.05), Vector3(0, 0, 0.7))
+	p.go(t + 1.3, Vector3(lane, 0.0, 1.25), Vector3.ZERO)
+	p.hold(t + 1.5)
+	run(p, t, t_drop - 0.02, {"stop": false, "first": 1, "seed": 61, "upper_until": t_drop - 0.1, "lean": 1.2})
+	var ankle_r: float = float(p.base[1].y)
+	var ankle_l: float = float(p.base[-1].y)
+	var xr: float = float(p.base[1].x)
+	var xl: float = float(p.base[-1].x)
+	# glissade (le corps glisse sur le sol : les pieds glissent avec lui, c'est voulu)
+	for k: int in range(4):
+		var tt: float = t_drop + 0.04 + 0.14 * float(k)
+		p.foot_l(tt, 1, Vector3(xr + 0.02, ankle_r + 0.05, - 0.58 * leg), 0.45)
+		p.foot_l(tt, -1, Vector3(xl - 0.04, ankle_l + 0.02, - 0.12 * leg), -0.2)
+	# il se relève : pied gauche sous lui, poussée, pied droit qui revient
+	var up_l: Vector3 = Vector3(lane + 0.1, 0.0, 1.0)
+	var up_r: Vector3 = Vector3(lane - 0.1, 0.0, 1.2)
+	p.plant(-1, t + 0.98, t + 1.6, up_l, 0.1, 0.0)
+	p.foot_l(t + 1.06, 1, Vector3(xr, ankle_r + 0.14 * leg, - 0.3 * leg), 0.2)
+	p.plant(1, t + 1.18, t + 1.6, up_r, 0.1, 0.0)
+	p.fx(t_drop + 0.05, "dust")
+	p.fx(t_drop + 0.3, "skid")
+	keys(p, t, [
+		[0.0, {"face": "determined"}],
+		[t_drop - t - 0.06, M([H(0, -0.12, 0.05), B(0.3), C(0.08), HD(0.12), L(0.35, -0.45, -0.2, 0.3), R(0.3, -0.35, 0.3, 0.3), {"curl": 0.8, "curl_l": 0.8}])],
+		[t_drop - t + 0.08, M([H(0.04, -0.58, -0.2), B(-0.5, 0.0, 0.06), C(-0.1), HD(-0.36, 0.0, 0.05), Lg(0.32, -0.3, 0.0), R(0.3, 0.05, 0.45, 0.4), WR(0.3), {"curl_l": 0.2, "curl": 0.5, "ev": "effort", "face": "angry"}]), "s"],
+		[t_drop - t + 0.3, M([H(0.04, -0.62, -0.22), B(-0.56, 0.0, 0.05), HD(-0.4, 0.0, 0.02), Lg(0.32, -0.32, 0.0), R(0.32, 0.12, 0.42, 0.4), {"shake": 0.3}])],
+		[t_drop - t + 0.48, M([H(0.04, -0.6, -0.15), B(-0.4), HD(-0.3), Lg(0.3, -0.22, 0.0), {"shake": 0.0}])],
+		[1.02, M([H(0.0, -0.46, 0.02), B(0.32), C(0.1), HD(0.18), Lg(0.25, 0.25, 0.02), R(0.35, -0.3, 0.4, 0.3), {"ev": "grunt", "face": "determined"}]), "s"],
+		[1.18, M([H(0, -0.2, 0.0), B(0.18), HD(0.1, 0.2), L(0.32, -0.6, 0.2, 0.3), R(0.3, -0.55, 0.28, 0.3), {"curl": 0.7, "curl_l": 0.7}])],
+		[1.4, M([tense(p.person), HD(0.06, 0.35, 0.05), {"face": "grin"}])],
+	])
+	return {"through": t_drop + 0.22, "out": t + 1.4}
+
+
+# La brèche se referme sous son nez : Alice s'élance griffe tendue, les piques repoussent d'un
+# coup devant elle ; elle s'arrête net, retire sa main piquée en secouant les doigts, recule.
+static func alice_blocked(a: Performer, t: float, x: float) -> void :
+	var s: Vector3 = a.end_p
+	var stop_at: Vector3 = Vector3(x * 0.92, 0.0, -0.85)
+	var back: Vector3 = stop_at - Vector3(0.0, 0.0, 0.5)
+	a.hold(t)
+	a.turn(t, a.theta(t), "s")
+	a.turn(t + 0.12, 0.0, "s")
+	a.go(t + 0.3, stop_at, Vector3.ZERO)
+	a.go(t + 0.62, back, Vector3.ZERO)
+	a.hold(t + 0.8)
+	run(a, t - 0.02, t + 0.8, {"stop": true, "first": 1, "no_upper": true, "cadence": 1.15, "seed": 79})
+	keys(a, t, [
+		[0.0, M([H(0, -0.18, 0.05), B(0.42), C(0.18), HD(0.3), R(0.4, 0.3, -0.3, 0.5), WR(-0.6), L(0.45, -0.45, 0.1, 0.5), {"curl": 0.0, "face": "angry", "ev": "roar"}])],
+		[0.2, M([H(0, -0.16, 0.12), B(0.55), C(0.15), HD(0.45), R(0.05, 0.12, 0.96, 0.1), WR(-0.2), L(0.45, -0.3, -0.3, 0.5), {"curl": 0.05}])],
+		[0.3, M([R(0.06, 0.14, 0.82, 0.1), B(0.5), {"ev": "hurt", "face": "pain", "shake": 0.7}]), "s"],
+		[0.46, M([H(0, -0.12, -0.06), B(-0.08), C(-0.1), HD(0.2, 0.35, 0.1), Rt(0.12, -0.1, 0.32, 0.4), WR(0.9, 0.0, 0.4), L(0.45, -0.5, 0.2, 0.5), {"curl": 0.6, "shake": 0.4}])],
+		[0.58, M([Rt(0.18, -0.12, 0.3, 0.4), WR(-0.5, 0.0, -0.4)])],
+		[0.7, M([Rt(0.15, -0.1, 0.32, 0.4), WR(0.8, 0.0, 0.3), {"face": "angry"}])],
+		[0.82, M([H(0, -0.1, 0), B(0.2), C(0.12), HD(0.12, 0.0, -0.1), claws(0.05), {"shake": 0.0}])],
 	])
