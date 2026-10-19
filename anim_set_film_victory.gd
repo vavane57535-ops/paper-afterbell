@@ -359,10 +359,11 @@ static func _simon(c: Dictionary) -> void :
 	k.append(K(6.46, M([FR(0.12, -0.08), FL(0.06, 0.08), H(0, -0.08, 0.0), B(0.04), HD(-0.05, 0.0), {"sq": 1.0}]), "s"))
 	# F · le sourire, puis le doigt qui fait « non non non » sur les caisses claires
 	k.append(K(6.58, M([H(0, -0.05, 0.0), B(-0.02, 0.1, -0.05), C(-0.04, 0.08), HD(0.06, -0.08, -0.12), L(0.62, -0.58, 0.02, 0.9), WL(0.6, 0.0, 0.3), {"curl_l": 1.0, "face": "grin"}])))
-	k.append(K(6.78, M([Rt(-0.06, 0.38, 0.5, 0.55), WR(0.2, -0.2), {"gesture": "point", "curl": 0.9}])))
+	k.append(K(6.78, M([Rt(0.02, 0.05, 0.62, 0.3), WR(-0.2, -0.3, 0.0), {"gesture": "point", "curl": 0.9}])))
 	for i: int in range(4):
 		var t: float = 6.9 + 0.088 * float(i)
-		k.append(K(t, M([WR(0.2, -0.65 if i % 2 == 0 else 0.4), HD(0.06, -0.12 if i % 2 == 0 else -0.02, -0.12)])))
+		var wag: float = 1.0 if i % 2 == 0 else -1.0
+		k.append(K(t, M([Rt(0.02 + 0.06 * wag, 0.06, 0.62, 0.3), WR(-0.2, -0.3, 0.5 * wag), HD(0.06, -0.1 * wag - 0.04, -0.12)])))
 	k.append(K(7.16, M([H(0, -0.05, 0.0), B(-0.02, 0.1, -0.05), C(-0.04, 0.08), HD(0.06, -0.02, -0.12), L(0.62, -0.58, 0.02, 0.9), FL(0.06, 0.08), FR(0.12, -0.08), {"fp_r": 0.0}]), "s"))
 	k.append(K(7.22, M([Rt(0.1, -0.1, 0.4, 0.4), WR(0.0), {"gesture": ""}])))
 	blink(6.66, "grin", k, 0.07)

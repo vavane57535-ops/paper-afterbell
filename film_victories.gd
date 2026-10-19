@@ -45,7 +45,7 @@ const GLINT: Dictionary = {
 	"Lysia": Color("b8fff0"), "Elly": Color("cffbff"), "Bleuette": Color("cfe0ff"), "Alice": Color("ff3b55"),
 }
 # painted eyes below the rig's "eyes" socket (metres, measured on the eyelid patches)
-const EYE_DROP: Dictionary = {"Ashura": -0.07, "Usayuko": -0.05, "Lysia": -0.02, "Elly": -0.12, "Bleuette": -0.05}
+const EYE_DROP: Dictionary = {"Ashura": -0.07, "Usayuko": -0.05, "Lysia": -0.02, "Elly": -0.12, "Bleuette": -0.05, "Simon": -0.2}
 # start of the paper-silhouette cut for each film; the TV comes back 2.6 s later
 const INK_AT: Dictionary = {"Ashura": 9.85, "Usayuko": 8.95, "Simon": 9.4, "Lysia": 8.65, "Elly": 8.95, "Bleuette": 8.7}
 const TAIL: float = 4.2
@@ -497,7 +497,7 @@ func _write_simon() -> void :
 	c._move(a, 5.12, 5.28, center, "out")
 	_glint(4.9, 5.3, a, 0.9)
 	# D · 5,32 · parti : la griffe tranche l'image rémanente
-	c._cue(go, "event", "boost_release", {"position": {"a": s}, "level": 3})
+	_later(go, "pop", {"at": {"a": s, "h": 0.6}, "color": tint, "scale": 1.1})
 	c._cue(go, "sound", "boost", {"a": s}, 1.0, 1.1)
 	c._cue(go, "rush", 1.0)
 	c._cue(go + 0.02, "shake", 0.35)
@@ -573,13 +573,13 @@ func _write_simon() -> void :
 	_flash(t_ink - 0.06, 0.14)
 	# PAPIER · une foulée suspendue au ralenti ; derrière, Alice assise, étourdie
 	var ink: float = t_ink
-	_jump(s, ink, _ink(-1.4, 0, 0.6))
-	_jump(a, ink, _ink(1.3, 0, -1.3))
+	_jump(s, ink, _ink(-0.7, 0, 0.6))
+	_jump(a, ink, _ink(-2.1, 0, -0.9))
 	c._face(s, ink, "dir", Vector3(1, 0, 0))
-	c._face(a, ink, "dir", Vector3(-0.6, 0, 0.8))
+	c._face(a, ink, "dir", Vector3(0.6, 0, 0.8))
 	_play(s, "fv_simon_ink", ink)
 	_play(a, "fv_simon_alice_ink", ink)
-	c._move(s, ink + 0.05, ink + 2.65, _ink(-1.4 + 0.92 * 2.6, 0, 0.6), "linear")
+	c._move(s, ink + 0.05, ink + 2.65, _ink(-0.7 + 0.92 * 2.6, 0, 0.6), "linear")
 	_spin(ink, ink + 2.6, a, 0.75, "linear")
 	_tilt(ink, ink + 2.6, a, Vector3(0, 0, -0.12), Vector3(0, 0, -0.3))
 	_later(ink + 0.3, "cue", {"who": a, "cue": "spin"})
@@ -1486,7 +1486,7 @@ func _eye_points(visual: Node3D) -> Array[Vector3]:
 			if mesh and mesh.mesh: points.append(mesh.global_transform * mesh.mesh.get_aabb().get_center())
 	if not points.is_empty(): return points
 	points.clear()
-	var eyes: Vector3 = visual.socket_position("eyes")
+	var eyes: Vector3 = visual.socket_position("eyes") + Vector3.UP * float(EYE_DROP.get(str(visual.get("character_name")), 0.0))
 	var head: Variant = visual.get("_head")
 	var side: Vector3 = (head as Node3D).global_transform.basis.x.normalized() if head is Node3D else visual.global_transform.basis.x.normalized()
 	points.append(eyes - side * 0.045)
