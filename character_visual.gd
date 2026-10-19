@@ -22,7 +22,7 @@ const CharMaterials = preload("res://char_materials.gd")
 const CharProps = preload("res://char_props.gd")
 const AnimSetSimon = preload("res://anim_set_simon.gd")
 const CarryRig = preload("res://carry_rig.gd")
-const CARRY_RELEASE: float = 0.3
+const CARRY_RELEASE: float = 0.6
 
 const CHARACTER_HEIGHTS: Dictionary = {"Usayuko": 1.87, "Simon": 1.75, "Ashura": 1.7, "Lysia": 1.75, "Elly": 1.9, "Bleuette": 1.65, "Alice": 1.75, "TrueForm": 3.0}
 const EMOTES: Array[String] = ["wave", "thumbsup", "cheer", "laugh", "point", "shrug", "sad", "fear", "clap", "facepalm", "sulk", "heart", "taunt", "salute", "selfie", "bow", "beg", "sit"]
@@ -317,6 +317,14 @@ var _carry_floor: float = 0.0
 var _carry_floor_ok: bool = false
 var _carry_release: float = 0.0
 var _carry_lean: float = 1.0
+var _carry_from_yaw: float = 0.0
+var _carry_trail: float = 0.0
+var _carry_trail_speed: float = 0.0
+var _carry_yaw_prev: float = 0.0
+var _carry_yaw_ok: bool = false
+var _carry_drop_y: float = 0.0
+var _carry_fall_speed: float = 0.0
+var _carry_landed: bool = true
 var _death_hold: float = 0.0
 var _transition_time: float = TRANSITION_TIME
 var _stun_snap: bool = false
@@ -2030,8 +2038,15 @@ func _carry_find(id: int) -> PaperVisual:
 	var actor: Node = get_parent()
 	var world: Node = actor.get_parent() if actor != null else null
 	if world == null: return null
-	var node: Node = world.get_node_or_null("Actor_%d" % id)
+	# Dans main.gd, les acteurs sont indexés par id (un joueur parti devient une IA d'id 1000 + n, sans que son nœud
+	# change de nom) ; les bancs d'essai n'ont que les noms « Actor_<id> ».
+	var node: Node = null
+	var actors: Variant = world.get("actors")
+	if actors is Dictionary and (actors as Dictionary).has(id): node = actors[id] as Node
+	if node == null: node = world.get_node_or_null("Actor_%d" % id)
 	if node == null: return null
+	var visual: Variant = node.get("visual")
+	if visual is PaperVisual and visual != self: return visual
 	for child: Node in node.get_children():
 		if child is PaperVisual and child != self: return child
 	return null
@@ -2092,13 +2107,16 @@ func _carry_pose(mood: String) -> String:
 	return _carry_mood if not _carry_mood.is_empty() else mood
 
 
-# Repère de Simon sur lequel le porté s'appuie (sans échelle).
+# Repère de Simon sur lequel le porté s'appuie (sans échelle) : « root » ses pieds, « chest » / « hips » la
+# position de son buste / de son bassin avec son cap (le porté suit les rebonds, pas les rotations de la foulée),
+# « back » son buste complet, inclinaison comprise.
 func _carry_anchor() -> Transform3D:
 	var carrier: PaperVisual = _carry_partner
 	var root: Transform3D = carrier.global_transform
 	var basis: Basis = root.basis.orthonormalized()
 	match str(_carry_rig.get("anchor", "root")):
 		"chest": return Transform3D(basis, carrier._chest.global_position)
+		"hips": return Transform3D(basis, carrier._body.global_position)
 		"back": return Transform3D(carrier._chest.global_basis.orthonormalized(), carrier._chest.global_position)
 	return Transform3D(basis, root.origin)
 
@@ -2108,28 +2126,55 @@ func _carry_pin_start() -> void :
 	_carry_release = 0.0
 	var anchor: Transform3D = _carry_anchor()
 	_carry_from = anchor.affine_inverse() * Transform3D(global_basis.orthonormalized(), global_position)
+	var ahead: Vector3 = - _carry_from.basis.z
+	_carry_from_yaw = atan2( - ahead.x, - ahead.z)
 	_carry_floor_ok = false
+	_carry_trail = 0.0
+	_carry_trail_speed = 0.0
+	_carry_yaw_ok = false
 	top_level = true
 	reset_physics_interpolation()
 
 
+# Dépose : le porté redevient l'enfant de son acteur, sans saut (même transformation globale), joue son clip de
+# dépose s'il en a un, et sa racine retombe (vraie chute, puis réception) au lieu de glisser jusqu'au sol.
 func _carry_unpin() -> void :
 	_carry_pinned = false
 	_carry_queued = false
 	top_level = false
 	reset_physics_interpolation()
 	_carry_release = CARRY_RELEASE
-	_land_speed -= 0.9
+	_carry_drop_y = global_position.y
+	_carry_fall_speed = 0.0
+	_carry_landed = false
+	var key: String = str(_carry_rig.get("key", ""))
+	if not key.is_empty() and _life_state == "alive" and not _get_clip("released_" + key).is_empty(): play("released_" + key)
+	else: _land_speed -= 0.9
 
 
-# Après la dépose, la racine revient doucement sur l'acteur (position, roulis et tangage à zéro).
 func _carry_settle(dt: float) -> void :
 	_carry_release = maxf(0.0, _carry_release - dt)
-	var k: float = 1.0 - exp( - dt * 16.0)
+	var k: float = 1.0 - exp( - dt * 11.0)
 	if _carry_release <= 0.0: k = 1.0
-	position = position.lerp(Vector3.ZERO, k)
+	var floor_y: float = get_parent().global_position.y if get_parent() is Node3D else global_position.y - position.y
+	if not _carry_landed:
+		_carry_fall_speed += 9.8 * dt
+		_carry_drop_y -= _carry_fall_speed * dt
+		if _carry_drop_y <= floor_y or _carry_release <= 0.0:
+			_carry_drop_y = floor_y
+			_carry_landed = true
+			if _carry_fall_speed > 1.2: _land_speed -= minf(_carry_fall_speed * 0.3, 1.2)
+		position.y = _carry_drop_y - floor_y
+	else:
+		position.y = lerpf(position.y, 0.0, k)
+	position.x = lerpf(position.x, 0.0, k)
+	position.z = lerpf(position.z, 0.0, k)
 	rotation.x = lerp_angle(rotation.x, 0.0, k)
 	rotation.z = lerp_angle(rotation.z, 0.0, k)
+	if _carry_release <= 0.0:
+		position = Vector3.ZERO
+		rotation.x = 0.0
+		rotation.z = 0.0
 
 
 func _carry_queue() -> void :
@@ -2138,20 +2183,53 @@ func _carry_queue() -> void :
 	carry_finalize.call_deferred()
 
 
-# Racine du porté : place de la variante dans le repère d'appui ; pendant la prise, il glisse (en arc) depuis
-# l'endroit où il était, exprimé dans ce même repère (il est « happé » à la vitesse de Simon).
+# Traîne (variantes au sol, clé « trail ») : quand Simon tourne, le porté ne pivote pas avec lui d'un bloc ; il
+# part vers l'extérieur du virage autour du point d'attache (« pivot », la main de Simon), comme un skieur
+# nautique, puis se réaligne (ressort amorti). Retourne le retard de cap (rad).
+func _carry_step_trail(anchor: Transform3D) -> float:
+	var spring: Vector2 = _carry_rig.get("trail", Vector2.ZERO)
+	if spring.x <= 0.0: return 0.0
+	var ahead: Vector3 = - anchor.basis.z
+	var yaw: float = atan2( - ahead.x, - ahead.z)
+	var dt: float = clampf(_tick_dt, 0.0, 0.1)
+	if _carry_yaw_ok and dt > 0.0:
+		_carry_trail -= wrapf(yaw - _carry_yaw_prev, - PI, PI)
+		_carry_trail_speed += ( - spring.x * _carry_trail - spring.y * _carry_trail_speed) * dt
+		_carry_trail += _carry_trail_speed * dt
+		_carry_trail = clampf(_carry_trail, -0.75, 0.75)
+	_carry_yaw_prev = yaw
+	_carry_yaw_ok = true
+	return _carry_trail
+
+
+# Racine du porté : place de la variante dans le repère d'appui ; pendant la prise, il glisse depuis l'endroit où
+# il était, exprimé dans ce même repère (il est « happé » à la vitesse de Simon), en arc (« arc », mètres) et en
+# tournant par le côté demandé (« spin » : +1 / -1, sinon le plus court).
 func _carry_root() -> Transform3D:
 	var anchor: Transform3D = _carry_anchor()
-	var place: Transform3D = Transform3D(Basis(Vector3.UP, float(_carry_rig.yaw)), _carry_rig.offset)
+	var trail: float = _carry_step_trail(anchor)
+	var offset: Vector3 = _carry_rig.offset
+	var yaw: float = float(_carry_rig.yaw)
+	if absf(trail) > 0.0001:
+		var pivot: Vector3 = _carry_rig.get("pivot", Vector3.ZERO)
+		offset = pivot + Basis(Vector3.UP, trail) * (offset - pivot)
+		yaw += trail
+	var place: Transform3D = Transform3D(Basis(Vector3.UP, yaw), offset)
 	var grab: float = float(_carry_rig.grab)
 	if _carry_time < grab:
 		var u: float = clampf(_carry_time / maxf(grab, 0.001), 0.0, 1.0)
 		var e: float = 1.0 - pow(1.0 - u, 3.0)
-		var lift: float = 0.0 if bool(_carry_rig.ground) else 0.16 * sin(PI * e)
-		var rotation_q: Quaternion = _carry_from.basis.get_rotation_quaternion().slerp(place.basis.get_rotation_quaternion(), e)
-		place = Transform3D(Basis(rotation_q), _carry_from.origin.lerp(place.origin, e) + Vector3.UP * lift)
+		var lift: float = float(_carry_rig.get("arc", 0.0)) * sin(PI * e)
+		var turn: float = wrapf(yaw - _carry_from_yaw, - PI, PI)
+		var spin: float = float(_carry_rig.get("spin", 0.0))
+		if spin > 0.0 and turn < 0.0: turn += TAU
+		elif spin < 0.0 and turn > 0.0: turn -= TAU
+		place = Transform3D(Basis(Vector3.UP, _carry_from_yaw + turn * e), _carry_from.origin.lerp(place.origin, e) + Vector3.UP * lift)
 	var result: Transform3D = anchor * place
 	if bool(_carry_rig.ground): result.origin.y = _carry_ground(result.origin, anchor.origin.y)
+	# Dans un virage, le porté tracté se penche vers l'intérieur (« bank » : roulis par radian de traîne).
+	var bank: float = float(_carry_rig.get("bank", 0.0)) * trail
+	if absf(bank) > 0.0001: result.basis = result.basis * Basis(Vector3.BACK, clampf(bank, -0.35, 0.35))
 	return result
 
 
@@ -2186,6 +2264,12 @@ func _carry_point(node_name: String, at: Vector3) -> Vector3:
 		"ankle_r": point = (_ankles[1] as Node3D).global_position
 		"arm_l": point = _left_arm.global_position
 		"arm_r": point = _right_arm.global_position
+		"elbow_l": point = _left_elbow.global_position
+		"elbow_r": point = _right_elbow.global_position
+		"leg_l": point = _left_leg.global_position
+		"leg_r": point = _right_leg.global_position
+		"thigh_l": point = _left_leg.global_position.lerp(_left_knee.global_position, 0.4)
+		"thigh_r": point = _right_leg.global_position.lerp(_right_knee.global_position, 0.4)
 	return point + basis * at
 
 
@@ -2210,6 +2294,12 @@ func _carry_reach(hand: String, point: Vector3, weight: float, wrist: Vector3, f
 		elbow.quaternion = elbow_q.slerp(elbow.quaternion, weight)
 		node.quaternion = hand_q.slerp(node.quaternion, weight)
 	_clip_flare[side] = 0.0
+
+
+# Le pied (la cheville) vient sur le point visé : IK de la jambe, avec le garde-fou du genou de _leg_ik.
+func _carry_foot(foot: String, point: Vector3, weight: float) -> void :
+	var side: int = -1 if foot == "l" else 1
+	_leg_ik(side, global_transform.affine_inverse() * point, float(_foot_pitch.get(side, 0.0)), clampf(weight, 0.0, 1.0))
 
 
 # Oriente la main pour que ce qu'elle tient (le fusil d'Elly : canon sur -Z de la main) vise une direction du monde.
@@ -2242,13 +2332,29 @@ func carry_finalize() -> void :
 		var weight: float = CarryRig.contact_weight(contact, _carry_time)
 		if weight <= 0.001: continue
 		var flare: float = float(contact.get("flare", 0.0))
-		if str(contact.who) == "carried":
+		if contact.has("foot"):
+			_carry_foot(str(contact.foot), carrier._carry_point(str(contact.node), contact.at), weight)
+			mine = true
+		elif str(contact.who) == "carried":
 			_carry_reach(str(contact.hand), carrier._carry_point(str(contact.node), contact.at), weight, contact.wrist, flare)
 			if contact.has("aim"): _carry_aim(str(contact.hand), carrier.global_basis.orthonormalized() * (contact.aim as Vector3), weight)
 			mine = true
 		else:
 			carrier._carry_reach(str(contact.hand), _carry_point(str(contact.node), contact.at), weight, contact.wrist, flare)
 			theirs = true
+	# Arme tenue (fusil d'Elly) : la main qui tient vise une direction du repère de Simon, l'autre main se pose sur
+	# la pompe, « reach » mètres plus loin le long du canon.
+	var aim: Dictionary = _carry_rig.get("aim", {})
+	if not aim.is_empty():
+		var aim_weight: float = CarryRig.contact_weight(aim, _carry_time)
+		if aim_weight > 0.001:
+			var direction: Vector3 = (carrier.global_basis.orthonormalized() * (aim.dir as Vector3)).normalized()
+			_carry_aim(str(aim.hand), direction, aim_weight)
+			if aim.has("support"):
+				var grip: Node3D = _right_hand if str(aim.hand) == "r" else _left_hand
+				var pump: Vector3 = grip.global_position + direction * float(aim.get("reach", 0.3)) + Vector3.DOWN * 0.035
+				_carry_reach(str(aim.support), pump, aim_weight, Vector3.ZERO, 0.4)
+			mine = true
 	if mine: _carry_resync()
 	if theirs: carrier._carry_resync()
 	_update_blob(0.0)

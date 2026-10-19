@@ -26,6 +26,9 @@ var allies: Array[String] = ["Bleuette"]
 var views: Array[String] = ["side", "three"]
 var step: float = 0.1
 var metrics: bool = false
+var turning: bool = false
+var shot_from: float = -1.0
+var shot_count: int = 999
 
 var viewport: SubViewport
 var stage: Node3D
@@ -55,6 +58,9 @@ func setup(_world: Node) -> void :
 				COLUMNS = int(grid[0])
 				ROWS = int(grid[1])
 			"--carry-zoom": zoom = maxf(0.2, float(next))
+			"--carry-turn": turning = next != "0"
+			"--carry-from": shot_from = float(next)
+			"--carry-count": shot_count = int(next)
 			"--carry-at":
 				pose_times.clear()
 				for part: String in next.split(",", false): pose_times.append(float(part))
@@ -166,22 +172,28 @@ func _carry_run(ally: String, view: String) -> void :
 	var carry_from: float = -1.0
 	var released: float = -1.0
 	var desired: Vector3 = (load("res://carry_rig.gd") as GDScript).call("desired_offset", ally)
+	var heading: float = 0.0
+	var hold_time: float = CARRY_HOLD + (1.6 if turning else 0.0)
 	while true:
 		var simon_state: Dictionary = _base_state()
 		var mate_state: Dictionary = _base_state()
 		var speed: float = 20.4
 		if carry_from < 0.0 and simon_host.position.distance_to(mate_host.position) < CARRY_START_GAP: carry_from = clock
-		var carrying: bool = carry_from >= 0.0 and clock - carry_from < CARRY_HOLD
+		var carrying: bool = carry_from >= 0.0 and clock - carry_from < hold_time
 		if carry_from >= 0.0 and not carrying and released < 0.0: released = clock
 		if released >= 0.0 and clock - released > 0.7: speed = 0.0
 		if released >= 0.0 and clock - released > 1.6: break
 		simon_state.merge({"speed_boost": 4.0, "sprinting": speed > 0.0}, true)
+		var t_carry: float = clock - carry_from if carry_from >= 0.0 else -1.0
+		# Virages (--carry-turn) : à gauche puis à droite pendant le portage.
+		if turning and carrying and t_carry > 1.4 and t_carry < 2.4: heading += DT * 1.6
+		elif turning and carrying and t_carry > 2.6 and t_carry < 3.4: heading -= DT * 1.8
 		if carrying:
 			speed *= factor
 			simon_state["carrying_id"] = ALLY_ID
 			simon_state["carry_speed_factor"] = factor
 			mate_state["carried_by"] = SIMON_ID
-		var velocity: Vector3 = Vector3(0.0, 0.0, - speed)
+		var velocity: Vector3 = Vector3(- sin(heading), 0.0, - cos(heading)) * speed
 		simon_host.position += velocity * DT
 		simon.set_combat_state(simon_state)
 		simon.animate(DT, velocity, false, false)
@@ -194,11 +206,14 @@ func _carry_run(ally: String, view: String) -> void :
 		mate.animate(DT, mate_velocity, false, false)
 		if carrying: mate.carry_finalize()
 		clock += DT
+		if shot_from >= 0.0 and (carry_from < 0.0 or clock - carry_from < shot_from): continue
+		if shots.size() >= shot_count: continue
 		if clock + 0.0001 >= next_shot:
-			next_shot += step
+			next_shot = maxf(next_shot + step, clock + step * 0.5)
 			var middle: Vector3 = ((simon.get("_body") as Node3D).global_position + (mate.get("_body") as Node3D).global_position) * 0.5
 			middle.y = simon_host.position.y
-			_frame_camera(middle, view, true)
+			if view == "game": middle = simon_host.position
+			_frame_camera(middle, view, true, heading)
 			shots.append(await _snap())
 	_save_sheets("carry_%s_%s" % [ally.to_lower(), view], shots)
 	_clear()
@@ -261,10 +276,19 @@ func _sequence(label: String, plan: Array, view: String) -> void :
 	_clear()
 
 
-func _frame_camera(at: Vector3, view: String, wide: bool = false) -> void :
+func _frame_camera(at: Vector3, view: String, wide: bool = false, yaw: float = 0.0) -> void :
 	var focus: Vector3 = at + Vector3(0.0, 0.8, 0.0)
 	camera.projection = Camera3D.PROJECTION_PERSPECTIVE
 	camera.fov = 34.0
+	if view == "game":
+		# Caméra de jeu (core_camera_rig.gd) : perche de 4,6 m derrière la tête, tangage -0,16 rad, un peu à droite.
+		var back: Vector3 = Basis(Vector3.UP, yaw) * Vector3(0.3, 0.0, 0.0)
+		var look: Vector3 = Basis(Vector3.UP, yaw) * Vector3(0.0, sin(-0.16), - cos(-0.16))
+		camera.fov = 40.0
+		camera.position = at + Vector3(0.0, 2.0, 0.0) + back - look * 4.6
+		camera.look_at(at + Vector3(0.0, 0.7, 0.0) + back)
+		sun.rotation = Vector3(deg_to_rad(-48.0), yaw + deg_to_rad(30.0), 0.0)
+		return
 	var offset: Vector3 = Vector3(3.3, 0.3, 0.0)
 	match view:
 		"left": offset = Vector3(-3.3, 0.3, 0.0)
@@ -275,6 +299,7 @@ func _frame_camera(at: Vector3, view: String, wide: bool = false) -> void :
 		"top": offset = Vector3(0.5, 4.2, 0.6)
 		"close": offset = Vector3(2.0, 0.5, -1.1)
 	if wide: offset *= 1.25
+	offset = Basis(Vector3.UP, yaw) * offset
 	camera.position = focus + offset * zoom
 	camera.look_at(focus)
 	sun.rotation = Vector3(deg_to_rad(-48.0), deg_to_rad(120.0 if view != "back" else 30.0), 0.0)
