@@ -1397,6 +1397,7 @@ func _update_gait(speed: float) -> void :
 	_g_weights[AnimGait.SPRINT] = _g_run * _g_sprint * (1.0 - _g_boost)
 	_g_weights[AnimGait.BOOST] = _g_run * _g_sprint * _g_boost
 	AnimGait.mix(_g_weights, _g_par, _g_thigh, _g_knee, _g_ankle, float(_style.knee_lift), float(_style.heel_kick))
+	if _sonic > 0.0001: AnimSetSimon.sonic_curves(_sonic * _g_boost, _g_par, _g_thigh, _g_knee, _g_ankle, float(_style.knee_lift), float(_style.heel_kick))
 
 	# Cadence réelle selon la vitesse (jambes courtes = pas plus rapides), puis course du pied d'appui :
 	# le pied posé recule exactement à la vitesse du sol, la part d'appui en découle (pas de glissement).

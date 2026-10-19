@@ -55,25 +55,60 @@ static func _stance_keys() -> Array:
 	return keys
 
 # Allure de la course éclair (lue par character_visual.gd, fondue avec l'allure normale de Simon) :
-# buste plus plongé, cadence plus vive, genoux et talons plus hauts, épaules qui ne contre-tournent presque plus.
-const SONIC_GAIT: Dictionary = {"cadence": 1.3, "lean": 1.56, "knee_lift": 1.18, "heel_kick": 1.22, "twist": 0.35,
-	"bob": 0.85, "sway": 0.55, "press": 0.9, "hop": 0.15, "cross": 0.0, "arm_swing": 0.4}
+# cadence très vive, épaules qui ne contre-tournent presque plus, peu de rebond. Les jambes suivent leurs
+# propres courbes (SONIC_THIGH / SONIC_KNEE, voir sonic_curves) : knee_lift et heel_kick valent 1 ici et
+# servent aux portages (carry_rig.gd, clé « gait ») pour raccourcir la foulée.
+const SONIC_GAIT: Dictionary = {"cadence": 1.42, "lean": 1.56, "knee_lift": 1.0, "heel_kick": 1.0, "twist": 0.3,
+	"bob": 0.8, "sway": 0.5, "press": 0.7, "hop": 0.2, "cross": 0.0, "arm_swing": 0.35}
+
+# Oscillation d'une jambe en course éclair (mêmes nœuds et conventions que anim_gait.gd, en degrés) :
+# poussée longue (cuisse loin derrière, genou presque tendu au décollage), talon qui remonte sous les fesses,
+# genou qui monte devant sans dépasser l'horizontale, tibia lancé loin devant avant de griffer le sol.
+const SONIC_THIGH: PackedFloat32Array = [-38.0, -27.0, 6.0, 44.0, 64.0, 52.0, 30.0]
+const SONIC_KNEE: PackedFloat32Array = [16.0, 94.0, 134.0, 114.0, 62.0, 26.0, 14.0]
+const SONIC_ANKLE: PackedFloat32Array = [0.1, -0.3, -0.32, -0.05, 0.14, 0.05, -0.2]
+# Bassin plus haut (le pied se pose presque sous la hanche, peu d'écrasement) : jambe d'appui moins pliée.
+const SONIC_PARAMS: Dictionary = {1: 0.2, 4: 0.02, 22: 0.012}
+
+
+# Remplace (poids w) les courbes de foulée mélangées par celles de la course éclair ; lift / kick : montée du
+# genou et repli du talon (allure du moment, 1 = course éclair seule).
+static func sonic_curves(w: float, par: PackedFloat32Array, thigh: PackedFloat32Array, knee: PackedFloat32Array, ankle: PackedFloat32Array, lift: float, kick: float) -> void :
+	if w <= 0.0001: return
+	var last: int = SONIC_THIGH.size() - 1
+	for i in range(SONIC_THIGH.size()):
+		var th: float = deg_to_rad(SONIC_THIGH[i])
+		var kn: float = deg_to_rad(SONIC_KNEE[i])
+		if i > 0 and i < last:
+			if th > 0.0: th *= lift
+			var edge: float = lerpf(deg_to_rad(SONIC_KNEE[0]), deg_to_rad(SONIC_KNEE[last]), float(i) / float(last))
+			kn = edge + (kn - edge) * kick
+		thigh[i] = lerpf(thigh[i], th, w)
+		knee[i] = lerpf(knee[i], kn, w)
+		ankle[i] = lerpf(ankle[i], SONIC_ANKLE[i], w)
+	for index: int in SONIC_PARAMS:
+		par[index] = lerpf(par[index], float(SONIC_PARAMS[index]), w)
 
 
 # Bras tendus vers l'arrière et un peu écartés, dans le repère du sol : ils traînent dans le vent à ~22° sous
 # l'horizontale, bien décollés du dos, mains derrière les fesses. side = -1 gauche, 1 droite ;
 # drop = les bras encaissent l'appui (ils plongent un peu), drop < 0 = ils remontent en suspension.
 static func _sonic_arm(side: float, drop: float, spread: float) -> Dictionary:
-	var out: float = 0.25 + spread
-	var up: float = -0.38 - 0.12 * drop
-	var fwd: float = -0.93 + 0.06 * drop
+	var out: float = 0.52 + spread
+	var up: float = -0.46 - 0.12 * drop
+	var fwd: float = -0.72 + 0.06 * drop
 	var arm: Dictionary = L(out, up, fwd, 0.0) if side < 0.0 else R(out, up, fwd, 0.0)
 	return M([arm, WL(0.25 + 0.3 * drop, 0.35, 0.0) if side < 0.0 else WR(0.25 + 0.3 * drop, -0.35, 0.0)])
 
 
-# Une foulée complète (deux appuis). Le dos reste droit (le bassin porte l'inclinaison, la poitrine se redresse
-# un peu), la tête se relève pour regarder loin devant. Après chaque pose de pied, les bras plongent un peu et
-# le buste « tape » ; en suspension ils remontent. Les deux appuis diffèrent (Simon tire un peu à droite).
+# Une foulée complète (deux appuis). Le bassin bascule, le dos s'arrondit à peine (la poitrine continue
+# l'inclinaison), la tête se relève franchement pour regarder loin devant. Après chaque pose de pied, les bras
+# plongent un peu et le buste « tape » ; en suspension ils remontent. Les deux appuis diffèrent (Simon tire un
+# peu à droite).
+const SONIC_BODY: float = 0.45
+const SONIC_CHEST: float = -0.1
+const SONIC_HEAD: float = 0.64
+
 static func _sonic_keys() -> Array:
 	var keys: Array = []
 	var strikes: Array = [[0.0, -1.0, 1.0], [0.5, 1.0, 0.82]]
@@ -81,9 +116,9 @@ static func _sonic_keys() -> Array:
 		var t: float = strike[0]
 		var lead: float = strike[1]
 		var force: float = strike[2]
-		keys.append([t, M([B(0.38, 0.0, 0.02 * lead), C(-0.3, 0.03 * lead, 0.0), HD(0.3, -0.03 * lead, 0.0), _sonic_arm(-1.0, 0.0, 0.02), _sonic_arm(1.0, 0.0, 0.02)])])
-		keys.append([t + 0.07, M([B(0.41 * force + 0.38 * (1.0 - force), 0.0, 0.03 * lead), C(-0.28, 0.03 * lead, 0.0), HD(0.27, -0.02 * lead, 0.0), _sonic_arm(-1.0, force, 0.03 + 0.02 * lead), _sonic_arm(1.0, force, 0.03 - 0.02 * lead)])])
-		keys.append([t + 0.27, M([B(0.36, 0.0, 0.0), C(-0.31, -0.02 * lead, 0.0), HD(0.32, 0.03 * lead, 0.0), _sonic_arm(-1.0, -0.4, 0.0), _sonic_arm(1.0, -0.4, 0.0)])])
+		keys.append([t, M([B(SONIC_BODY, 0.0, 0.02 * lead), C(SONIC_CHEST, 0.03 * lead, 0.0), HD(SONIC_HEAD, -0.03 * lead, 0.0), _sonic_arm(-1.0, 0.0, 0.02), _sonic_arm(1.0, 0.0, 0.02)])])
+		keys.append([t + 0.07, M([B(SONIC_BODY + 0.03 * force, 0.0, 0.03 * lead), C(SONIC_CHEST + 0.02, 0.03 * lead, 0.0), HD(SONIC_HEAD - 0.04, -0.02 * lead, 0.0), _sonic_arm(-1.0, force, 0.03 + 0.02 * lead), _sonic_arm(1.0, force, 0.03 - 0.02 * lead)])])
+		keys.append([t + 0.27, M([B(SONIC_BODY - 0.02, 0.0, 0.0), C(SONIC_CHEST - 0.01, -0.02 * lead, 0.0), HD(SONIC_HEAD + 0.02, 0.03 * lead, 0.0), _sonic_arm(-1.0, -0.4, 0.0), _sonic_arm(1.0, -0.4, 0.0)])])
 	keys[0][1].merge({"curl": 0.18, "curl_l": 0.18}, true)
 	return keys
 
