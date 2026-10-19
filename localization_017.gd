@@ -6,6 +6,8 @@ extends RefCounted
 
 const TEXT: Dictionary = {
 	"DERNIÈRE SURVIVANTE": "LAST ONE STANDING",
+	# Prête pour la montée de version (main.gd, avec PaperRules.PROTOCOL) : sans elle, l'anglais retomberait en français.
+	"Tous les joueurs doivent utiliser Paper Afterbell 0.17 · OM.": "All players must use Paper Afterbell 0.17 · OM.",
 }
 
 # Modèles avec valeurs (%d, %s, %.1f) : [français, anglais].
