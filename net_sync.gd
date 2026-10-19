@@ -20,6 +20,8 @@ const PREDICTED_KEYS: Array[String] = ["jump_cd", "jump_pending", "land_roll_tim
 const OWNED_TIMERS: Array[String] = ["forced_time", "grab_time", "overheat_time", "stun", "root", "recover", "outlet_healing", "kill_lock"]
 const OWNED_FLAGS: Array[String] = ["shadow_hide", "boost_charging", "drone_piloting", "grinding", "dying", "downed", "escaped", "motion_owned"]
 const OWNED_IDS: Array[String] = ["grabbed_by", "carried_by"]
+# Parmi eux, ceux où le perso est collé à un autre acteur : il doit rester aligné sur lui à l'écran.
+const ATTACHED_TIMERS: Array[String] = ["grab_time", "overheat_time", "kill_lock"]
 
 var world: Node
 var lag: PaperNetLag
@@ -117,12 +119,36 @@ func _client_pre_tick(delta: float) -> void :
 	var me: PaperActor = world.local_actor()
 	for a: PaperActor in world.actors.values():
 		if a == me and a.net_predicted: continue
-		var s: Array = a.net_motion.sample_at(_view_t) if _view_ready else []
+		# Joueur local qui suit l'hôte (coup, étourdissement…) : dernière position connue, lissée,
+		# pour ne pas reculer d'un tampon entier ; collé à un autre acteur, il reste aligné sur lui.
+		var s: Array = a.net_motion.sample_at(_view_t) if _view_ready and (a != me or _attached(a)) else []
 		if s.is_empty():
+			if a.net_exact: a.net_position = a.net_motion.last_row_pos
 			a.net_exact = false
 			continue
 		a.net_position = s[0];a.net_velocity = s[1];a.net_exact = true
-	if me != null: _local_mode(me, delta)
+	if me != null:
+		_local_mode(me, delta)
+		if me.net_predicted: _align_carried(me)
+
+
+func _attached(a: PaperActor) -> bool:
+	var fx: Dictionary = a.effects
+	if int(fx.get("carried_by", -1)) >= 0 or int(fx.get("grabbed_by", -1)) >= 0 or bool(fx.get("dying", false)): return true
+	for key: String in ATTACHED_TIMERS:
+		var value: Variant = fx.get(key, 0.0)
+		if (value is float or value is int or value is bool) and float(value) > 0.0: return true
+	return false
+
+
+# Allié porté par le joueur local (Simon) : dessiné à la même distance du Simon prédit que chez
+# l'hôte, sinon il traînerait derrière lui de tout le retard d'affichage.
+func _align_carried(me: PaperActor) -> void :
+	for a: PaperActor in world.actors.values():
+		if a == me or int(a.effects.get("carried_by", -1)) != int(me.id): continue
+		a.net_position = me.global_position + (a.net_motion.last_row_pos - me.net_motion.host_pos)
+		a.net_velocity = me.velocity
+		a.net_exact = true
 
 
 func _client_owned(a: PaperActor) -> bool:
@@ -307,6 +333,7 @@ func _apply_row(a: PaperActor, row: Dictionary, mine: bool, t: float) -> void :
 	m.push_sample(t, row.pos, row.vel)
 	if not a.net_exact: a.net_position = row.pos;a.net_velocity = row.vel
 	var predicted: bool = mine and a.net_predicted
+	m.last_row_pos = row.pos
 	if mine:
 		m.host_followed = (flags & PaperNetCodec.ROW_FOLLOWED) != 0
 		m.host_owned = (flags & PaperNetCodec.ROW_OWNED) != 0

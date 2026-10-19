@@ -61,6 +61,7 @@ var local_rolls: int = 0
 
 # --- Client : interpolation des autres acteurs ---
 var samples: Array = []
+var last_row_pos: Vector3 = Vector3.ZERO
 
 
 # Hôte : l'hôte reprend la main ou refuse un déplacement. Le client se recalera sur la position de
