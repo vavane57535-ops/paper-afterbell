@@ -1441,8 +1441,13 @@ func _update_sonic(dt: float) -> void :
 	if character_name != "Simon" or _style_base.is_empty(): return
 	var want: float = (1.0 if _st_speed_boost and _life_state == "alive" else 0.0) * smoothstep(7.0, 13.0, maxf(_move_blend, _speed_now))
 	_sonic = move_toward(_sonic, want, dt * (5.0 if want > _sonic else 3.0))
+	# Portage : le montage (carry_rig.gd, clé « gait », mêmes clés que SONIC_GAIT) adapte encore l'allure.
+	var carry_gait: Dictionary = _carry_rig.get("gait", {}) if _st_carrying else {}
+	var carry_weight: float = clampf(_carry_time / 0.3, 0.0, 1.0) * _sonic
 	for key: String in AnimSetSimon.SONIC_GAIT:
-		_style[key] = lerpf(float(_style_base[key]), float(AnimSetSimon.SONIC_GAIT[key]), _sonic)
+		var value: float = lerpf(float(_style_base[key]), float(AnimSetSimon.SONIC_GAIT[key]), _sonic)
+		if carry_gait.has(key): value = lerpf(value, float(carry_gait[key]), carry_weight)
+		_style[key] = value
 
 
 
@@ -2131,23 +2136,27 @@ func _carry_ground(at: Vector3, carrier_floor: float) -> float:
 	return _carry_floor
 
 
-# Point d'accroche sur ce visuel (mètres dans le repère de l'articulation).
+# Point d'accroche sur ce visuel : une articulation, décalée de « at » mètres dans le repère de la racine
+# (x à droite, y en haut, z vers l'arrière du personnage visé).
 func _carry_point(node_name: String, at: Vector3) -> Vector3:
-	var node: Node3D = _chest
+	var basis: Basis = global_basis.orthonormalized()
+	var point: Vector3 = _chest.global_position
 	match node_name:
 		"palm_l", "palm_r":
 			var hand: Node3D = _left_hand if node_name == "palm_l" else _right_hand
-			var basis: Basis = hand.global_basis.orthonormalized()
-			return hand.global_position + basis * (hand.position.normalized() * 0.07) + basis * at
-		"root": return global_position + global_basis.orthonormalized() * at
-		"neck": node = _neck
-		"head": node = _head
-		"body": node = _body
-		"knee_l": node = _left_knee
-		"knee_r": node = _right_knee
-		"arm_l": node = _left_arm
-		"arm_r": node = _right_arm
-	return node.global_position + node.global_basis.orthonormalized() * at
+			point = hand.global_position + hand.global_basis.orthonormalized() * (hand.position.normalized() * 0.07)
+		"root": point = global_position
+		"neck": point = _neck.global_position
+		"head": point = _head.global_position
+		"body": point = _body.global_position
+		"knee_l": point = _left_knee.global_position
+		"knee_r": point = _right_knee.global_position
+		"knees": point = (_left_knee.global_position + _right_knee.global_position) * 0.5
+		"ankle_l": point = (_ankles[-1] as Node3D).global_position
+		"ankle_r": point = (_ankles[1] as Node3D).global_position
+		"arm_l": point = _left_arm.global_position
+		"arm_r": point = _right_arm.global_position
+	return point + basis * at
 
 
 func _carry_reach(hand: String, point: Vector3, weight: float, wrist: Vector3, flare: float = 0.0) -> void :

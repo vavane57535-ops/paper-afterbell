@@ -70,29 +70,33 @@ static func _ashura(c: Dictionary) -> void :
 # BLEUETTE : portée « en princesse » (bras gauche de Simon dans son dos, bras droit sous ses genoux).
 # Elle hurle, s'agrippe à son cou en tremblant, les yeux plissés… puis ose regarder, et finit rassurée.
 
-static func _princess(knees: float, lean: float, head_turn: float, head_up: float) -> Dictionary:
-	return M([{"gait": 0.0, "plant": 0.0}, TL(1.45 + 0.1 * knees, 0.06), KL(1.45 + 0.25 * knees, 0.2), TR(1.38 + 0.12 * knees, 0.0), KR(1.35 + 0.3 * knees, 0.25),
-		H(0.0, 0.0, 0.0), B(- lean, -0.08, 0.06), C(0.12 + 0.1 * knees, -0.1, 0.0), HD(head_up, head_turn, 0.15)])
+# Couchée en travers des bras de Simon (son dos sur le bras gauche, ses genoux sur le bras droit) : buste
+# renversé (recline), cuisses à peu près à l'horizontale, tibias qui pendent. curl = genoux remontés (peur).
+static func _princess(curl: float, recline: float, head_turn: float, head_up: float) -> Dictionary:
+	var thigh: float = 0.72 + 0.32 * curl
+	var knee: float = 1.68 + 0.3 * curl
+	return M([{"gait": 0.0, "plant": 0.0}, TL(thigh, 0.06), KL(knee, 0.25), TR(thigh - 0.1, 0.0), KR(knee - 0.18, 0.3),
+		H(0.0, 0.0, 0.0), B(- recline, -0.06, 0.1), C(0.22 + 0.16 * curl, 0.0, 0.0), HD(head_up, head_turn, 0.15)])
 
 static func _bleuette(c: Dictionary) -> void :
 	c["carried_bleuette"] = {"len": 6.0, "loop": true, "loop_from": 3.4, "in": 0.0, "face": "surprise", "keys": [
 		[0.0, M([{"gait": 0.0, "plant": 0.0}, TL(0.1, 0.05), KL(0.15), TR(0.05, 0.05), KR(0.1), H(0.0, 0.0, 0.0), B(0.05), C(0.0), HD(0.0), L(0.3, -0.8, 0.1), R(0.3, -0.8, 0.1), WL(0.0), WR(0.0), {"curl": 0.3, "curl_l": 0.3, "shake": 0.0, "jaw": 0.0, "sq": 1.0}])],
-		[0.1, M([TL(0.9, 0.1), KL(0.6), TR(0.7, 0.05), KR(0.5), B(-0.35), C(-0.1), HD(0.3, 0.1), L(0.7, 0.4, 0.2, 0.5), R(0.6, 0.6, 0.1, 0.5), {"curl": 0.0, "curl_l": 0.0, "jaw": 0.6, "face": "panic", "ev": "gasp"}])],
-		[0.2, M([TL(1.85, 0.15), KL(0.7), TR(1.7, 0.05), KR(0.9), B(-0.7), C(0.05), HD(0.35, -0.2, 0.1), L(0.55, 0.85, 0.0, 0.6), R(0.4, 0.9, 0.2, 0.6), {"jaw": 0.9, "sq": 1.04}]), "s"],
-		[0.34, M([_princess(0.8, 0.55, -0.6, 0.1), L(0.2, 0.45, 0.6, 0.4), R(-0.1, 0.7, 0.45, 0.8), {"jaw": 0.5, "shake": 0.5, "curl": 0.9, "curl_l": 0.9}])],
-		[0.6, M([_princess(1.0, 0.5, -0.95, -0.15), {"jaw": 0.0, "shake": 0.45, "face": "fear"}])],
-		[1.2, M([_princess(0.95, 0.52, -0.9, -0.12), {"shake": 0.4}])],
-		[1.8, M([_princess(1.0, 0.5, -0.98, -0.18), {"shake": 0.35}])],
-		[2.25, M([_princess(0.8, 0.55, -0.5, 0.1), {"shake": 0.15, "face": "surprise"}]), "s"],
-		[2.7, M([_princess(0.5, 0.6, -0.25, 0.25), {"shake": 0.0, "jaw": 0.25}])],
-		[3.05, M([_princess(0.35, 0.62, -0.75, 0.45), {"jaw": 0.0, "face": "smile"}]), "s"],
-		[3.4, M([_princess(0.2, 0.6, -0.7, 0.3)])],
-		[3.9, M([_princess(0.25, 0.6, -0.72, 0.28), KL(1.7, 0.2)])],
-		[4.15, M([KL(1.45, 0.2), KR(1.8, 0.25)])],
-		[4.4, M([_princess(0.2, 0.62, -0.35, 0.15), {"face": "calm"}])],
-		[5.0, M([_princess(0.22, 0.6, -0.4, 0.2)])],
-		[5.4, M([_princess(0.2, 0.6, -0.75, 0.4), {"face": "smile"}]), "s"],
-		[6.0, M([_princess(0.2, 0.6, -0.7, 0.3)])],
+		[0.1, M([TL(0.7, 0.1), KL(0.5), TR(0.55, 0.05), KR(0.45), B(-0.45), C(-0.1), HD(0.3, 0.1), L(0.7, 0.4, 0.2, 0.5), R(0.6, 0.6, 0.1, 0.5), {"curl": 0.0, "curl_l": 0.0, "jaw": 0.6, "face": "panic", "ev": "gasp"}])],
+		[0.2, M([TL(1.0, 0.15), KL(0.6), TR(0.95, 0.05), KR(0.8), B(-1.1), C(0.05), HD(0.45, -0.2, 0.1), L(0.55, 0.85, 0.0, 0.6), R(0.4, 0.9, 0.2, 0.6), {"jaw": 0.9, "sq": 1.04}]), "s"],
+		[0.34, M([_princess(0.8, 1.0, -0.6, 0.15), L(0.2, 0.45, 0.6, 0.4), R(-0.1, 0.7, 0.45, 0.8), {"jaw": 0.5, "shake": 0.5, "curl": 0.9, "curl_l": 0.9}])],
+		[0.6, M([_princess(1.0, 0.95, -1.0, -0.1), {"jaw": 0.0, "shake": 0.45, "face": "fear"}])],
+		[1.2, M([_princess(0.95, 0.96, -0.95, -0.08), {"shake": 0.4}])],
+		[1.8, M([_princess(1.0, 0.95, -1.02, -0.12), {"shake": 0.35}])],
+		[2.25, M([_princess(0.8, 1.0, -0.5, 0.15), {"shake": 0.15, "face": "surprise"}]), "s"],
+		[2.7, M([_princess(0.5, 1.02, -0.25, 0.3), {"shake": 0.0, "jaw": 0.25}])],
+		[3.05, M([_princess(0.35, 1.02, -0.75, 0.45), {"jaw": 0.0, "face": "smile"}]), "s"],
+		[3.4, M([_princess(0.2, 1.0, -0.7, 0.3)])],
+		[3.9, M([_princess(0.25, 1.0, -0.72, 0.28), KL(1.95, 0.2)])],
+		[4.15, M([KL(1.68, 0.2), KR(1.95, 0.25)])],
+		[4.4, M([_princess(0.2, 1.02, -0.35, 0.18), {"face": "calm"}])],
+		[5.0, M([_princess(0.22, 1.0, -0.4, 0.2)])],
+		[5.4, M([_princess(0.2, 1.0, -0.75, 0.4), {"face": "smile"}]), "s"],
+		[6.0, M([_princess(0.2, 1.0, -0.7, 0.3)])],
 	]}
 
 	c["carry_bleuette"] = {"len": 6.0, "loop": true, "loop_from": 3.4, "add": true, "in": 0.0, "face": "determined", "keys": [
@@ -115,8 +119,8 @@ static func _bleuette(c: Dictionary) -> void :
 # l'arrière pour le couvrir (repère d'Elly = buste de Simon, incliné : « bas » = vers l'arrière de la course).
 
 static func _rider(twist: float, look: float, sway: float = 0.0) -> Dictionary:
-	return M([{"gait": 0.0, "plant": 0.0}, TL(1.15, 0.55), KL(2.2, 0.4), TR(1.1, 0.55), KR(2.25, 0.4), H(0.0, 0.0, 0.0),
-		B(0.22, -0.15 * twist, 0.05 * sway), C(0.05, -0.45 * twist, 0.08 * twist), HD(-0.45 * look, -0.75 * look, 0.15 * look)])
+	return M([{"gait": 0.0, "plant": 0.0}, TL(1.45, 0.5), KL(1.95, 0.4), TR(1.4, 0.5), KR(2.0, 0.4), H(0.0, 0.0, 0.0),
+		B(0.08, -0.15 * twist, 0.05 * sway), C(0.05, -0.45 * twist, 0.08 * twist), HD(-0.45 * look, -0.75 * look, 0.15 * look)])
 
 static func _elly(c: Dictionary) -> void :
 	c["carried_elly"] = {"len": 3.6, "loop": true, "loop_from": 0.9, "in": 0.0, "face": "focus", "keys": [

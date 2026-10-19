@@ -2472,10 +2472,12 @@ func _tick_charge(actor, delta: float):
 
 	if _effect(actor, "boost_charge") >= 10.0: release_charge(actor)
 
+const CarryRig = preload("res://carry_rig.gd")
+
 func carry_survivor(actor, target_id: int = -1) -> bool:
 	if not _can_act(actor) or actor.character != "Simon" or _effect(actor, "speed_boost") <= 0 or int(actor.effects.get("carrying_id", -1)) >= 0: return false
-	var target = _ally(actor, target_id, 2.0, false)
-	if target == null or target.character == "Lysia" or int(target.effects.get("carried_by", -1)) >= 0 or _effect(target, "overheat_time") > 0: return false
+	var target = _carry_target(actor, target_id)
+	if target == null: return false
 	_cancel_charge(target);_cancel_channel(target)
 	actor.effects["carrying_id"] = target.id
 	actor.effects["carry_speed_factor"] = 0.85 if target.character == "Usayuko" else 1.0
@@ -2496,12 +2498,39 @@ func _release_carry(actor):
 		target.effects["carried_by"] = -1
 		world.event("carry", {"actor": carrier.id, "target": target.id, "active": false, "position": target.position})
 
+# Allié portable le plus proche (2 m, en vue). Lysia n'est jamais portée (trop lourde) : on prend le suivant.
+func _carry_target(actor, target_id: int):
+	if target_id >= 0:
+		var requested = _ally(actor, target_id, 2.0, false)
+		return requested if _carriable(requested) else null
+	var best = null
+	var best_distance: float = 2.01
+	for ally in world.actors.values():
+		if int(ally.id) == int(actor.id) or ally.killer or not _can_act(ally) or not _carriable(ally): continue
+		var distance: float = actor.position.distance_to(ally.position)
+		if distance < best_distance and _los(actor.position, ally.position):
+			best = ally
+			best_distance = distance
+	return best
+
+func _carriable(target) -> bool:
+	return target != null and target.character != "Lysia" and int(target.effects.get("carried_by", -1)) < 0 and int(target.effects.get("carrying_id", -1)) < 0 and _effect(target, "overheat_time") <= 0
+
+# Repère de Simon pour ranger l'acteur porté près de son visuel (montage de carry_rig.gd) : cap du visuel.
+func _carry_basis(actor) -> Basis:
+	var visual: Node3D = actor.get("visual")
+	if visual != null and is_instance_valid(visual) and visual.is_inside_tree():
+		var forward: Vector3 = - visual.global_basis.z
+		forward.y = 0.0
+		if forward.length_squared() > 0.01: return Basis.looking_at(forward.normalized(), Vector3.UP)
+	return Basis.looking_at(_aim(actor), Vector3.UP)
+
 func _tick_carries(delta: float):
 	for actor in world.actors.values():
 		if int(actor.effects.get("carrying_id", -1)) < 0: continue
 		var target = _actor(int(actor.effects.carrying_id))
 		if not _can_act(actor) or not _can_act(target) or _effect(actor, "speed_boost") <= 0 or _effect(actor, "stun") > 0: _release_carry(actor);continue
-		var desired: Vector3 = actor.position - _aim(actor) * 0.6 + Vector3.UP * 0.25
+		var desired: Vector3 = actor.position + _carry_basis(actor) * CarryRig.desired_offset(str(target.character))
 		var offset: Vector3 = desired - target.position
 		if offset.length() > 5.0 or not _los(target.position, actor.position): _release_carry(actor);continue
 		var previous: Vector3 = target.position

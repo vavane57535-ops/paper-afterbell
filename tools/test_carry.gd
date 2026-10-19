@@ -55,6 +55,9 @@ func setup(_world: Node) -> void :
 				COLUMNS = int(grid[0])
 				ROWS = int(grid[1])
 			"--carry-zoom": zoom = maxf(0.2, float(next))
+			"--carry-at":
+				pose_times.clear()
+				for part: String in next.split(",", false): pose_times.append(float(part))
 	DirAccess.make_dir_recursive_absolute(out_dir)
 	_run.call_deferred()
 
@@ -72,8 +75,76 @@ func _run() -> void :
 			for ally: String in allies:
 				for view: String in views:
 					await _carry_run(ally, view)
+		"pose":
+			for ally: String in allies:
+				for at: float in pose_times:
+					await _carry_pose(ally, at)
 	print("CARRY_DONE")
 	get_tree().quit()
+
+
+var pose_times: Array[float] = [1.5]
+
+# Positions des articulations (mètres) dans le repère du sol de Simon : x à droite, y en haut, z vers l'arrière.
+func _print_joints(label: String, visual: PaperVisual, simon: PaperVisual) -> void :
+	var frame: Transform3D = Transform3D(simon.global_basis.orthonormalized(), simon.global_position).affine_inverse()
+	var line: String = "JOINTS %-8s" % label
+	for key: String in ["_body", "_chest", "_head", "_left_arm", "_right_arm", "_left_hand", "_right_hand", "_left_knee", "_right_knee"]:
+		var p: Vector3 = frame * (visual.get(key) as Node3D).global_position
+		line += " %s=(%.2f,%.2f,%.2f)" % [key.trim_prefix("_"), p.x, p.y, p.z]
+	for side: int in [-1, 1]:
+		var p: Vector3 = frame * ((visual.get("_ankles") as Dictionary)[side] as Node3D).global_position
+		line += " ankle%s=(%.2f,%.2f,%.2f)" % ["L" if side < 0 else "R", p.x, p.y, p.z]
+	print(line)
+
+# Portage figé à l'instant « at » (secondes après la prise), vu sous six angles (grandes vignettes).
+func _carry_pose(ally: String, at: float) -> void :
+	var simon: PaperVisual = _spawn(SIMON_ID, "Simon", Vector3.ZERO)
+	var mate: PaperVisual = _spawn(ALLY_ID, ally, Vector3(-0.6, 0.0, -1.0))
+	var simon_host: Node3D = hosts[SIMON_ID]
+	var mate_host: Node3D = hosts[ALLY_ID]
+	var factor: float = 0.85 if ally == "Usayuko" else 1.0
+	var desired: Vector3 = (load("res://carry_rig.gd") as GDScript).call("desired_offset", ally)
+	var clock: float = 0.0
+	var run_up: float = 0.6
+	while clock < run_up + at:
+		var carrying: bool = clock >= run_up
+		var speed: float = 20.4 * (factor if carrying else 1.0)
+		var simon_state: Dictionary = _base_state()
+		simon_state.merge({"speed_boost": 4.0, "sprinting": true}, true)
+		var mate_state: Dictionary = _base_state()
+		if carrying:
+			simon_state["carrying_id"] = ALLY_ID
+			mate_state["carried_by"] = SIMON_ID
+		var velocity: Vector3 = Vector3(0.0, 0.0, - speed)
+		simon_host.position += velocity * DT
+		if not carrying: mate_host.position = simon_host.position + Vector3(-0.6, 0.0, -1.0)
+		simon.set_combat_state(simon_state)
+		simon.animate(DT, velocity, false, false)
+		var mate_velocity: Vector3 = Vector3.ZERO
+		if carrying:
+			var goal: Vector3 = simon_host.position + simon.global_basis.orthonormalized() * desired
+			mate_velocity = (goal - mate_host.position) / DT
+			mate_host.position = goal
+		mate.set_combat_state(mate_state)
+		mate.animate(DT, mate_velocity, false, false)
+		if carrying: mate.carry_finalize()
+		clock += DT
+	var middle: Vector3 = ((simon.get("_body") as Node3D).global_position + (mate.get("_body") as Node3D).global_position) * 0.5
+	middle.y = simon_host.position.y
+	_print_joints("Simon", simon, simon)
+	_print_joints(ally, mate, simon)
+	if DisplayServer.get_name() == "headless":
+		_clear()
+		return
+	var shots: Array[Image] = []
+	_frame_camera(middle, "side", false)
+	await _snap()
+	for view: String in ["side", "left", "front", "back", "top", "three"]:
+		_frame_camera(middle, view, false)
+		shots.append(await _snap())
+	_save_sheets("pose_%s_%04.2f" % [ally.to_lower(), at], shots)
+	_clear()
 
 
 const CARRY_START_GAP: float = 1.6
@@ -125,7 +196,9 @@ func _carry_run(ally: String, view: String) -> void :
 		clock += DT
 		if clock + 0.0001 >= next_shot:
 			next_shot += step
-			_frame_camera(simon_host.position, view, true)
+			var middle: Vector3 = ((simon.get("_body") as Node3D).global_position + (mate.get("_body") as Node3D).global_position) * 0.5
+			middle.y = simon_host.position.y
+			_frame_camera(middle, view, true)
 			shots.append(await _snap())
 	_save_sheets("carry_%s_%s" % [ally.to_lower(), view], shots)
 	_clear()
@@ -189,7 +262,7 @@ func _sequence(label: String, plan: Array, view: String) -> void :
 
 
 func _frame_camera(at: Vector3, view: String, wide: bool = false) -> void :
-	var focus: Vector3 = at + Vector3(0.0, 0.8, 0.4 if wide else 0.0)
+	var focus: Vector3 = at + Vector3(0.0, 0.8, 0.0)
 	camera.projection = Camera3D.PROJECTION_PERSPECTIVE
 	camera.fov = 34.0
 	var offset: Vector3 = Vector3(3.3, 0.3, 0.0)
@@ -287,12 +360,15 @@ func _spawn(id: int, person: String, at: Vector3) -> PaperVisual:
 
 
 func _clear() -> void :
-	for host: Node3D in hosts.values(): host.queue_free()
+	for host: Node3D in hosts.values():
+		stage.remove_child(host)
+		host.queue_free()
 	hosts.clear()
 	visuals.clear()
 
 
 func _snap() -> Image:
+	for i in range(2): await get_tree().process_frame
 	for i in range(3): await RenderingServer.frame_post_draw
 	return viewport.get_texture().get_image()
 
