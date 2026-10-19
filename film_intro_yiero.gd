@@ -1473,7 +1473,7 @@ func _write_chase() -> void :
 	_key("fury", 122.0, 0.4);_key("eye_glow", 122.0, 1.4);_key("tremble", 122.0, 0.45)
 	# Plan 25 (122 → 124,9) : derrière Simon, au ras de l'encre ; la tête de Yiero descend sur lui. Il se
 	# relève, recule vers nous, se retourne.
-	_shot(122.0, {"rel": {"a": S}, "eye": [Vector3(0.95, 0.8, -3.0), Vector3(0.8, 0.88, -3.3)], "look": [{"a": S, "h": 6.8, "o": Vector3(-1.2, 0, 20.0)}, {"a": S, "h": 6.4, "o": Vector3(-1.6, 0, 18.0)}], "fov": [54, 50], "hand": 0.35, "ease": "smooth", "safe": false})
+	_shot(122.0, {"rel": {"a": S}, "eye": [Vector3(0.95, 0.5, -3.1), Vector3(0.8, 0.55, -3.4)], "look": [{"a": S, "h": 3.8, "o": Vector3(-1.2, 0, 20.0)}, {"a": S, "h": 3.7, "o": Vector3(-1.6, 0, 18.0)}], "fov": [62, 58], "hand": 0.35, "ease": "smooth", "safe": false})
 	_cue(124.98, "sfx", "sfx_whoosh", 0.35, 0.8);_cue(125.1, "rush", 0.6)
 	_shot(124.9, {"rel": {"a": S}, "eye": [Vector3(-3.2, 1.2, -2.0), Vector3(-2.6, 1.1, -3.0)], "look": {"a": S, "h": 0.9}, "fov": 46, "hand": 0.7})
 	_shot(126.0, {"rel": {"a": S}, "eye": [Vector3(0.35, 1.25, -4.4), Vector3(0.3, 1.25, -4.0)], "look": {"a": S, "h": 1.0}, "fov": [40, 38], "hand": 0.9})
@@ -1540,7 +1540,7 @@ func _write_chase() -> void :
 		_cue(t_up, "shake", 0.4)
 	_cue(leap, "sfx", "sfx_whoosh", 0.6)
 	# Sa lumière est presque morte pendant la fuite… elle revient d'un coup avec le sursaut (140,17).
-	_key("gold_s", 125.0, 0.15);_key("gold_s", 135.3, 0.15);_key("gold_s", 135.6, 0.6);_key("gold_s", 139.8, 0.5);_key("gold_s", 140.05, 0.2);_key("gold_s", 140.3, 1.15, "out");_key("gold_s", 142.5, 0.65);_key("gold_s", 150.6, 0.65);_key("gold_s", 150.7, 0.0, "jump")
+	_key("gold_s", 125.0, 0.08);_key("gold_s", 135.3, 0.08);_key("gold_s", 135.6, 0.3);_key("gold_s", 139.8, 0.3);_key("gold_s", 140.05, 0.15);_key("gold_s", 140.3, 1.15, "out");_key("gold_s", 142.5, 0.65);_key("gold_s", 150.6, 0.65);_key("gold_s", 150.7, 0.0, "jump")
 	_cue(140.17, "event", "boost_release", {"position": {"a": S}, "level": 3});_cue(140.17, "sfx", "sfx_ignite", 0.7, 1.2);_cue(140.17, "rush", 1.0)
 	_flash(140.17, Color(1.0, 0.85, 0.4, 0.25), 0.04, 0.35)
 	var door: Vector3 = _pb_void(PrologueB.plan("Simon").door)
