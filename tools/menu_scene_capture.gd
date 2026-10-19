@@ -23,6 +23,22 @@ var beat: String = ""
 var camera: Dictionary = {}
 var scout: Array = []
 var fg_only: bool = false
+var around_actor: String = ""
+var around_dist: float = 3.0
+var around_height: float = 1.2
+var around_fov: float = 36.0
+var around_angles: Array[float] = []
+
+func _around_camera(vignettes: Node, angle: float) -> Dictionary:
+	var scene: Node = vignettes.call("current_scene")
+	var actors: Dictionary = scene.get("actors") if scene else {}
+	var visual: Node3D = actors.get(around_actor)
+	if visual == null: return {}
+	var chest: Vector3 = visual.call("socket_position", "chest")
+	var base: Vector3 = Vector3(chest.x, 0.0, chest.z)
+	var facing: float = visual.rotation.y + deg_to_rad(angle)
+	var eye: Vector3 = base + Vector3(-sin(facing), 0.0, -cos(facing)) * around_dist + Vector3(0, around_height, 0)
+	return {"eye": eye, "target": chest - Vector3(0, 0.15, 0), "fov": around_fov, "x": 0.55, "blur": 0.0}
 
 func _vec(text: String) -> Vector3:
 	var p: PackedStringArray = text.split(",")
@@ -54,6 +70,15 @@ func setup(game_world: Node) -> void :
 					var bits: PackedStringArray = item.split(">")
 					scout.append({"eye": _vec(bits[0]), "target": _vec(bits[1]), "fov": float(bits[2]) if bits.size() > 2 else 40.0, "x": 0.5, "bg": 0.0})
 			"--fg-only": fg_only = true
+			"--around":
+				# « acteur,distance,hauteur,fov,angle1,angle2… » : caméras autour d'un acteur
+				# (angles en degrés, 0 = face à lui), une image par angle et par instant.
+				var bits: PackedStringArray = value.split(",")
+				around_actor = bits[0]
+				around_dist = float(bits[1])
+				around_height = float(bits[2])
+				around_fov = float(bits[3])
+				for j: int in range(4, bits.size()): around_angles.append(float(bits[j]))
 			"--slow": fast = false
 			"--size":
 				var parts: PackedStringArray = value.split("x")
@@ -70,8 +95,11 @@ func _wait(seconds: float) -> void :
 
 func _save(tag: String) -> void :
 	# Rendu coupé entre deux captures (llvmpipe est lent) : seule l'animation avance.
+	var resumed: bool = not RenderingServer.render_loop_enabled
 	RenderingServer.render_loop_enabled = true
 	await RenderingServer.frame_post_draw
+	# Première image après une coupure du rendu : la texture lue peut être en retard d'une image.
+	if resumed: await RenderingServer.frame_post_draw
 	var image: Image = get_viewport().get_texture().get_image()
 	if fast: RenderingServer.render_loop_enabled = false
 	if crop:
@@ -80,8 +108,16 @@ func _save(tag: String) -> void :
 		image = image.get_region(Rect2i(x, int(size.y * 0.04), size.x - x, size.y - int(size.y * 0.04)))
 	image.save_png(out_dir.path_join(tag + ".png"))
 
+# Avec --beat, les instants sont ceux du temps fort (horloge de la scène), pas de l'outil.
+func _wait_beat(vignettes: Node, t: float) -> void :
+	while true:
+		var scene: Node = vignettes.call("current_scene")
+		if scene != null and float(scene.get("beat_time")) >= t - 0.0001: return
+		await get_tree().process_frame
+
 func _run() -> void :
 	get_window().size = window_size
+	if fast: RenderingServer.render_loop_enabled = false
 	await _wait(0.6)
 	var ui: Node = world.ui
 	ui._clear(ui.page)
@@ -105,20 +141,29 @@ func _run() -> void :
 		if dance.is_empty(): vignettes.hover(scene)
 		var started: float = _clock
 		var t: float = start_at
-		if t > 0.0: await _wait(t)
+		if not beat.is_empty(): await _wait_beat(vignettes, t)
+		elif t > 0.0: await _wait(t)
 		if fg_only and vignettes.call("current_scene") != null: vignettes.call("current_scene").set("styled", false)
 		if not scout.is_empty():
 			for i: int in range(scout.size()):
 				vignettes.set("debug_camera", scout[i])
-				await _wait(0.07)
+				await get_tree().process_frame
 				await _save("%s_cam%02d" % [scene, i])
 			vignettes.set("debug_camera", camera)
 			index += 1
 			continue
 		while t <= end_at + 0.0001:
 			if switch_after > 0.0 and t >= switch_after and index + 1 < scenes.size(): break
-			await _wait(started + t - _clock)
-			await _save("%s_%06.2f" % [scene, t])
+			if not beat.is_empty(): await _wait_beat(vignettes, t)
+			else: await _wait(started + t - _clock)
+			if around_angles.is_empty():
+				await _save("%s_%06.2f" % [scene, t])
+			else:
+				for a: int in range(around_angles.size()):
+					vignettes.set("debug_camera", _around_camera(vignettes, around_angles[a]))
+					await get_tree().process_frame
+					await _save("%s%d_%06.2f" % [scene, a, t])
+				vignettes.set("debug_camera", camera)
 			t += step
 		print("MENU_SCENE_CAPTURE ", scene, " jusqu'à ", snappedf(_clock - started, 0.01), " s")
 		index += 1

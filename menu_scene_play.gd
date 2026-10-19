@@ -6,6 +6,7 @@ extends "res://menu_scene.gd"
 
 var lamps: Array = []
 var _moon: DirectionalLight3D
+var _buzz_until: float = -1.0
 
 func build_steps() -> Array:
 	grade = {"vignette": 0.4, "grain": 0.03, "saturation": 0.95, "contrast": 1.05, "lift": Vector3(0.01, 0.008, 0.025)}
@@ -68,19 +69,38 @@ func _props() -> void :
 		MenuKit.box(self, Vector3(0.36, 0.42, 0.06), Vector3(-1.2, 0.21, z), MenuKit.paper(Color("4b5261")))
 
 func _cast() -> void :
-	actor("simon", "Simon", Vector3(0.0, 0, 0.6), 0.0)
+	actor("simon", "Simon", Vector3(0.0, 0, 0.6), -60.0)
+	var wide_a: Vector3 = Vector3(1.75, 1.42, -3.0)
+	var wide_b: Vector3 = Vector3(1.3, 1.36, -2.25)
+	var chest: Vector3 = Vector3(0.0, 1.05, 0.6)
 	beats = [
-		{"id": "calib", "len": 22.0, "clips": {"simon": "menu_calib@Simon"},
-			"cam": [[0.0, Vector3(1.5, 1.45, -3.0), Vector3(-0.2, 1.05, 2.0), 40.0, {"x": 0.5, "shake": 0.3, "focus": "simon:head", "blur": 2.6, "frad": 0.22}],
-				[22.0, Vector3(1.1, 1.35, -2.4), Vector3(-0.2, 1.05, 2.0), 40.0, {"x": 0.5, "shake": 0.3, "focus": "simon:head", "blur": 2.6, "frad": 0.22}]]},
+		{"id": "poses", "len": 8.0, "weight": 0.0, "homes": {"simon": [Vector3(0, 0, 1.5), PI]}, "clips": {"simon": "menu_gallery_poses@Simon"}, "cam": [[0.0, wide_a, chest, 40.0, {}]]},
+		{"id": "warmup", "len": 16.0, "clips": {"simon": "menu_play_warmup@Simon"},
+			"cam": [
+				[0.0, wide_a, chest, 40.0, {"focus": "simon:head", "frad": 0.24}],
+				[9.0, wide_b, chest + Vector3(0, 0.05, 0), 38.0, {"focus": "simon:head", "frad": 0.24}],
+				[9.0, Vector3(0.75, 0.85, -0.85), Vector3(-0.05, 1.75, 0.9), 44.0, {"cut": true, "focus": "simon:head", "frad": 0.28, "x": 0.6}],
+				[11.15, Vector3(0.6, 0.9, -0.7), Vector3(-0.05, 1.7, 0.9), 42.0, {"focus": "simon:head", "frad": 0.28, "x": 0.6}],
+				[11.15, Vector3(-0.42, 1.52, 1.55), Vector3(0.35, 1.0, 9.0), 36.0, {"cut": true, "focus": Vector3(0.3, 1.0, 9.0), "frad": 0.18, "blur": 3.2, "x": 0.5}],
+				[13.25, Vector3(-0.38, 1.5, 1.75), Vector3(0.35, 1.0, 9.0), 34.0, {"focus": Vector3(0.3, 1.0, 9.0), "frad": 0.18, "blur": 3.2, "x": 0.5}],
+				[13.25, wide_b + Vector3(0.1, 0.0, -0.2), chest, 39.0, {"cut": true, "focus": "simon:head", "frad": 0.24}],
+				[16.0, wide_a, chest, 40.0, {"focus": "simon:head", "frad": 0.24}],
+			],
+			"events": [ev(9.0, _flicker.bind(0.9))]},
 	]
 
+func _flicker(seconds: float) -> void :
+	_buzz_until = beat_time + seconds
+
 func reset_state() -> void :
+	_buzz_until = -1.0
 	for i: int in range(lamps.size()): MenuKit.set_lamp(lamps[i], [1.0, 0.0, 0.25, 0.0][i])
 
 func update(_beat_id: String, t: float, _dt: float) -> void :
+	# Néon au-dessus de Simon : grésillement commandé par le temps fort.
 	var buzz: float = 1.0
-	var phase: float = fmod(t, 7.3)
-	if phase > 6.6: buzz = 0.55 + 0.45 * float(int(t * 23.0) % 2)
+	if t < _buzz_until:
+		var left: float = _buzz_until - t
+		buzz = 0.15 if int(t * 19.0 + sin(t * 31.0) * 2.0) % 3 == 0 else (0.6 if left > 0.3 else 0.9)
 	MenuKit.set_lamp(lamps[0], buzz)
 	MenuKit.set_lamp(lamps[2], 0.25 + 0.1 * sin(t * 3.1) * sin(t * 7.7))
