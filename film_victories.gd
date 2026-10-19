@@ -26,7 +26,7 @@ const FV = preload("res://anim_set_film_victory.gd")
 # coupés ; « grounded »: false coupe les pas que la démarche du jeu compterait
 # pendant un déplacement. Tout est rendu à l'arrêt du film.
 const FILM_STYLE: Dictionary = {"contra": 0.0, "shift_rate": 0.0, "idle_sway": 0.0, "idle_bounce": 0.0, "look_rate": 0.0}
-const AUTHORED: Array[String] = ["Usayuko", "Simon", "Ashura", "Lysia", "Elly"]
+const AUTHORED: Array[String] = ["Usayuko", "Simon", "Ashura", "Lysia", "Elly", "Bleuette"]
 
 const TV_Y: float = 70.0
 const INK_Y: float = 125.0
@@ -1079,90 +1079,140 @@ func _write_elly() -> void :
 
 
 # ------------------------------------------------------------- BLEUETTE ---
-# Courage et boosts : elle tremble, croque son chocolat, se répète qu'elle peut
-# le faire et file si vite qu'Alice s'étale dans une flaque.
+# Chocolat, courage, sprint. Alice approche ; Bleuette tremble, sa tablette
+# contre elle. Elle croque (4,22), avale, range le chocolat, se redresse et
+# serre les poings (5,65). Alice frappe (6,45) : Bleuette a déjà filé sous son
+# bras. Alice se retourne, se prend les pieds dans sa robe et s'étale à plat
+# ventre dans une flaque (7,27). Bleuette dérape, se retourne, les mains sur la
+# bouche, puis lève le poing en sautillant (8,09).
 func _write_bleuette() -> void :
 	var c: Node3D = cinema
-	c._put(s, _r(0.0, 0.0))
+	var tint: Color = GLINT.Bleuette
+	var blue: Color = Color("a9c8ff")
+	var water: Array = [Color("cfdaea"), Color("9fb0c8"), Color("e8f0ff")]
+	var start: Vector3 = _r(-0.3, 0.0)
+	var near: Vector3 = _r(0.3, 1.25)
+	var toward: Vector3 = (near - start).normalized()
+	c._put(s, start)
 	c._face(s, 0.0, "at", a)
-	c._do(s, 0.0, "state", {"lms": true})
-	c._do(s, 0.0, "mood", "fear")
-	c._put(a, _r(0.2, 2.6))
+	c._put(a, near + toward * FV.BA_WALK_SPEED * (FV.BA_WALK_END - 3.3))
 	c._face(a, 0.0, "at", s)
-	c._do(a, 0.0, "mood", "menace")
-	# A · trembling, Alice looming (low angle from Bleuette)
-	c._do(s, 3.35, "emote", "fear")
-	c._move(a, 3.4, 4.3, _r(0.15, 1.85), "smooth")
-	c._shot(3.4, {"rel": {"a": s}, "eye": [Vector3(0.5, 0.95, -0.75), Vector3(0.45, 0.9, -0.62)], "look": {"a": a, "h": 1.55}, "fov": [46, 42], "hand": 0.4, "roll": [-4, -6]})
-	_glint(3.45, 4.2, a, 1.0)
-	_later(3.6, "cue", {"who": s, "cue": "sweat"})
-	_bolt(3.75, 0.22, 1.0)
-	# B · the chocolate
-	var bite: float = 4.2
-	c._do(s, bite, "emote", "")
-	c._do(s, bite, "state", {"chocolate_eating": 1.2})
-	c._ramp(s, bite, bite + 1.1, "chocolate_eating", 1.2, 0.0)
-	c._cue(bite, "sound", "heal", {"a": s}, 0.6, 1.2)
-	_later(bite + 0.4, "cue", {"who": s, "cue": "crumbs"})
-	_later(bite + 0.75, "cue", {"who": s, "cue": "crumbs"})
-	c._shot(bite, {"rel": {"a": s, "s": "eyes"}, "eye": [Vector3(0.55, -0.1, 1.35), Vector3(0.45, -0.1, 1.15)], "look": {"a": s, "s": "mouth"}, "fov": [32, 29], "hand": 0.3})
-	# C · "Je peux le faire !": the eyes light up
-	var brave: float = 5.3
-	c._do(s, brave, "mood", "determined")
-	c._do(s, brave, "trigger", "je peux le faire !")
-	c._cue(brave + 0.35, "pulse", Color(0.55, 0.75, 1.0, 0.35), 0.9)
-	c._cue(brave + 0.35, "pillars", {"a": s}, Color("a9c8ff"), 7, 0.7)
-	c._cue(brave + 0.35, "sparkles", {"a": s, "h": 1.0}, Color("cfe0ff"), 8, 0.8)
-	c._cue(brave + 0.35, "sound", "encourage", {"a": s}, 1.0, 1.1)
-	c._cue(brave + 0.35, "shake", 0.3)
-	_closeup(brave, s, Vector3(0, 0, 1), 1.0, 1.05, 28.0)
-	_glint(brave + 0.35, brave + 1.05, s, 1.15)
-	# D · Alice lunges, Bleuette is already gone: the faceplant
-	var lunge: float = 6.45
-	c._do(s, lunge - 0.1, "state", {"speed_boost": 6.0})
-	c._move(a, lunge - 0.05, lunge + 0.2, _r(0.05, 0.6), "dash")
-	c._do(a, lunge, "trigger", "slash")
-	c._face(s, lunge, "move")
-	c._move(s, lunge, lunge + 0.28, _r(-1.6, -0.6), "dash")
-	c._cue(lunge + 0.12, "word", "miss", {"a": a, "h": 2.2}, PAPER, 0.9)
-	_later(lunge + 0.04, "cue", {"who": s, "cue": "afterimage"})
-	c._move(s, lunge + 0.28, lunge + 0.6, _r(-2.2, 2.2), "linear")
-	c._move(s, lunge + 0.6, lunge + 1.0, _r(-0.4, 5.0), "linear")
-	_later(lunge + 0.3, "trail", {"who": s, "socket": "foot_r", "seconds": 0.8, "width": 0.16})
-	var trip: float = lunge + 0.42
-	c._do(a, trip, "trigger", "slash")
-	c._move(a, trip, trip + 0.35, _r(-0.5, -0.4), "dash")
-	c._do(a, trip + 0.3, "state", {"forced_time": 0.6, "force_name": "knock"})
-	c._do(a, trip + 0.9, "unset", ["forced_time", "force_name"])
-	c._do(a, trip + 0.9, "life", "downed")
-	c._cue(trip + 0.4, "sound", "ground_impact", {"a": a}, 1.0, 0.9)
-	c._cue(trip + 0.4, "dust_ring", {"a": a}, 1.1)
-	c._cue(trip + 0.45, "stars", {"a": a, "s": "over"}, 5)
-	c._cue(trip + 0.4, "shake", 0.45)
-	_rain_burst(trip + 0.4, _r(-0.5, -0.4, 0.3), 0.7)
-	_burst(trip + 0.4, _r(-0.5, -0.4, 0.1), Vector3.UP, 20, 2.6, {"spread": 1.0, "lift": 2.0, "gravity": 7.0, "life": 1.1, "size": 0.07, "colors": [Color("9fb0c8"), Color("cfdaea")]})
-	c._shot(lunge - 0.1, {"rel": {"mid": [s, a]}, "eye": [Vector3(3.2, 1.0, 0.4), Vector3(2.9, 1.0, -0.2)], "look": {"mid": [s, a], "h": 1.0}, "fov": [46, 44], "hand": 0.6})
-	# E · a cheer from afar, hearts in the rain
-	var cheer: float = lunge + 1.1
-	c._do(s, cheer, "unset", ["speed_boost"])
-	c._face(s, cheer, "at", a)
-	c._do(s, cheer, "mood", "grin")
-	c._do(s, cheer + 0.05, "emote", "cheer")
-	c._shot(cheer, {"rel": {"a": s}, "eye": [Vector3(-1.1, 0.7, -2.2), Vector3(-0.95, 0.8, -1.9)], "look": {"a": s, "h": 1.1}, "fov": [42, 38], "hand": 0.35})
-	_glint(cheer + 0.4, cheer + 1.0, s, 1.0)
-	_bolt(cheer + 0.5, 0.25, 1.0)
+	_play(s, "fv_bleuette_rain")
+	_play(a, "fv_bleuette_alice_rain")
+	# Alice : trois pas lents (anim_set_film_victory : BA_WALK_SPEED)
+	c._move(a, 3.3, FV.BA_WALK_END, near, "linear")
+	# A1 · par-dessus l'épaule de Bleuette, en contre-plongée : Alice arrive
+	c._shot(3.32, {"rel": {"a": s}, "eye": [Vector3(0.4, 0.95, -0.72), Vector3(0.37, 0.98, -0.62)], "look": {"a": a, "h": 1.55}, "fov": [48, 44], "hand": 0.45, "roll": [-5, -8]})
+	_glint(3.5, 4.12, a, 0.9)
+	_bolt(3.62, 0.2, 0.85)
+	# A2 · son visage : elle tremble, lève les yeux, puis les baisse sur le chocolat
+	c._shot(3.85, {"rel": {"a": s}, "eye": [Vector3(-0.78, 1.5, 0.72), Vector3(-0.7, 1.46, 0.64)], "look": {"a": s, "s": "eyes", "h": -0.18}, "fov": [36, 33], "hand": 0.3})
+	_later(3.92, "cue", {"who": s, "cue": "sweat"})
+	# B1 · elle croque, trois fois, sur le célesta
+	c._shot(4.12, {"rel": {"a": s}, "eye": [Vector3(-0.52, 1.36, 0.6), Vector3(-0.46, 1.34, 0.54)], "look": {"a": s, "s": "eyes", "h": -0.12}, "fov": [30, 28], "hand": 0.25})
+	c._cue(4.4, "word", "yum", {"a": s, "h": 1.75, "o": Vector3(-0.3, 0, 0)}, Color("ffd6e4"), 0.7)
+	c._cue(4.62, "pulse", Color(1.0, 0.78, 0.6, 0.16), 0.7)
+	# B2 · par-dessus sa tête : Alice, interdite (elle mange ?!)
+	c._shot(4.66, {"rel": {"a": a}, "eye": [Vector3(-0.42, 1.3, -1.25), Vector3(-0.38, 1.32, -1.15)], "look": {"a": a, "h": 1.55}, "fov": [36, 34], "hand": 0.3})
+	# B3 · les yeux se rouvrent sur Alice ; la tablette retourne dans la poche
+	c._shot(4.94, {"rel": {"a": s}, "eye": [Vector3(-0.62, 0.95, 0.82), Vector3(-0.58, 0.98, 0.76)], "look": {"a": s, "h": 1.22}, "fov": [38, 36], "hand": 0.3})
+	# C1 · elle se redresse, la caméra monte avec elle
+	c._shot(FV.B_RISE, {"rel": {"a": s}, "eye": [Vector3(-1.05, 0.5, 0.95), Vector3(-0.98, 0.9, 0.85)], "look": [{"a": s, "h": 0.95}, {"a": s, "h": 1.3}], "fov": [42, 36], "hand": 0.35})
+	# C2 · 5,65 · Mi majeur : ses yeux s'allument
+	var brave: float = FV.B_BRAVE
+	_closeup(5.6, s, toward, -1.0, 0.95, 28.0, 0.0)
+	_glint(brave, 6.2, s, 1.2)
+	c._cue(brave, "pulse", Color(0.55, 0.75, 1.0, 0.35), 0.9)
+	c._cue(brave, "pillars", {"a": s}, blue, 7, 0.7)
+	c._cue(brave, "sparkles", {"a": s, "h": 1.0}, Color("cfe0ff"), 8, 0.8)
+	c._cue(brave, "sound", "encourage", {"a": s}, 1.0, 1.1)
+	c._cue(brave, "shake", 0.3)
+	_rain_burst(brave, start + Vector3(0, 1.2, 0), 0.8)
+	# C3 · de profil, au ras du sol : elle se ramasse, Alice arme… et fauche le vide
+	c._shot(5.92, {"eye": [_r(-3.4, 0.55, 0.62), _r(-3.2, 0.75, 0.66)], "look": [_r(0.0, 0.62, 0.95), _r(0.0, 0.95, 0.9)], "fov": [44, 44], "hand": 0.5})
+	var lunge_to: Vector3 = near - toward * FV.BA_LUNGE
+	c._face(a, 6.3, "dir", - toward)
+	c._move(a, 6.4, 6.55, lunge_to, "dash")
+	c._cue(FV.BA_SWIPE, "sound", "slash", {"a": a}, 0.9, 1.0)
+	c._cue(FV.BA_SWIPE + 0.07, "word", "miss", {"a": a, "h": 2.15}, PAPER, 0.9)
+	_later(FV.BA_SWIPE, "whoosh", {"at": {"a": a, "h": 1.1, "o": - toward * 0.5}, "dir": Vector3(-1, -0.3, 0), "color": PAPER, "count": 4, "length": 1.2})
+	# D · 6,38 · le sprint : un appui toutes les B_STEP s, au mètre près
+	var lane: Vector3 = Vector3(0, 0, 1)
+	var go: float = FV.B_GO
+	var speed: float = FV.B_RUN_SPEED
+	c._face(s, go, "dir", lane)
+	var p1: Vector3 = start + lane * (speed * (FV.B_FIRST - go) * 0.5)
+	var p2: Vector3 = p1 + lane * speed * (FV.B_SKID - FV.B_FIRST)
+	var p3: Vector3 = p2 + lane * (speed * (FV.B_SKID_END - FV.B_SKID) * 0.5)
+	c._move(s, go, FV.B_FIRST, p1, "in")
+	c._move(s, FV.B_FIRST, FV.B_SKID, p2, "linear")
+	c._move(s, FV.B_SKID, FV.B_SKID_END, p3, "out")
+	c._cue(go, "sound", "boost", {"a": s}, 0.9, 1.2)
+	c._cue(go, "rush", 0.9)
+	_later(go + 0.01, "cue", {"who": s, "cue": "afterimage"})
+	_later(go + 0.06, "cue", {"who": s, "cue": "afterimage"})
+	_later(go + 0.02, "trail", {"who": s, "socket": "foot_r", "seconds": 0.8, "width": 0.14})
+	_later(go + 0.02, "trail", {"who": s, "socket": "foot_l", "seconds": 0.8, "width": 0.14})
+	_smear(go, 6.6, Vector2(0.05, 0.0))
+	for k: int in range(4): _burst(FV.B_FIRST + 2.0 * FV.B_STEP * float(k), start + lane * (0.5 + 1.3 * float(k)) + Vector3(0, 0.05, 0), Vector3(0, 0.7, -1), 6, 2.0, {"spread": 0.6, "lift": 1.2, "gravity": 7.0, "life": 0.6, "size": 0.045, "colors": water})
+	# Alice se retourne d'un bond, se lance… et se prend les pieds dans sa robe
+	c._face(a, FV.BA_WHIRL - 0.02, "at", s)
+	var fall_dir: Vector3 = (start + lane * 2.4 - lunge_to)
+	fall_dir.y = 0.0
+	fall_dir = fall_dir.normalized()
+	var lie: Vector3 = lunge_to + fall_dir * 1.07
+	c._move(a, FV.BA_PUSH, FV.BA_TRIP, lunge_to + fall_dir * 0.22, "in")
+	c._move(a, FV.BA_TRIP, FV.BA_LAND, lie, "in")
+	c._face(a, 6.95, "dir", fall_dir)
+	c._cue(6.66, "sound", "slash", {"a": a}, 0.5, 0.8)
+	# D2 · devant elle qui fonce vers nous ; derrière, Alice qui pique du nez
+	c._shot(6.62, {"rel": {"a": s}, "eye": [Vector3(-0.55, 0.75, 1.9), Vector3(-0.5, 0.8, 1.75)], "look": [{"a": s, "h": 0.85}, {"a": s, "h": 0.9}], "fov": [50, 48], "hand": 0.5})
+	_later(6.62, "whoosh", {"at": {"a": s, "h": 0.9}, "dir": Vector3(0, 0, -1), "color": PAPER, "count": 5, "length": 1.6})
+	# E1 · 7,27 · PLOUF, au ras de la flaque ; au fond, Bleuette dérape
+	c._shot(7.2, {"eye": [lie + Vector3(1.45, 0.4, -0.75), lie + Vector3(1.38, 0.45, -0.68)], "look": [lie + Vector3(-0.05, 0.3, 0.75), lie + Vector3(-0.1, 0.35, 0.9)], "fov": [44, 42], "hand": 0.45})
+	var land: float = FV.BA_LAND
+	var splash: Vector3 = lie + fall_dir * 0.45
+	c._cue(land, "sound", "ground_impact", {"a": a}, 1.0, 0.85)
+	c._cue(land, "dust_ring", {"a": a}, 1.4)
+	c._cue(land, "shake", 0.5)
+	c._cue(land + 0.09, "stars", {"a": a, "s": "over"}, 5)
+	_rain_burst(land, splash + Vector3(0, 0.4, 0), 0.9)
+	_burst(land, splash + Vector3(0, 0.08, 0), Vector3(0, 1, 0), 30, 3.6, {"spread": 1.1, "lift": 2.4, "gravity": 8.0, "life": 1.2, "size": 0.07, "colors": water})
+	_burst(land + 0.02, splash + Vector3(0, 0.05, 0), fall_dir + Vector3(0, 0.5, 0), 14, 4.2, {"spread": 0.5, "lift": 1.4, "gravity": 8.0, "life": 1.0, "size": 0.06, "colors": water})
+	# le dérapage de Bleuette, gerbes d'eau sous ses talons
+	for k: int in range(5): _burst(FV.B_SKID + 0.05 * float(k), p2 + lane * (0.15 * float(k)) + Vector3(0, 0.08, 0), Vector3(0, 0.6, 0) + lane, 7, 2.6 - 0.35 * float(k), {"spread": 0.6, "lift": 1.6, "gravity": 7.0, "life": 0.7, "size": 0.05, "colors": water})
+	c._cue(FV.B_SKID, "sound", "step", {"a": s}, 0.8, 0.7)
+	c._face(s, FV.B_TURN, "at", a)
+	# E2 · au-dessus d'Alice dans la flaque : Bleuette, au fond, les mains sur la bouche
+	c._shot(7.62, {"eye": [lie + Vector3(0.35, 1.05, -0.4), lie + Vector3(0.33, 1.0, -0.3)], "look": [{"a": s, "h": 1.0}, {"a": s, "h": 1.05}], "fov": [34, 30], "hand": 0.3})
+	_later(7.66, "cue", {"who": s, "cue": "sweat"})
+	# Alice relève la tête, glisse et retombe le nez dans l'eau, tape l'eau de rage
+	var face_at: Vector3 = lie + fall_dir * 0.75
+	_rain_burst(8.12, face_at + Vector3(0, 0.3, 0), 0.5)
+	_burst(8.12, face_at + Vector3(0, 0.05, 0), Vector3(0, 1, 0), 12, 2.2, {"spread": 1.0, "lift": 1.6, "gravity": 8.0, "life": 0.8, "size": 0.05, "colors": water})
+	for t: float in [8.3, 8.5]:
+		_burst(t, face_at + Vector3(0, 0.05, 0), Vector3(0, 1, 0), 8, 2.0, {"spread": 1.2, "lift": 1.5, "gravity": 8.0, "life": 0.7, "size": 0.045, "colors": water})
+		c._cue(t, "sound", "step", {"a": a}, 0.5, 1.3)
+	# E3 · elle lève le poing et sautille ; ses yeux brillent
+	c._shot(8.04, {"rel": {"a": s}, "eye": [Vector3(0.32, 1.3, -1.0), Vector3(0.3, 1.28, -0.92)], "look": {"a": s, "s": "eyes", "h": -0.14}, "fov": [34, 31], "hand": 0.3})
+	_later(FV.B_PUMP + 0.03, "sparkles", {"at": {"a": s, "h": 1.0}, "color": tint, "count": 5, "radius": 0.6})
+	_glint(8.35, 8.66, s, 1.0)
+	_bolt(8.2, 0.26, 1.0)
 	_flash(t_ink - 0.06, 0.12)
-	# INK · Bleuette jumping for joy, Alice flat on her face behind
+	# PAPIER · elle file, Alice plonge derrière elle et rate son coup
 	var ink: float = t_ink
-	_jump(s, ink, _ink(-0.9, 0, 0.4))
-	_jump(a, ink, _ink(1.3, 0, -0.6))
-	c._face(s, ink, "dir", Vector3(0.3, 0, 1))
-	c._do(s, ink + 0.03, "emote", "")
-	c._do(s, ink + 0.06, "emote", "cheer")
-	c._do(a, ink, "life", "downed")
-	c._face(a, ink, "dir", Vector3(-1, 0, 0.2))
-	_burst(ink + 0.08, _ink(-0.9, 1.7, 0.4), Vector3.UP, 18, 2.6, {"spread": 1.6, "lift": 1.6, "gravity": 2.2, "drag": 0.7, "life": 2.5, "size": 0.1})
-	c._shot(ink, {"eye": [_ink(0.1, 1.0, 6.2), _ink(0.15, 1.0, 5.8)], "look": [_ink(0.1, 0.95, 0.0), _ink(0.15, 0.95, 0.0)], "fov": 42, "hand": 0.1, "safe": false})
+	_jump(s, ink, _ink(-1.3, 0, 0.35))
+	_jump(a, ink, _ink(1.05, -0.42, -0.1))
+	c._face(s, ink, "dir", Vector3(-1, 0, 0))
+	c._face(a, ink, "dir", Vector3(-1, 0, 0))
+	_play(s, "fv_bleuette_ink", ink)
+	_play(a, "fv_bleuette_alice_ink", ink)
+	c._move(s, ink + 0.05, ink + 2.65, _ink(-1.3 - 0.55 * 2.6, 0, 0.35), "linear")
+	c._move(a, ink + 0.01, ink + 2.5, _ink(0.6, -0.56, -0.1), "linear")
+	_later(ink + 0.25, "cue", {"who": s, "cue": "cheer"})
+	_burst(ink, _ink(0.75, 0.05, -0.1), Vector3(0, 1, 0), 22, 1.3, {"spread": 1.0, "lift": 0.9, "gravity": 0.5, "drag": 0.6, "life": 2.6, "size": 0.07})
+	_burst(ink + 0.04, _ink(-0.9, 0.1, 0.35), Vector3(1, 0.4, 0), 10, 0.9, {"spread": 0.6, "lift": 0.4, "gravity": 0.3, "drag": 0.6, "life": 2.5, "size": 0.06})
+	c._shot(ink, {"eye": [_ink(-0.5, 1.0, 6.3), _ink(-0.6, 1.0, 5.95)], "look": [_ink(-0.5, 0.85, 0.0), _ink(-0.65, 0.85, 0.0)], "fov": 42, "hand": 0.1, "safe": false})
 
 
 
