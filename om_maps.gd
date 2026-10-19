@@ -3,7 +3,7 @@ extends RefCounted
 const STEP: float = 2.0
 const RADIUS: float = 0.58
 const BODY_HEIGHT: float = 2.25
-const NAV_REVISION: int = 6
+const NAV_REVISION: int = 7
 var school: Node3D
 var surfaces: Array[Dictionary] = []
 var solids: Array[AABB] = []
@@ -17,6 +17,7 @@ var navigation_report: Dictionary = {}
 var upper_targets: Array[Vector3] = []
 var rooms_audit: Array[Dictionary] = []
 var jump_links: Array[Dictionary] = []
+var lamp_fixtures: Array[Dictionary] = []
 
 
 var exit_point: Vector3 = Vector3.ZERO
@@ -73,6 +74,8 @@ func build(owner_school: Node3D, selected_map: String) -> void :
 		preload("res://map_forest.gd").new().build(self)
 	else:
 		preload("res://map_snow.gd").new().build(self)
+	_hang_lamps()
+	preload("res://map_bounds.gd").new().build(self)
 	school._bounds = bounds
 	_index_solids()
 	school._batch_static_details(20.0 if school.map_id == "school" else 30.0, -1.0 if school.map_id == "school" else 60.0)
@@ -268,6 +271,26 @@ func _rail(a: Vector3, b: Vector3) -> void :
 	for i in range(ceili(length / 2.5) + 1):
 		var p: Vector3 = a.lerp(b, float(i) / maxf(1, ceili(length / 2.5)))
 		_box(Vector3(0.14, 1.05, 0.14), p + Vector3(0, 0.52, 0), _trim)
+
+# 0.17 : les réglettes du kit pendaient sous le plafond sans rien pour les tenir. Chacune reçoit deux
+# tiges et deux platines jusqu'au premier solide au-dessus d'elle (dalle de l'étage, toit).
+func _hang_lamps() -> void :
+	for fixture: Dictionary in lamp_fixtures:
+		var p: Vector3 = fixture.position
+		var top: float = p.y + 0.06
+		for t: float in [-0.8, 0.8]:
+			var at: Vector3 = p + (Vector3(t, 0, 0) if bool(fixture.along_x) else Vector3(0, 0, t))
+			var ceiling: float = INF
+			for entry: Dictionary in school.collision_audit:
+				if str(entry.get("kind", "")) != "box": continue
+				var box: AABB = AABB(entry.position - entry.size * 0.5, entry.size)
+				if box.position.y < top - 0.005 or box.position.y - top > 6.0: continue
+				if box.position.x <= at.x and box.end.x >= at.x and box.position.z <= at.z and box.end.z >= at.z:
+					ceiling = minf(ceiling, box.position.y)
+			if ceiling == INF or ceiling - top < 0.02: continue
+			var drop: float = ceiling - top
+			_box(Vector3(0.03, drop, 0.03), Vector3(at.x, top + drop * 0.5, at.z), school._metal, false)
+			_box(Vector3(0.16, 0.03, 0.16), Vector3(at.x, ceiling - 0.015, at.z), _trim, false)
 
 func _zone(title: String, rect: Rect2, height: float) -> void :
 	zones.append({"name": title, "rect": rect, "height": height})

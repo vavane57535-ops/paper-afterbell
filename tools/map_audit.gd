@@ -76,6 +76,9 @@ const JUMP_HEIGHT: float = 3.2
 const CAPSULE_RADIUS: float = 0.38
 const CAPSULE_HEIGHT: float = 1.75
 
+# [carte, contrôle, extrait du texte, raison] : vérifiés en capture, ce ne sont pas des défauts.
+const ALLOWED: Array = []
+
 var world: Node
 var maps: Array[String] = ["school", "forest", "snow"]
 var out_dir: String = ""
@@ -347,6 +350,11 @@ func _floor_below(p: Vector3, above: float = 0.3) -> float:
 	return best
 
 func _finding(check: String, where: Vector3, text: String, extra: Dictionary = {}) -> void :
+	# défauts examinés à l'œil et gardés exprès (assemblages voulus) : comptés à part, sous « voulu »
+	for allowed: Array in ALLOWED:
+		if allowed[0] == school.map_id and check == allowed[1] and text.contains(allowed[2]):
+			check = "voulu"
+			break
 	var entry: Dictionary = {"check": check, "position": where, "text": "à " + _v(where) + " · " + text}
 	entry.merge(extra)
 	findings.append(entry)
@@ -431,10 +439,19 @@ func _xz_overlap(a: AABB, b: AABB) -> float:
 	return minf(x, z)
 
 func _sunk() -> void :
+	var masses: Array[AABB] = []
+	for piece: Dictionary in pieces:
+		if piece.ground and piece.aabb.size.y > 1.0: masses.append(piece.aabb)
 	for piece: Dictionary in pieces:
 		if piece.ground or piece.kind != "mesh": continue
 		var aabb: AABB = piece.aabb
 		var center: Vector3 = aabb.get_center()
+		var buried: bool = false
+		for mass: AABB in masses:
+			if mass.grow(0.02).encloses(aabb): buried = true
+		if buried:
+			_finding("enterre", center, "caché dans un bloc de terrain · %s" % piece.label)
+			continue
 		var floor_y: float = _floor_below(Vector3(center.x, aabb.end.y, center.z), 0.0)
 		if floor_y == -INF or aabb.size.y < 0.03: continue
 		if aabb.end.y < floor_y - 0.005 and aabb.end.y > floor_y - 1.5:
@@ -455,15 +472,20 @@ func _crossing() -> void :
 			var b: AABB = o.aabb
 			var overlap: AABB = a.intersection(b)
 			if overlap.size.x < 0.12 or overlap.size.y < 0.12 or overlap.size.z < 0.12: continue
-			# assemblages voulus : coin de deux planches, moulure ou montant qui dépasse des deux faces d'un mur
+			# assemblages voulus : coin de deux planches, moulure ou montant qui dépasse des deux faces d'un mur,
+			# angle de deux murs
 			var smaller: float = minf(a.get_volume(), b.get_volume())
 			if overlap.get_volume() < smaller * 0.2 and overlap.get_volume() < 0.6: continue
 			if _molding(a, b) or _molding(b, a): continue
+			if _wall_like(a) and _wall_like(b) and overlap.size.x <= 0.75 and overlap.size.z <= 0.75: continue
 			if not _deep(piece, o, 0.12): continue
 			var key: Vector2i = Vector2i(piece.group, o.group)
 			if reported.has(key): continue
 			reported[key] = true
 			_finding("traverse", overlap.get_center(), "%s ⟷ %s" % [piece.label, o.label])
+
+func _wall_like(box: AABB) -> bool:
+	return box.size.y >= 1.0 and (box.size.x <= 0.75 or box.size.z <= 0.75)
 
 func _molding(trim: AABB, wall: AABB) -> bool:
 	# la pièce « trim » traverse le mur de part en part dans son épaisseur (montant, plinthe, cadre)
@@ -516,8 +538,9 @@ func _trees() -> void :
 				var o: Dictionary = pieces[other]
 				if o.ground or o.flat or o.kind.begins_with("tree"): continue
 				if o.aabb.size.y < 0.3 and o.aabb.end.y < base.y + 0.5: continue
-				# un feuillage peut frôler un rocher ; il ne doit pas entrer dans un bâtiment
+				# un feuillage peut frôler un rocher ou une lanterne ; il ne doit pas entrer dans un bâtiment
 				if part == index + 1 and o.node is MeshInstance3D and (o.node as MeshInstance3D).mesh is SphereMesh: continue
+				if part == index + 1 and maxf(o.aabb.size.x, maxf(o.aabb.size.y, o.aabb.size.z)) < 1.5: continue
 				if _deep(pieces[part], o, 0.15):
 					_finding("arbre_traverse", o.aabb.get_center(), "%s ⟷ %s" % [piece.label, o.label])
 					break
@@ -528,6 +551,9 @@ func _doors() -> void :
 		var along_x: bool = door.axis == "x"
 		var width: float = float(door.get("width", 6.0))
 		var normal: Vector3 = Vector3(0, 0, 1) if along_x else Vector3(1, 0, 0)
+		# les cloisons de l'étage partent du dessous de la dalle : le seuil est au niveau du sol réel
+		var sill: float = _floor_below(p + Vector3.UP * 0.6, 0.0)
+		if sill != -INF: p.y = sill
 		var passage: BoxShape3D = BoxShape3D.new()
 		passage.size = Vector3(width - 0.5, 2.1, 3.2) if along_x else Vector3(3.2, 2.1, width - 0.5)
 		var xform: Transform3D = Transform3D(Basis.IDENTITY, p + Vector3(0, 1.2, 0))

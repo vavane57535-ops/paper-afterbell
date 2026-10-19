@@ -56,11 +56,11 @@ func _terrain() -> void :
 	L._floor(ridge, HIGH, L._stone, 0.5, true)
 	L._box(Vector3(ridge.size.x, 0.012, ridge.size.y), Vector3(ridge.get_center().x, HIGH + 0.009, ridge.get_center().y), L._ground_material, false)
 	L._ramp(Vector3(-56, 0, -18), Vector3(-56, HIGH, -38), 8, L._wood)
-	L._ramp(Vector3(56, 0, -18), Vector3(56, HIGH, -38), 8, L._wood)
-	for r in [Rect2(-62, -40, 12, 26), Rect2(50, -40, 12, 26)]:
+	L._ramp(Vector3(59, 0, -18), Vector3(59, HIGH, -38), 8, L._wood)
+	for r in [Rect2(-62, -40, 12, 26), Rect2(53, -40, 12, 26)]:
 		clear_rects.append(r)
 	var tint: Color = Color("7f98a6")
-	for p in [Vector3(-40, 0, -40), Vector3(-20, 0, -41), Vector3(22, 0, -41), Vector3(40, 0, -40), Vector3(-66, 0, -41), Vector3(66, 0, -41)]:
+	for p in [Vector3(-40, 0, -36.3), Vector3(-20, 0, -36.3), Vector3(22, 0, -36.3), Vector3(40, 0, -36.3), Vector3(-66, 0, -36.3), Vector3(66, 0, -36.3)]:
 		K.rock(p, Vector3(3.4, 3.6, 3.2), tint)
 
 func _chalet() -> void :
@@ -77,10 +77,10 @@ func _chalet() -> void :
 		K.planks(rect, HIGH, rect.size.x > rect.size.y)
 	L._ramp(Vector3(9, 0, 10), Vector3(9, HIGH, -6), 4, L._wood)
 	L._rail(Vector3(6, HIGH, -6), Vector3(6, HIGH, 12))
-	L._partition(Vector3(-12, SLAB, -12), Vector3(12, SLAB, -12), [0.0], 4.0, 4.0, L._wood, 3.0)
-	L._partition(Vector3(-12, SLAB, 12), Vector3(12, SLAB, 12), [-6.0], 4.0, 4.0, L._wood, 3.0)
-	L._partition(Vector3(-12, SLAB, -12), Vector3(-12, SLAB, 12), [], 4.0, 4.0, L._wood)
-	L._partition(Vector3(12, SLAB, -12), Vector3(12, SLAB, 12), [-9.0], 4.0, 4.0, L._wood, 3.0)
+	L._partition(Vector3(-12, SLAB, -12), Vector3(12, SLAB, -12), [0.0], 4.25, 4.0, L._wood, 3.0)
+	L._partition(Vector3(-12, SLAB, 12), Vector3(12, SLAB, 12), [-6.0], 4.25, 4.0, L._wood, 3.0)
+	L._partition(Vector3(-12, SLAB, -12), Vector3(-12, SLAB, 12), [], 4.25, 4.0, L._wood)
+	L._partition(Vector3(12, SLAB, -12), Vector3(12, SLAB, 12), [-9.0], 4.25, 4.0, L._wood, 3.0)
 
 	L._rail(Vector3(-18, HIGH, -16), Vector3(-2, HIGH, -16))
 	L._rail(Vector3(2, HIGH, -16), Vector3(18, HIGH, -16))
@@ -124,12 +124,12 @@ func _chalet() -> void :
 		K.deco(Vector3(1.8, 0.2, 2.8), p + Vector3(0, 0.6, 0), "blue")
 		K.deco(Vector3(1.8, 0.2, 2.8), p + Vector3(0, 1.8, 0), "pink")
 	for i in range(5):
-		var ski: MeshInstance3D = K.deco(Vector3(0.12, 2.2, 0.04), Vector3(-10 + i * 0.5, HIGH + 1.6, -11.7), ["red", "blue", "yellow", "red", "blue"][i])
+		var ski: MeshInstance3D = K.deco(Vector3(0.12, 2.2, 0.04), Vector3(-10 + i * 0.5, HIGH + 1.1, -11.7), ["red", "blue", "yellow", "red", "blue"][i])
 		ski.rotation.z = 0.08
 	K.sign_text("DORTOIR · SILENCE", Vector3(-4, HIGH + 3.2, 11.7), "n", 30, Color("e8d9c0"))
 	K.ceiling_lamp(Vector3(-4, HIGH + 3.8, 0), 0.6, 13)
 	for x in [-6.0, 6.0]:
-		K.window(Vector3(x, HIGH + 2.0, 12.25), "s", 2.4, 1.6)
+		K.window(Vector3(-10.0 if x < 0.0 else x, HIGH + 2.0, 12.25), "s", 2.4, 1.6)
 		K.window(Vector3(x, 2.4, 12.25), "s", 2.4, 1.6)
 	clear_rects.append(Rect2(-20, -18, 40, 54))
 	clear_rects.append(Rect2(16, 6, 22, 8))
@@ -195,14 +195,14 @@ func _pond() -> void :
 	L._partition(Vector3(-50, 0, -30), Vector3(-38, 0, -30), [], 3.2, 4.0, L._wood)
 	L._partition(Vector3(-50, 0, -20), Vector3(-38, 0, -20), [-44.0], 3.2, 4.0, L._wood, 2.8)
 
-	L._partition(Vector3(-50, 0, -30), Vector3(-50, 0, -20), [-22.0], 3.2, 4.0, L._wood, 2.8)
+	L._partition(Vector3(-50, 0, -30), Vector3(-50, 0, -20), [-25.0], 3.2, 4.0, L._wood, 2.8)
 	L._partition(Vector3(-38, 0, -30), Vector3(-38, 0, -20), [], 3.2, 4.0, L._wood)
 	L._box(Vector3(13, 0.3, 11), Vector3(-44, 3.35, -25), L._trim, true, false)
 	K.wood_floor(Rect2(-50, -30, 12, 10))
 	K.cylinder(Vector3(-41, 0.03, -27), 0.7, 0.03, "dark")
 	K.crate_stack(Vector3(-40, 0, -28), 1)
 	K.sign_text("CABANE DE PÊCHE", Vector3(-44, 2.9, -19.7), "s", 28, Color("e8dcc2"))
-	K.sign_text("GLACE FRAGILE", Vector3(-30, 1.7, 0), "e", 34, Color("d1e6f5"))
+	K.stake_sign(Vector3(-29.2, 0, 0), "e", "GLACE FRAGILE", 34, Color("d1e6f5"), 2.3)
 	clear_rects.append(Rect2(-62, -32, 36, 52))
 
 func _ski_shop() -> void :
@@ -215,7 +215,7 @@ func _ski_shop() -> void :
 	K.wood_floor(Rect2(34, 36, 18, 14))
 	K.solid(Vector3(8, 1.8, 1.0), Vector3(40, 0.9, 44), "wood")
 	for i in range(8):
-		var ski: MeshInstance3D = K.deco(Vector3(0.12, 1.9, 0.05), Vector3(36.6 + i * 0.9, 1.9, 44.55), ["red", "blue", "yellow", "chalk"][i % 4])
+		var ski: MeshInstance3D = K.deco(Vector3(0.12, 1.9, 0.05), Vector3(36.6 + i * 0.9, 0.95, 44.55), ["red", "blue", "yellow", "chalk"][i % 4])
 		ski.rotation.z = 0.1
 	K.sign_text("LOCATION DE SKIS", Vector3(43, 3.0, 35.7), "n", 34, Color("f4dcb0"))
 	clear_rects.append(Rect2(31, 33, 24, 20))
@@ -246,21 +246,24 @@ func _ridge_station() -> void :
 	K.fence(Vector3(-21.7, y, -57), Vector3(70, y, -57), "wood", 1.4)
 	S._hinged_exit(center, 6.0, 3.9, S._exit_glass())
 	L.solids.append(AABB(center + Vector3(-3.2, 0, -0.3), Vector3(6.4, 3.9, 0.6)))
-	L._lamp(center + Vector3(0, 3.8, 1.8), 1.1, 13)
-	S._label("SORTIE · TÉLÉPHÉRIQUE", center + Vector3(0, 5.2, 0.3), 46, Color("d7e5cb"))
+	L._lamp(center + Vector3(0, 4.31, -0.1), 1.1, 13)
+	S._label("SORTIE · TÉLÉPHÉRIQUE", K.board(center + Vector3(0, 5.15, 0.15), "s", Vector2(5.4, 0.7)), 46, Color("d7e5cb"))
 
 	var terminal: Vector3 = Vector3(-44, y, -62)
-	K.deco(Vector3(3, 2.4, 3), terminal + Vector3(0, 1.6, 0), "red")
-	K.deco(Vector3(3.05, 0.9, 2.4), terminal + Vector3(0, 2.1, 0), "window")
-	K.deco(Vector3(0.12, 1.2, 0.12), terminal + Vector3(0, 3.4, 0), "metal")
+	# 0.17 : la cabine flottait à 40 cm du sol, la roue au-dessus de sa traverse et le câble 2 m au-dessus de la roue
+	K.deco(Vector3(3, 2.4, 3), terminal + Vector3(0, 1.2, 0), "red")
+	K.deco(Vector3(3.05, 0.9, 2.4), terminal + Vector3(0, 1.7, 0), "window")
+	K.deco(Vector3(0.12, 1.3, 0.12), terminal + Vector3(0, 3.05, 0), "metal")
+	K.deco(Vector3(0.25, 0.25, 5.6), terminal + Vector3(0, 3.825, -1.95), "metal")
 	K.stilt(terminal + Vector3(0, 0, -4), 8.0, "metal")
 	K.deco(Vector3(3.0, 0.25, 0.25), terminal + Vector3(0, 8.0, -4), "metal")
-	var wheel: MeshInstance3D = K.cylinder(terminal + Vector3(0, 8.3, -4), 1.2, 0.2, "trim")
+	var wheel: MeshInstance3D = K.cylinder(terminal + Vector3(0, 8.225, -4), 1.2, 0.2, "trim")
 	wheel.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	var cable: MeshInstance3D = K.deco(Vector3(0.06, 0.06, 40), terminal + Vector3(0, 8.6, -24), "trim")
-	cable.rotation.x = -0.1
+	for side in [-1.0, 1.0]:
+		var cable: MeshInstance3D = K.deco(Vector3(0.06, 0.06, 40), terminal + Vector3(side * 1.17, 8.225 - 20.0 * sin(0.1), -4 - 20.0 * cos(0.1)), "trim")
+		cable.rotation.x = -0.1
 	K.lantern(Vector3(-38, y, -61), 0.7, Color("ffc27a"))
-	K.sign_text("TÉLÉPHÉRIQUE · DESCENTE", terminal + Vector3(0, 3.1, 1.55), "s", 26, Color("f3e1c0"))
+	K.sign_text("TÉLÉPHÉRIQUE · DESCENTE", terminal + Vector3(0, 0.75, 1.53), "s", 26, Color("f3e1c0"))
 
 	for wall in [[Vector3(-8, y, -48), Vector3(8, 1.4, 1.2)], [Vector3(14, y, -52), Vector3(1.2, 1.4, 8)], [Vector3(-50, y, -46), Vector3(1.2, 1.4, 6)], [Vector3(30, y, -46), Vector3(8, 1.4, 1.2)]]:
 		K.solid(wall[1], wall[0] + Vector3(0, wall[1].y * 0.5, 0), "cream")
@@ -268,7 +271,7 @@ func _ridge_station() -> void :
 	L._partition(Vector3(44, y, -58), Vector3(44, y, -48), [-53.0], 3.4, 4.0, L._wood, 2.8)
 	L._partition(Vector3(56, y, -58), Vector3(56, y, -48), [-53.0], 3.4, 4.0, L._wood, 2.8)
 	L._box(Vector3(13, 0.3, 11), Vector3(50, y + 3.55, -53), L._trim, true, false)
-	K.sign_text("REMONTE-PENTE", Vector3(50, y + 2.9, -47.7), "s", 30, Color("e6dac3"))
+	K.sign_text("REMONTE-PENTE", K.board(Vector3(50, y + 3.1, -47.56), "s", Vector2(4.4, 0.6)), "s", 30, Color("e6dac3"))
 	clear_rects.append(Rect2(-48, -68, 36, 16))
 
 	clear_rects.append(Rect2(-40, -54, 20, 14))
@@ -308,11 +311,30 @@ func _population() -> void :
 		if blocked:
 			continue
 		accepted.append(p2)
-		K.tree(Vector3(p2.x, height, p2.y), rng.randf_range(10, 15), accepted.size() % 3)
+		# 0.17 : la place reste dans le tirage, mais pas d'arbre dans un fort de neige, un rocher ou un mur
+		var tree_height: float = rng.randf_range(10, 15)
+		if _crowded_by_solid(Vector3(p2.x, height, p2.y), tree_height):
+			continue
+		K.tree(Vector3(p2.x, height, p2.y), tree_height, accepted.size() % 3)
 	for i in range(60):
 		var angle: float = i * TAU / 60.0
 		var radius: float = 84.0 + fposmod(float(i) * 7.3, 12.0)
-		K.tree(Vector3(cos(angle) * radius, 0, sin(angle) * radius * 0.85), 13 + fposmod(float(i) * 3.1, 6.0), i % 3, false)
+		# 0.17 : la couronne reste hors de la carte (des arbres sans collision traversaient la gare du
+		# téléphérique, le remonte-pente et la crête) et pousse sur le sol de décor, haut au nord
+		var p: Vector3 = Vector3(cos(angle) * radius, 0, sin(angle) * radius * 0.85)
+		if L.bounds.grow(3.0).has_point(Vector2(p.x, p.z)):
+			continue
+		p.y = HIGH if p.z < -38.0 else 0.0
+		K.tree(p, 13 + fposmod(float(i) * 3.1, 6.0), i % 3, false)
+
+func _crowded_by_solid(base: Vector3, height: float) -> bool:
+	var reach: float = height * 0.046 + 0.35
+	for obstacle: AABB in L.solids:
+		if obstacle.end.y <= base.y + 0.1 or obstacle.position.y > base.y + height * 0.68:
+			continue
+		if Rect2(obstacle.position.x, obstacle.position.z, obstacle.size.x, obstacle.size.z).grow(reach).has_point(Vector2(base.x, base.z)):
+			return true
+	return false
 
 func _paths() -> void :
 	for route in [[Vector2(0, 38), Vector2(0, 18)], [Vector2(8, 40), Vector2(34, 26)], [Vector2(-8, 40), Vector2(-30, 20)], [Vector2(-22, -18), Vector2(-54, -16)], [Vector2(22, -18), Vector2(54, -16)], [Vector2(20, 30), Vector2(34, 40)]]:
@@ -320,7 +342,7 @@ func _paths() -> void :
 
 func _lights() -> void :
 	var warm: Color = Color("ffc27a")
-	for p in [Vector3(-8, 0, 30), Vector3(8, 0, 30), Vector3(-24, 0, 0), Vector3(24, 0, -8), Vector3(-26, 0, 30), Vector3(28, 0, 32), Vector3(-58, 0, -12), Vector3(58, 0, -12), Vector3(-6, HIGH, -44), Vector3(28, HIGH, -52), Vector3(-44, 0, 26)]:
+	for p in [Vector3(-7.3, 0, 30), Vector3(8, 0, 30), Vector3(-24, 0, 0), Vector3(24, 0, -8), Vector3(-26, 0, 30), Vector3(28, 0, 32), Vector3(-58, 0, -12), Vector3(58, 0, -12), Vector3(-6, HIGH, -44), Vector3(28, HIGH, -52), Vector3(-44, 0, 26)]:
 		K.lantern(p, 0.75, warm)
 	K.accent_light(Vector3(-4, HIGH + 2.5, 0), Color("ffcf94"), 0.5, 11)
 	K.accent_light(Vector3(44, 2.4, 0), Color("ffcf94"), 0.45, 8)
@@ -335,7 +357,7 @@ func _perimeter() -> void :
 		S._rock(Vector3(x, 0, 64), Vector3(10, 6, 5), false, tint)
 	for z in range(-54, 55, 12):
 		for x in [-74.0, 74.0]:
-			S._rock(Vector3(x, 0, z), Vector3(6, 9, 10), false, tint)
+			S._rock(Vector3(x, HIGH if z < -38 else 0.0, z), Vector3(6, 9, 10), false, tint)
 
 func _zones() -> void :
 	L._zone("Dortoir du chalet", Rect2(-12, -12, 24, 24), HIGH)

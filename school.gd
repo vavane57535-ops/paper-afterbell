@@ -577,7 +577,8 @@ func _hinged_exit(center: Vector3, width: float, height: float, material: Materi
 			_exit_part(hinge, Vector3(0.1, height, 0.22), Vector3(x, height * 0.5, 0), _metal)
 		for y in [0.08, height - 0.08, 0.5]:
 			_exit_part(hinge, Vector3(leaf_width, 0.16, 0.22), Vector3(cx, y, 0), _metal)
-		_exit_part(hinge, Vector3(leaf_width * 0.75, 0.1, 0.11), Vector3(cx, 1.15, -0.18), _cream)
+		# barre anti-panique posée sur le vitrage (0.17 : elle flottait 5 cm devant la porte)
+		_exit_part(hinge, Vector3(leaf_width * 0.75, 0.1, 0.11), Vector3(cx, 1.15, -0.125), _cream)
 
 func _exit_part(parent: Node3D, size: Vector3, pos: Vector3, material: Material, solid: bool = false) -> void :
 	var part: MeshInstance3D = _box(size, pos, material, solid, false)

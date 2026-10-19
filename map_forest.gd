@@ -75,7 +75,7 @@ func _terrain() -> void :
 		clear_rects.append(r)
 
 	var tint: Color = Color("7f98a6") if snow else Color("56665b")
-	for p in [Vector3(-52, 0, -36), Vector3(-53, 0, -4), Vector3(-20, 0, -40), Vector3(20, 0, -40), Vector3(-19, 0, -3), Vector3(19, 0, -4), Vector3(53, 0, -34), Vector3(52, 0, -6), Vector3(-60, 0, -46), Vector3(62, 0, -46), Vector3(-30, 0, -46)]:
+	for p in [Vector3(-52, 0, -36), Vector3(-53, 0, -4), Vector3(-20, 0, -40), Vector3(20, 0, -40), Vector3(-19, 0, -3), Vector3(19, 0, -4), Vector3(53, 0, -34), Vector3(52, 0, -6), Vector3(-60, 0, -41.8), Vector3(62, 0, -41.8), Vector3(-28, HIGH, -48)]:
 		K.rock(p, Vector3(3.2, 3.4, 3.6), tint)
 
 func _pit_and_bridge() -> void :
@@ -121,7 +121,7 @@ func _pit_and_bridge() -> void :
 		K.cylinder(p + Vector3(0, 0.95, 0), 0.5, 0.12, "trim")
 	K.tree(Vector3(14, 0, -40), 9.0, 1)
 
-	for p in [Vector3(-16, 0, -20), Vector3(-2, 0, -34), Vector3(4, 0, -20)]:
+	for p in [Vector3(-16, 0, -20), Vector3(-6.5, 0, -37.0), Vector3(4, 0, -20)]:
 		K.rock(p, Vector3(2.8, 2.6, 3.2), Color("7f98a6") if snow else Color("56665b"))
 	for x in [-18.0, -12.0]:
 		K.stilt(Vector3(x, 0, -34), 2.6, "metal")
@@ -153,20 +153,21 @@ func _greenhouse() -> void :
 	for h in [1.2, 2.5]:
 		for wall in [[Vector3(-38, y + h, -36), Vector3(16.1, 0.1, 0.62)], [Vector3(-46, y + h, -24), Vector3(0.62, 0.1, 24.1)], [Vector3(-30, y + h, -24), Vector3(0.62, 0.1, 24.1)], [Vector3(-38, y + h, -20), Vector3(0.62, 0.1, 16.1)]]:
 			K.deco(wall[1], wall[0], "trim")
+	var pitch: float = atan2(6.25 - 3.64, 8.25)
 	for side in [-1.0, 1.0]:
-		var pane: MeshInstance3D = K.deco(Vector3(9.2, 0.08, 24.4), Vector3(-38 + side * 4.1, y + 4.6, -24), "glass")
-		pane.rotation.z = - side * 0.42
+		var pane: MeshInstance3D = K.deco(Vector3(9.0, 0.08, 24.4), Vector3(-38 + side * 4.5 * cos(pitch), y + 6.25 - 4.5 * sin(pitch), -24), "glass")
+		pane.rotation.z = - side * pitch
 	K.deco(Vector3(0.3, 0.3, 24.6), Vector3(-38, y + 6.35, -24), "trim")
 
 	for z in [-32.0, -24.0, -16.0]:
 		for x in [-44.8, -31.2]:
 			K.solid(Vector3(1.2, 0.9, 5.0), Vector3(x, y + 0.45, z), "wood")
 			K.blob(Vector3(x, y + 1.2, z), Vector3(0.5, 0.45, 2.2), "leaf")
-	K.cylinder(Vector3(-38, y + 1.6, -34.5), 0.18, 3.2, "leaf")
+	K.cylinder(Vector3(-38, y + 1.6, -33.6), 0.18, 3.2, "leaf")
 	for i in range(6):
-		var petal: MeshInstance3D = K.blob(Vector3(-38, y + 3.3, -34.5) + Vector3(cos(i * TAU / 6), 0, sin(i * TAU / 6)) * 0.9, Vector3(0.75, 0.25, 0.45), "pink")
+		var petal: MeshInstance3D = K.blob(Vector3(-38, y + 3.3, -33.6) + Vector3(cos(i * TAU / 6), 0, sin(i * TAU / 6)) * 0.9, Vector3(0.75, 0.25, 0.45), "pink")
 		petal.rotation.y = - i * TAU / 6
-	K.blob(Vector3(-38, y + 3.35, -34.5), Vector3(0.5, 0.35, 0.5), "yellow")
+	K.blob(Vector3(-38, y + 3.35, -33.6), Vector3(0.5, 0.35, 0.5), "yellow")
 	K.sign_text("SERRE DE MISS BLOOMIE", Vector3(-38, y + 3.9, -11.7), "s", 34, Color("d9ecd2"))
 	clear_rects.append(Rect2(-49, -39, 22, 32))
 
@@ -190,12 +191,12 @@ func _treehouse() -> void :
 
 	for x in [27.0, 35.0]:
 		for z in [-41.0, -35.0]:
-			K.deco(Vector3(0.25, 3.0, 0.25), Vector3(x, y + 1.5, z), "wood")
+			K.deco(Vector3(0.25, 2.5, 0.25), Vector3(x, y + 1.25, z), "wood")
 	var roof_l: MeshInstance3D = K.deco(Vector3(5.2, 0.15, 8.0), Vector3(29, y + 3.3, -38), "red")
 	roof_l.rotation.z = 0.35
 	var roof_r: MeshInstance3D = K.deco(Vector3(5.2, 0.15, 8.0), Vector3(33, y + 3.3, -38), "red")
 	roof_r.rotation.z = -0.35
-	K.sign_text("CABANE DES ÉLÈVES", Vector3(31, y + 2.6, -34.9), "s", 30, Color("f2dcae"))
+	K.sign_text("CABANE DES ÉLÈVES", K.board(Vector3(31, y + 2.25, -35.0), "s", Vector2(7.8, 0.5)), "s", 30, Color("f2dcae"))
 
 	L._drop_link(Vector3(34, y, -38), Vector3(39, HIGH, -38))
 	L._drop_link(Vector3(28, y, -38), Vector3(24, HIGH, -38))
@@ -223,7 +224,7 @@ func _north_plateau() -> void :
 	for x in [-12.6, -7.4]:
 		K.stilt(Vector3(x, y, -55.5), 2.7, "metal")
 	K.bench(Vector3(-10, y, -55.5), 4.0, true)
-	K.sign_text("ARRÊT DU BUS SCOLAIRE", Vector3(-10, y + 3.4, -54.2), "s", 28, Color("f1d9a0"))
+	K.sign_text("ARRÊT DU BUS SCOLAIRE", K.board(Vector3(-10, y + 3.2, -54.4), "s", Vector2(4.2, 0.5)), "s", 28, Color("f1d9a0"))
 	clear_rects.append(Rect2(-8, -70, 16, 20))
 	clear_rects.append(Rect2(-74, -70, 148, 13))
 
@@ -235,8 +236,9 @@ func _gate(center: Vector3) -> void :
 	K.deco(Vector3(7.2, 0.5, 0.4), center + Vector3(0, 4.2, 0), "wood")
 	S._hinged_exit(center, 6.0, 3.6, S._exit_glass())
 	L.solids.append(AABB(center + Vector3(-3.2, 0, -0.3), Vector3(6.4, 3.6, 0.6)))
-	L._lamp(center + Vector3(0, 3.9, 1.6), 1.0, 13)
-	S._label("SORTIE", center + Vector3(0, 4.9, 0.3), 56, Color("d7e5cb"))
+	# 0.17 : la lampe pend sous la traverse et SORTIE est peint sur un panneau posé dessus (les deux flottaient)
+	L._lamp(center + Vector3(0, 3.86, 0.15), 1.0, 13)
+	S._label("SORTIE", K.board(center + Vector3(0, 4.85, 0), "s", Vector2(2.4, 0.8)), 56, Color("d7e5cb"))
 
 func _janitor_shed() -> void :
 
@@ -249,7 +251,8 @@ func _janitor_shed() -> void :
 	K.bookshelf(Vector3(-69, 0, 15), 5.0, false, 2.2, false)
 	K.crate_stack(Vector3(-62, 0, 11), 2)
 	K.cylinder(Vector3(-67, 0.4, 20), 0.4, 0.8, "yellow")
-	K.deco(Vector3(0.05, 1.6, 0.05), Vector3(-66.6, 1.0, 20), "wood")
+	var mop: MeshInstance3D = K.deco(Vector3(0.05, 1.6, 0.05), Vector3(-66.82, 1.25, 20.1), "wood")
+	mop.rotation.z = 0.12
 	K.sign_text("REMISE DU CONCIERGE", Vector3(-57.7, 3.1, 11), "e", 28, Color("e8d6b0"))
 	clear_rects.append(Rect2(-73, 5, 18, 21))
 
@@ -268,7 +271,7 @@ func _picnic_garden() -> void :
 	scarecrow.rotation.z = 0.05
 	K.deco(Vector3(1.6, 0.1, 0.1), Vector3(64, 2.0, 39), "wood")
 	K.blob(Vector3(64, 2.55, 39), Vector3(0.3, 0.3, 0.3), "chalk")
-	K.sign_text("POTAGER", Vector3(66, 1.6, 26.8), "s", 30, Color("e6ddb6"))
+	K.stake_sign(Vector3(66, 0, 25.8), "s", "POTAGER", 30, Color("e6ddb6"), 1.6)
 	clear_rects.append(Rect2(48, 24, 26, 30))
 
 func _playground() -> void :
@@ -283,7 +286,8 @@ func _playground() -> void :
 	L._box(Vector3(30, 0.02, 16), Vector3(0, 0.02, 45), concrete, false)
 	for i in range(8):
 		K.deco(Vector3(1.0, 0.012, 1.0), Vector3(-9 + (i % 2) * 1.1, 0.035, 40 + i * 1.1), "chalk")
-	K.sign_text("PRÉAU", Vector3(0, 3.8, 37.3), "s", 48, Color("f3e1b8"))
+	K.sign_text("PRÉAU", Vector3(0, 4.35, 37.17), "s", 48, Color("f3e1b8"))
+	K.sign_text("PRÉAU", Vector3(0, 4.35, 36.83), "n", 48, Color("f3e1b8"))
 	K.bench(Vector3(-13.5, 0, 45), 5.0, false)
 	K.bench(Vector3(13.5, 0, 45), 5.0, false)
 	clear_rects.append(Rect2(-16, 34, 32, 22))
@@ -298,8 +302,7 @@ func _playground() -> void :
 	K.deco(Vector3(0.1, 0.012, 18), Vector3(29, 0.04, 47), "chalk")
 	K.cylinder(Vector3(29, 0.04, 47), 2.0, 0.01, "chalk")
 	K.stilt(Vector3(37, 0, 47), 3.4, "metal")
-	K.deco(Vector3(0.1, 1.2, 1.8), Vector3(36.6, 3.4, 47), "chalk")
-	K.cylinder(Vector3(35.9, 3.0, 47), 0.35, 0.05, "orange")
+	K.basket(Vector3(36.75, 0, 47), "w", 3.05)
 	clear_rects.append(Rect2(18, 36, 22, 22))
 
 func _school_facade() -> void :
@@ -356,7 +359,12 @@ func _population() -> void :
 		if crowded:
 			continue
 		accepted.append(p2)
-		K.tree(Vector3(p2.x, height, p2.y), rng.randf_range(10, 16), accepted.size() % 3)
+		# 0.17 : la place reste dans le tirage (les autres arbres ne bougent pas), mais pas d'arbre qui pousse
+		# dans un rocher, un muret ou un meuble
+		var tree_height: float = rng.randf_range(10, 16)
+		if _crowded_by_solid(Vector3(p2.x, height, p2.y), tree_height):
+			continue
+		K.tree(Vector3(p2.x, height, p2.y), tree_height, accepted.size() % 3)
 
 	for i in range(64):
 		var angle: float = i * TAU / 64.0
@@ -364,8 +372,22 @@ func _population() -> void :
 		var p: Vector3 = Vector3(cos(angle) * radius * 0.95, 0, sin(angle) * radius * 0.85)
 		if p.z > 60 and absf(p.x) < 50:
 			continue
+		# 0.17 : la couronne d'arbres reste hors de la carte (des arbres sans collision poussaient dans la cour,
+		# dans le potager et sous le plateau) et pousse sur le sol de décor, haut au nord
+		if L.bounds.grow(3.0).has_point(Vector2(p.x, p.z)):
+			continue
+		p.y = HIGH if p.z < -44.0 else 0.0
 		K.tree(p, 14 + fposmod(float(i) * 3.1, 6.0), i % 3, false)
 
+
+func _crowded_by_solid(base: Vector3, height: float) -> bool:
+	var reach: float = height * 0.046 + 0.35
+	for obstacle: AABB in L.solids:
+		if obstacle.end.y <= base.y + 0.1 or obstacle.position.y > base.y + height * 0.68:
+			continue
+		if Rect2(obstacle.position.x, obstacle.position.z, obstacle.size.x, obstacle.size.z).grow(reach).has_point(Vector2(base.x, base.z)):
+			return true
+	return false
 
 func _level_at(p: Vector2) -> float:
 	for rect in plateaus:
@@ -409,7 +431,7 @@ func _perimeter() -> void :
 		S._rock(Vector3(x, HIGH, -75), Vector3(10, 9, 6), false, tint)
 	for z in range(-60, 61, 12):
 		for x in [-78.0, 78.0]:
-			S._rock(Vector3(x, 0, z), Vector3(6, 9, 10), false, tint)
+			S._rock(Vector3(x, HIGH if z < -44 else 0.0, z), Vector3(6, 9, 10), false, tint)
 	for x in [-66.0, -54.0, 54.0, 66.0]:
 		S._rock(Vector3(x, 0, 68), Vector3(10, 7, 6), false, tint)
 

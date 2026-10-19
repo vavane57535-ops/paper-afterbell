@@ -114,6 +114,8 @@ func blob(pos: Vector3, radii: Vector3, key: String) -> MeshInstance3D:
 func ceiling_lamp(pos: Vector3, energy: float = 0.7, radius: float = 14.0, color: Color = Color("ffd49c"), along_x: bool = true) -> OmniLight3D:
 	deco(Vector3(2.4, 0.12, 0.5) if along_x else Vector3(0.5, 0.12, 2.4), pos, "trim")
 	deco(Vector3(2.2, 0.06, 0.34) if along_x else Vector3(0.34, 0.06, 2.2), pos - Vector3(0, 0.08, 0), "lamp")
+	# 0.17 : la réglette est suspendue au plafond (tiges posées en fin de construction, om_maps._hang_lamps)
+	L.lamp_fixtures.append({"position": pos, "along_x": along_x})
 	var light: OmniLight3D = OmniLight3D.new()
 
 	light.position = pos - Vector3(0, 1.1, 0)
@@ -228,6 +230,10 @@ func locker_island(center: Vector3, length: float, along_x: bool, key: String = 
 	for side in [-1.0, 1.0]:
 		var bench: Vector3 = center + (Vector3(0, 0.25, side * 1.5) if along_x else Vector3(side * 1.5, 0.25, 0))
 		deco(Vector3(length * 0.7, 0.08, 0.4) if along_x else Vector3(0.4, 0.08, length * 0.7), bench + Vector3(0, 0.2, 0), "wood")
+		# 0.17 : pieds du banc (la planche flottait à 41 cm du sol)
+		for t in [-0.28, 0.28]:
+			var foot: Vector3 = bench + (Vector3(t * length, -0.045, 0) if along_x else Vector3(0, -0.045, t * length))
+			deco(Vector3(0.08, 0.41, 0.32) if along_x else Vector3(0.32, 0.41, 0.08), foot, "metal")
 
 func bookshelf(center: Vector3, length: float, along_x: bool, height: float = 2.6, double: bool = true) -> void :
 	var depth: float = 1.1 if double else 0.6
@@ -281,7 +287,7 @@ func long_table(center: Vector3, length: float, along_x: bool = true) -> void :
 	var footprint: Vector3 = Vector3(length, 0.95, 2.4) if along_x else Vector3(2.4, 0.95, length)
 	blocker(footprint, center + Vector3(0, 0.47, 0))
 	deco(Vector3(length, 0.1, 1.2) if along_x else Vector3(1.2, 0.1, length), center + Vector3(0, 0.9, 0), "cream")
-	deco(Vector3(length - 0.3, 0.8, 0.5) if along_x else Vector3(0.5, 0.8, length - 0.3), center + Vector3(0, 0.45, 0), "metal")
+	deco(Vector3(length - 0.3, 0.85, 0.5) if along_x else Vector3(0.5, 0.85, length - 0.3), center + Vector3(0, 0.425, 0), "metal")
 	for side in [-1.0, 1.0]:
 		var p: Vector3 = center + (Vector3(0, 0.45, side * 0.95) if along_x else Vector3(side * 0.95, 0.45, 0))
 		deco(Vector3(length, 0.08, 0.4) if along_x else Vector3(0.4, 0.08, length), p, "blue")
@@ -379,11 +385,12 @@ func swings(center: Vector3, along_x: bool = true) -> void :
 		var foot: Vector3 = center + (Vector3(side * 2.4, 0, 0) if along_x else Vector3(0, 0, side * 2.4))
 		blocker(Vector3(0.4, 2.8, 1.6) if along_x else Vector3(1.6, 2.8, 0.4), foot + Vector3(0, 1.4, 0))
 		for lean in [-1.0, 1.0]:
+			# 0.17 : portique en A (les pieds s'écartent au sol et se rejoignent sous la barre ; il était en V)
 			var leg: MeshInstance3D = deco(Vector3(0.14, 3.0, 0.14), foot + (Vector3(0, 1.45, lean * 0.45) if along_x else Vector3(lean * 0.45, 1.45, 0)), "red")
 			if along_x:
-				leg.rotation.x = lean * 0.3
+				leg.rotation.x = - lean * 0.3
 			else:
-				leg.rotation.z = - lean * 0.3
+				leg.rotation.z = lean * 0.3
 	deco(Vector3(5.0, 0.14, 0.14) if along_x else Vector3(0.14, 0.14, 5.0), center + Vector3(0, 2.9, 0), "red")
 	for t in [-1.0, 1.0]:
 		var seat: Vector3 = center + (Vector3(t, 0, 0) if along_x else Vector3(0, 0, t))
@@ -395,24 +402,96 @@ func swings(center: Vector3, along_x: bool = true) -> void :
 func slide(center: Vector3, facing: String) -> void :
 	solid(Vector3(1.4, 2.4, 1.4), center + Vector3(0, 1.2, 0), "blue")
 	deco(Vector3(1.6, 0.12, 1.6), center + Vector3(0, 2.46, 0), "yellow")
-	var chute_center: Vector3 = center + along(facing, 2.3) + Vector3(0, 1.25, 0)
-	var chute: MeshInstance3D = deco(oriented(0.9, 0.1, 3.6, facing), chute_center, "red")
-	var tilt: float = atan2(2.3, 3.2)
-	if facing == "s": chute.rotation.x = tilt
-	elif facing == "n": chute.rotation.x = - tilt
-	elif facing == "e": chute.rotation.z = - tilt
-	else: chute.rotation.z = tilt
-	blocker(oriented(1.0, 1.2, 2.6, facing), center + along(facing, 2.2) + Vector3(0, 0.6, 0))
+	# 0.17 : la goulotte part du bord de la plateforme et finit au sol (elle flottait à 16 cm), avec ses rebords
+	var top: Vector3 = center + along(facing, 0.7) + Vector3(0, 2.4, 0)
+	var foot: Vector3 = center + along(facing, 3.9) + Vector3(0, 0.06, 0)
+	var length: float = top.distance_to(foot)
+	var tilt: float = atan2(top.y - foot.y, 3.2)
+	var chute_center: Vector3 = (top + foot) * 0.5
+	for part: Array in [[oriented(0.9, 0.1, length + 0.1, facing), Vector3.ZERO, "red"], [oriented(0.07, 0.22, length, facing), along(facing, 0.0, 0.46) + Vector3(0, 0.1, 0), "yellow"], [oriented(0.07, 0.22, length, facing), along(facing, 0.0, -0.46) + Vector3(0, 0.1, 0), "yellow"]]:
+		var piece: MeshInstance3D = deco(part[0], chute_center + part[1], part[2])
+		if facing == "s": piece.rotation.x = tilt
+		elif facing == "n": piece.rotation.x = - tilt
+		elif facing == "e": piece.rotation.z = - tilt
+		else: piece.rotation.z = tilt
+	blocker(oriented(1.0, 1.2, 3.2, facing), center + along(facing, 2.3) + Vector3(0, 0.6, 0))
 
 
 func dome(center: Vector3, radius: float = 2.2) -> void :
 	blocker(Vector3(radius * 1.5, radius * 0.9, radius * 1.5), center + Vector3(0, radius * 0.45, 0))
+	# 0.17 : vraie cage à grimper, quatre arceaux posés au sol qui se croisent au sommet et deux anneaux
+	# (c'étaient deux disques pleins et quatre barres droites suspendus dans le vide)
+	var height: float = radius * 0.9
 	for i in range(4):
-		var arch: MeshInstance3D = deco(Vector3(radius * 2.0, 0.1, 0.1), center + Vector3(0, radius * 0.72, 0), "orange")
-		arch.rotation.y = i * PI / 4
-	for ring in range(2):
-		var hoop: MeshInstance3D = cylinder(center + Vector3(0, 0.6 + ring * 0.8, 0), radius * (0.95 - ring * 0.25), 0.08, "orange")
-		hoop.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		var yaw: float = i * PI / 4
+		for k in range(8):
+			var a0: float = PI * k / 8.0
+			var a1: float = PI * (k + 1) / 8.0
+			bar(center + Vector3(cos(a0) * radius, sin(a0) * height, 0).rotated(Vector3.UP, yaw), center + Vector3(cos(a1) * radius, sin(a1) * height, 0).rotated(Vector3.UP, yaw), 0.08, "orange")
+	for lift in [PI / 6.0, PI / 3.0]:
+		var r: float = cos(lift) * radius
+		var y: float = sin(lift) * height
+		for k in range(16):
+			var b0: float = TAU * k / 16.0
+			var b1: float = TAU * (k + 1) / 16.0
+			bar(center + Vector3(cos(b0) * r, y, sin(b0) * r), center + Vector3(cos(b1) * r, y, sin(b1) * r), 0.06, "orange")
+
+# Barre droite d'un point à un autre (cages, rambardes en biais, compas…).
+func bar(from: Vector3, to: Vector3, thickness: float, key: String) -> MeshInstance3D:
+	var direction: Vector3 = to - from
+	var piece: MeshInstance3D = deco(Vector3(thickness, thickness, direction.length() + thickness * 0.5), (from + to) * 0.5, key)
+	var up: Vector3 = Vector3.UP if absf(direction.normalized().y) < 0.98 else Vector3.RIGHT
+	piece.basis = Basis.looking_at(direction.normalized(), up)
+	return piece
+
+
+# Panier de basket : panneau collé à son support (mur ou poteau), bras et cercle devant (0.17 : le
+# panneau et le cercle flottaient devant le poteau). « face » est le point du support derrière le panneau.
+func basket(face: Vector3, facing: String, rim: float = 3.05, arm: float = 0.0) -> void :
+	var board: Vector3 = Vector3(face.x, rim + 0.3, face.z) + along(facing, arm + 0.05)
+	for y in [-0.35, 0.35]:
+		if arm > 0.0:
+			deco(oriented(0.08, 0.08, arm, facing), Vector3(face.x, rim + 0.3 + y, face.z) + along(facing, arm * 0.5), "metal")
+	deco(oriented(1.8, 1.2, 0.1, facing), board, "chalk")
+	deco(oriented(0.6, 0.45, 0.11, facing), board + Vector3(0, -0.15, 0), "red")
+	deco(oriented(0.3, 0.06, 0.16, facing), Vector3(face.x, rim, face.z) + along(facing, arm + 0.18), "metal")
+	var ring: MeshInstance3D = MeshInstance3D.new()
+	var torus: TorusMesh = TorusMesh.new()
+	torus.inner_radius = 0.21
+	torus.outer_radius = 0.25
+	torus.rings = 18
+	torus.ring_segments = 6
+	ring.mesh = torus
+	ring.material_override = mat("orange")
+	ring.position = Vector3(face.x, rim, face.z) + along(facing, arm + 0.1 + 0.23 + 0.04)
+	S.add_child(ring)
+
+
+# Panneau en bois derrière un texte qui flottait dans le vide ; renvoie le point où poser le texte.
+func board(center: Vector3, facing: String, size: Vector2, key: String = "wood") -> Vector3:
+	deco(oriented(size.x, size.y, 0.08, facing), center, key)
+	deco(oriented(size.x + 0.08, 0.06, 0.1, facing), center + Vector3(0, size.y * 0.5, 0), "trim")
+	return center + along(facing, 0.05)
+
+
+# Petit panneau planté dans le sol (potager, étang…).
+func stake_sign(base: Vector3, facing: String, text_value: String, size: int = 30, color: Color = Color("e7e0d1"), width: float = 1.8) -> void :
+	for side in [-0.42, 0.42]:
+		deco(Vector3(0.09, 1.25, 0.09), base + along(facing, -0.06, side * width) + Vector3(0, 0.625, 0), "wood")
+	var at: Vector3 = board(base + Vector3(0, 1.32, 0), facing, Vector2(width, 0.5))
+	sign_text(text_value, at, facing, size, color)
+
+
+# Pupitre de musique : pied en croix, tige et plateau penché vers le musicien (0.17 : la partition flottait).
+func music_stand(pos: Vector3, facing: String) -> void :
+	deco(oriented(0.5, 0.03, 0.05, facing), pos + Vector3(0, 0.015, 0), "trim")
+	deco(oriented(0.05, 0.03, 0.5, facing), pos + Vector3(0, 0.015, 0), "trim")
+	deco(Vector3(0.035, 0.98, 0.035), pos + Vector3(0, 0.49, 0), "trim")
+	var tilt: Basis = Basis(Vector3.UP, FACING_YAW[facing]) * Basis(Vector3.RIGHT, -0.35)
+	var holder: MeshInstance3D = deco(Vector3(0.6, 0.45, 0.04), pos + Vector3(0, 1.17, 0) - along(facing, 0.05), "trim")
+	holder.basis = tilt
+	var paper: MeshInstance3D = deco(Vector3(0.5, 0.36, 0.012), pos + Vector3(0, 1.18, 0) - along(facing, 0.022), "chalk")
+	paper.basis = tilt
 
 
 func picnic(center: Vector3, along_x: bool = true) -> void :

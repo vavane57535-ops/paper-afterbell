@@ -130,13 +130,17 @@ func _stairs_and_galleries() -> void :
 	for x in [-8.0, 8.0]:
 		L._ramp(Vector3(x, 0, 6), Vector3(x, UP, -12), 4, step)
 		for side in [-1.0, 1.0]:
-			var stringer: MeshInstance3D = K.deco(Vector3(0.3, 0.9, 18.7), Vector3(x + side * 2.1, UP * 0.5 + 0.45, -3), "trim")
+			# 0.17 : le limon s'arrête contre le poteau de la galerie (il le traversait et dépassait du plancher)
+			var stringer: MeshInstance3D = K.deco(Vector3(0.3, 0.9, 18.62), Vector3(x + side * 2.22, UP * 0.5 + 0.45, -2.96), "trim")
 			stringer.rotation.x = atan2(UP, 18.0)
 
 	for x in [-50.0, 50.0]:
 		L._ramp(Vector3(x, 0, 38), Vector3(x, UP, 18), 6, step)
-		var rail: MeshInstance3D = K.deco(Vector3(0.2, 1.0, 20.7), Vector3(x - signf(x) * 3.1, UP * 0.5 + 1.0, 28), "trim")
+		# 0.17 : la rambarde pleine repose sur le bord de l'escalier (elle flottait 50 cm au-dessus) et arrête
+		# vraiment, comme une rambarde
+		var rail: MeshInstance3D = K.deco(Vector3(0.2, 1.0, 20.7), Vector3(x - signf(x) * 3.1, UP * 0.5 + 0.5, 28), "trim")
 		rail.rotation.x = atan2(UP, 20.0)
+		_slanted_solid(Vector3(0.2, 1.0, 20.7), rail.transform)
 
 
 	for span in [Vector2(-12, -10), Vector2(-6, -2), Vector2(2, 6), Vector2(10, 12)]:
@@ -162,6 +166,19 @@ func _stairs_and_galleries() -> void :
 
 
 
+# Collision d'une pièce inclinée (rambarde pleine le long d'un escalier).
+func _slanted_solid(size: Vector3, xform: Transform3D) -> void :
+	var body: StaticBody3D = StaticBody3D.new()
+	body.collision_layer = 1
+	body.collision_mask = 0
+	body.transform = xform
+	var shape: CollisionShape3D = CollisionShape3D.new()
+	var box: BoxShape3D = BoxShape3D.new()
+	box.size = size
+	shape.shape = box
+	body.add_child(shape)
+	S.add_child(body)
+
 func _library() -> void :
 
 	for x in [-48.0, -42.0, -36.0, -30.0, -24.0]:
@@ -186,12 +203,14 @@ func _circle_class() -> void :
 
 	K.table(Vector3(0, 0, -37), Vector2(3.6, 1.4), "red")
 	K.chair(Vector3(0, 0, -38.6), "s")
-	var compass_leg: MeshInstance3D = K.deco(Vector3(0.18, 3.2, 0.1), Vector3(-16.6, 2.4, -38), "metal")
-	compass_leg.rotation.x = 0.35
-	compass_leg.rotation.y = PI * 0.5
-	var compass_leg2: MeshInstance3D = K.deco(Vector3(0.18, 3.2, 0.1), Vector3(-16.6, 2.4, -36), "red")
-	compass_leg2.rotation.x = -0.35
-	compass_leg2.rotation.y = PI * 0.5
+	# 0.17 : le grand compas du tableau est accroché à plat contre le mur (ses branches flottaient à 0,9 m)
+	var hinge: Vector3 = Vector3(-17.68, 3.55, -37.0)
+	K.bar(hinge, Vector3(-17.68, 1.25, -38.15), 0.1, "metal")
+	K.bar(hinge, Vector3(-17.68, 1.45, -35.9), 0.1, "red")
+	K.bar(Vector3(-17.68, 1.45, -35.9), Vector3(-17.68, 1.18, -35.8), 0.07, "yellow")
+	K.bar(hinge, hinge + Vector3(0, 0.32, 0), 0.06, "trim")
+	var pivot: MeshInstance3D = K.cylinder(hinge + Vector3(0.02, 0, 0), 0.13, 0.06, "trim")
+	pivot.rotation.z = PI * 0.5
 
 	for x in [-12.0, -8.0, -4.0, 4.0, 8.0, 12.0]:
 		for z in [-32.0, -28.0, -24.0]:
@@ -230,7 +249,7 @@ func _thavel_class() -> void :
 			K.desk(Vector3(x, 0, z), "w")
 	K.bookshelf(Vector3(-24, 0, -16.9), 7.0, true, 2.2, false)
 	K.table(Vector3(-50, 0, -15), Vector2(3.0, 1.2), "wood")
-	K.poster(Vector3(-40, 2.6, -0.25), "n", Vector2(2.4, 1.4), "blue")
+	K.poster(Vector3(-48.5, 2.6, -0.25), "n", Vector2(2.4, 1.4), "blue")
 	K.poster(Vector3(-30, 2.6, -0.25), "n", Vector2(1.4, 1.8), "yellow")
 	K.window(Vector3(-53.75, 3.4, -15), "e", 2.4, 1.3)
 	K.ceiling_lamp(Vector3(-36, 4.3, -9), 0.6, 15)
@@ -240,7 +259,12 @@ func _infirmary() -> void :
 	for x in [-50.0, -44.0]:
 		K.solid(Vector3(2.0, 0.7, 3.0), Vector3(x, 0.35, 14), "chalk")
 		K.deco(Vector3(1.8, 0.2, 0.8), Vector3(x, 0.8, 15.1), "cream")
-		K.deco(Vector3(0.05, 2.4, 3.0), Vector3(x + 1.6, 1.4, 14), "pink")
+		# 0.17 : le rideau pend à une tringle sur deux montants (il flottait seul au-dessus du sol)
+		K.deco(Vector3(0.05, 2.28, 2.9), Vector3(x + 1.6, 1.44, 14), "pink")
+		K.deco(Vector3(0.05, 0.05, 3.1), Vector3(x + 1.6, 2.6, 14), "metal")
+		for z in [12.5, 15.5]:
+			K.deco(Vector3(0.05, 2.6, 0.05), Vector3(x + 1.6, 1.3, z), "metal")
+			K.deco(Vector3(0.42, 0.04, 0.06), Vector3(x + 1.6, 0.02, z), "metal")
 	K.solid(Vector3(3.0, 2.2, 0.6), Vector3(-26, 1.1, 17.4), "chalk")
 	K.deco(Vector3(0.9, 0.24, 0.04), Vector3(-26, 1.7, 17.08), "red")
 	K.deco(Vector3(0.24, 0.9, 0.04), Vector3(-26, 1.7, 17.08), "red")
@@ -265,7 +289,7 @@ func _art_room() -> void :
 		var splash: MeshInstance3D = K.deco(Vector3(1.2, 0.012, 0.8), Vector3(24 + i * 5, 0.02, -4 - (i % 3) * 3), ["red", "blue", "yellow"][i % 3])
 		splash.rotation.y = i * 0.9
 	for i in range(4):
-		K.poster(Vector3(24 + i * 8, 2.5, -17.75), "s", Vector2(2.0, 1.5), ["pink", "blue", "yellow", "green"][i], 1)
+		K.poster(Vector3([23.5, 30.5, 46.5, 51.5][i], 2.5, -17.75), "s", Vector2(2.0, 1.5), ["pink", "blue", "yellow", "green"][i], 1)
 	K.sign_text("ATELIER D'ART", Vector3(53.7, 3.3, -9), "w", 36, Color("f1d7a8"))
 	K.ceiling_lamp(Vector3(36, 4.3, -9), 0.6, 15)
 
@@ -286,9 +310,9 @@ func _gym() -> void :
 	K.deco(Vector3(0.1, 0.012, 14), Vector3(-34, 0.025, 27.5), line)
 	var circle: MeshInstance3D = K.cylinder(Vector3(-34, 0.02, 27.5), 2.4, 0.012, "orange")
 	circle.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	K.deco(Vector3(0.2, 3.6, 0.2), Vector3(-19.5, 1.8, 27.5), "metal")
-	K.deco(Vector3(0.1, 1.2, 1.8), Vector3(-19.9, 3.6, 27.5), "chalk")
-	K.cylinder(Vector3(-20.6, 3.1, 27.5), 0.35, 0.05, "orange")
+	# 0.17 : panier fixé au mur du fond (l'ancien poteau était planté devant la porte du gymnase,
+	# panneau et cercle flottant devant lui)
+	K.basket(Vector3(-53.75, 0, 27.5), "e", 3.05, 0.6)
 
 	for i in range(3):
 		L._floor(Rect2(-44, 35 + i * 2, 20, 6.75 - i * 2), 0.8 * (i + 1), L._wood, 0.3, true)
@@ -307,10 +331,10 @@ func _lobby() -> void :
 	for side in [-1.0, 1.0]:
 		K.pillar(Vector3(side * 12, 0, 26), 9.6, 1.2, "wall")
 		K.pillar(Vector3(side * 12, 0, 36), 9.6, 1.2, "wall")
-		K.bench(Vector3(side * 16.6, 0, 26), 4.0, false)
+		K.bench(Vector3(side * 16.6, 0, 23.5), 4.0, false)
 		K.plant(Vector3(side * 16.4, 0, 40.4), 1.2)
 		K.plant(Vector3(side * 6.5, 0, 40.4), 0.9)
-		K.notice_board(Vector3(side * 17.75, 2.2, 33), "w" if side > 0 else "e")
+		K.notice_board(Vector3(side * 17.75, 2.2, 37.5), "w" if side > 0 else "e")
 		K.window(Vector3(side * 13, 6.6, 41.75), "n", 5.0, 3.6)
 	K.trophy_case(Vector3(0, 0, 18.7), "s", 5.6)
 	K.sign_text("ÉCOLE FONDAMENTALE", Vector3(0, 7.6, 41.7), "n", 70, Color("f3e3c0"))
@@ -350,19 +374,26 @@ func _atrium() -> void :
 	K.deco(Vector3(4.3, 0.12, 4.3), Vector3(0, 1.05, -4), "trim")
 	for i in range(3):
 		K.deco(Vector3(3.0 - i * 0.4, 0.5, 2.2 - i * 0.2), Vector3(0, 1.3 + i * 0.5, -4), ["blue", "yellow", "red"][i])
-	K.blob(Vector3(0, 3.6, -4), Vector3(1.1, 1.0, 1.1), "red")
-	K.cylinder(Vector3(0, 4.7, -4), 0.07, 0.5, "wood")
-	var leaf: MeshInstance3D = K.blob(Vector3(0.35, 4.85, -4), Vector3(0.35, 0.08, 0.18), "leaf")
+	K.blob(Vector3(0, 3.5, -4), Vector3(1.1, 1.0, 1.1), "red")
+	K.cylinder(Vector3(0, 4.6, -4), 0.07, 0.5, "wood")
+	var leaf: MeshInstance3D = K.blob(Vector3(0.35, 4.75, -4), Vector3(0.35, 0.08, 0.18), "leaf")
 	leaf.rotation.z = 0.4
 	K.sign_text("ÉDUCATION FONDAMENTALE", Vector3(0, 1.2, -1.93), "s", 26, Color("e8dcc4"))
 
 	K.clock(Vector3(0, 7.4, -17.75), "s", 1.1)
 	K.sign_text("NE RESTEZ JAMAIS SEULS", Vector3(0, 5.9, -17.7), "s", 34, Color("e0cfb0"))
 
-	for i in range(5):
-		var banner: MeshInstance3D = K.deco(Vector3(1.0, 1.0, 0.03), Vector3(-8 + i * 4, 8.2 - absf(i - 2) * 0.2, 0), ["red", "yellow", "blue", "yellow", "red"][i])
+	# 0.17 : guirlande tendue d'un mur à l'autre, fanions accrochés à la ficelle (le fil s'arrêtait dans le vide
+	# et les fanions des bouts flottaient dessous)
+	var sag: Callable = func(x: float) -> float: return 8.95 - 0.6 * (1.0 - pow(x / 17.75, 2.0))
+	for k in range(14):
+		var x0: float = -17.75 + k * 35.5 / 14.0
+		var x1: float = -17.75 + (k + 1) * 35.5 / 14.0
+		K.bar(Vector3(x0, sag.call(x0), 0), Vector3(x1, sag.call(x1), 0), 0.035, "trim")
+	for i in range(9):
+		var x: float = -14.0 + i * 3.5
+		var banner: MeshInstance3D = K.deco(Vector3(0.8, 0.8, 0.03), Vector3(x, sag.call(x) - 0.55, 0), ["red", "yellow", "blue"][i % 3])
 		banner.rotation.z = PI / 4
-	K.deco(Vector3(22, 0.04, 0.04), Vector3(0, 8.7, 0), "trim")
 	K.ceiling_lamp(Vector3(0, 9.3, 0), 0.9, 20)
 	K.accent_light(Vector3(0, 3.2, -1.5), Color("ffb08a"), 0.5, 6.0)
 
@@ -374,7 +405,7 @@ func _corridor() -> void :
 		K.lockers(Vector3(wall_x, 0, -16), Vector3(wall_x, 0, -12.5), facing, "blue", true)
 		K.lockers(Vector3(wall_x, 0, -5.5), Vector3(wall_x, 0, 5.5), facing, "red" if side > 0 else "blue", true)
 		K.lockers(Vector3(wall_x, 0, 12.5), Vector3(wall_x, 0, 16), facing, "blue", true)
-		K.poster(Vector3(side * 8, 2.4, -17.75), "s", Vector2(1.2, 1.6), "yellow" if side > 0 else "pink")
+		K.poster(Vector3(side * 3.6, 2.4, -17.75), "s", Vector2(1.2, 1.6), "yellow" if side > 0 else "pink")
 		K.notice_board(Vector3(side * 15, 2.2, -17.75), "s", 2.0)
 	K.sign_text("← BIBLIOTHÈQUE · CLASSE · CANTINE →", Vector3(0, 3.5, -17.7), "s", 26)
 
@@ -398,8 +429,8 @@ func _principal_office() -> void :
 	for z in [-36.0, -28.0]:
 		K.poster(Vector3(-53.75, y + 2.6, z), "e", Vector2(1.5, 2.0), "dark", 0)
 		K.deco(Vector3(0.04, 1.6, 1.1), Vector3(-53.66, y + 2.6, z), "cream")
-	K.sign_text("BUREAU DU PRINCIPAL", Vector3(-18.3, y + 3.2, -30), "w", 32, Color("e0cfa8"))
-	K.sign_text("ALICE\nDON'T GO THERE", Vector3(-36, y + 2.7, -41.0), "s", 46, Color("cc5968"))
+	K.sign_text("BUREAU DU PRINCIPAL", Vector3(-17.7, y + 3.5, -30), "e", 32, Color("e0cfa8"))
+	K.sign_text("ALICE\nDON'T GO THERE", Vector3(-36, y + 2.7, -41.72), "s", 46, Color("cc5968"))
 	K.ceiling_lamp(Vector3(-36, 9.2, -30), 0.55, 15, Color("ff9a8a"))
 	K.accent_light(Vector3(-36, y + 1.2, -34), Color("d13a4a"), 0.35, 7.0)
 
@@ -423,13 +454,15 @@ func _music_room() -> void :
 	K.solid(Vector3(3.2, 1.0, 2.0), Vector3(30, y + 0.5, -34), "dark")
 	K.deco(Vector3(3.3, 0.08, 2.1), Vector3(30, y + 1.02, -34), "trim")
 	K.deco(Vector3(3.0, 0.05, 0.4), Vector3(30, y + 0.96, -32.8), "chalk")
-	var lid: MeshInstance3D = K.deco(Vector3(3.0, 0.06, 1.8), Vector3(30, y + 1.7, -34.6), "dark")
-	lid.rotation.x = -0.6
+	# 0.17 : couvercle charnière sur le grand côté, ouvert et tenu par sa béquille (il flottait derrière le piano)
+	var lid: MeshInstance3D = K.deco(Vector3(3.0, 0.06, 1.8), Vector3(28.4 + 1.5 * cos(0.38), y + 1.09 + 1.5 * sin(0.38), -34), "dark")
+	lid.rotation.z = 0.38
+	K.deco(Vector3(0.05, 1.0, 0.05), Vector3(31.0, y + 1.56, -33.5), "trim")
 	for i in range(5):
 		var angle: float = -0.8 + i * 0.4
 		var p: Vector3 = Vector3(42 + sin(angle) * 6, y, -30 + cos(angle) * 6)
 		K.chair(p, "n")
-		K.deco(Vector3(0.6, 0.45, 0.04), p + Vector3(0, 1.2, -0.8), "trim")
+		K.music_stand(p + Vector3(0, 0, -0.75), "s")
 	K.cylinder(Vector3(48, y + 0.45, -38), 0.7, 0.9, "red")
 	K.chalkboard(Vector3(53.75, y + 2.3, -30), "w", 7, "♪ SALLE DE MUSIQUE ♪\nDO RÉ MI FA SOL")
 	K.window(Vector3(28, y + 2.6, -41.75), "s", 3.0, 2.0)
