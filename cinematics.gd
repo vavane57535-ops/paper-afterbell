@@ -103,6 +103,7 @@ var _dark: bool = false
 
 var victory: RefCounted = VictoryFilm.new()
 var blocus: PaperFilmBlocus
+var escape: PaperFilmEscape
 
 
 
@@ -118,7 +119,7 @@ static func duration_for(film: String, names: Array = []) -> float:
 		"ending_killer": return 10.6
 		PaperFilmExecutionEnd.KIND: return PaperFilmExecutionEnd.DURATION
 		PaperFilmBlocus.KIND: return PaperFilmBlocus.DURATION
-		_: return float(_team_schedule(names).duration)
+		_: return PaperFilmEscape.duration_for(names)
 
 static func catalogue() -> Array[Dictionary]:
 	var rows: Array[Dictionary] = []
@@ -263,6 +264,7 @@ func stop() -> void :
 			visual.hide()
 			if visual is PaperVisual: (visual as PaperVisual).mood_override = ""
 	cast.clear();takes.clear();people.clear();props = null;alice_index = -1;blocus = null
+	escape = null
 	_track.clear();_shots.clear();_flights.clear();_door.clear();_blackouts.clear();_spots.clear()
 	hide();kind = "";last_shot = -1;caption = "";chapter = "";_time = -1.0;_trauma = 0.0;_open_fade = Vector2(0.0, 0.28)
 	var comic: Node = _comic() if world else null
@@ -311,6 +313,7 @@ func update(t: float, delta: float) -> void :
 	_hide_exit_ring()
 	if victory.active: victory.update(t, delta)
 	if is_instance_valid(blocus): blocus.update(t, delta)
+	if is_instance_valid(escape): escape.update(t, delta)
 
 
 # Anneau doré de la sortie (map_interactables) : jamais dans un film (fuite en équipe, victoire
@@ -787,105 +790,8 @@ func _alice_misses(t: float, target: int, hop: Vector3 = Vector3(0, 0, 0.95)) ->
 
 
 func _write_escape() -> void :
-	var a: int = alice_index
-	var schedule: Dictionary = _team_schedule(people)
-	var lead: int = people.find(str(schedule.lead))
-	var first: float = float(schedule.first)
-	var run: float = float(schedule.run)
-	var arrive: float = float(schedule.arrive)
-
-	var front: Array[int] = []
-	var back: Array[int] = []
-	for person: String in FRONT:
-		if person in people: front.append(people.find(person))
-	for person: String in ["Elly", "Bleuette"]:
-		if person in people: back.append(people.find(person))
-	if front.is_empty():
-		front = back.duplicate()
-		back.clear()
-	var half: float = float(front.size() - 1) * 0.5 * 1.4
-	for k: int in range(front.size()):
-		var x: float = float(k) * 1.4 - half
-		_put(front[k], Vector3(x, 0, -0.25))
-		_move(front[k], 0.0, 1.05, Vector3(x, 0, 0.5))
-	for k: int in range(back.size()):
-		var flank: float = -1.0 if (people[back[k]] == "Elly") == (back.size() > 1 or true) else 1.0
-		if back.size() == 1: flank = 1.0 if front.size() % 2 == 1 else -1.0
-		var x: float = flank * (half + 1.45)
-		_put(back[k], Vector3(x, 0, 0.6))
-		_move(back[k], 0.0, 1.1, Vector3(x, 0, 1.25))
-	for i: int in range(people.size()):
-		_face(i, 0.0, "at", a)
-		_do(i, 0.0, "state", {"chased": 3.0})
-
-	_put(a, Vector3(_spots[lead].x * 0.4, 0, -6.6))
-	_face(a, 0.0, "at", lead)
-	_move(a, 0.0, 1.1, Vector3(_spots[lead].x * 0.6, 0, -2.3), "smooth")
-	_shot(0.0, {"rel": {"a": a}, "eye": [Vector3(1.25, 0.85, -2.3), Vector3(0.8, 1.05, -1.6)], "look": [{"group": true, "h": 1.15}, {"a": lead, "h": 1.2}], "fov": [42, 46], "hand": 0.5})
-	var busy: float = _answer(lead, first)
-
-	var side: float = 1.0
-	var plays: Array = schedule.plays
-	for index: int in range(plays.size()):
-		var who: int = people.find(str(plays[index][0]))
-		var at: float = float(plays[index][1])
-		var supports: bool = people[who] in ["Elly", "Bleuette"]
-
-		if supports and busy < at - 0.2 and index > 0:
-			_alice_misses(at + 0.1, front[index % front.size()])
-			busy = at + 0.5
-		side = - side
-		_frame_play(at, who, side)
-		busy = maxf(busy, _strike(who, at, busy))
-
-	for i: int in range(people.size()):
-		var row: int = i / 3
-		var in_row: int = mini(3, people.size() - row * 3)
-		var lane: float = (float(i % 3) - float(in_row - 1) * 0.5) * 1.2 + (0.55 if row > 0 else 0.0)
-		var leave: float = run + 0.07 * float(i)
-		_do(i, leave, "unset", ["emote_id", "emote_time"])
-		_do(i, leave, "emote", "")
-		_face(i, leave, "move")
-		_move(i, leave, arrive + 0.1 * float(i % 3) + 0.14 * float(row), Vector3(lane, 0, _length + BEYOND - float(row) * 1.05), "run")
-		var stop: float = arrive + 0.1 * float(i % 3) + 0.14 * float(row)
-		_do(i, stop - 0.1, "unset", ["chased"])
-		_face(i, stop - 0.25, "dir", Vector3(0.2 * sin(float(i) * 2.1), 0, -1))
-		_do(i, stop + 0.55 + 0.1 * float(i), "emote", str(VICTORY.get(people[i], "cheer")))
-		_do(i, stop + 0.55 + 0.1 * float(i), "mood", "grin")
-	_cue(run + 0.1, "rush", 0.85)
-	_cue(run + 0.05, "sound", "boost", {"group": true}, 0.7)
-	_cue(arrive + 0.6, "event", "escaped", {"position": {"group": true}})
-	_cue(arrive + 0.6, "sound", "encourage", {"group": true})
-	_cue(arrive + 0.75, "sparkles", {"group": true, "h": 1.5}, GOLD, 8, 1.4)
-	_cue(arrive + 0.6, "pulse", Color(1.0, 0.92, 0.6, 0.3), 1.2)
-
-	var free: float = clampf(busy, run + 0.25, run + 0.85)
-	_do(a, free, "stun", false)
-	_do(a, free, "unset", ["blind"])
-	_face(a, free, "dir", Vector3(0, 0, 1))
-	if busy < run:
-
-		_do(a, run + 0.05, "trigger", "slash")
-		_cue(run + 0.2, "word", "miss", {"a": a, "h": 2.2, "o": Vector3(0, 0, 1.2)}, PAPER, 0.9)
-		_move(a, run + 0.5, run + 1.5, _spots[a] + Vector3(0, 0, 3.2))
-		free = run + 1.5
-	else:
-		_move(a, free + 0.1, free + 0.8, _spots[a] + Vector3(0, 0, 1.4))
-		free += 0.8
-	var tantrum: float = maxf(free + 0.05, arrive - 0.75)
-	_do(a, tantrum, "trigger", "fury")
-	_cue(tantrum + 0.64, "shake", 0.5)
-	_cue(tantrum + 0.9, "word", "roar", {"a": a, "h": 2.5}, CRIMSON, 1.3)
-	_cue(tantrum + 0.9, "impact", 0.7, true)
-	_cue(tantrum + 0.9, "sound", "shadow", {"a": a}, 0.8, 0.8)
-
-	var ahead: float = 3.0 + 0.3 * float(people.size())
-	_shot(run, {"rel": {"group": true}, "eye": [Vector3(0.8, 0.55, ahead + 0.5), Vector3(0.5, 0.65, ahead)], "look": {"group": true, "h": 1.05}, "fov": [54, 58], "hand": 0.8})
-	_shot(run + 0.95, {"rel": {"group": true}, "eye": [Vector3(-3.9, 1.25, 1.2), Vector3(-3.4, 1.1, 2.6)], "look": {"group": true, "h": 1.1}, "fov": 47, "hand": 0.7})
-	_shot(tantrum + 0.25, {"rel": {"a": a}, "eye": [Vector3(1.5, 0.6, 2.9), Vector3(1.1, 0.75, 2.3)], "look": {"a": a, "h": 1.25}, "fov": [38, 34], "hand": 0.4})
-	var wide: float = 2.5 + 0.32 * float(people.size())
-	_shot(maxf(arrive + 0.45, tantrum + 1.75), {"rel": {"group": true}, "eye": [Vector3(1.3, 1.25, - wide - 0.5), Vector3(0.9, 1.35, - wide)], "look": {"group": true, "h": 1.1}, "fov": [47, 43], "hand": 0.3})
-	_shot(duration - 1.25, {"rel": {"group": true}, "eye": [Vector3(-1.9, 2.0, 3.4), Vector3(-1.7, 2.1, 3.8)], "look": [{"group": true, "h": 1.3}, {"a": a, "h": 1.4}], "fov": [36, 30], "hand": 0.2})
+	# 0.17 : film écrit de A à Z dans film_escape.gd (clips de anim_set_film_escape.gd).
+	escape = PaperFilmEscape.new();add_child(escape);escape.write(self)
 
 
 
