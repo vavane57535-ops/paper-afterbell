@@ -426,6 +426,8 @@ func _run() -> void :
 		await _wait(0.3)
 		await _menu("lobby_training", func() -> void : ui.show_lobby(), 1.2)
 		world.set_room_option("mode", "match")
+		# Choix de la carte depuis le salon (« On joue où ? »).
+		await _menu("lobby_maps", func() -> void : ui.show_maps(), 1.2)
 		world.quit_to_menu()
 		await _wait(0.8)
 	if "settings" in screens:
