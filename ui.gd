@@ -1521,7 +1521,7 @@ func _fill_info(person: String) -> void :
 	passive_body.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	passive_body.custom_minimum_size.x = 230
 	passive_text.add_child(passive_body)
-	if person == "Lysia": _paragraph("Prix prévu : 700. Gratuite pendant l’alpha, pour que tu puisses l’essayer.", setup_info, 12, T.INK_MUTED)
+	if person == "Lysia": _paragraph("Prix prévu : 700. Gratuite pendant l’alpha.", setup_info, 12, T.INK_MUTED)
 	if PaperLanguage.language == "en": PaperLanguage.apply_tree(setup_info)
 	var scroll: ScrollContainer = setup_info.get_parent() as ScrollContainer
 	if scroll: _fit_dossier.call_deferred(scroll)

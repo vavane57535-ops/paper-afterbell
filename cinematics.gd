@@ -136,7 +136,8 @@ static func catalogue() -> Array[Dictionary]:
 		if "Simon" in team: parts.append("Simon lance sa flashbang")
 		if "Ashura" in team: parts.append("Ashura envoie son drone")
 		if "Usayuko" in team: parts.append("Usayuko frappe Alice")
-		if "Lysia" in team: parts.append("Lysia repousse Alice")
+		# « Usayuko frappe Alice, Lysia la repousse » plutôt que de répéter « Alice ».
+		if "Lysia" in team: parts.append("Lysia la repousse" if "Usayuko" in team else "Lysia repousse Alice")
 		if "Elly" in team: parts.append("Elly soigne ceux qui en ont besoin" if team.size() > 1 else "Elly esquive et pose sa zone de soin")
 		if "Bleuette" in team: parts.append("Bleuette encourage l’équipe" if team.size() > 1 else "Bleuette esquive et se donne du courage")
 		# « A, B et C », puis la fuite : seul(e), à deux ou en groupe.
