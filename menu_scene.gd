@@ -1,11 +1,19 @@
 extends Node3D
 
 # Scène de survol de l'écran titre (ui_menu_vignettes.gd) : un décor, des acteurs et des
-# « temps forts » (beats) de 8 à 20 s. Chaque temps fort joue pour chaque acteur un clip
-# écrit à la main pour lui (anim_set_menu.gd), une piste de caméra et des événements
-# (lumières, accessoires). Les temps forts s'enchaînent au hasard, jamais deux fois le
-# même de suite ; ils partent tous de la même pose de repos et y reviennent, ou se
-# terminent par un fondu au noir qui cache le retour.
+# « temps forts » (beats) de 20 à 40 s, chacun une petite histoire complète. Chaque temps fort
+# joue pour chaque acteur un clip écrit à la main pour lui (anim_menu_<scène>.gd, réunis par
+# anim_set_menu.gd), une piste de caméra et des événements (lumières, accessoires). Les temps
+# forts s'enchaînent au hasard, jamais deux fois le même de suite ; ils partent de la même
+# composition et y reviennent, et le retour est caché par un fondu ou un changement de plan.
+#
+# Clés d'un temps fort :
+#   id, len, weight (0 = jamais tiré au hasard), next (id ou liste d'ids à enchaîner),
+#   clips {acteur: clip}, homes {acteur: [position, lacet]}, hidden [acteurs absents],
+#   vis {acteur: [[t, visible], ...]}, reach [[acteur, côté, t0, t1, cible, {in, out, w, offset}], ...],
+#   fade_in / fade_out (secondes de fondu au noir au début / à la fin), cam, events.
+# Un clip peut porter la piste de sa racine (« root », anim_menu_take.gd) : l'acteur suit alors
+# cette piste dans le décor, pieds plantés par le clip.
 #
 # Piste de caméra : [t, œil, cible, fov, options] ; options : "cut" (nouveau plan),
 # "stop" (arrêt net sur la clé), "linear", "shake" (caméra à l'épaule), "x" (place de la
@@ -16,6 +24,8 @@ extends Node3D
 # + décalage : ["simon:head", Vector3(0, 0, 0.1)].
 
 const MenuKit = preload("res://menu_scene_kit.gd")
+const AnimTake = preload("res://anim_menu_take.gd")
+const AnimSetMenu = preload("res://anim_set_menu.gd")
 
 
 var engine: Node
@@ -33,13 +43,17 @@ var beat: Dictionary = {}
 var beat_time: float = 0.0
 var beat_count: int = 0
 var forced_beat: String = ""
+# Fondu au noir des raccords de boucle (0 = image, 1 = noir), ajouté au « dip » de l'étalonnage.
+var fade_dip: float = 0.0
+# Sources des clips de la scène (nom complet « clip@Perso » → source), générées à la construction.
+var sources: Dictionary = {}
 var _steps: Array = []
 var _event_cursor: int = 0
 var _last_beat: String = ""
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
-var _cam_cache: Array = []
-var _cam_cache_beat: String = ""
 var _shown: bool = false
+var _first_beat: bool = true
+var _roots: Dictionary = {}
 
 # --- À redéfinir --------------------------------------------------------------
 
@@ -55,6 +69,10 @@ func reset_state() -> void :
 func update(_beat_id: String, _t: float, _dt: float) -> void :
 	pass
 
+# Après l'animation des acteurs (accessoires posés sur une main, par exemple).
+func after_animate(_beat_id: String, _t: float, _dt: float) -> void :
+	pass
+
 # --- Construction -------------------------------------------------------------
 
 func setup(owner_engine: Node) -> void :
@@ -62,6 +80,8 @@ func setup(owner_engine: Node) -> void :
 	_rng.randomize()
 	visible = false
 	_steps = build_steps()
+	# Les clips se génèrent une fois les acteurs construits (mesures du squelette), un par image.
+	_steps.append(_queue_clips)
 	_steps.append(_finish_build)
 
 func build_next() -> bool:
@@ -70,6 +90,20 @@ func build_next() -> bool:
 	var step: Callable = _steps.pop_front()
 	step.call()
 	return built
+
+func _queue_clips() -> void :
+	var rigs: Dictionary = {}
+	for key: String in actors: rigs[key] = AnimTake.rig_of(actors[key])
+	var writers: Array = AnimSetMenu.writers(id, rigs)
+	var at: int = 0
+	for writer: Callable in writers:
+		_steps.insert(at, _write_clips.bind(writer))
+		at += 1
+
+func _write_clips(writer: Callable) -> void :
+	var made: Dictionary = writer.call()
+	AnimSetMenu.install(made)
+	sources.merge(made, true)
 
 func _finish_build() -> void :
 	built = true
@@ -110,23 +144,27 @@ static func set_layers(node: Node, mask: int) -> void :
 
 func enter() -> void :
 	_shown = true
+	_first_beat = true
 	_start_beat(_pick_beat())
 
 func leave() -> void :
 	_shown = false
 
-func _pick_beat() -> Dictionary:
+func _pick_beat(among: Array = []) -> Dictionary:
 	if beats.is_empty(): return {}
 	if not forced_beat.is_empty():
 		for candidate: Dictionary in beats:
 			if str(candidate.id) == forced_beat: return candidate
-	var pool: Array = beats.filter(func(b: Dictionary) -> bool: return str(b.id) != _last_beat and not bool(b.get("only_after", false)))
+	var pool: Array = []
+	if among.is_empty(): pool = beats.filter(func(b: Dictionary) -> bool: return str(b.id) != _last_beat and float(b.get("weight", 1.0)) > 0.0)
+	else: pool = beats.filter(func(b: Dictionary) -> bool: return among.has(str(b.id)) and (str(b.id) != _last_beat or among.size() == 1))
+	if pool.is_empty(): pool = beats.filter(func(b: Dictionary) -> bool: return float(b.get("weight", 1.0)) > 0.0)
 	if pool.is_empty(): pool = beats.duplicate()
 	var total: float = 0.0
-	for candidate: Dictionary in pool: total += float(candidate.get("weight", 1.0))
+	for candidate: Dictionary in pool: total += maxf(float(candidate.get("weight", 1.0)), 0.001)
 	var roll: float = _rng.randf() * total
 	for candidate: Dictionary in pool:
-		roll -= float(candidate.get("weight", 1.0))
+		roll -= maxf(float(candidate.get("weight", 1.0)), 0.001)
 		if roll <= 0.0: return candidate
 	return pool[pool.size() - 1]
 
@@ -135,20 +173,26 @@ func _start_beat(next: Dictionary) -> void :
 	beat_time = 0.0
 	beat_count += 1
 	_event_cursor = 0
+	_roots.clear()
 	if beat.is_empty(): return
 	_last_beat = str(beat.id)
 	reset_state()
 	var places: Dictionary = beat.get("homes", {})
+	var clips: Dictionary = beat.get("clips", {})
 	for key: String in actors:
 		var visual: PaperVisual = actors[key]
 		var home: Array = places.get(key, homes[key])
 		visual.position = home[0]
 		visual.rotation.y = float(home[1])
 		visual.visible = not (beat.get("hidden", []) as Array).has(key)
-	var clips: Dictionary = beat.get("clips", {})
-	for key: String in clips:
-		if actors.has(key): (actors[key] as PaperVisual).play(str(clips[key]))
-	_cam_cache_beat = ""
+		if clips.has(key):
+			var full: String = str(clips[key]) + "@" + str(visual.character_name)
+			var source: Dictionary = sources.get(full, {})
+			if source.has("root"): _roots[key] = source.root
+			visual.play(str(clips[key]))
+	_place_roots()
+	_apply_visibility()
+	_update_fade()
 
 func tick(dt: float) -> void :
 	if beat.is_empty(): return
@@ -156,11 +200,13 @@ func tick(dt: float) -> void :
 	var length: float = float(beat.len)
 	if beat_time >= length:
 		var carry: float = beat_time - length
-		var following: String = str(beat.get("next", ""))
+		var following: Variant = beat.get("next", "")
 		var chosen: Dictionary = {}
-		if not following.is_empty():
+		if following is Array and not (following as Array).is_empty(): chosen = _pick_beat(following)
+		elif following is String and not (following as String).is_empty():
 			for candidate: Dictionary in beats:
 				if str(candidate.id) == following: chosen = candidate
+		_first_beat = false
 		_start_beat(chosen if not chosen.is_empty() else _pick_beat())
 		beat_time = carry
 	var events: Array = beat.get("events", [])
@@ -168,9 +214,16 @@ func tick(dt: float) -> void :
 		(events[_event_cursor][1] as Callable).call()
 		_event_cursor += 1
 	update(str(beat.id), beat_time, dt)
+	_place_roots()
+	_apply_visibility()
+	var hidden: Array = beat.get("hidden", [])
 	for key: String in actors:
-		var visual: PaperVisual = actors[key]
-		if visual.visible: visual.animate(dt, Vector3.ZERO, false, false)
+		# Un acteur caché le temps d'un plan continue son clip (il réapparaît au bon instant).
+		if hidden.has(key): continue
+		(actors[key] as PaperVisual).animate(dt, Vector3.ZERO, false, false)
+	_apply_reaches()
+	after_animate(str(beat.id), beat_time, dt)
+	_update_fade()
 
 # Avance sans rendu (captures, retour sur un temps fort précis).
 func fast_forward(seconds: float, step: float = 1.0 / 30.0) -> void :
@@ -179,6 +232,88 @@ func fast_forward(seconds: float, step: float = 1.0 / 30.0) -> void :
 		var dt: float = minf(step, left)
 		tick(dt)
 		left -= dt
+
+func _place_roots() -> void :
+	for key: String in _roots:
+		var visual: PaperVisual = actors[key]
+		var at: Array = AnimTake.root_sample(_roots[key], beat_time)
+		visual.position = at[0]
+		visual.rotation.y = float(at[1])
+
+func _apply_visibility() -> void :
+	var vis: Dictionary = beat.get("vis", {})
+	for key: String in vis:
+		if not actors.has(key): continue
+		var shown: bool = (actors[key] as Node3D).visible
+		for entry: Array in vis[key]:
+			if float(entry[0]) <= beat_time: shown = bool(entry[1])
+			else: break
+		(actors[key] as Node3D).visible = shown
+
+func _update_fade() -> void :
+	var length: float = float(beat.get("len", 1.0))
+	var fade_in: float = float(beat.get("fade_in", 0.0))
+	var fade_out: float = float(beat.get("fade_out", 0.0))
+	var dip: float = 0.0
+	# Premier temps fort après le survol : la vignette apparaît déjà en fondu.
+	if fade_in > 0.0 and not _first_beat: dip = 1.0 - smoothstep(0.0, fade_in, beat_time)
+	if fade_out > 0.0: dip = maxf(dip, smoothstep(length - fade_out, length, beat_time))
+	fade_dip = dip
+
+# Contacts précis : la main d'un acteur rejoint une cible (prise d'un autre acteur, accessoire,
+# point du décor) après l'animation, avec un fondu d'entrée et de sortie.
+func _apply_reaches() -> void :
+	for entry: Array in beat.get("reach", []):
+		var visual: PaperVisual = actors.get(str(entry[0]))
+		if visual == null or not visual.visible: continue
+		var opts: Dictionary = entry[5] if entry.size() > 5 else {}
+		var t0: float = float(entry[2])
+		var t1: float = float(entry[3])
+		if beat_time < t0 or beat_time > t1: continue
+		var fade_in: float = float(opts.get("in", 0.15))
+		var fade_out: float = float(opts.get("out", 0.15))
+		var w: float = (1.0 if fade_in <= 0.0 else smoothstep(t0, t0 + fade_in, beat_time)) * (1.0 if fade_out <= 0.0 else 1.0 - smoothstep(t1 - fade_out, t1, beat_time))
+		w *= float(opts.get("w", 1.0))
+		if w <= 0.001: continue
+		var target: Vector3 = _reach_point(entry[4], opts)
+		if not target.is_finite(): continue
+		var side: int = int(entry[1])
+		var hand_node: Node3D = visual.get("_right_hand" if side > 0 else "_left_hand")
+		var body: Node3D = visual.get("_body")
+		if hand_node == null or body == null: continue
+		var local: Vector3 = body.global_transform.affine_inverse() * target
+		var wrist: Quaternion = hand_node.quaternion
+		if opts.has("wrist"): wrist = wrist.slerp(Quaternion.from_euler(opts.wrist as Vector3), w)
+		visual._hand_target_weighted(side, local, clampf(w, 0.0, 1.0), wrist, 1.0)
+		visual._sync_now()
+
+func _reach_point(target: Variant, opts: Dictionary) -> Vector3:
+	var offset: Vector3 = _offset_at(opts.get("offset", Vector3.ZERO))
+	if target is Vector3: return global_transform * ((target as Vector3) + offset)
+	if target is Node3D: return (target as Node3D).global_transform * offset
+	if target is Callable: return (target as Callable).call()
+	if target is String:
+		var parts: PackedStringArray = (target as String).split(":")
+		var other: PaperVisual = actors.get(parts[0])
+		if other == null: return Vector3.INF
+		var base: Vector3 = other.socket_position(parts[1] if parts.size() > 1 else "chest")
+		return base + other.global_transform.basis.orthonormalized() * offset
+	return Vector3.INF
+
+# Décalage fixe, ou piste [[t, décalage], ...] interpolée (les doigts qui travaillent sur un lacet).
+func _offset_at(value: Variant) -> Vector3:
+	if value is Vector3: return value
+	if not value is Array or (value as Array).is_empty(): return Vector3.ZERO
+	var keys: Array = value
+	if beat_time <= float(keys[0][0]): return keys[0][1]
+	for i: int in range(keys.size() - 1):
+		var a: Array = keys[i]
+		var b: Array = keys[i + 1]
+		if beat_time < float(b[0]):
+			var u: float = (beat_time - float(a[0])) / maxf(float(b[0]) - float(a[0]), 0.001)
+			u = u * u * (3.0 - 2.0 * u)
+			return (a[1] as Vector3).lerp(b[1] as Vector3, u)
+	return keys[keys.size() - 1][1]
 
 # --- Caméra -------------------------------------------------------------------
 
