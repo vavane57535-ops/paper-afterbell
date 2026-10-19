@@ -42,6 +42,7 @@ func _run() -> void :
 			scene.call("build_next")
 			var cost: float = float(Time.get_ticks_usec() - a) / 1000.0
 			worst = maxf(worst, cost)
+			if cost > 8.0: print("CHECK %s : étape %d lente, %.1f ms" % [id, steps, cost])
 			steps += 1
 			if steps > 400: break
 		var build_ms: float = float(Time.get_ticks_usec() - t0) / 1000.0
@@ -63,6 +64,7 @@ func _run() -> void :
 			var cost: float = float(Time.get_ticks_usec() - a) / 1000.0
 			spent += cost
 			peak = maxf(peak, cost)
+			if cost > 6.0: print("CHECK %s : image lente à %.2f s (%s), %.1f ms" % [id, float(scene.get("beat_time")), str((scene.get("beat") as Dictionary).get("id", "")), cost])
 			frames += 1
 			t += dt
 			var beat: Dictionary = scene.get("beat")
