@@ -500,6 +500,34 @@ static func _hold_defaults(a: Actor) -> void :
 		if at - HOLD_LEAD > 0.0001: extra.append([at - HOLD_LEAD, {channel: value}, "s"])
 	a.acts.append_array(extra)
 	a.acts.sort_custom( func(x: Array, y: Array) -> bool: return float(x[0]) < float(y[0]))
+	_hold_poses(a)
+
+
+# Pose à pose : entre deux clés d'un même canal espacées de plus de HOLD_GAP, la pose tient (clés
+# d'arrêt, sans dépassement) puis rejoint la suivante en HOLD_EASE (0,45 à 0,9 s selon l'écart), au
+# lieu de dériver lentement pendant tout l'intervalle (un tremblement, un bras qui glisse sur 6 s…).
+const HOLD_GAP: float = 2.0
+
+static func _hold_poses(a: Actor) -> void :
+	var tracks: Dictionary = {}
+	for row: Array in a.acts:
+		for channel: String in (row[1] as Dictionary):
+			if channel in AnimClip.STRING_CHANNELS: continue
+			if not tracks.has(channel): tracks[channel] = []
+			(tracks[channel] as Array).append([float(row[0]), (row[1] as Dictionary)[channel]])
+	var extra: Array = []
+	for channel: String in tracks:
+		var list: Array = tracks[channel]
+		for i: int in range(list.size() - 1):
+			var t0: float = float(list[i][0])
+			var t1: float = float(list[i + 1][0])
+			var gap: float = t1 - t0
+			if gap <= HOLD_GAP: continue
+			var ease: float = clampf(0.3 * gap, 0.45, 0.9)
+			extra.append([t0 + 0.25, {channel: list[i][1]}, "s"])
+			extra.append([t1 - ease, {channel: list[i][1]}, "s"])
+	a.acts.append_array(extra)
+	a.acts.sort_custom( func(x: Array, y: Array) -> bool: return float(x[0]) < float(y[0]))
 
 
 # Canaux composés du corps (unités du moteur) à l'instant t du film : jeu d'acteur + appuis.
@@ -1122,20 +1150,20 @@ static func _act2(s: Actor, a: Actor) -> void :
 	a.key(34.3, M([look(a, 34.3, Vector3(0, 30, 84), 0.2, 1.4), H(0.0, -0.06, 0.0), {"face": "fear"}]))
 	a.key(36.4, M([look(a, 36.4, Vector3(0, 32, 84), 0.2, 1.4), {"face": "focus"}]))
 	# 36,8 → 37,6 : un pas vers Simon, en travers de lui, bras droit tendu devant lui.
-	walk_to(a, 36.85, 37.6, a.end_root() + Vector3(-0.42, 0, -0.35), 0.3, 0.3)
+	walk_to(a, 36.85, 37.6, a.end_root() + Vector3(-0.58, 0, -0.5), 0.3, 0.3)
 	step_to(a, 1, 36.85, 37.3, Vector3(0.13, 0, -0.02), 0.07, {"fall": 0.8})
 	step_to(a, -1, 37.15, 37.6, Vector3(-0.12, 0, 0.02), 0.06, {"fall": 0.6})
 	a.key(37.0, M([C(0.04, 0.1), hang_r(0.15, 0.1, -0.85)]))
-	a.key(37.5, M([R(0.85, -0.22, 0.3, 0.1), WR(0.0, 0.0, 0.2), C(0.04, 0.18), B(0.0, 0.08), {"curl": 0.25, "face": "determined"}]))
+	a.key(37.5, M([R(0.85, -0.24, 0.08, 0.1), WR(0.0, 0.0, 0.2), C(0.04, 0.18), B(0.0, 0.08), {"curl": 0.25, "face": "determined"}]))
 	a.key(38.05, M([H(0.0, -0.1, 0.06), B(-0.06, 0.08), {"ev": "grunt", "shake": 0.25}]))
 	a.key(38.4, M([H(0.0, -0.07, 0.03), B(0.0, 0.08), {"shake": 0.1}]))
-	a.key(40.6, M([look(a, 40.6, Vector3(0, 40, 84), 0.25, 1.4), R(0.85, -0.25, 0.28, 0.1)]))
+	a.key(40.6, M([look(a, 40.6, Vector3(0, 40, 84), 0.25, 1.4), R(0.85, -0.25, 0.08, 0.1)]))
 	walk_to(a, 41.25, 42.3, a.end_root() + Vector3(0, 0, -0.3), 0.4, 0.4)
 	shuffle(a, 1, 41.25, 41.7, Vector3(0.0, 0, 0.3), 0.05)
 	shuffle(a, -1, 41.85, 42.3, Vector3(0.0, 0, 0.3), 0.05)
 	a.key(42.7, M([look(a, 42.7, Vector3(-30, 10, 40), 0.3, 1.4), H(0.0, -0.09, 0.0), {"ev": "grunt"}]))
 	a.key(43.55, M([look(a, 43.55, Vector3(29, 10, 40), 0.35, 1.4)]))
-	a.key(44.4, M([look(a, 44.4, Vector3(0, 55, 80), 0.25, 1.4), R(0.7, -0.4, 0.25, 0.1), {"face": "fear"}]))
+	a.key(44.4, M([look(a, 44.4, Vector3(0, 55, 80), 0.25, 1.4), R(0.72, -0.38, 0.1, 0.1), {"face": "fear"}]))
 	walk_to(a, 44.75, 45.2, a.end_root() + Vector3(0, 0, -0.13), 0.2, 0.2)
 	shuffle(a, 1, 44.75, 45.2, Vector3(0.0, 0, 0.26), 0.05)
 	a.key(45.8, M([look(a, 45.8, Vector3(0, 60, 78), 0.25, 1.4), {"face": "focus"}]))
@@ -1164,13 +1192,13 @@ static func _act2(s: Actor, a: Actor) -> void :
 	a.key(59.2, M([HD(0.14, 0.04)]))
 
 	# Simon s'accroche à l'avant-bras qu'Ashura tend devant lui (main gauche), puis le lâche au souffle.
-	var arm_a: Vector3 = Vector3(0.85, -0.22, -0.3)
+	var arm_a: Vector3 = Vector3(0.85, -0.24, -0.08)
 	var sleeve: Vector3 = hand_world(a, 39.3, 1, arm_a).lerp(shoulder_world(a, 39.3, 1), 0.28)
 	s.key(38.9, M([L(0.3, -0.5, 0.2, 0.3)]))
 	s.key(39.3, M([reach(s, 39.3, -1, sleeve + Vector3(0, -0.02, -0.03), H(0.0, -0.09, 0.07).hips), WL(0.35, 0.0, -0.25), {"curl_l": 0.95}]))
-	var sleeve2: Vector3 = hand_world(a, 42.3, 1, Vector3(0.85, -0.25, -0.28)).lerp(shoulder_world(a, 42.3, 1), 0.28)
+	var sleeve2: Vector3 = hand_world(a, 42.3, 1, Vector3(0.85, -0.25, -0.08)).lerp(shoulder_world(a, 42.3, 1), 0.28)
 	s.key(42.3, M([reach(s, 42.3, -1, sleeve2 + Vector3(0, -0.02, -0.03), Vector3(0, -0.08, 0.04))]))
-	var sleeve3: Vector3 = hand_world(a, 45.2, 1, Vector3(0.7, -0.4, -0.25)).lerp(shoulder_world(a, 45.2, 1), 0.28)
+	var sleeve3: Vector3 = hand_world(a, 45.2, 1, Vector3(0.72, -0.38, -0.1)).lerp(shoulder_world(a, 45.2, 1), 0.28)
 	s.key(45.2, M([reach(s, 45.2, -1, sleeve3 + Vector3(0, -0.02, -0.03), Vector3(0, -0.08, 0.04))]))
 	s.key(49.9, M([reach(s, 49.9, -1, sleeve3 + Vector3(0, -0.02, -0.03), Vector3(0, -0.1, 0.06)), {"curl_l": 0.95}]))
 	s.key(50.2, M([{"curl_l": 0.4}]))
@@ -1226,6 +1254,12 @@ static func skate(a: Actor, t0: float, t1: float, first: int, period: float, o: 
 		t += p
 		k += 1
 		side = - side
+	# Fin de la poussée : le pied qui poussait revient au sol, puis les deux pieds glissent sous les
+	# hanches jusqu'à o.hold (s'il est donné : arrêt en glisse, lancer, etc.).
+	var down: Array = [[- side, Vector3(float(- side) * width * 0.8, 0.0, -0.06)], [side, Vector3(float(side) * width, 0.0, 0.02)]]
+	for row: Array in down:
+		(keys[int(row[0])] as Array).append([t + 0.12, row[1], 0.0])
+		if o.has("hold") and float(o.hold) > t + 0.2: (keys[int(row[0])] as Array).append([float(o.hold), row[1], 0.0])
 	for one: int in [-1, 1]:
 		var list: Array = keys[one]
 		list.sort_custom( func(x: Array, y: Array) -> bool: return float(x[0]) < float(y[0]))
@@ -1319,16 +1353,23 @@ static func _act3(s: Actor, a: Actor) -> void :
 	s.key(69.7, M([H(0.0, -0.42, 0.04), B(0.38), C(0.15), HD(0.25, 0.0), Rg(0.35, 0.3), {"sq": 1.0}]))
 	s.key(70.3, M([H(0.0, -0.32, 0.03), B(0.25), HD(0.35, 0.05), R(0.2, -0.6, 0.35, 0.2), {"face": "determined"}]))
 	s.key(70.9, M([H(0.0, -0.08, 0.0), B(0.08), C(0.05), HD(0.3, -0.1), L(0.18, -0.65, 0.25, 0.2), R(0.18, -0.65, 0.25, 0.2), {"curl": 1.0, "curl_l": 1.0}]))
-	s.key(72.0, M([HD(0.32, -0.3), C(0.06, -0.15)]))
-	s.key(73.5, M([HD(0.3, -0.55), C(0.06, -0.25)]))
+	# Il regarde Yiero reculer, puis jette un œil par-dessus son épaule gauche (les rollers d'Ashura).
+	s.key(72.0, M([HD(0.48, 0.06), C(0.05, 0.02)]))
+	s.key(73.45, M([HD(0.46, 0.1), C(0.05, 0.04)]))
+	s.key(73.75, M([HD(0.1, 0.88), C(0.04, 0.42), {"face": "focus"}]))
+	s.key(74.25, M([HD(0.12, 0.85), C(0.04, 0.4)]))
+	s.key(74.55, M([HD(0.44, 0.08), C(0.05, 0.02)]))
 	# 75,1 : « Il recule ! » — poing serré qui monte, rire nerveux.
-	s.key(74.8, M([HD(0.32, -0.2), C(0.06, -0.08), {"face": "surprise"}]))
-	s.key(75.25, M([HD(0.4, 0.05), C(-0.05, 0.0), B(-0.04), R(0.15, 0.2, 0.3, 0.6), WR(0.3), {"face": "grin", "ev": "effort"}]))
-	s.key(75.55, M([R(0.18, 0.5, 0.25, 0.7)]))
-	s.key(75.8, M([R(0.16, 0.12, 0.32, 0.6), HD(0.3, -0.25)]))
-	s.key(76.2, M([R(0.18, 0.45, 0.25, 0.7), HD(0.25, -0.45), C(0.0, -0.15), {"face": "grin"}]))
-	s.key(76.8, M([R(0.2, -0.35, 0.3, 0.3), HD(0.2, -0.5), {"face": "determined"}]))
-	s.key(77.2, M([HD(0.25, -0.35), C(0.08, -0.1), H(0.0, -0.1, 0.0), {"face": "angry"}]))
+	# 75,1 : « Il recule ! » — le poing plonge (anticipation) puis monte sur le côté ; « T'as vu ça ? » :
+	# il se tourne vers Ashura (à sa gauche, qui revient en rollers), second coup de poing en l'air.
+	s.key(74.8, M([HD(0.46, 0.05), C(0.04, 0.0), {"face": "surprise"}]))
+	s.key(75.18, M([HD(0.5, 0.1), C(0.02, 0.0), H(0.0, -0.1, 0.0), R(0.3, -0.42, 0.2, 0.35), WR(0.1), {"face": "grin", "curl": 1.0}]))
+	s.key(75.42, M([HD(0.48, 0.25), C(-0.06, 0.12), B(-0.03), H(0.0, -0.05, 0.0), R(0.55, 0.5, 0.06, 0.55), WR(0.35), {"ev": "effort"}]), "s")
+	s.key(75.62, M([HD(0.2, 0.7), C(0.02, 0.35), R(0.5, 0.25, 0.1, 0.5)]))
+	s.key(75.86, M([R(0.56, 0.55, 0.05, 0.55), HD(0.18, 0.78), H(0.0, -0.04, 0.0)]), "s")
+	s.key(76.3, M([R(0.42, 0.05, 0.12, 0.45), HD(0.16, 0.72), {"face": "grin"}]))
+	s.key(76.75, M([R(0.22, -0.4, 0.28, 0.3), HD(0.32, 0.3), C(0.06, 0.12), {"face": "determined"}]))
+	s.key(77.12, M([HD(0.22, 0.55), C(0.06, 0.25), H(0.0, -0.1, 0.0), {"face": "angry"}]))
 	# 77,3 : course, appel à 77,9, saut immense jusqu'au menton : coup de poing droit (79,0).
 	s.key(77.32, M([H(0.0, -0.28, 0.1), B(0.5), C(0.15), HD(0.1, 0.0), R(0.3, -0.5, -0.5, 0.2), L(0.3, -0.5, 0.35, 0.3), {"loco": 0.6, "ev": "effort"}]))
 	walk_to(s, 77.3, 77.85, Vector3(-1.8, 0, 25.0), 0.15, 0.0)
@@ -1366,7 +1407,7 @@ static func _act3(s: Actor, a: Actor) -> void :
 	var b0: Vector3 = a.end_root()
 	walk_to(a, 70.8, 74.6, Vector3(8.0, 0, 12.0), 1.0, 0.3)
 	a.face(70.8, PI);a.face(71.6, angle_to(b0, Vector3(8.0, 0, 12.0)));a.aim(71.6, angle_to(b0, Vector3(8.0, 0, 12.0)))
-	skate(a, 70.85, 74.4, -1, 0.56, {"width": 0.12, "push": 0.38, "seed": 8})
+	skate(a, 70.85, 73.9, -1, 0.56, {"width": 0.12, "push": 0.38, "seed": 8, "hold": 74.85})
 	a.key(71.0, M([{"loco": 1.0}, H(0.0, -0.24, 0.0), B(0.42), C(0.12), HD(0.15, 0.0), L(0.35, -0.55, -0.25, 0.3), Rt(0.15, -0.4, 0.25, 0.3), {"face": "determined"}]))
 	a.key(72.5, M([L(0.4, -0.5, 0.2, 0.3), Rt(0.1, -0.45, -0.2, 0.3)]))
 	a.key(73.3, M([L(0.35, -0.55, -0.25, 0.3), Rt(0.15, -0.4, 0.25, 0.3)]))
@@ -1378,10 +1419,12 @@ static func _act3(s: Actor, a: Actor) -> void :
 	var c0: Vector3 = Vector3(8.0, 0, 12.0)
 	travel_curve(a, 74.6, 77.25, Vector3(6.5, 0, 19.5), Vector3(2.4, 0, 21.8), "smooth")
 	a.face(74.6, angle_to(b0, c0));a.face(77.2, PI);a.aim(76.0, (angle_to(b0, c0) + PI) * 0.5);a.aim(77.2, PI)
-	skate(a, 74.75, 77.15, 1, 0.62, {"width": 0.12, "push": 0.3, "seed": 12})
+	skate(a, 74.85, 77.0, 1, 0.62, {"width": 0.12, "push": 0.3, "seed": 12, "hold": 77.8})
 	a.key(76.2, M([HD(0.4, 0.3), C(0.1, 0.15), {"face": "determined"}]))
 	# 77,2 : « Ensemble ! Vise la mâchoire ! » — 77,3 élan, 77,9 saut, coup du gauche (79,0).
-	a.key(77.15, M([HD(0.35, 0.4), C(0.05, 0.2), Lt(0.1, 0.2, 0.4, 0.4), {"face": "angry", "ev": "effort"}]))
+	a.key(76.95, M([HD(0.45, 0.1), C(0.06, 0.05)]))
+	a.key(77.15, M([HD(0.4, -0.35), C(0.04, -0.2), R(0.3, 0.75, 0.5, 0.25), WR(-0.2), {"face": "angry", "ev": "effort", "gesture": "point", "curl": 0.7}]))
+	a.key(77.38, M([{"gesture": ""}]))
 	walk_to(a, 77.3, 77.85, Vector3(2.0, 0, 25.0), 0.1, 0.0)
 	a.key(77.4, M([H(0.0, -0.3, 0.08), B(0.48), C(0.1), HD(0.15, 0.0), L(0.3, -0.5, -0.45, 0.2), R(0.35, -0.5, 0.35, 0.3), {"loco": 0.3}]))
 	a.key(77.78, M([H(0.0, -0.38, 0.05), B(0.42), HD(0.45, 0.0), L(0.35, -0.4, -0.45, 0.3), R(0.3, -0.4, -0.4, 0.3), {"loco": 0.0}]))
