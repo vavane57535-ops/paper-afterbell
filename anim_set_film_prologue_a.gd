@@ -29,6 +29,9 @@ const YAW_RATE: float = 11.0
 const HANDOFF: float = 104.0
 const HOLD_END: float = 112.0
 const OVERLAP: float = 0.5
+# Menton de Yiero au double coup de poing (79,0 s), repère du film : les sauts y mènent les poings, et le
+# film cale Yiero pour que son menton y soit (PaperPrologue._pa_contacts), quel que soit le modèle.
+const CHIN: Vector3 = Vector3(-0.37, 13.8, 61.2)
 # Le film coupe les petits mouvements d'attente du moteur (balancement, appuis alternés, regards).
 const FILM_STYLE: Dictionary = {"contra": 0.0, "shift_rate": 0.0, "idle_sway": 0.0, "idle_bounce": 0.0, "look_rate": 0.0}
 
@@ -1276,7 +1279,7 @@ static func skate(a: Actor, t0: float, t1: float, first: int, period: float, o: 
 static func _act3(s: Actor, a: Actor) -> void :
 	for one: Actor in [s, a]:
 		for t: float in [59.45, 61.9, 65.45, 68.25, 72.9, 77.75, 80.3, 84.6, 89.05, 92.82, 96.5, 99.55]: one.cut(t)
-	var chin: Vector3 = Vector3(-0.37, 13.8, 61.2)
+	var chin: Vector3 = CHIN
 
 	# --- 59,45 : poses héroïques, puis la charge vers le démon (61,0 → 62,9).
 	s.key(59.45, M([HD(0.16, 0.02), C(0.1, 0.02), B(0.1), H(0.0, -0.13, -0.05), Lt(0.02, 0.12, 0.45, 0.3), Rt(0.0, 0.06, 0.38, 0.3), {"face": "determined", "curl": 1.0, "curl_l": 1.0}]))

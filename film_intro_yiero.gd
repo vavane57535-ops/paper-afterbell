@@ -1252,7 +1252,7 @@ func _write_fight() -> void :
 	_key("tremble", 83.0, 0.45)
 	_say(83.0, "Yiero", "Ha ! C'est tout ? Ça chatouille.", 0.4)
 	_cue(83.0, "sfx", "sfx_laugh", 1.0)
-	_shot(82.0, {"rel": {"mid": [S, A]}, "eye": [Vector3(-2.2, 1.0, -4.6), Vector3(-1.9, 1.05, -4.1)], "look": {"y": "mouth", "h": -9.0}, "fov": [52, 50], "hand": 0.3, "safe": false})
+	_shot(82.0, {"rel": {"a": S}, "eye": [Vector3(-0.75, 1.3, -1.9), Vector3(-0.65, 1.32, -1.65)], "look": {"y": "mouth", "h": -8.0}, "fov": [50, 48], "hand": 0.3, "safe": false})
 	_shot(84.6, {"rel": {"y": "mouth"}, "eye": [Vector3(-7.0, -4.0, -24.0), Vector3(-5.5, -3.2, -20.0)], "look": {"y": "mouth"}, "fov": [42, 40], "hand": 0.4, "safe": false})
 
 	_say(87.3, "Yiero", "Allez, au lit. On éteint la lumière.", 0.4)
@@ -1375,6 +1375,8 @@ func _pa_contacts() -> void :
 	var claw: Vector3 = _pa_solve("hand_px", 63.2, "pinch_l", Vector3(-0.2, -0.6, -2.4))
 	claw.y = 0.0
 	_ripple(63.2, claw, 6.0);_cue(63.22, "ink", claw + Vector3(0, 0.4, 0), 10, 5.0);_cue(63.22, "dust_ring", claw + Vector3(0, 0.05, 0), 2.5)
+	# 79,0 : le menton de Yiero vient au-devant des deux poings (sauts écrits vers PROLOGUE_A.CHIN).
+	_pa_solve("y_pos", 79.0, "chin", PROLOGUE_A.CHIN)
 	# 92,9 : le revers fauche Simon (paume sur son flanc).
 	_pa_solve("hand_nx", 92.9, "hand_r", PROLOGUE_A.root_at(simon, 92.9) + Vector3(-0.9, 1.1, 0.3))
 	# 98,4 : la main s'abat devant Ashura, entre lui et Simon ; 99,5 : la pince se referme sur lui.
