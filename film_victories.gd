@@ -26,7 +26,7 @@ const FV = preload("res://anim_set_film_victory.gd")
 # coupés ; « grounded »: false coupe les pas que la démarche du jeu compterait
 # pendant un déplacement. Tout est rendu à l'arrêt du film.
 const FILM_STYLE: Dictionary = {"contra": 0.0, "shift_rate": 0.0, "idle_sway": 0.0, "idle_bounce": 0.0, "look_rate": 0.0}
-const AUTHORED: Array[String] = ["Usayuko", "Simon", "Ashura"]
+const AUTHORED: Array[String] = ["Usayuko", "Simon", "Ashura", "Lysia"]
 
 const TV_Y: float = 70.0
 const INK_Y: float = 125.0
@@ -835,110 +835,130 @@ func _write_ashura() -> void :
 
 
 # ---------------------------------------------------------------- LYSIA ---
-# Mécanique, électricité et surchauffe : elle se branche, surchauffe sous la
-# pluie qui s'évapore, fonce sur Alice et la repousse dans une décharge.
+# Surtension. À l'arrêt sous la pluie, en recharge ; elle redémarre quand Alice
+# arrive, la renverse d'un coup d'épaule (5,2), surchauffe pendant qu'Alice
+# revient, et la balaie d'une décharge des deux paumes (6,55). La vapeur
+# s'échappe, un regard vers nous.
 func _write_lysia() -> void :
 	var c: Node3D = cinema
-	c._put(s, _r(-0.4, 0.0))
-	c._face(s, 0.0, "dir", Vector3(0.4, 0, 1))
-	c._do(s, 0.0, "state", {"lms": true, "outlet_time": 3.0})
-	c._put(a, _r(0.4, 6.0))
-	c._face(a, 0.0, "at", s)
-	c._do(a, 0.0, "mood", "menace")
-	# A · plugged, the current runs through her armour
-	c._shot(3.4, {"rel": {"a": s}, "eye": [Vector3(-1.0, 0.9, 1.25), Vector3(-0.8, 0.95, 1.05)], "look": {"a": s, "h": 0.95}, "fov": [38, 34], "hand": 0.35})
-	for k: int in range(5): _later(3.42 + 0.12 * float(k), "cue", {"who": s, "cue": "volt"})
-	c._cue(3.45, "sound", "xray", {"a": s}, 0.8, 0.7)
-	_later(3.6, "cue", {"who": s, "cue": "steam"})
-	_bolt(3.7, 0.18, 0.8)
-	# B · eyes, x-ray scan
-	c._do(s, 4.05, "unset", ["outlet_time"])
-	c._do(s, 4.05, "mood", "determined")
-	c._move(a, 4.0, 4.9, _r(0.3, 4.2), "smooth")
-	c._face(s, 4.1, "at", a)
-	_closeup(4.1, s, Vector3(0.1, 0, 1), 1.0, 1.05, 28.0)
-	_glint(4.15, 4.85, s, 1.15)
-	# C · overheat charge into Alice
-	var dash: float = 4.9
-	c._do(s, dash, "state", {"overheat_charge": 0.5})
+	var volt: Color = Color("bff6ff")
+	var spark: Color = Color("d9fbff")
+	c._put(s, _r(0.0, 0.0))
+	c._face(s, 0.0, "dir", Vector3(0, 0, 1))
+	var near: Vector3 = _r(0.25, 3.0)
+	c._put(a, near + Vector3(0, 0, FV.LA_WALK_SPEED * (FV.LA_WALK_END - 3.3)))
+	c._face(a, 0.0, "dir", Vector3(-0.05, 0, -1))
+	_play(s, "fv_lysia_rain")
+	_play(a, "fv_lysia_alice_rain")
+	c._move(a, 3.3, FV.LA_WALK_END, near, "linear")
+	c._move(a, FV.LA_WALK_END, FV.LA_WALK_END + 0.1, near + Vector3(0, 0, -0.05), "out")
+	# A1 · de dos, à l'arrêt, la pluie fume sur son armure ; Alice approche au fond
+	c._shot(3.32, {"rel": {"a": s}, "eye": [Vector3(0.78, 1.08, -1.55), Vector3(0.66, 1.02, -1.32)], "look": {"a": s, "h": 1.0, "o": Vector3(0, 0, 1.8)}, "fov": [44, 41], "hand": 0.3})
+	for t: float in [3.4, 3.829, 4.257, 4.686]: _later(t, "cue", {"who": s, "cue": "volt"})
+	for t: float in [3.507, 3.721]: _later(t, "cue", {"who": s, "cue": "spark_l" if t < 3.6 else "spark_r"})
+	_later(3.5, "cue", {"who": s, "cue": "steam"})
+	_later(3.95, "cue", {"who": s, "cue": "steam"})
+	c._cue(3.45, "sound", "xray", {"a": s}, 0.6, 0.7)
+	_bolt(3.62, 0.18, 0.8)
+	# A2 · son visage, yeux fermés ; le redémarrage (4,04), les yeux s'ouvrent (4,15)
+	_closeup(3.75, s, Vector3(0, 0, 1), -1.0, 1.0, 29.0, -0.05)
+	c._cue(FV.L_BOOT, "pulse", Color(0.55, 1.0, 0.95, 0.25), 0.5)
+	_later(FV.L_BOOT, "cue", {"who": s, "cue": "volt"})
+	_glint(FV.L_OPEN, 4.85, s, 1.15)
+	_later(FV.L_OPEN + 0.01, "cue", {"who": s, "cue": "scan"})
+	c._cue(FV.L_OPEN, "sound", "xray", {"a": s}, 0.8, 1.0)
+	_later(4.793, "cue", {"who": s, "cue": "scan"})
+	# B · la ruée d'épaule, de profil
+	var dash: float = FV.L_DASH
+	var hit: float = FV.L_HIT
+	var ram: Vector3 = _r(0.05, FV.L_DASH_SPEED * (hit - dash))
+	c._move(s, dash, hit, ram, "linear")
+	c._move(s, hit, 5.34, ram + Vector3(0.01, 0, 0.14), "out")
 	c._cue(dash, "event", "overheat_charge", {"position": {"a": s}})
 	c._cue(dash, "sound", "boost", {"a": s}, 0.9, 0.8)
 	c._cue(dash, "rush", 0.8)
-	c._move(s, dash, dash + 0.3, _r(0.15, 3.0), "dash")
-	c._cue(dash + 0.3, "word", "zap", {"a": a, "h": 2.2}, Color("bff6ff"), 1.05)
-	c._cue(dash + 0.3, "shake", 0.5)
-	c._cue(dash + 0.3, "sound", "hit", {"a": a}, 1.0, 0.8)
-	c._do(a, dash + 0.3, "hit", 1.1, s)
-	c._stun(a, dash + 0.3, 1.6)
-	_flash(dash + 0.3, 0.07, Color(0.75, 1.0, 0.95))
-	for k: int in range(4): _later(dash + 0.3 + 0.1 * float(k), "bolts", {"at": {"a": a, "h": 1.2}, "color": Color("bff6ff"), "count": 3, "radius": 0.6, "size": 0.9})
-	_smear(dash, dash + 0.3, Vector2(0.0, 0.0))
-	c._shot(dash - 0.05, {"rel": {"mid": [s, a]}, "eye": [Vector3(3.0, 0.9, -0.6), Vector3(2.7, 0.95, -0.2)], "look": {"mid": [s, a], "h": 1.15}, "fov": [46, 42], "hand": 0.6})
-	# D · overheat: the rain turns to steam
-	var heat: float = 5.55
-	c._do(s, heat, "unset", ["overheat_charge"])
-	c._do(s, heat, "state", {"overheat_time": 1.6})
+	_later(dash + 0.02, "trail", {"who": s, "socket": "hand_l", "seconds": 0.35, "width": 0.16})
+	for k: int in range(3): _later(dash + 0.1 * float(k), "bolts", {"at": {"a": s, "h": 1.0}, "color": volt, "count": 2, "radius": 0.5, "size": 0.7})
+	c._shot(dash - 0.05, {"rel": {"mid": [s, a]}, "eye": [Vector3(3.3, 0.95, -0.5), Vector3(3.0, 1.0, -0.2)], "look": {"mid": [s, a], "h": 1.1}, "fov": [44, 41], "hand": 0.55})
+	_smear(dash, hit, Vector2(0.03, 0.0))
+	c._cue(hit, "word", "zap", {"a": a, "h": 2.2}, volt, 1.05)
+	c._cue(hit, "shake", 0.5)
+	c._cue(hit, "sound", "hit", {"a": a}, 1.0, 0.8)
+	c._cue(hit, "pop", {"mid": [s, a], "h": 1.2}, Vector3(0, 0, 1), volt, 1.0)
+	_later(hit, "cue", {"who": s, "cue": "skid"})
+	_flash(hit, 0.07, Color(0.75, 1.0, 0.95))
+	for k: int in range(4): _later(hit + 0.1 * float(k), "bolts", {"at": {"a": a, "h": 1.2}, "color": volt, "count": 3, "radius": 0.6, "size": 0.9})
+	var back: Vector3 = near + Vector3(0.05, 0, 1.15)
+	c._move(a, hit, 5.42, back, "out")
+	# C1 · la surchauffe, en contre-plongée : la pluie se change en vapeur
+	var heat: float = FV.L_HEAT
+	c._shot(5.42, {"rel": {"a": s}, "eye": [Vector3(1.15, 0.55, 1.45), Vector3(0.98, 0.62, 1.25)], "look": {"a": s, "h": 1.15}, "fov": [42, 38], "hand": 0.45})
 	c._cue(heat, "event", "overheat", {"position": {"a": s}, "active": true})
 	c._cue(heat, "pulse", Color(1.0, 0.5, 0.15, 0.35), 0.9)
-	c._cue(heat + 0.1, "word", "hot", {"a": s, "h": 2.3}, Color("ffcf8a"), 1.0)
-	for k: int in range(4): _later(heat + 0.08 + 0.18 * float(k), "cue", {"who": s, "cue": "steam"})
-	c._shot(heat, {"rel": {"a": s}, "eye": [Vector3(-1.3, 0.6, 1.9), Vector3(-1.05, 0.75, 1.6)], "look": {"a": s, "h": 1.15}, "fov": [42, 38], "hand": 0.45})
-	# E · consommation: the push, an electric blast across the yard
-	var push: float = 6.55
-	c._do(s, push - 0.12, "unset", ["overheat_time"])
-	c._cue(push - 0.12, "event", "overheat", {"position": {"a": s}, "active": false})
-	c._do(s, push - 0.1, "trigger", "consommation")
+	for k: int in range(8):
+		var t: float = heat + 0.11875 * float(k)
+		if k % 2 == 0: _later(t, "cue", {"who": s, "cue": "steam"})
+		_later(t, "bolts", {"at": {"a": s, "h": 1.0}, "color": spark, "count": 1 + k / 3, "radius": 0.45 + 0.05 * float(k), "size": 0.6 + 0.06 * float(k)})
+	_rain_burst(heat + 0.2, _r(0.05, 2.3, 1.5), 0.9)
+	_glint(5.6, 6.0, s, 1.0)
+	# C2 · par-dessus son épaule : Alice revient à la charge
+	var rush_to: Vector3 = back + Vector3(-0.02, 0, - FV.LA_RUSH_SPEED * (6.38 - 5.7))
+	c._move(a, 5.7, 6.38, rush_to, "linear")
+	c._move(a, 6.38, 6.5, rush_to + Vector3(0, 0, -0.1), "out")
+	c._shot(6.0, {"rel": {"a": s}, "eye": [Vector3(-1.2, 1.32, -0.85), Vector3(-1.05, 1.28, -0.7)], "look": {"a": a, "h": 1.1}, "fov": [42, 40], "hand": 0.5})
+	c._cue(5.64, "sound", "slash", {"a": a}, 0.5, 0.7)
+	# D · 6,55 · DÉCHARGE : Alice traverse la cour
+	var push: float = FV.L_PUSH
+	c._cue(push - 0.08, "event", "overheat", {"position": {"a": s}, "active": false})
 	c._cue(push, "word", "push", {"a": s, "h": 2.3}, Color("a6f0d8"), 1.15)
 	c._cue(push, "sound", "ground_impact", {"a": a}, 1.0, 0.75)
 	c._cue(push, "sound", "xray", {"a": a}, 1.0, 1.3)
 	c._cue(push, "shake", 0.75)
 	c._cue(push, "impact", 0.8, false)
-	c._do(a, push, "hit", 1.3, s)
-	c._do(a, push, "stun", false)
-	c._do(a, push, "state", {"forced_time": 0.9, "force_name": "knock"})
-	c._do(a, push + 0.9, "unset", ["forced_time", "force_name"])
-	var thrown: float = maxf(5.0, minf(11.5, room - 1.5))
-	c._move(a, push, push + 0.85, _r(0.6, thrown), "out")
-	c._stun(a, push + 0.9, 3.0)
 	_flash(push, 0.1, Color(0.8, 1.0, 0.98))
-	_rain_burst(push, _r(0.2, 3.6, 1.2), 0.8)
-	for k: int in range(6): _later(push + 0.06 * float(k), "bolts", {"at": {"a": a, "h": 1.1}, "color": Color("d9fbff"), "count": 3, "radius": 0.7, "size": 1.0})
-	_burst(push, _r(0.2, 3.6, 1.0), Vector3(0, 0.3, 1), 26, 6.5, {"spread": 0.6, "lift": 1.4, "gravity": 6.0, "life": 1.5, "size": 0.11})
+	_rain_burst(push, rush_to + Vector3(0, 1.2, -0.4), 0.8)
+	for k: int in range(6): _later(push + 0.06 * float(k), "bolts", {"at": {"a": a, "h": 1.1}, "color": spark, "count": 3, "radius": 0.7, "size": 1.0})
+	_burst(push, rush_to + Vector3(0, 1.0, -0.3), Vector3(0, 0.3, 1), 26, 6.5, {"spread": 0.6, "lift": 1.4, "gravity": 6.0, "life": 1.5, "size": 0.11})
 	_smear(push, push + 0.3, Vector2(0.06, 0.0))
-	c._shot(push - 0.2, {"rel": {"a": s}, "eye": [Vector3(3.6, 1.2, 1.4), Vector3(4.2, 1.15, 3.0)], "look": {"a": a, "h": 1.0}, "fov": [44, 52], "hand": 0.7})
-	# E2 · riding along with Alice to the crash, still crackling
-	var land: float = push + 0.85
-	# chase camera inside the measured free corridor (no wall between it and her)
-	c._shot(push + 0.3, {"rel": {"a": a}, "eye": [Vector3(0.9, 1.5, -2.3), Vector3(0.75, 1.25, -1.7)], "look": {"a": a, "h": 0.85}, "fov": [48, 42], "hand": 0.6})
-	_smear(push + 0.3, push + 0.75, Vector2(0.045, 0.0))
+	var thrown: float = maxf(rush_to.z - rz + 3.0, minf(11.0, room - 1.5))
+	var land: float = FV.LA_LAND
+	c._move(a, push, 7.0, _r(0.15, lerpf(rush_to.z - rz, thrown, 0.6), 1.1), "out")
+	c._move(a, 7.0, land, _r(0.1, thrown, 0.0), "in")
+	c._move(a, land, land + 0.22, _r(0.1, thrown + 0.45, 0.0), "out")
+	_tilt(push, 7.0, a, Vector3.ZERO, Vector3(1.1, 0.0, 0.1), "out")
+	_tilt(7.0, land, a, Vector3(1.1, 0.0, 0.1), Vector3.ZERO, "smooth")
+	c._shot(push - 0.12, {"rel": {"mid": [s, a]}, "eye": [Vector3(2.5, 1.0, -0.1), Vector3(2.85, 1.05, 0.5)], "look": [{"mid": [s, a], "h": 1.05}, {"a": s, "h": 1.0, "o": Vector3(0, 0, 1.6)}], "fov": [40, 46], "hand": 0.7})
+	# D2 · on suit Alice jusqu'au choc, toujours parcourue d'éclairs
+	c._shot(6.9, {"rel": {"a": a}, "eye": [Vector3(0.9, 1.5, -2.3), Vector3(0.75, 1.25, -1.7)], "look": {"a": a, "h": 0.7}, "fov": [48, 42], "hand": 0.6})
+	_smear(6.9, 7.3, Vector2(0.045, 0.0))
 	c._cue(land, "dust_ring", {"a": a}, 1.3)
 	c._cue(land, "sound", "ground_impact", {"a": a}, 0.9, 0.85)
 	c._cue(land, "shake", 0.4)
 	c._cue(land + 0.08, "stars", {"a": a, "s": "over"}, 4)
-	_burst(land, _r(0.6, thrown, 0.2), Vector3(0, 1, -0.3), 18, 3.6, {"spread": 1.0, "lift": 1.8, "gravity": 8.0, "life": 1.2, "size": 0.09})
-	for k: int in range(3): _later(land + 0.05 + 0.12 * float(k), "bolts", {"at": {"a": a, "h": 0.6}, "color": Color("d9fbff"), "count": 2, "radius": 0.6, "size": 0.7})
-	# F · venting, sparks, a calm look back
-	var vent: float = 7.65
-	c._do(s, vent, "mood", "calm")
-	_later(vent + 0.55, "cue", {"who": s, "cue": "steam"})
+	_burst(land, _r(0.1, thrown, 0.2), Vector3(0, 1, -0.3), 18, 3.6, {"spread": 1.0, "lift": 1.8, "gravity": 8.0, "life": 1.2, "size": 0.09})
+	for k: int in range(5): _later(land + 0.05 + 0.15 * float(k), "bolts", {"at": {"a": a, "h": 0.4}, "color": spark, "count": 2, "radius": 0.6, "size": 0.7})
+	# E · la vapeur s'échappe, les tics de recalage, un regard vers nous
+	var vent: float = FV.L_VENT
+	_closeup(7.55, s, Vector3(0.1, 0, 1), 1.0, 1.4, 33.0, 0.0)
+	_later(vent, "cue", {"who": s, "cue": "steam"})
+	_later(vent + 0.18, "cue", {"who": s, "cue": "steam"})
 	_later(vent + 0.3, "cue", {"who": s, "cue": "spark_r"})
-	_closeup(vent, s, Vector3(0.1, 0, 1), 1.0, 1.35, 32.0)
-	_glint(vent + 0.1, vent + 0.85, s, 1.0)
+	c._cue(vent, "sound", "xray", {"a": s}, 0.5, 0.6)
+	_glint(FV.L_TURN + 0.05, 8.6, s, 1.0)
+	_later(8.44, "cue", {"who": s, "cue": "spark_l"})
 	_bolt(vent + 0.4, 0.25, 1.1)
 	_flash(t_ink - 0.06, 0.12)
-	# INK · the push, frozen in black lightning
+	# PAPIER · la décharge figée, Alice cueillie en plein vol
 	var ink: float = t_ink
 	_jump(s, ink, _ink(-1.3, 0, 0.0))
 	_jump(a, ink, _ink(0.9, 0.35, 0.0))
 	c._face(s, ink, "dir", Vector3(1, 0, 0))
 	c._face(a, ink, "dir", Vector3(-1, 0, 0))
-	c._do(s, ink - 0.06, "trigger", "consommation")
-	_hold_pose(s, ink + 0.32, ink + 2.6)
-	c._do(a, ink, "stun", false)
-	c._do(a, ink, "state", {"forced_time": 3.0, "force_name": "knock", "grounded": false})
+	_play(s, "fv_lysia_ink", ink)
+	_play(a, "fv_lysia_alice_ink", ink)
 	c._move(a, ink + 0.01, ink + 2.5, _ink(2.0, 0.7, 0.0), "out")
-	_tilt(ink, ink + 2.6, a, Vector3(0, 0, -0.35), Vector3(0, 0, -0.65))
-	for k: int in range(9): _later(ink + 0.05 + 0.25 * float(k), "bolts", {"at": _ink(0.0, 1.15, 0.0), "color": Color("d9fbff"), "count": 3, "radius": 1.0, "size": 1.3})
+	_tilt(ink, ink + 2.6, a, Vector3(0, 0, -0.2), Vector3(0, 0, -0.45))
+	for k: int in range(9): _later(ink + 0.05 + 0.25 * float(k), "bolts", {"at": _ink(0.0, 1.15, 0.0), "color": spark, "count": 3, "radius": 1.0, "size": 1.3})
 	_burst(ink, _ink(0.6, 1.0, 0.0), Vector3(1, 0.2, 0), 26, 2.6, {"spread": 0.7, "lift": 0.6, "gravity": 0.5, "drag": 0.8, "life": 2.6, "size": 0.1})
 	c._shot(ink, {"eye": [_ink(0.2, 1.05, 6.2), _ink(0.25, 1.05, 5.8)], "look": [_ink(0.2, 1.0, 0.0), _ink(0.3, 1.0, 0.0)], "fov": 42, "hand": 0.1, "safe": false})
 

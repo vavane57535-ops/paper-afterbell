@@ -24,6 +24,7 @@ static func add(c: Dictionary) -> void :
 	_usayuko(c)
 	_simon(c)
 	_ashura(c)
+	_lysia(c)
 
 
 # ------------------------------------------------------------------- OUTILS --
@@ -816,3 +817,189 @@ static func _ashura_alice(c: Dictionary) -> void :
 	ink.append(K(1.3, M([B(-0.76), HD(0.46, 0.05, 0.32), FL(0.08, 0.74, 0.7), FR(0.12, 0.6, 0.9), L(0.88, 0.2, -0.32, 0.6), R(0.82, 0.42, -0.16, 0.6)])))
 	ink.append(K(2.6, M([B(-0.8), HD(0.5, 0.0, 0.34), FL(0.08, 0.75, 0.76), FR(0.12, 0.6, 0.96), L(0.9, 0.24, -0.34, 0.6), R(0.84, 0.48, -0.18, 0.6)])))
 	c["fv_ashura_alice_ink"] = _film(0.0, 2.7, ink, "dazed")
+
+
+
+# -------------------------------------------------------------------- LYSIA --
+# Surtension. Lysia est à l'arrêt sous la pluie, en recharge : tête basse, bras
+# ballants, la pluie fume sur son armure ; chaque grosse caisse la secoue
+# (3,4 · 3,83 · 4,26 · 4,69) et chaque étincelle de la partition lui arrache un
+# tic (3,51 · 3,72). Redémarrage à 4,04 : la tête se relève par à-coups, les
+# yeux s'ouvrent (4,15), deux mises au point (4,47 · 4,79). Ruée d'épaule sur
+# Alice (4,9 → 5,2), puis les pieds se plantent : la surchauffe monte sur les
+# grosses caisses qui s'accélèrent (5,55 → 6,5) pendant qu'Alice revient à la
+# charge. DÉCHARGE des deux paumes (6,55) : Alice traverse la cour. Le bras
+# droit reste en l'air un temps de trop (automate un peu cassée), la vapeur
+# s'échappe (7,65), petits tics de recalage sur l'arpège, un regard vers nous
+# et un sourire de travers (8,15).
+
+const L_BOOT: float = 4.043
+const L_OPEN: float = 4.15
+const L_DASH: float = 4.9
+const L_HIT: float = 5.2
+const L_HEAT: float = 5.55
+const L_PUSH: float = 6.55
+const L_VENT: float = 7.65
+const L_TURN: float = 8.15
+const L_DASH_SPEED: float = 7.2
+# Alice : approche, recul, retour à la charge, atterrissage après la décharge
+const LA_WALK_SPEED: float = 1.3
+const LA_WALK_END: float = 4.45
+const LA_RUSH: float = 5.78
+const LA_RUSH_SPEED: float = 1.5
+const LA_LAND: float = 7.4
+
+
+static func _lysia(c: Dictionary) -> void :
+	var k: Array = []
+	# A · 3,3 · à l'arrêt : tête basse, épaules tombées, bras ballants, yeux fermés
+	var off: Dictionary = M([FL(0.05, 0.03), FR(0.05, -0.02), H(0, -0.05, 0.0), B(0.06), C(0.1), HD(-0.48, 0.0, 0.06),
+		L(0.2, -0.85, 0.06, 0.15), R(0.22, -0.84, 0.04, 0.15), WL(0.25), WR(0.3), SH(-0.1, -0.12), {"curl": 0.35, "curl_l": 0.4}])
+	k.append(K(3.3, M([_zero(), off, FACE("asleep")])))
+	# chaque grosse caisse : une secousse sèche qui remonte les épaules
+	for t: float in [3.4, 3.829, 4.257]:
+		k.append(K(t, M([SH(0.1, 0.14), C(0.04), {"shake": 0.7, "sq": 1.02}]), "s"))
+		k.append(K(t + 0.1, M([SH(-0.08, -0.1), C(0.1), {"shake": 0.0, "sq": 1.0}])))
+	# les étincelles : un doigt, puis la tête qui part d'un coup sur le côté
+	k.append(K(3.507, {"curl_l": 0.0}, "s"))
+	k.append(K(3.6, {"curl_l": 0.4}))
+	k.append(K(3.721, M([HD(-0.46, 0.0, 0.2), {"curl": 0.0}]), "s"))
+	k.append(K(3.86, M([HD(-0.48, 0.0, 0.06), {"curl": 0.35}]), "s"))
+	# B · 4,04 · redémarrage : la tête se relève en deux crans
+	k.append(K(L_BOOT, M([HD(-0.2, 0.0, 0.0), SH(0.0, 0.0), B(0.02), C(0.02), {"shake": 0.3}]), "s"))
+	k.append(K(L_OPEN, M([HD(-0.2, 0.0, 0.0), {"face": "focus", "shake": 0.0}]), "s"))
+	k.append(K(4.22, M([HD(0.02, 0.0, 0.0)]), "s"))
+	# mises au point sur Alice : un cran à gauche, puis la tête se verrouille
+	k.append(K(4.471, M([HD(0.02, 0.12, 0.1)]), "s"))
+	k.append(K(4.686, M([SH(0.08, 0.08), {"shake": 0.5}]), "s"))
+	k.append(K(4.75, M([SH(0.0, 0.0), {"shake": 0.0}])))
+	k.append(K(4.793, M([HD(0.0, 0.0, 0.0), {"face": "determined"}]), "s"))
+	k.append(K(4.83, M([HD(-0.03, 0.0, 0.0)])))
+	# C · 4,85 · la ruée : elle s'abaisse, l'épaule gauche devant, puis part
+	k.append(K(4.86, M([FR(0.06, -0.22), H(0, -0.16, 0.0), B(0.3, 0.3), C(0.1, 0.2), HD(0.2, -0.4),
+		L(0.25, -0.6, 0.15, 0.4), R(0.3, -0.55, -0.35, 0.3), SH(0.0, 0.0, 0.25, 0.0), {"curl": 1.0, "curl_l": 1.0}]), "s"))
+	k.append(K(L_DASH, M([H(0, -0.18, 0.15), B(0.55, 0.35), C(0.12, 0.2), HD(0.42, -0.4)])))
+	var dash: Dictionary = {"stance": 0.06, "reach": 0.32, "kick": 0.5, "knee": 0.35, "hips": Vector3(0.0, -0.18, 0.15), "bob": 0.04, "push": -0.6}
+	_strides("Lysia", k, 4.94, 3, 0.09, L_DASH_SPEED, true, dash)
+	# 5,2 · l'épaule entre dans Alice ; les pieds dérapent, elle s'arrête
+	var ram: Dictionary = M([FL(0.06, 0.32), FR(0.08, -0.3), H(0, -0.2, 0.2), B(0.4, 0.55), C(0.15, 0.25), HD(0.3, -0.5),
+		L(0.15, -0.45, 0.35, 0.3), R(0.35, -0.5, -0.4, 0.3), SH(0.05, 0.0, 0.35, 0.0), {"fp_l": 0.0, "fp_r": 0.0, "sq": 0.95, "ev": "effort", "fx": "pop_l"}])
+	k.append(K(L_HIT, ram, "s"))
+	k.append(K(5.34, M([FL(0.06, 0.24), FR(0.08, -0.26), H(0, -0.22, 0.05), B(0.2, 0.35), C(0.05, 0.15), HD(0.18, -0.3), {"sq": 1.0}]), "s"))
+	# 5,4 → 5,55 · elle se remet de face et plante les pieds, larges
+	k.append(K(5.44, M([FR(0.12, -0.12, 0.1), B(0.05, 0.05), C(0.0), HD(0.0, -0.05), SH(0.0, 0.0)])))
+	k.append(K(5.5, M([FR(0.2, -0.05), FL(0.12, 0.12, 0.08), {"fp_r": 0.0}]), "s"))
+	k.append(K(L_HEAT - 0.02, M([FL(0.2, 0.06), {"fp_l": 0.0}]), "s"))
+	# D · 5,55 → 6,5 · surchauffe : poings serrés, bras écartés du corps, la tête
+	# part en arrière ; une secousse à chaque grosse caisse, de plus en plus forte
+	var heat: Dictionary = M([FL(0.24, 0.06), FR(0.24, -0.05), H(0, -0.14, 0.0), B(-0.04), C(-0.14), HD(0.12, 0.0),
+		L(0.78, -0.42, 0.05, 0.8), R(0.8, -0.4, 0.04, 0.8), WL(0.3, 0.3), WR(0.3, -0.3), SH(0.16, 0.16), {"curl": 1.0, "curl_l": 1.0, "face": "angry", "jaw": 0.3}])
+	k.append(K(L_HEAT, M([heat, {"shake": 0.25}])))
+	for i: int in range(8):
+		var t: float = L_HEAT + 0.11875 * float(i)
+		var u: float = float(i) / 7.0
+		k.append(K(t, M([H(0, -0.14 - 0.1 * u, 0.0), HD(0.12 + 0.36 * u, 0.0, 0.04 * sin(2.3 * float(i))), C(-0.14 - 0.12 * u),
+			L(0.78 + 0.08 * u, -0.42 + 0.08 * u, 0.05, 0.8), R(0.8 + 0.08 * u, -0.4 + 0.08 * u, 0.04, 0.8), {"sq": 0.98, "shake": 0.3 + 0.7 * u}]), "s"))
+		k.append(K(t + 0.06, M([{"sq": 1.0}])))
+	# 6,42 · elle arme : coudes en arrière, paumes ouvertes, le regard redescend sur Alice
+	k.append(K(6.44, M([H(0, -0.16, -0.06), B(-0.1), C(-0.2), HD(-0.05, 0.0), L(0.4, -0.25, -0.35, 0.8), R(0.42, -0.24, -0.36, 0.8),
+		WL(-0.6), WR(-0.6), SH(0.0, 0.0, -0.2, -0.2), {"curl": 0.0, "curl_l": 0.0, "jaw": 0.5, "shake": 1.0}]), "s"))
+	# E · 6,55 · DÉCHARGE : les deux paumes en avant, tout le corps pousse
+	var push: Dictionary = M([FL(0.2, 0.18), FR(0.2, -0.16), H(0, -0.2, 0.2), B(0.25), C(0.08), HD(0.05, 0.0),
+		Lt(0.12, 0.22, 0.95, 0.3), Rt(0.12, 0.22, 0.95, 0.3), WL(-1.1), WR(-1.1), SH(0.0, 0.0, 0.3, 0.3),
+		{"fp_r": -0.4, "curl": 0.0, "curl_l": 0.0, "jaw": 0.8, "face": "angry", "ev": "roar", "sq": 1.06, "shake": 0.0}])
+	k.append(K(L_PUSH, push, "s"))
+	k.append(K(6.64, M([H(0, -0.18, 0.12), Lt(0.12, 0.25, 0.82, 0.3), Rt(0.12, 0.25, 0.82, 0.3), {"sq": 1.0, "shake": 0.4}])))
+	k.append(K(6.76, M([H(0, -0.2, 0.18), Lt(0.12, 0.22, 0.92, 0.3), Rt(0.12, 0.22, 0.92, 0.3), {"shake": 0.2}])))
+	# F · 7,0 · le calme : les bras redescendent… sauf le droit, resté en l'air,
+	# qui retombe d'un coup (7,45) ; les genoux fléchissent, la tête s'incline
+	k.append(K(7.0, M([H(0, -0.14, 0.12), B(0.15), Lt(0.12, 0.2, 0.9, 0.3), Rt(0.12, 0.22, 0.92, 0.3), {"jaw": 0.1, "face": "focus", "shake": 0.0}])))
+	k.append(K(7.3, M([H(0, -0.18, 0.06), B(0.1), HD(-0.12, 0.0, 0.05), L(0.3, -0.75, 0.1, 0.3), WL(0.2), {"curl_l": 0.4}])))
+	k.append(K(7.43, M([Rt(0.12, 0.2, 0.9, 0.3), WR(-0.9)]), "h"))
+	k.append(K(7.47, M([R(0.28, -0.78, 0.05, 0.3), WR(0.4), {"curl": 0.45, "sq": 0.99}]), "s"))
+	k.append(K(7.55, M([R(0.25, -0.82, 0.08, 0.25), WR(0.3), {"sq": 1.0}])))
+	# G · 7,65 · la vapeur s'échappe : les épaules montent, puis tout se relâche
+	k.append(K(L_VENT, M([H(0, -0.1, 0.05), C(-0.08), HD(0.15, 0.0, 0.0), SH(0.14, 0.14), {"face": "calm"}])))
+	k.append(K(7.85, M([H(0, -0.06, 0.03), C(0.06), HD(-0.05, 0.0, 0.0), SH(-0.06, -0.06), FL(0.12, 0.06), FR(0.12, -0.04)])))
+	# l'arpège : petits tics de recalage de la tête, un cran par note
+	for i: int in range(5):
+		var t: float = L_VENT + 0.05 + 0.10714 * float(i)
+		k.append(K(t, M([HD(-0.05 + 0.02 * float(i % 2), 0.0, 0.07 * (1.0 if i % 2 == 0 else -1.0))]), "s"))
+	# H · 8,15 · elle tourne la tête vers nous ; un sourire de travers, un tic
+	k.append(K(L_TURN, M([HD(0.04, 0.42, 0.0), C(0.04, 0.1), B(0.02, 0.06), {"face": "smile"}]), "s"))
+	k.append(K(8.3, M([HD(0.06, 0.45, 0.12)])))
+	k.append(K(8.44, M([HD(0.06, 0.45, 0.26)]), "s"))
+	k.append(K(8.5, M([HD(0.06, 0.45, 0.12)]), "s"))
+	blink(8.36, "smile", k, 0.06)
+	c["fv_lysia_rain"] = _film(3.3, 8.7, k, "asleep")
+
+	# PAPIER · la décharge figée : les paumes en avant, le corps qui pousse
+	var ink: Array = []
+	ink.append(K(0.0, M([_zero(), push, {"ev": "", "jaw": 0.7, "shake": 0.0}])))
+	ink.append(K(1.3, M([H(0, -0.21, 0.22), Lt(0.12, 0.23, 0.97, 0.3), Rt(0.12, 0.23, 0.97, 0.3)])))
+	ink.append(K(2.6, M([H(0, -0.22, 0.24), B(0.27), Lt(0.12, 0.24, 0.98, 0.3), Rt(0.12, 0.24, 0.98, 0.3)])))
+	c["fv_lysia_ink"] = _film(0.0, 2.7, ink, "angry")
+
+	_lysia_alice(c)
+
+
+static func _lysia_alice(c: Dictionary) -> void :
+	var k: Array = []
+	# A · 3,3 → 4,85 · elle avance vers la machine éteinte, les griffes prêtes
+	var prowl: Dictionary = M([H(0, -0.05, 0.0), B(0.15), C(0.2, 0.0, -0.04), HD(0.05, 0.0, -0.15),
+		L(0.36, -0.7, 0.3, 0.3), R(0.36, -0.72, 0.26, 0.3), WL(-0.4), WR(-0.35), {"curl": 0.2, "curl_l": 0.2}])
+	k.append(K(3.3, _no_feet(M([_zero(), prowl, FACE("menace")]))))
+	var walk: Dictionary = {"stance": 0.62, "reach": 0.36, "kick": 0.1, "knee": 0.07, "strike": 0.16, "push": -0.32, "bob": 0.015, "up": 0.0, "hips": Vector3(0.0, -0.05, 0.0), "width": 0.03}
+	_stride_in("Alice", k, 3.3, 3.45, 0.5, LA_WALK_SPEED, true, walk)
+	_strides("Alice", k, 3.45, 3, 0.5, LA_WALK_SPEED, true, walk)
+	k.append(K(3.75, M([HD(0.0, 0.05, -0.2), {"curl": 0.4}])))
+	k.append(K(4.2, M([HD(0.08, -0.04, -0.1), {"curl": 0.1, "curl_l": 0.45}])))
+	# 4,45 → 4,85 · elle s'arrête devant elle, penche la tête : cette chose dort ?
+	k.append(K(4.55, M([FL(0.05, 0.14), FR(0.06, -0.08), H(0, -0.03, 0.0), {"fp_l": 0.0, "fp_r": 0.0}])))
+	k.append(K(4.72, M([B(0.2), C(0.25), HD(0.0, 0.0, -0.32), {"face": "grin"}])))
+	# 4,9 · elle ne s'attendait pas à ça : les griffes se lèvent trop tard
+	k.append(K(4.95, M([B(0.0), C(0.05), HD(0.15, 0.0, 0.0), R(0.4, 0.3, 0.35, 0.6), L(0.4, 0.25, 0.35, 0.6), WR(-0.6), WL(-0.6), {"face": "surprise", "jaw": 0.5, "curl": 0.0, "curl_l": 0.0}])))
+	# 5,2 · l'épaule de Lysia dans la poitrine : elle décolle en arrière
+	var hit: Dictionary = M([H(0, 0.05, -0.12), B(-0.4, 0.15), C(-0.2), HD(-0.3, 0.1, 0.1), R(0.5, 0.1, 0.65, 0.5), L(0.5, 0.15, 0.6, 0.5),
+		FL(0.05, 0.25, 0.12), FR(0.06, 0.12, 0.08), {"sq": 0.92, "jaw": 0.8, "face": "pain", "ev": "hurt"}])
+	k.append(K(L_HIT, hit, "s"))
+	k.append(K(5.32, M([H(0, 0.0, -0.08), B(-0.25, 0.1), HD(0.15, 0.1, 0.15), R(0.75, 0.35, 0.3, 0.7), L(0.75, 0.4, 0.2, 0.7), {"sq": 1.03}])))
+	# 5,42 · elle retombe sur ses pieds, glisse, se rattrape
+	k.append(K(5.42, M([FL(0.06, 0.2), FR(0.06, -0.15), H(0, -0.2, -0.02), B(0.25, 0.0), C(0.2), HD(-0.1, -0.1, 0.1), R(0.55, -0.3, 0.35, 0.5), L(0.55, -0.32, 0.3, 0.5), {"sq": 0.94, "fp_l": 0.0, "fp_r": 0.0}]), "s"))
+	k.append(K(5.5, M([HD(0.0, 0.3, 0.0), {"sq": 1.0}])))
+	k.append(K(5.56, M([HD(0.0, -0.25, 0.0)])))
+	# 5,62 · le rugissement, puis elle revient sur elle à grands pas
+	k.append(K(5.64, M([H(0, -0.12, 0.0), B(0.35), C(0.25), HD(-0.2, 0.0, 0.0), R(0.55, 0.0, 0.45, 0.6), L(0.55, 0.0, 0.4, 0.6), WR(-0.7), WL(-0.7),
+		{"jaw": 1.0, "face": "angry", "ev": "roar"}]), "s"))
+	var stalk: Dictionary = {"stance": 0.4, "reach": 0.32, "kick": 0.18, "knee": 0.12, "strike": 0.12, "push": -0.4, "bob": 0.03, "up": 0.0, "hips": Vector3(0.0, -0.14, 0.04), "width": 0.04}
+	_strides("Alice", k, LA_RUSH, 3, 0.3, LA_RUSH_SPEED, false, stalk)
+	k.append(K(6.0, M([B(0.3), HD(-0.12, 0.0, 0.0), R(0.45, 0.55, 0.15, 0.7), L(0.45, 0.5, 0.2, 0.7), {"jaw": 0.6}])))
+	# 6,4 · elle bondit, griffes en avant
+	k.append(K(6.46, M([H(0, -0.06, 0.2), B(0.5), C(0.3), HD(-0.25), R(0.25, 0.3, 0.85, 0.3), L(0.25, 0.28, 0.85, 0.3), WR(-0.8), WL(-0.8), {"jaw": 0.9, "fp_r": -0.6}])))
+	# 6,55 · la décharge la cueille : cambrée, bras et jambes projetés vers Lysia
+	var blasted: Dictionary = M([{"plant": 0.0}, H(0, 0.04, -0.3), B(-0.55, 0.0), C(-0.35), HD(0.55, 0.0, 0.1),
+		TL(0.7, 0.1), KL(0.6), TR(0.45, 0.12), KR(0.9), Rt(0.25, 0.4, 0.7, 0.5), Lt(0.25, 0.35, 0.75, 0.5), WR(0.5), WL(0.5),
+		{"sq": 0.9, "jaw": 1.0, "face": "pain", "ev": "hurt", "curl": 0.0, "curl_l": 0.0, "fp_r": 0.0, "shake": 1.0}])
+	k.append(K(L_PUSH, blasted, "h"))
+	k.append(K(L_PUSH + 0.08, M([blasted, {"sq": 1.0}])))
+	k.append(K(6.95, M([H(0, 0.0, -0.3), B(-0.7, 0.0, 0.1), HD(0.65, -0.2, 0.15), TL(1.0, 0.15), KL(0.5), TR(0.8, 0.15), KR(0.8), {"shake": 0.8}])))
+	# 7,4 · elle s'écrase sur le dos ; les jambes rebondissent, l'électricité la secoue
+	var down: Dictionary = M([{"plant": 0.0, "gsnap": 1.0}, H(0, 0.0, -0.45), {"body": V(1.5, -0.12, 0.0), "chest": V(-0.12, -0.12, -0.06), "head": V(-0.35, -0.75, -0.1)},
+		TL(0.25, 0.12, 0.15), KL(0.35), TR(0.45, 0.15, -0.2), KR(0.7), {"l_arm": V(1.2, 0.0, -0.5), "r_arm": V(1.2, 0.0, 0.5)}, Lg(0.9, 0.1), Rg(0.95, -0.25),
+		{"el_l": 0.7, "el_r": 0.6, "face": "dazed", "jaw": 0.35, "sq": 1.0, "curl": 0.35, "curl_l": 0.25}])
+	k.append(K(LA_LAND, M([down, TL(0.85, 0.12, 0.15), KL(0.3), TR(1.0, 0.15, -0.2), KR(0.4), {"sq": 0.9, "ev": "hurt", "shake": 1.0}]), "s"))
+	k.append(K(7.52, M([TL(1.05, 0.12, 0.15), KL(0.5), TR(1.25, 0.15, -0.2), KR(0.6), {"sq": 1.03}])))
+	k.append(K(7.75, M([down, {"shake": 0.8}])))
+	# les décharges qui restent : la main se crispe, la jambe tressaute
+	for i: int in range(5):
+		var t: float = 7.9 + 0.15 * float(i) + 0.03 * float(i % 2)
+		k.append(K(t, M([{"shake": 0.9 - 0.15 * float(i), "curl_l": 0.9 if i % 2 == 0 else 0.25}, KR(0.7 + (0.25 if i % 2 == 1 else 0.0))]), "s"))
+	k.append(K(8.6, M([{"shake": 0.2, "head": V(-0.38, -0.8, -0.12), "face": "dead"}])))
+	c["fv_lysia_alice_rain"] = _film(3.3, 8.7, k, "menace")
+
+	# PAPIER · cueillie par la décharge, cambrée, elle part en arrière au ralenti
+	var ink: Array = []
+	ink.append(K(0.0, M([_zero(), blasted, {"ev": "", "shake": 0.6}])))
+	ink.append(K(1.3, M([B(-0.62), HD(0.6, 0.0, 0.12), TL(0.8, 0.12), KL(0.55), TR(0.55, 0.12), KR(0.85), Rt(0.28, 0.45, 0.68, 0.5), Lt(0.28, 0.4, 0.72, 0.5)])))
+	ink.append(K(2.6, M([B(-0.68), HD(0.62, 0.0, 0.14), TL(0.9, 0.12), KL(0.5), TR(0.65, 0.12), KR(0.8), Rt(0.3, 0.5, 0.66, 0.5), Lt(0.3, 0.45, 0.7, 0.5)])))
+	c["fv_lysia_alice_ink"] = _film(0.0, 2.7, ink, "pain")
