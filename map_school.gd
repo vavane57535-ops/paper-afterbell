@@ -311,9 +311,13 @@ func _gym() -> void :
 	K.deco(Vector3(0.1, 0.012, 14), Vector3(-34, 0.025, 27.5), line)
 	var circle: MeshInstance3D = K.cylinder(Vector3(-34, 0.02, 27.5), 2.4, 0.012, "orange")
 	circle.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	# 0.17 : panier fixé au mur du fond (l'ancien poteau était planté devant la porte du gymnase,
-	# panneau et cercle flottant devant lui)
-	K.basket(Vector3(-53.75, 0, 27.5), "e", 3.05, 0.6)
+	# 0.17 : panier suspendu à la poutre du toit, au bout ouest du terrain, devant l'escalier (l'ancien poteau
+	# était planté dans la porte du hall, panneau et cercle flottant devant lui ; fixé au mur ouest, il pendait
+	# au-dessus des marches)
+	K.basket(Vector3(-45.5, 0, 27.5), "e", 3.05)
+	for side in [-1.0, 1.0]:
+		K.bar(Vector3(-45.54, 3.9, 27.5 + side * 0.6), Vector3(-48.0, ROOF - 0.35, 27.5 + side * 0.85), 0.08, "metal")
+	K.bar(Vector3(-45.54, 3.92, 26.85), Vector3(-45.54, 3.92, 28.15), 0.08, "metal")
 
 	for i in range(3):
 		L._floor(Rect2(-44, 35 + i * 2, 20, 6.75 - i * 2), 0.8 * (i + 1), L._wood, 0.3, true)

@@ -217,7 +217,8 @@ func _ski_shop() -> void :
 	K.wood_floor(Rect2(34, 36, 18, 14))
 	K.solid(Vector3(8, 1.8, 1.0), Vector3(40, 0.9, 44), "wood")
 	for i in range(8):
-		var ski: MeshInstance3D = K.deco(Vector3(0.12, 1.9, 0.05), Vector3(36.6 + i * 0.9, 0.95, 44.55), ["red", "blue", "yellow", "chalk"][i % 4])
+		# 0.17 : skis à louer debout contre l'avant du comptoir (derrière, seules les pointes dépassaient)
+		var ski: MeshInstance3D = K.deco(Vector3(0.12, 1.9, 0.05), Vector3(36.6 + i * 0.9, 0.95, 43.47), ["red", "blue", "yellow", "chalk"][i % 4])
 		ski.rotation.z = 0.1
 	K.sign_text("LOCATION DE SKIS", Vector3(43, 3.0, 35.7), "n", 34, Color("f4dcb0"))
 	clear_rects.append(Rect2(31, 33, 24, 20))
@@ -367,6 +368,8 @@ func _lights() -> void :
 	K.accent_light(Vector3(-4, HIGH + 2.5, 0), Color("ffcf94"), 0.5, 11)
 	K.accent_light(Vector3(44, 2.4, 0), Color("ffcf94"), 0.45, 8)
 	K.accent_light(Vector3(-44, 2.2, -25), Color("ffcf94"), 0.45, 8)
+	# 0.17 : la location de skis (où dort une archive) était le seul chalet sans lumière, noir complet
+	K.accent_light(Vector3(43, 2.6, 41), Color("ffcf94"), 0.5, 9)
 
 func _perimeter() -> void :
 	for wall in [[Vector3(0, 6, -68.5), Vector3(144, 12, 1)], [Vector3(0, 6, 61.5), Vector3(144, 12, 1)], [Vector3(-71.5, 6, -4), Vector3(1, 12, 130)], [Vector3(71.5, 6, -4), Vector3(1, 12, 130)]]:

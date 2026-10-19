@@ -415,6 +415,14 @@ func slide(center: Vector3, facing: String) -> void :
 		elif facing == "e": piece.rotation.z = - tilt
 		else: piece.rotation.z = tilt
 	blocker(oriented(1.0, 1.2, 3.2, facing), center + along(facing, 2.3) + Vector3(0, 0.6, 0))
+	# 0.17 : échelle à l'arrière de la tour, avec ses mains courantes (rien ne permettait d'y monter)
+	var ladder_foot: Vector3 = center + along(facing, -1.5)
+	var lean: float = 0.68 / 2.46
+	for side in [-0.32, 0.32]:
+		bar(ladder_foot + along(facing, 0.0, side), ladder_foot + along(facing, lean * 2.95, side) + Vector3(0, 2.95, 0), 0.07, "metal")
+	for i in range(1, 9):
+		var rung: Vector3 = ladder_foot + along(facing, lean * i * 0.3) + Vector3(0, i * 0.3, 0)
+		bar(rung + along(facing, 0.0, -0.32), rung + along(facing, 0.0, 0.32), 0.05, "yellow")
 
 
 func dome(center: Vector3, radius: float = 2.2) -> void :

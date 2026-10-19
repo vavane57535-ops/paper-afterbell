@@ -60,6 +60,16 @@ const PRESETS: Dictionary = {
 			["jonction_retenue", Vector3(-46, 6.6, 12), Vector3(-53.4, 5.8, 17.6), 58.0],
 			["chapiteaux_hall", Vector3(4, 1.8, 31), Vector3(12, 9.4, 26), 64.0],
 		],
+		"objets": [
+			["compas", Vector3(-13.5, 2.3, -35.5), Vector3(-17.7, 2.3, -37.0), 52.0],
+			["guirlande", Vector3(-10, 6.2, 9), Vector3(0, 8.4, 0), 64.0],
+			["piano_pupitres", Vector3(34.5, 7.3, -24.5), Vector3(36, 5.6, -31), 56.0],
+			["rideaux", Vector3(-46.5, 1.7, 9.5), Vector3(-48.4, 1.2, 14), 56.0],
+			["banc_casiers", Vector3(30.5, 1.1, 9.0), Vector3(28.5, 0.4, 7.0), 56.0],
+			["panier_gymnase", Vector3(-37.5, 2.2, 24.0), Vector3(-45.6, 4.6, 27.5), 62.0],
+			["lampe_tiges", Vector3(-33.5, 3.2, -27.5), Vector3(-36, 4.3, -30), 56.0],
+			["limons", Vector3(-11.5, 1.8, 7.5), Vector3(-8, 3.0, -3), 60.0],
+		],
 	},
 	"forest": {
 		"tour": [
@@ -98,6 +108,16 @@ const PRESETS: Dictionary = {
 			["couronne_est", Vector3(64, 3.0, -12), Vector3(80, 4.0, -4), 64.0],
 			["cloture_rocher", Vector3(67, 6.8, -53), Vector3(74, 5.0, -58), 58.0],
 			["couronne_nord", Vector3(10, 8.5, -63), Vector3(14, 8.0, -78), 64.0],
+		],
+		"objets": [
+			["dome", Vector3(-31.5, 2.6, 49.0), Vector3(-36, 1.0, 52), 58.0],
+			["toboggan", Vector3(-27.5, 2.6, 50.0), Vector3(-24.5, 1.3, 54), 60.0],
+			["balancoires", Vector3(-28, 2.0, 38.5), Vector3(-28, 1.6, 44), 60.0],
+			["panier_cour", Vector3(32.0, 2.4, 44.5), Vector3(36.6, 3.0, 47), 56.0],
+			["potager_panneau", Vector3(66.5, 1.6, 22.0), Vector3(66, 1.3, 25.8), 56.0],
+			["portail_sortie", Vector3(0, 6.6, -51.5), Vector3(0, 7.2, -58), 60.0],
+			["preau_panneau", Vector3(0, 2.2, 31.0), Vector3(0, 4.3, 37), 56.0],
+			["abribus", Vector3(-10, 5.8, -51.0), Vector3(-10, 6.6, -55.5), 60.0],
 		],
 	},
 	"snow": {
@@ -138,6 +158,14 @@ const PRESETS: Dictionary = {
 			["pignon_chalet", Vector3(4, 7.5, 30), Vector3(0, 11.0, 14.8), 60.0],
 			["archive_cabane", Vector3(45.6, 1.0, 3.0), Vector3(44, 0.25, 0), 50.0],
 			["couronne_ouest", Vector3(-62, 3.0, 4), Vector3(-80, 4.0, -8), 64.0],
+		],
+		"objets": [
+			["telepherique", Vector3(-37.5, 7.6, -57.5), Vector3(-44, 7.6, -63), 62.0],
+			["skis_dortoir", Vector3(-7.5, 6.6, -8.0), Vector3(-9, 6.0, -11.7), 56.0],
+			["skis_location", Vector3(41, 1.9, 38.5), Vector3(40, 1.0, 43.5), 62.0],
+			["glace_fragile", Vector3(-23.5, 1.8, 3.5), Vector3(-29.2, 1.3, 0), 56.0],
+			["gare_sortie", Vector3(-30, 6.8, -46.5), Vector3(-30, 7.4, -54), 60.0],
+			["remonte_pente", Vector3(50, 6.8, -42.5), Vector3(50, 7.6, -47.6), 58.0],
 		],
 	},
 }
