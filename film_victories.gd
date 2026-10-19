@@ -712,11 +712,17 @@ func _write_ashura() -> void :
 	var stop_at: Vector3 = _r(0.42, 4.6 - FV.A_WALK_SPEED * (walk_end - 3.3))
 	c._move(a, 3.3, walk_end, stop_at, "linear")
 	c._move(a, walk_end, walk_end + 0.12, stop_at + Vector3(0, 0, -0.06), "out")
-	# le drone posé devant lui, sur le sol mouillé
-	var rest: Vector3 = _r(0.02, 0.5, 0.06)
-	c._flights.append([3.3, FV.A_FLING - 0.05, "drone", rest, rest, 0.0, 0.0])
-	# A · par-dessus son épaule droite : les mains au travail, Alice qui approche au fond
-	c._shot(3.32, {"rel": {"a": s}, "eye": [Vector3(-0.85, 0.55, -0.6), Vector3(-0.78, 0.53, -0.5)], "look": {"a": s, "h": 0.45, "o": Vector3(0.05, 0, 0.75)}, "fov": [46, 44], "hand": 0.3})
+	# le drone au sol sous sa main gauche (la droite visse) ; à 4,8 il glisse
+	# sur la paume droite, qui le lance
+	var on_left: Dictionary = {"a": s, "s": "hand_l", "h": -0.09}
+	var on_right: Dictionary = {"a": s, "s": "hand_r", "h": 0.07}
+	c._flights.append([3.3, 4.8, "drone", on_left, on_left, 0.0, 0.0])
+	c._flights.append([4.8, 4.92, "drone", on_left, on_right, 0.0, 0.0])
+	var rest: Vector3 = _r(0.05, 0.42, 0.1)
+	# A1 · au-dessus de son épaule : les mains au travail sur la carcasse mouillée
+	c._shot(3.32, {"rel": {"a": s}, "eye": [Vector3(0.82, 1.22, 0.55), Vector3(0.74, 1.15, 0.5)], "look": {"a": s, "s": "hand_l", "h": 0.12}, "fov": [44, 41], "hand": 0.25})
+	# A2 · par-dessus son épaule droite, au ras du sol : Alice approche au fond
+	c._shot(3.72, {"rel": {"a": s}, "eye": [Vector3(-1.05, 0.48, -0.25), Vector3(-0.98, 0.46, -0.15)], "look": {"a": s, "h": 0.4, "o": Vector3(0.1, 0, 0.9)}, "fov": [46, 44], "hand": 0.3})
 	for t: float in [3.556, 3.946]: _later(t, "cue", {"who": s, "cue": "spark_r"})
 	for t: float in [3.43, 4.075, 4.463]: c._cue(t, "sound", "camera_place", {"a": s}, 0.35, 1.7)
 	_rain_burst(3.85, rest + Vector3(0, 0.15, 0), 0.4)
@@ -726,7 +732,7 @@ func _write_ashura() -> void :
 	_later(4.333, "cue", {"who": s, "cue": "spark_r"})
 	# C · le lancer, de profil : le drone part de sa main (5,0) et file vers elle
 	c._shot(FV.A_FLING, {"rel": {"mid": [s, a]}, "eye": [Vector3(3.7, 1.0, -0.45), Vector3(3.35, 1.1, -0.2)], "look": {"mid": [s, a], "h": 1.05}, "fov": [42, 40], "hand": 0.4})
-	c._flights.append([FV.A_FLING - 0.05, FV.A_RELEASE, "drone", {"a": s, "s": "hand_r"}, {"a": s, "s": "hand_r"}, 0.0, 0.0])
+	c._flights.append([4.92, FV.A_RELEASE, "drone", on_right, on_right, 0.0, 0.0])
 	c._flights.append([FV.A_RELEASE, FV.A_BONK, "drone", _r(0.05, 0.55, 1.3), {"a": a, "s": "head"}, 0.35, 0.42])
 	_later(FV.A_RELEASE, "cue", {"who": s, "cue": "drone_up"})
 	c._cue(FV.A_RELEASE, "sound", "camera_place", {"a": s}, 0.7, 1.4)
@@ -757,12 +763,13 @@ func _write_ashura() -> void :
 	var st: float = FV.A_STROKE
 	c._face(s, go, "move")
 	c._move(s, go, go + st, _r(-0.3, 0.9), "in")
-	c._move(s, go + st, go + 2.0 * st, _r(-1.0, 2.0), "linear")
-	c._move(s, go + 2.0 * st, go + 3.0 * st, _r(-1.45, 3.4), "linear")
-	c._move(s, go + 3.0 * st, go + 4.0 * st, _r(-1.3, 4.85), "linear")
-	c._move(s, go + 4.0 * st, go + 5.0 * st, _r(-0.35, 5.85), "linear")
-	c._move(s, go + 5.0 * st, go + 6.0 * st, _r(1.05, 5.95), "linear")
-	c._move(s, go + 6.0 * st, FV.A_STOP, _r(1.95, 4.95), "linear")
+	# un cercle serré autour d'elle, dans le couloir libre mesuré (_measure_room)
+	c._move(s, go + st, go + 2.0 * st, _r(-0.85, 2.1), "linear")
+	c._move(s, go + 2.0 * st, go + 3.0 * st, _r(-1.05, 3.4), "linear")
+	c._move(s, go + 3.0 * st, go + 4.0 * st, _r(-0.75, 4.75), "linear")
+	c._move(s, go + 4.0 * st, go + 5.0 * st, _r(0.15, 5.6), "linear")
+	c._move(s, go + 5.0 * st, go + 6.0 * st, _r(1.2, 5.55), "linear")
+	c._move(s, go + 6.0 * st, FV.A_STOP, _r(1.62, 4.68), "linear")
 	c._cue(go, "dust_ring", {"a": s}, 0.9)
 	c._cue(go, "sound", "boost", {"a": s}, 1.0, 1.0)
 	c._cue(go, "rush", 0.8)
@@ -793,15 +800,18 @@ func _write_ashura() -> void :
 	c._cue(FV.A_STOP, "dust_ring", {"a": a}, 0.9)
 	_rain_burst(FV.A_STOP, _r(0.42, 3.9, 0.3), 0.6)
 	# H · arrêt de hockeyeur dans une gerbe d'eau, il la regarde, pouce levé
-	var halt: Vector3 = _r(2.25, 4.35)
-	var face: Vector3 = (_r(0.42, 3.9) - halt).normalized()
+	var halt: Vector3 = _r(1.5, 4.15)
+	var face: Vector3 = (stop_at + Vector3(0, 0, 0.3) - halt).normalized()
 	var side: Vector3 = Vector3(face.z, 0.0, - face.x)
 	c._move(s, FV.A_STOP, 8.85, halt, "out")
 	c._face(s, FV.A_STOP, "dir", face)
 	for k: int in range(4): _burst(FV.A_STOP + 0.06 * float(k), halt + Vector3(0, 0.1, 0) - face * 0.2 * float(k), Vector3(0, 0.7, 0) - face * 0.6 + side * 0.4, 9, 3.0 - 0.4 * float(k), {"spread": 0.6, "lift": 1.8, "gravity": 7.0, "life": 0.8, "size": 0.05, "colors": [Color("cfdaea"), Color("9fb0c8")]})
 	c._cue(FV.A_STOP, "sound", "step", {"a": s}, 0.9, 0.6)
 	_later(FV.A_STOP, "cue", {"who": s, "cue": "skid"})
-	c._shot(8.72, {"rel": {"a": s}, "eye": [side * 2.3 + face * 1.6 + Vector3(0, 1.05, 0), side * 2.1 + face * 1.45 + Vector3(0, 1.1, 0)], "look": {"a": s, "h": 0.95, "o": face * 0.55}, "fov": [38, 36], "hand": 0.3})
+	# H1 · derrière Alice assise : il s'arrête et rattrape le drone
+	c._shot(8.72, {"eye": [_r(0.05, 5.85, 1.05), _r(0.1, 5.7, 1.1)], "look": [halt + Vector3(-0.3, 0.85, 0.15), halt + Vector3(-0.2, 1.0, 0.1)], "fov": [46, 43], "hand": 0.3})
+	# H2 · face à lui : le pouce levé, les yeux qui brillent
+	c._shot(9.26, {"eye": [halt + face * 1.35 - side * 0.95 + Vector3(0, 1.32, 0), halt + face * 1.25 - side * 0.85 + Vector3(0, 1.34, 0)], "look": [halt + Vector3(0, 1.22, 0), halt + Vector3(0, 1.28, 0)], "fov": [38, 35], "hand": 0.25})
 	c._cue(FV.A_CATCH, "sound", "camera_place", {"a": s}, 0.6, 1.1)
 	_later(FV.A_THUMB, "sparkles", {"at": {"a": s, "s": "hand_r"}, "color": tint, "count": 4, "radius": 0.3})
 	_glint(9.5, 9.84, s, 1.0)
@@ -812,7 +822,7 @@ func _write_ashura() -> void :
 	_jump(s, ink, _ink(-2.4, 0, 0.6))
 	_jump(a, ink, _ink(1.7, 0, -0.5))
 	c._face(s, ink, "dir", Vector3(1, 0, 0))
-	c._face(a, ink, "dir", Vector3(-0.6, 0, 0.8))
+	c._face(a, ink, "dir", Vector3(-1, 0, 0.12))
 	_play(s, "fv_ashura_ink", ink)
 	_play(a, "fv_ashura_alice_ink", ink)
 	c._move(s, ink + 0.02, ink + 2.6, _ink(0.0, 0, 0.6), "linear")

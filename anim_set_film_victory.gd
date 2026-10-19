@@ -705,12 +705,12 @@ static func _ashura(c: Dictionary) -> void :
 	k.append(K(9.16, M([L(0.4, 0.5, 0.18, 0.35), H(0, -0.09, 0.0), {"sq": 0.98}])))
 	k.append(K(9.26, M([L(0.45, 0.25, 0.2, 0.4), HD(0.05, 0.0, 0.08), H(0, -0.05, 0.0), {"sq": 1.0}])))
 	# 9,35 · pouce levé vers nous
-	k.append(K(9.28, M([Rt(0.05, 0.1, 0.5, 0.3), WR(0.3, -0.6), {"curl": 1.0}])))
-	k.append(K(A_THUMB, M([Rt(0.08, 0.26, 0.72, 0.25), WR(0.0, -1.3), HD(0.06, -0.06, 0.16), B(0.0, -0.08), {"gesture": "thumbsup", "face": "grin"}]), "s"))
-	k.append(K(9.5, M([Rt(0.08, 0.28, 0.7, 0.25), HD(0.08, -0.05, 0.14)])))
+	k.append(K(9.28, M([Rt(0.3, 0.06, 0.45, 0.4), WR(0.3, -0.6), {"curl": 1.0}])))
+	k.append(K(A_THUMB, M([Rt(0.42, 0.2, 0.62, 0.35), WR(0.0, -1.3), HD(0.06, -0.06, 0.16), B(0.0, -0.08), {"gesture": "thumbsup", "face": "grin"}]), "s"))
+	k.append(K(9.5, M([Rt(0.42, 0.23, 0.6, 0.35), HD(0.08, -0.05, 0.14)])))
 	blink(9.53, "grin", k, 0.06)
 	k.append(K(9.62, M([HD(0.12, -0.04, 0.12), B(-0.02, -0.06)])))
-	k.append(K(9.8, M([Rt(0.08, 0.28, 0.7, 0.25), HD(0.12, -0.03, 0.13)])))
+	k.append(K(9.8, M([Rt(0.42, 0.24, 0.6, 0.35), HD(0.12, -0.03, 0.13)])))
 	c["fv_ashura_rain"] = _film(3.3, 9.9, k, "focus")
 
 	# PAPIER · la glisse : sur le patin droit, la jambe gauche tendue derrière,
@@ -733,8 +733,10 @@ static func _ashura(c: Dictionary) -> void :
 static func _alice_sit() -> Dictionary:
 	var leg: float = float(LEG.Alice)
 	var low: float = (0.12 - 1.042) / leg
-	return M([H(0, low, -0.12), FL(0.1, 0.8), FR(0.14, 0.64), B(-0.32, 0.0, 0.0), C(0.24), HD(0.15, 0.0, 0.25),
-		Lg(0.5, -0.45), Rg(0.55, -0.4), {"fp_l": 0.5, "fp_r": 0.35, "el_l": 0.4, "el_r": 0.4, "face": "dazed", "jaw": 0.35, "curl": 0.3, "curl_l": 0.3}])
+	# penchée en arrière sur les mains, un genou levé : la silhouette se lit
+	# même sous la robe
+	return M([H(0, low, -0.2), FL(0.1, 0.88), FR(0.16, 0.52), B(-0.55, 0.0, 0.0), C(0.16), HD(0.32, 0.0, 0.25),
+		Lg(0.45, -0.58), Rg(0.5, -0.52), {"fp_l": 0.5, "fp_r": 0.2, "el_l": 0.4, "el_r": 0.4, "face": "dazed", "jaw": 0.35, "curl": 0.3, "curl_l": 0.3}])
 
 
 static func _ashura_alice(c: Dictionary) -> void :
@@ -804,9 +806,13 @@ static func _ashura_alice(c: Dictionary) -> void :
 	k.append(K(9.85, M([HD(0.15, 0.15, 0.22)])))
 	c["fv_ashura_alice_rain"] = _film(3.3, 9.9, k, "menace")
 
-	# PAPIER · assise, étourdie, la main sur la bosse ; elle oscille
+	# PAPIER · l'instant où elle s'étale : les fesses au sol, les jambes qui
+	# partent en l'air, les bras jetés en arrière (sous la robe, une Alice assise
+	# se lirait debout) ; tout continue de monter au ralenti
 	var ink: Array = []
-	ink.append(K(0.0, M([_zero(), sit, Rt(-0.05, 0.75, -0.05, 0.6), WR(0.5), HD(0.12, 0.15, 0.25), {"curl": 0.5, "face": "dazed"}])))
-	ink.append(K(1.3, M([HD(0.05, -0.15, -0.22), B(-0.22, 0.0, -0.06)])))
-	ink.append(K(2.6, M([HD(0.15, 0.18, 0.25), B(-0.27, 0.0, 0.06)])))
+	var low: float = (0.14 - 1.042) / float(LEG.Alice)
+	ink.append(K(0.0, M([_zero(), H(0, low, -0.3), B(-0.72), C(0.1), HD(0.42, 0.1, 0.3), FL(0.08, 0.72, 0.62), FR(0.12, 0.58, 0.82),
+		L(0.85, 0.15, -0.3, 0.6), R(0.8, 0.35, -0.15, 0.6), WL(-0.4), WR(-0.5), {"fp_l": 0.4, "fp_r": 0.6, "curl": 0.0, "curl_l": 0.1, "jaw": 0.6, "face": "dazed"}])))
+	ink.append(K(1.3, M([B(-0.76), HD(0.46, 0.05, 0.32), FL(0.08, 0.74, 0.7), FR(0.12, 0.6, 0.9), L(0.88, 0.2, -0.32, 0.6), R(0.82, 0.42, -0.16, 0.6)])))
+	ink.append(K(2.6, M([B(-0.8), HD(0.5, 0.0, 0.34), FL(0.08, 0.75, 0.76), FR(0.12, 0.6, 0.96), L(0.9, 0.24, -0.34, 0.6), R(0.84, 0.48, -0.18, 0.6)])))
 	c["fv_ashura_alice_ink"] = _film(0.0, 2.7, ink, "dazed")
