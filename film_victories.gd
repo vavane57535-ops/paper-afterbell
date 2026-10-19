@@ -1093,6 +1093,9 @@ func _write_bleuette() -> void :
 	var start: Vector3 = _r(-0.3, 0.0)
 	var near: Vector3 = _r(0.3, 1.25)
 	var toward: Vector3 = (near - start).normalized()
+	# sa droite : la frange cache son visage dès qu'on la filme à plus de 20° de face
+	var right: Vector3 = toward.cross(Vector3.UP)
+	var eyes: Dictionary = {"a": s, "s": "eyes", "h": -0.05}
 	c._put(s, start)
 	c._face(s, 0.0, "at", a)
 	c._put(a, near + toward * FV.BA_WALK_SPEED * (FV.BA_WALK_END - 3.3))
@@ -1102,22 +1105,24 @@ func _write_bleuette() -> void :
 	# Alice : trois pas lents (anim_set_film_victory : BA_WALK_SPEED)
 	c._move(a, 3.3, FV.BA_WALK_END, near, "linear")
 	# A1 · par-dessus l'épaule de Bleuette, en contre-plongée : Alice arrive
-	c._shot(3.32, {"rel": {"a": s}, "eye": [Vector3(0.4, 0.95, -0.72), Vector3(0.37, 0.98, -0.62)], "look": {"a": a, "h": 1.55}, "fov": [48, 44], "hand": 0.45, "roll": [-5, -8]})
+	c._shot(3.32, {"rel": {"a": s}, "eye": [Vector3(0.3, 0.72, -0.62), Vector3(0.28, 0.75, -0.55)], "look": {"a": a, "h": 1.5}, "fov": [36, 33], "hand": 0.45, "roll": [-6, -9]})
 	_glint(3.5, 4.12, a, 0.9)
 	_bolt(3.62, 0.2, 0.85)
 	# A2 · son visage : elle tremble, lève les yeux, puis les baisse sur le chocolat
-	c._shot(3.85, {"rel": {"a": s}, "eye": [Vector3(-0.78, 1.5, 0.72), Vector3(-0.7, 1.46, 0.64)], "look": {"a": s, "s": "eyes", "h": -0.18}, "fov": [36, 33], "hand": 0.3})
+	c._shot(3.85, {"rel": eyes, "eye": [toward * 0.9 + right * 0.27 + Vector3.UP * 0.02, toward * 0.84 + right * 0.25 + Vector3.UP * 0.03], "look": {"a": s, "s": "eyes", "h": -0.11}, "fov": [36, 33], "hand": 0.3})
 	_later(3.92, "cue", {"who": s, "cue": "sweat"})
 	# B1 · elle croque, trois fois, sur le célesta
-	c._shot(4.12, {"rel": {"a": s}, "eye": [Vector3(-0.52, 1.36, 0.6), Vector3(-0.46, 1.34, 0.54)], "look": {"a": s, "s": "eyes", "h": -0.12}, "fov": [30, 28], "hand": 0.25})
-	c._cue(4.4, "word", "yum", {"a": s, "h": 1.75, "o": Vector3(-0.3, 0, 0)}, Color("ffd6e4"), 0.7)
+	# (par-dessus l'épaule gauche d'Alice, en plongée : la petite qui grignote sous
+	# le nez du monstre)
+	c._shot(4.12, {"rel": eyes, "eye": [toward * 1.25 + right * 0.44 + Vector3.UP * 0.14, toward * 1.2 + right * 0.43 + Vector3.UP * 0.12], "look": {"a": s, "s": "eyes", "h": -0.12}, "fov": [30, 28], "hand": 0.25})
 	c._cue(4.62, "pulse", Color(1.0, 0.78, 0.6, 0.16), 0.7)
-	# B2 · par-dessus sa tête : Alice, interdite (elle mange ?!)
-	c._shot(4.66, {"rel": {"a": a}, "eye": [Vector3(-0.42, 1.3, -1.25), Vector3(-0.38, 1.32, -1.15)], "look": {"a": a, "h": 1.55}, "fov": [36, 34], "hand": 0.3})
+	# B2 · Alice, interdite (elle mange ?!), la tête qui penche
+	c._shot(4.66, {"rel": {"a": a, "s": "eyes"}, "eye": [- toward * 0.95 + right * 0.32 - Vector3.UP * 0.12, - toward * 0.9 + right * 0.3 - Vector3.UP * 0.1], "look": {"a": a, "s": "eyes", "h": -0.08}, "fov": [32, 30], "hand": 0.3})
+	_glint(4.7, 4.92, a, 0.8)
 	# B3 · les yeux se rouvrent sur Alice ; la tablette retourne dans la poche
-	c._shot(4.94, {"rel": {"a": s}, "eye": [Vector3(-0.62, 0.95, 0.82), Vector3(-0.58, 0.98, 0.76)], "look": {"a": s, "h": 1.22}, "fov": [38, 36], "hand": 0.3})
+	c._shot(4.94, {"rel": {"a": s}, "eye": [toward * 0.95 + right * 0.42 + Vector3.UP * 0.8, toward * 0.9 + right * 0.4 + Vector3.UP * 0.84], "look": {"a": s, "h": 1.15}, "fov": [40, 36], "hand": 0.3})
 	# C1 · elle se redresse, la caméra monte avec elle
-	c._shot(FV.B_RISE, {"rel": {"a": s}, "eye": [Vector3(-1.05, 0.5, 0.95), Vector3(-0.98, 0.9, 0.85)], "look": [{"a": s, "h": 0.95}, {"a": s, "h": 1.3}], "fov": [42, 36], "hand": 0.35})
+	c._shot(FV.B_RISE, {"rel": {"a": s}, "eye": [toward * 1.0 + right * 0.55 + Vector3.UP * 0.45, toward * 0.95 + right * 0.5 + Vector3.UP * 0.85], "look": [{"a": s, "h": 0.9}, {"a": s, "h": 1.25}], "fov": [42, 36], "hand": 0.35})
 	# C2 · 5,65 · Mi majeur : ses yeux s'allument
 	var brave: float = FV.B_BRAVE
 	_closeup(5.6, s, toward, -1.0, 0.95, 28.0, 0.0)
@@ -1129,12 +1134,12 @@ func _write_bleuette() -> void :
 	c._cue(brave, "shake", 0.3)
 	_rain_burst(brave, start + Vector3(0, 1.2, 0), 0.8)
 	# C3 · de profil, au ras du sol : elle se ramasse, Alice arme… et fauche le vide
-	c._shot(5.92, {"eye": [_r(-3.4, 0.55, 0.62), _r(-3.2, 0.75, 0.66)], "look": [_r(0.0, 0.62, 0.95), _r(0.0, 0.95, 0.9)], "fov": [44, 44], "hand": 0.5})
+	c._shot(5.92, {"eye": [_r(-2.75, 0.62, 0.42), _r(-2.6, 0.82, 0.45)], "look": [_r(0.0, 0.62, 1.05), _r(0.0, 0.95, 1.0)], "fov": [46, 46], "hand": 0.5})
 	var lunge_to: Vector3 = near - toward * FV.BA_LUNGE
 	c._face(a, 6.3, "dir", - toward)
 	c._move(a, 6.4, 6.55, lunge_to, "dash")
 	c._cue(FV.BA_SWIPE, "sound", "slash", {"a": a}, 0.9, 1.0)
-	c._cue(FV.BA_SWIPE + 0.07, "word", "miss", {"a": a, "h": 2.15}, PAPER, 0.9)
+	c._cue(FV.BA_SWIPE + 0.02, "word", "miss", {"a": a, "h": 2.15}, PAPER, 0.85)
 	_later(FV.BA_SWIPE, "whoosh", {"at": {"a": a, "h": 1.1, "o": - toward * 0.5}, "dir": Vector3(-1, -0.3, 0), "color": PAPER, "count": 4, "length": 1.2})
 	# D · 6,38 · le sprint : un appui toutes les B_STEP s, au mètre près
 	var lane: Vector3 = Vector3(0, 0, 1)
@@ -1165,15 +1170,16 @@ func _write_bleuette() -> void :
 	c._move(a, FV.BA_TRIP, FV.BA_LAND, lie, "in")
 	c._face(a, 6.95, "dir", fall_dir)
 	c._cue(6.66, "sound", "slash", {"a": a}, 0.5, 0.8)
-	# D2 · devant elle qui fonce vers nous ; derrière, Alice qui pique du nez
-	c._shot(6.62, {"rel": {"a": s}, "eye": [Vector3(-0.55, 0.75, 1.9), Vector3(-0.5, 0.8, 1.75)], "look": [{"a": s, "h": 0.85}, {"a": s, "h": 0.9}], "fov": [50, 48], "hand": 0.5})
-	_later(6.62, "whoosh", {"at": {"a": s, "h": 0.9}, "dir": Vector3(0, 0, -1), "color": PAPER, "count": 5, "length": 1.6})
+	# D2 · à côté d'elle, en travelling : le sprint de profil
+	c._shot(6.62, {"rel": {"a": s}, "eye": [Vector3(-1.9, 0.62, 0.3), Vector3(-1.85, 0.64, 0.2)], "look": [{"a": s, "h": 0.72, "o": Vector3(0, 0, 0.3)}, {"a": s, "h": 0.74, "o": Vector3(0, 0, 0.2)}], "fov": [46, 46], "hand": 0.4})
+	c._cue(6.62, "rush", 0.8)
+	_later(6.64, "whoosh", {"at": {"a": s, "h": 0.8}, "dir": Vector3(0, 0, -1), "color": PAPER, "count": 5, "length": 1.6})
 	# E1 · 7,27 · PLOUF, au ras de la flaque ; au fond, Bleuette dérape
-	c._shot(7.2, {"eye": [lie + Vector3(1.45, 0.4, -0.75), lie + Vector3(1.38, 0.45, -0.68)], "look": [lie + Vector3(-0.05, 0.3, 0.75), lie + Vector3(-0.1, 0.35, 0.9)], "fov": [44, 42], "hand": 0.45})
+	c._shot(6.88, {"eye": [lie + Vector3(1.6, 0.45, -0.95), lie + Vector3(1.45, 0.42, -0.8)], "look": [lie + Vector3(-0.1, 0.55, 0.2), lie + Vector3(-0.15, 0.35, 0.85)], "fov": [44, 42], "hand": 0.45})
 	var land: float = FV.BA_LAND
 	var splash: Vector3 = lie + fall_dir * 0.45
 	c._cue(land, "sound", "ground_impact", {"a": a}, 1.0, 0.85)
-	c._cue(land, "dust_ring", {"a": a}, 1.4)
+	c._cue(land, "dust_ring", {"a": a}, 0.7)
 	c._cue(land, "shake", 0.5)
 	c._cue(land + 0.09, "stars", {"a": a, "s": "over"}, 5)
 	_rain_burst(land, splash + Vector3(0, 0.4, 0), 0.9)
@@ -1184,7 +1190,7 @@ func _write_bleuette() -> void :
 	c._cue(FV.B_SKID, "sound", "step", {"a": s}, 0.8, 0.7)
 	c._face(s, FV.B_TURN, "at", a)
 	# E2 · au-dessus d'Alice dans la flaque : Bleuette, au fond, les mains sur la bouche
-	c._shot(7.62, {"eye": [lie + Vector3(0.35, 1.05, -0.4), lie + Vector3(0.33, 1.0, -0.3)], "look": [{"a": s, "h": 1.0}, {"a": s, "h": 1.05}], "fov": [34, 30], "hand": 0.3})
+	c._shot(7.62, {"rel": {"a": s}, "eye": [Vector3(0.62, 0.62, -2.05), Vector3(0.58, 0.66, -1.9)], "look": [{"a": s, "h": 0.92}, {"a": s, "h": 0.98}], "fov": [34, 32], "hand": 0.3})
 	_later(7.66, "cue", {"who": s, "cue": "sweat"})
 	# Alice relève la tête, glisse et retombe le nez dans l'eau, tape l'eau de rage
 	var face_at: Vector3 = lie + fall_dir * 0.75
@@ -1194,20 +1200,19 @@ func _write_bleuette() -> void :
 		_burst(t, face_at + Vector3(0, 0.05, 0), Vector3(0, 1, 0), 8, 2.0, {"spread": 1.2, "lift": 1.5, "gravity": 8.0, "life": 0.7, "size": 0.045, "colors": water})
 		c._cue(t, "sound", "step", {"a": a}, 0.5, 1.3)
 	# E3 · elle lève le poing et sautille ; ses yeux brillent
-	c._shot(8.04, {"rel": {"a": s}, "eye": [Vector3(0.32, 1.3, -1.0), Vector3(0.3, 1.28, -0.92)], "look": {"a": s, "s": "eyes", "h": -0.14}, "fov": [34, 31], "hand": 0.3})
-	_later(FV.B_PUMP + 0.03, "sparkles", {"at": {"a": s, "h": 1.0}, "color": tint, "count": 5, "radius": 0.6})
-	_glint(8.35, 8.66, s, 1.0)
+	c._shot(8.04, {"rel": {"a": s}, "eye": [Vector3(0.3, 1.0, -1.65), Vector3(0.26, 1.18, -1.2)], "look": [{"a": s, "h": 1.2}, {"a": s, "s": "eyes", "h": -0.12}], "fov": [40, 32], "hand": 0.3, "ease": "smooth"})
+	_glint(8.36, 8.66, s, 0.85)
 	_bolt(8.2, 0.26, 1.0)
 	_flash(t_ink - 0.06, 0.12)
 	# PAPIER · elle file, Alice plonge derrière elle et rate son coup
 	var ink: float = t_ink
-	_jump(s, ink, _ink(-1.3, 0, 0.35))
+	_jump(s, ink, _ink(-1.3, 0.12, 0.35))
 	_jump(a, ink, _ink(1.05, -0.42, -0.1))
 	c._face(s, ink, "dir", Vector3(-1, 0, 0))
 	c._face(a, ink, "dir", Vector3(-1, 0, 0))
 	_play(s, "fv_bleuette_ink", ink)
 	_play(a, "fv_bleuette_alice_ink", ink)
-	c._move(s, ink + 0.05, ink + 2.65, _ink(-1.3 - 0.55 * 2.6, 0, 0.35), "linear")
+	c._move(s, ink + 0.05, ink + 2.65, _ink(-1.3 - 0.55 * 2.6, 0.16, 0.35), "linear")
 	c._move(a, ink + 0.01, ink + 2.5, _ink(0.6, -0.56, -0.1), "linear")
 	_later(ink + 0.25, "cue", {"who": s, "cue": "cheer"})
 	_burst(ink, _ink(0.75, 0.05, -0.1), Vector3(0, 1, 0), 22, 1.3, {"spread": 1.0, "lift": 0.9, "gravity": 0.5, "drag": 0.6, "life": 2.6, "size": 0.07})
@@ -1459,6 +1464,7 @@ func _player(label: String, path: String, bus: StringName) -> AudioStreamPlayer:
 func update(t: float, delta: float) -> void :
 	if not active or not is_instance_valid(_grade): return
 	var camera: Camera3D = world.camera
+	_snap_yaw(t)
 	_reset_bodies(t)
 	_apply_spins(t)
 	_apply_tilts(t)
@@ -1475,6 +1481,18 @@ func _look_at_time(t: float) -> String:
 	if t < t_ink: return "rain"
 	if t < t_back: return "ink"
 	return "tv"
+
+
+# À la coupe sur le papier, les corps prennent net leur orientation : sans ça,
+# le lissage du film les ferait pivoter sous nos yeux pendant 0,3 s.
+func _snap_yaw(t: float) -> void :
+	if t < t_ink or t > t_ink + 0.45: return
+	for index: int in range(cinema.takes.size()):
+		var take: Variant = cinema.takes[index]
+		var target: float = float(cinema._facing(index, take, t, Vector3.ZERO))
+		if absf(angle_difference(float(take.yaw), target)) < 0.0005: continue
+		take.yaw = target
+		take.visual.rotation.y = target
 
 
 # Spins and tilts are layered over the pose the film step placed. While the film
