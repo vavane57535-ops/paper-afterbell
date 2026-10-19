@@ -20,6 +20,7 @@ var dance: String = ""
 var fast: bool = true
 var window_size: Vector2i = Vector2i(1280, 800)
 var beat: String = ""
+var times: Array[float] = []
 var camera: Dictionary = {}
 var scout: Array = []
 var fg_only: bool = false
@@ -60,6 +61,9 @@ func setup(game_world: Node) -> void :
 			"--switch": switch_after = float(value)
 			"--dance": dance = value
 			"--beat": beat = value
+			"--times":
+				# Instants précis (horloge du temps fort avec --beat), séparés par des virgules.
+				for item: String in value.split(","): times.append(float(item))
 			"--cam":
 				# "x,y,z>x,y,z>fov" : caméra imposée (repérage du décor).
 				var parts: PackedStringArray = value.split(">")
@@ -150,6 +154,18 @@ func _run() -> void :
 				await get_tree().process_frame
 				await _save("%s_cam%02d" % [scene, i])
 			vignettes.set("debug_camera", camera)
+			index += 1
+			continue
+		if not times.is_empty():
+			for when: float in times:
+				if not beat.is_empty(): await _wait_beat(vignettes, when)
+				else: await _wait(started + when - _clock)
+				if around_angles.is_empty(): await _save("%s_%06.2f" % [scene, when])
+				for a: int in range(around_angles.size()):
+					vignettes.set("debug_camera", _around_camera(vignettes, around_angles[a]))
+					await get_tree().process_frame
+					await _save("%s%d_%06.2f" % [scene, a, when])
+				if not around_angles.is_empty(): vignettes.set("debug_camera", camera)
 			index += 1
 			continue
 		while t <= end_at + 0.0001:

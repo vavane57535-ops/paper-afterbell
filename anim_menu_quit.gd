@@ -28,7 +28,7 @@ static func shrug(amount: float, left: float = -1.0) -> Dictionary:
 
 # Bleuette qui pousse la barre : penchée, les bras tendus, les épaules rentrées.
 static func push(force: float) -> Dictionary:
-	return M([H(0.0, -0.03 - 0.03 * force, -0.05 - 0.07 * force), B(0.12 + 0.12 * force, 0.0, 0.0), C(0.05 + 0.05 * force), HD(0.1 - 0.16 * force, 0.0, 0.0),
+	return M([H(0.0, -0.03 - 0.03 * force, -0.05 - 0.07 * force), B(0.12 + 0.12 * force, 0.0, 0.0), C(0.05 + 0.05 * force), HD(0.24 - 0.2 * force, 0.0, 0.0),
 		L(0.14, -0.38, 0.58 + 0.08 * force, 0.25), R(0.14, -0.38, 0.58 + 0.08 * force, 0.25), WL(-0.35), WR(-0.35), CU(0.75), shrug(0.15 + 0.1 * force)])
 
 # Debout, timide : genoux un peu rentrés, épaules hautes, mains serrées sur les bretelles du sac.
@@ -76,14 +76,14 @@ static func _leave_bleu(rig: Dictionary) -> Dictionary:
 	# Elle s'approche de la vitre et met ses mains en visière pour voir dehors.
 	k.at(7.75, M([HD(0.05, 0.0, 0.0), shy(), F("focus")]), "follow")
 	k.steps([[-1, 7.87, 8.07, {"lift": 0.04}], [1, 8.06, 8.29, {"lift": 0.04}]], {"from": 7.85, "to": 8.3, "bob": 0.02})
-	k.at(8.35, M([H(0.0, -0.02, 0.04), B(0.16), C(0.06), HD(0.14, 0.0, 0.0), Lt(0.02, 0.5, 0.45, 0.6), Rt(0.02, 0.5, 0.45, 0.6), WL(0.2, 0.0, 0.5), WR(0.2, 0.0, -0.5), CU(0.35), shrug(0.3)]), "follow")
-	k.at(8.7, M([B(0.19), HD(0.16, 0.0, 0.0)]), "heavy", "s")
+	k.at(8.35, M([H(0.0, -0.02, 0.04), B(0.16), C(0.06), HD(0.36, 0.0, 0.0), L(0.45, 0.05, 0.5, 0.4), R(0.45, 0.05, 0.5, 0.4), WL(-0.75, 0.0, 0.25), WR(-0.75, 0.0, -0.25), CU(0.15), shrug(0.3)]), "follow")
+	k.at(8.7, M([B(0.19), HD(0.4, 0.0, 0.0)]), "heavy", "s")
 	# Elle cherche dehors : à gauche, à droite, plus près.
-	k.at(9.3, M([HD(0.15, 0.18, 0.03), C(0.06, 0.06, 0.0)]), "heavy")
-	k.at(9.6, HD(0.14, 0.2, 0.02), "heavy", "s")
-	k.at(10.2, M([HD(0.13, -0.16, -0.03), C(0.06, -0.05, 0.0)]), "heavy")
-	k.at(10.45, HD(0.12, -0.18, -0.02), "heavy", "s")
-	k.at(10.85, M([HD(0.17, 0.0, 0.0), C(0.08, 0.0, 0.0), B(0.21)]), "follow", "s")
+	k.at(9.3, M([HD(0.38, -0.08, -0.02), C(0.06, -0.03, 0.0)]), "heavy")
+	k.at(9.55, HD(0.37, -0.1, -0.02), "heavy", "s")
+	k.at(10.1, M([HD(0.36, 0.24, 0.04), C(0.06, 0.07, 0.0)]), "heavy")
+	k.at(10.4, HD(0.35, 0.27, 0.03), "heavy", "s")
+	k.at(10.85, M([HD(0.42, 0.0, 0.0), C(0.08, 0.0, 0.0), B(0.21)]), "follow", "s")
 	# 10,9 : un néon claque au fond du hall. Elle se fige ; les mains quittent la vitre.
 	k.at(11.0, M([{"shake": 0.35}, shrug(0.55), HD(0.0, 0.05, 0.0), F("surprise")]), "snap")
 	k.at(11.35, M([B(0.08), C(0.04), HD(0.0, -0.25, 0.0), L(0.05, -0.12, 0.22, 0.0), R(0.05, -0.12, 0.22, 0.0), WL(0.3), WR(0.3), CU(0.9), F("fear")]), "heavy", "s")
@@ -142,10 +142,13 @@ static func _leave_alice(rig: Dictionary) -> Dictionary:
 	k.at(22.61, M([R(0.33, 0.14, 0.32, 0.55), HD(-0.14, 0.0, 0.42), CU(0.55, 0.4), F("grin")]), "sync", "s")
 	k.at(23.91, M([R(0.33, 0.16, 0.34, 0.55), HD(-0.18, 0.04, 0.5), CU(0.1, 0.45), F("menace")]), "sync", "s")
 	k.at(25.21, M([R(0.3, 0.22, 0.42, 0.5), WR(-0.2, 0.0, 0.1), HD(-0.2, 0.06, 0.38), B(0.06), C(0.08), CU(0.15, 0.5), F("grin")]), "sync", "s")
-	# Devant elle : elle se penche, la main qui fait encore au revoir, très lentement.
-	k.at(26.6, M([B(0.12), C(0.14), HD(-0.32, 0.0, 0.28), R(0.28, 0.0, 0.5, 0.5), H(0.0, -0.03, 0.0)]), "heavy")
+	# Devant elle : elle se penche sur elle à mesure qu'elle glisse, la main qui fait encore au revoir,
+	# tout près de son visage, très lentement.
+	k.at(26.6, M([B(0.16), C(0.14), HD(-0.3, 0.0, 0.28), R(0.24, -0.12, 0.55, 0.45), H(0.0, -0.03, 0.0)]), "heavy")
 	k.at(27.2, M([CU(0.7, 0.5), WR(-0.35, 0.0, 0.0)]), "heavy")
-	k.at(27.8, M([CU(0.12, 0.5), WR(-0.1, 0.0, 0.0), HD(-0.38, 0.0, 0.2)]), "heavy")
-	k.at(28.6, M([CU(0.75, 0.55), B(0.16), C(0.18), HD(-0.42, 0.0, 0.16), F("menace")]), "heavy", "s")
-	k.hold(28.6, LEAVE_LEN, 0.15)
+	k.at(27.9, M([B(0.3), C(0.24), H(0.0, -0.09, -0.04), HD(-0.12, 0.0, 0.3), R(0.16, -0.42, 0.62, 0.4), CU(0.12, 0.5), WR(-0.1, 0.0, 0.0)]), "heavy")
+	k.at(28.6, M([CU(0.75, 0.55), WR(-0.4, 0.0, 0.0), F("menace")]), "heavy")
+	k.at(29.3, M([CU(0.1, 0.55), WR(-0.1, 0.0, 0.0), HD(-0.1, 0.0, 0.38), F("grin")]), "heavy")
+	k.at(30.1, M([CU(0.7, 0.55), WR(-0.35, 0.0, 0.0)]), "heavy", "s")
+	k.hold(30.1, LEAVE_LEN, 0.1)
 	return k.clip()

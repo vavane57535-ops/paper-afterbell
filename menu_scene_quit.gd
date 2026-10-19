@@ -18,6 +18,7 @@ var _flicker: Array = []
 var _lamp_on: Array = [1.0, 1.0, 1.0, 1.0]
 var _moon: DirectionalLight3D
 var _exit_glow: OmniLight3D
+var _far_fill: OmniLight3D
 
 func build_steps() -> Array:
 	grade = {"vignette": 0.45, "grain": 0.032, "saturation": 0.9, "contrast": 1.07, "lift": Vector3(0.006, 0.008, 0.022)}
@@ -154,6 +155,8 @@ func _lights() -> void :
 	# Débouché bleu de la vitre sur le visage de Bleuette quand elle se retourne.
 	MenuKit.omni(self, Vector3(0.2, 1.5, MenuQuit.DOOR_Z - 0.3), Color("8fa6ff"), 0.6, 2.4)
 	MenuKit.omni(self, Vector3(-1.2, 1.8, 3.0), Color("8790c4"), 0.35, 4.0)
+	# Débouché très doux sur Alice tout au fond (il meurt avec le premier néon).
+	_far_fill = MenuKit.omni(self, MenuQuit.ALICE_AT[0] + Vector3(0.3, 1.5, 1.4), Color("a7a2d8"), 0.45, 2.6)
 
 func _cast() -> void :
 	actor("bleu", "Bleuette", MenuQuit.BLEU_AT, 180.0)
@@ -172,17 +175,17 @@ func _cast() -> void :
 				["bleu", -1, 0.0, 3.55, Vector3(0.48, bar, z_bar), {"in": 0.0, "out": 0.2}],
 				["bleu", 1, 4.25, 6.1, Vector3(-0.5, bar, z_bar), {"in": 0.2, "out": 0.25}],
 				["bleu", -1, 4.3, 6.1, Vector3(-0.18, bar, z_bar), {"in": 0.2, "out": 0.25}],
-				# Les mains en visière contre la vitre.
-				["bleu", 1, 8.35, 11.3, Vector3(MenuQuit.BLEU_GLASS.x - 0.13, 1.35, MenuQuit.DOOR_Z + 0.035), {"in": 0.3, "out": 0.3}],
-				["bleu", -1, 8.4, 11.3, Vector3(MenuQuit.BLEU_GLASS.x + 0.13, 1.35, MenuQuit.DOOR_Z + 0.035), {"in": 0.3, "out": 0.3}],
+				# Les paumes à plat sur la vitre, de part et d'autre du visage.
+				["bleu", 1, 8.35, 11.3, Vector3(MenuQuit.BLEU_GLASS.x - 0.23, 1.17, MenuQuit.DOOR_Z + 0.035), {"in": 0.3, "out": 0.3}],
+				["bleu", -1, 8.45, 11.3, Vector3(MenuQuit.BLEU_GLASS.x + 0.23, 1.2, MenuQuit.DOOR_Z + 0.035), {"in": 0.3, "out": 0.3}],
 			],
 			"cam": [
 				# Depuis la cour, à travers la vitre : Bleuette enfermée qui pousse la barre ; lente avancée
 				# jusqu'à son visage collé au verre, les mains en visière.
 				[0.0, Vector3(0.95, 1.3, MenuQuit.DOOR_Z + 3.0), ["bleu:head", Vector3(0.0, -0.3, 0.0)], 40.0, {"focus": "bleu:head", "frad": 0.32, "x": 0.56, "shake": 0.2}],
 				[4.5, Vector3(0.62, 1.27, MenuQuit.DOOR_Z + 2.45), ["bleu:head", Vector3(0.0, -0.26, 0.0)], 39.0, {"focus": "bleu:head", "frad": 0.3, "x": 0.56, "shake": 0.2}],
-				[8.4, Vector3(0.22, 1.24, MenuQuit.DOOR_Z + 1.95), ["bleu:head", Vector3(0.0, -0.18, 0.0)], 37.0, {"focus": "bleu:head", "frad": 0.28, "x": 0.56, "shake": 0.2}],
-				[11.4, Vector3(0.0, 1.22, MenuQuit.DOOR_Z + 1.62), ["bleu:head", Vector3(0.0, -0.14, 0.0)], 36.0, {"focus": "bleu:head", "frad": 0.28, "x": 0.56, "shake": 0.2}],
+				[8.4, Vector3(0.22, 1.16, MenuQuit.DOOR_Z + 1.95), ["bleu:head", Vector3(0.0, -0.18, 0.0)], 37.0, {"focus": "bleu:head", "frad": 0.28, "x": 0.56, "shake": 0.2}],
+				[11.4, Vector3(0.0, 1.06, MenuQuit.DOOR_Z + 1.62), ["bleu:head", Vector3(0.0, -0.12, 0.0)], 36.0, {"focus": "bleu:head", "frad": 0.28, "x": 0.56, "shake": 0.2}],
 				# Elle se retourne vers le hall (vers nous).
 				[11.4, Vector3(0.0, 1.2, 3.75), ["bleu:head", Vector3(0.0, -0.15, 0.0)], 36.0, {"cut": true, "focus": "bleu:head", "frad": 0.26, "x": 0.56}],
 				[14.4, Vector3(0.05, 1.18, 3.95), ["bleu:head", Vector3(0.0, -0.15, 0.0)], 35.0, {"focus": "bleu:head", "frad": 0.26, "x": 0.56}],
@@ -198,10 +201,10 @@ func _cast() -> void :
 				# Par-dessus son épaule : les néons s'éteignent un à un.
 				[22.5, Vector3(0.62, 1.34, 6.02), Vector3(0.0, 1.0, -1.0), 34.0, {"cut": true, "focus": "alice:head", "frad": 0.16, "blur": 2.6, "x": 0.52, "shake": 0.3}],
 				[25.4, Vector3(0.6, 1.32, 5.96), Vector3(0.0, 1.0, 1.0), 36.0, {"focus": "alice:head", "frad": 0.18, "blur": 2.6, "x": 0.52, "shake": 0.3}],
-				# Par-dessus l'épaule d'Alice : la main levée, et Bleuette qui glisse contre la porte.
-				[25.4, Vector3(1.1, 1.38, 3.9), ["bleu:head", Vector3(0.0, -0.12, 0.0)], 36.0, {"cut": true, "focus": "bleu:head", "frad": 0.26, "x": 0.6, "shake": 0.3}],
-				[27.4, Vector3(1.04, 1.3, 4.0), ["bleu:head", Vector3(0.0, -0.1, 0.0)], 35.0, {"focus": "bleu:head", "frad": 0.26, "x": 0.6, "shake": 0.3}],
-				[leave, Vector3(0.98, 1.18, 4.1), ["bleu:head", Vector3(0.0, -0.08, 0.0)], 34.0, {"focus": "bleu:head", "frad": 0.26, "x": 0.6, "shake": 0.3}],
+				# Plan à deux, de profil : Alice penchée sur elle, la main levée ; Bleuette glisse contre la porte.
+				[25.4, Vector3(-1.95, 1.3, 3.85), Vector3(-0.1, 1.02, 5.5), 40.0, {"cut": true, "focus": "bleu:head", "frad": 0.36, "x": 0.56, "shake": 0.3}],
+				[27.6, Vector3(-1.82, 1.12, 3.98), Vector3(-0.12, 0.86, 5.56), 39.0, {"focus": "bleu:head", "frad": 0.36, "x": 0.56, "shake": 0.3}],
+				[leave, Vector3(-1.7, 1.0, 4.1), Vector3(-0.12, 0.76, 5.6), 38.0, {"focus": "bleu:head", "frad": 0.36, "x": 0.56, "shake": 0.3}],
 			],
 			"events": [ev(0.0, _push.bind(0.0)), ev(0.45, _push.bind(1.0)), ev(1.05, _push.bind(0.7)), ev(2.45, _push.bind(1.0)), ev(2.85, _push.bind(1.2)),
 				ev(4.75, _push.bind(-1.0)), ev(5.35, _pull.bind(-1.0)), ev(5.75, _pull.bind(-1.0)), ev(6.45, _tick_minute),
@@ -258,4 +261,5 @@ func update(_beat_id: String, t: float, dt: float) -> void :
 			var chop: int = int(t * 19.0 + sin(t * 31.0) * 2.0) % 5
 			level = 0.05 if chop == 0 else (0.4 if chop == 2 else (0.15 if chop == 4 else 0.9))
 		MenuKit.set_lamp(lamps[i], level)
+		if i == 0: _far_fill.light_energy = 0.45 * level
 	_exit_glow.light_energy = 0.22 + 0.02 * sin(t * 2.3)
