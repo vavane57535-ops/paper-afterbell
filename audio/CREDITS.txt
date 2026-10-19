@@ -1,48 +1,44 @@
-PAPER AFTERBELL 0.12 — CRÉDITS AUDIO
+PAPER AFTERBELL — CRÉDITS AUDIO
 
 MUSIQUE : SCOTT BUCKLEY
-Licence CC-BY 4.0 — https://creativecommons.org/licenses/by/4.0/
+Licence CC BY 4.0 — https://creativecommons.org/licenses/by/4.0/
 www.scottbuckley.com.au
 
 Couloirs et attente : Signal to Noise
 “Signal to Noise” by Scott Buckley — released under CC-BY 4.0.
 https://www.scottbuckley.com.au/library/signal-to-noise/
 
-Poursuite d’Alice : Juggernaut
+Poursuite d’Alice et True Form : Juggernaut
 “Juggernaut” by Scott Buckley — released under CC-BY 4.0.
 https://www.scottbuckley.com.au/library/juggernaut/
 
-Sortie et fin de partie : Echoes Of Home
+Sortie et fin de manche : Echoes Of Home
 “Echoes Of Home” by Scott Buckley — released under CC-BY 4.0.
 https://www.scottbuckley.com.au/library/echoes-of-home/
 
-LMS Ashura — tension et surveillance : Red
+LMS d’Ashura : Red
 “Red” by Scott Buckley — released under CC-BY 4.0.
 https://www.scottbuckley.com.au/library/red/
 
-LMS Elly — courage et espoir : Helios
+LMS d’Elly : Helios
 “Helios” by Scott Buckley — released under CC-BY 4.0.
 https://www.scottbuckley.com.au/library/helios/
 
-Ancien LMS Bleuette (plus utilisé, retiré du jeu en 0.12) : Emergent
-“Emergent” by Scott Buckley — released under CC-BY 4.0.
-https://www.scottbuckley.com.au/library/emergent/
-
-LMS Lysia — résistance héroïque : Vanguard
+LMS de Lysia : Vanguard
 “Vanguard” by Scott Buckley — released under CC-BY 4.0.
 https://www.scottbuckley.com.au/library/vanguard/
 
-Montages, raccords et niveaux adaptés au jeu. Les trois LMS actifs de Scott Buckley durent 158 secondes.
-True Form : Juggernaut, lecture ralentie à 86 %, suspendant la piste LMS puis la reprenant.
+Pour le jeu, les morceaux ont été coupés, raccordés et remis à niveau (Juggernaut est ralenti pendant la True Form).
 
-OST FOURNIES PAR LE PROPRIÉTAIRE DU PROJET
+LMS DE SIMON, D’USAYUKO ET DE BLEUETTE
+« Simon OST », « USAYUKO OST » et « BLEUETTE LMS », fournis par l’équipe du jeu.
+Ils ne sont pas de Scott Buckley. Artistes et licences non précisés.
 
-LMS Simon : Simon OST — fichier fourni « Simon OST final mais vrmt final la ça y est c'est fini.mp3 »
-LMS Usayuko : USAYUKO OST — fichier fourni « USAYUKO OST.wav »
-LMS Bleuette : BLEUETTE LMS — fichier fourni « BLEUETTE LMS.mp3 », 3 min 21,53 s.
-Artistes et licences publiques non précisés. Ces trois pistes ne relèvent pas de l'attribution Scott Buckley ci-dessus.
-Morceaux complets et stéréo (5 min 10,91 s, 4 min 43,17 s et 3 min 21,53 s). Les MP3 de Simon et de Bleuette sont conservés tels quels ; le WAV d'Usayuko est intégré en Ogg Vorbis haute qualité (q8, 44,1 kHz), de durée identique.
-Gain de lecture constant visant −17,5 LUFS : +1,34 dB pour Simon, −6,96 dB pour Usayuko et −12,00 dB pour Bleuette. Aucune modification de la dynamique.
+MUSIQUES COMPOSÉES POUR LE JEU
+Menu : « Fin des cours ». Bois : « Sous les pins d’encre ». Neige : « Craie et givre ». Victoire d’Alice : « Retenue ».
+Écrites par code, sans aucun échantillon, autour du carillon de Westminster (1793, domaine public) joué en boîte à musique.
+Les musiques des danses et des victoires LMS sont écrites par code, elles aussi.
+Prologue, blocus et « Course vers la sortie » : composés pour le jeu avec ElevenLabs Music.
 
 BRUITAGES — CC0
 https://creativecommons.org/publicdomain/zero/1.0/
@@ -59,59 +55,23 @@ https://opengameart.org/content/the-free-firearm-sound-library
 Shotgun Reload Sound effects — zer0_sol
 https://opengameart.org/content/shotgun-reload-sound-effects
 
-79 variantes de foley enregistré. Les sons d’ombres, de soin et de piques sont des assemblages de ces prises.
-Battements de cœur du rayon de terreur : son de synthèse créé pour le jeu.
+Les sons des ombres, des soins et des piques sont montés à partir de ces prises.
 
-Sources, détails des montages et licences : AUDIO-CREDITS.md et AUDIO-SOURCES.json dans le dossier du jeu.
+AMBIANCES ET BRUITAGES DE FREESOUND
+Via CDDA-Soundpacks « CC-Sounds » — https://github.com/Fris0uman/CDDA-Soundpacks
+École : « indoors » par blouhond — CC BY 3.0 — https://freesound.org/people/blouhond/sounds/163604/
+École : bourdonnement électrique par nicola_ariutti — CC BY 4.0 — https://freesound.org/people/nicola_ariutti/sounds/335365/
+Bois : nuit claire par rsn267 — CC0 — https://freesound.org/people/rsn267/sounds/275595/
+Bois : nuit nuageuse par beambot — CC0 — https://freesound.org/people/beambot/sounds/259987/
+Neige : tempête de neige par guyburns — CC0 — https://freesound.org/people/guyburns/sounds/473815/
+Neige : bourrasques par florianreichelt — CC0 — https://freesound.org/people/florianreichelt/sounds/453167/
+Pas sur sol dur : kretopi — CC0 — https://freesound.org/s/406744/ à /406749/
+Pas sur terre : nuFF3 — CC BY — https://freesound.org/s/477390/ à /477396/
+Coups à mains nues : deleted_user_7146007 — CC0
+Impacts : mateusboga — CC0
+Coups de griffe : PorkMuncher et qubodup — CC0
+Porte métallique : Fabrizio84 — CC0
 
-========================================================================
-AJOUTS 0.13 — MUSIQUES, AMBIANCES ET BRUITAGES
-========================================================================
+Faits par code pour le jeu : l’alarme de sortie, les étoiles d’étourdissement, les chouettes, les battements de cœur, les néons et l’horloge de la classe, et les sons du menu, des émotes, du prologue et des exécutions.
 
-MUSIQUES ORIGINALES (composées pour le jeu, synthèse procédurale)
-music_menu.ogg « Fin des cours » (menu), music_forest.ogg « Sous les pins d'encre »
-(forêt), music_snow.ogg « Craie et givre » (neige), music_defeat.ogg « Retenue » (victoire d'Alice).
-Motif : le carillon de Westminster (1793, domaine public) en ré mineur, joué par une boîte à musique.
-Générées par audio/music_src/music_build.py (numpy), sans échantillon externe. Niveau −18 LUFS.
-L'école garde « Signal to Noise » ; poursuite, fin et tous les LMS sont inchangés.
-
-AMBIANCES ET BRUITAGES (freesound.org, redistribués avec crédits par fichier dans
-CDDA-Soundpacks « CC-Sounds » — https://github.com/Fris0uman/CDDA-Soundpacks)
-amb_school.ogg : « indoors » par blouhond — CC BY 3.0 — https://freesound.org/people/blouhond/sounds/163604/
-                 bourdonnement électrique par nicola_ariutti — CC BY 4.0 — https://freesound.org/people/nicola_ariutti/sounds/335365/
-                 + néons et horloge de classe synthétisés.
-amb_forest.ogg : nuit claire par rsn267 — CC0 — https://freesound.org/people/rsn267/sounds/275595/
-                 nuit nuageuse par beambot — CC0 — https://freesound.org/people/beambot/sounds/259987/
-amb_snow.ogg   : tempête de neige par guyburns — CC0 — https://freesound.org/people/guyburns/sounds/473815/
-                 bourrasques par florianreichelt — CC0 — https://freesound.org/people/florianreichelt/sounds/453167/
-sfx/step_floor_00-05 : pas sur sol dur, kretopi — CC0 — https://freesound.org/s/406744/ à /406749/
-sfx/step_dirt_00-05  : pas sur terre, nuFF3 — CC BY — https://freesound.org/s/477390/ à /477396/
-sfx/punch_03-07      : coups à mains nues, deleted_user_7146007 — CC0 (CDDA-Soundpacks melee_hit_flesh/default)
-sfx/hit_03-06        : impacts, mateusboga — CC0 (CDDA-Soundpacks melee_hit_flesh/small_bash)
-sfx/slash_03-06      : fendus, PorkMuncher — CC0 ; slash_07 : qubodup — CC0 (CDDA-Soundpacks melee_swing)
-sfx/door_open_02     : porte métallique, Fabrizio84 — CC0 (CDDA-Soundpacks open_door/door_metal)
-sfx/stun_03-05, presence_00-02, owl_00-01 : synthétisés pour le jeu (audio/music_src/sfx_build.py).
-Montage : découpe, fondus, niveaux alignés sur chaque famille existante.
-
-========================================================================
-AJOUTS 0.16 — OUVERTURE DE LA SORTIE ET MIXAGE
-========================================================================
-
-MUSIQUE
-exit_rush.ogg « Course vers la sortie » : composition originale pour le jeu (ElevenLabs Music),
-80 s à 128 BPM, qui s'intensifie jusqu'à la fin du chrono (coupure à 59,97 s, final de 61,8 à 77 s).
-Ré-encodée en Ogg Vorbis, -18 LUFS. En jeu, filtre passe-bas, volume et légère accélération
-sont pilotés par le chrono (audio.gd, set_rush).
-
-BRUITAGES (synthèse, créés pour le jeu)
-sfx/exit_alarm_00.wav : ouverture de la sortie (coup sourd, sonnerie électrique d'école, sirène).
-sfx/exit_alarm_01.wav : dernier appel (sirène qui monte et sonnerie en crescendo, 1,85 s).
-Source : tools/audio/exit_alarm_build.py (numpy, sans échantillon externe).
-
-MIXAGE
-Toutes les musiques sont désormais normalisées à -18 LUFS intégrés dans les fichiers eux-mêmes
-(gain linéaire, sans compression ni modification de la dynamique) : BLEUETTE LMS -12,5 dB,
-USAYUKO OST -7,5 dB, Simon OST +0,8 dB, Signal to Noise +2,9 dB, autres pistes Scott Buckley
--0,3 à -0,5 dB, musiques de danse -3,6 à -5,8 dB. Les MP3 de Simon et de Bleuette sont ré-encodés
-à 320 kbit/s. Les gains de lecture par piste ci-dessus (0.12) sont remplacés par ce réglage.
-La musique est jouée 7 dB plus bas qu'en 0.15 par rapport aux effets et aux ambiances.
+Le détail des montages, des niveaux et des licences est dans AUDIO-CREDITS.md et AUDIO-SOURCES.json, dans le dossier du jeu.

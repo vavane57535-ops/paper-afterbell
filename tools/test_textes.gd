@@ -13,6 +13,7 @@ extends Node
 #   (tableau JSON de textes français) : « TX_L10N_MISSING <texte> » pour chaque texte sans anglais.
 # Cinémathèque (sans rendu) : godot --headless -- --tool test_textes --tx-catalogue
 #   (titres et descriptions de catalogue() en français et en anglais, « TX_CAT_RESULT »).
+# Fiches des persos (sans rendu) : godot --headless -- --tool test_textes --tx-data (« TX_DATA_RESULT »).
 
 const ALL: Array[String] = ["main", "hints", "setup", "alice", "shop", "gallery", "credits", "network", "advanced", "connecting", "lobby", "settings", "controls", "online", "loading", "game", "pause", "confirm", "emotes", "training", "alice_game", "verdicts"]
 
@@ -242,6 +243,28 @@ func _check_l10n(path: String) -> void :
 	PaperLanguage.language = previous
 	_note("TX_L10N_RESULT %s" % ("OK" if missing == 0 else "MISSING %d" % missing))
 
+# --tx-data : fiches des persos (rôle, réplique, capacités, passif tel que l'affiche la préparation).
+# « TX_DATA_MISSING » pour un texte resté en français, puis « TX_DATA_RESULT ».
+func _check_data() -> void :
+	var missing: int = 0
+	var previous: String = PaperLanguage.language
+	var sources: Array[String] = []
+	for person: String in PaperData.STATS.keys():
+		sources.append(str(PaperData.STATS[person][3]))
+		sources.append(str(PaperData.STATS[person][4]))
+		sources.append(PaperData.passive_for(person, "om"))
+		for ability: Array in PaperData.abilities_for(person, "om"):
+			if str(ability[2]) != "": sources.append(str(ability[2]))
+	PaperLanguage.language = "en"
+	for source: String in sources:
+		var shown: String = PaperLanguage.t(source)
+		_note("TX_DATA %s -> %s" % [source, shown])
+		if shown == source:
+			missing += 1
+			_note("TX_DATA_MISSING " + source)
+	PaperLanguage.language = previous
+	_note("TX_DATA_RESULT %s" % ("OK" if missing == 0 else "MISSING %d" % missing))
+
 # --tx-catalogue : titres et descriptions de toute la cinémathèque (63 fuites en équipe comprises).
 # Imprime « TX_CAT_FR » / « TX_CAT_EN » pour chaque entrée, « TX_CAT_MISSING » pour un texte resté en
 # français (un titre fait seulement de prénoms, comme « Simon + Elly », n'a pas à changer), puis « TX_CAT_RESULT ».
@@ -269,8 +292,9 @@ func _check_catalogue() -> void :
 func _run() -> void :
 	await _wait(0.5)
 	var args: PackedStringArray = OS.get_cmdline_user_args()
-	if args.has("--tx-catalogue"):
-		_check_catalogue()
+	if args.has("--tx-catalogue") or args.has("--tx-data"):
+		if args.has("--tx-catalogue"): _check_catalogue()
+		if args.has("--tx-data"): _check_data()
 		get_tree().quit()
 		return
 	var l10n_at: int = args.find("--tx-l10n")
@@ -322,7 +346,17 @@ func _run() -> void :
 		world.gallery.category = "all"
 		world.gallery.close()
 		await _wait(0.6)
-	if "credits" in screens: await _menu("credits", func() -> void : ui.show_credits(), 1.5)
+	if "credits" in screens:
+		await _menu("credits", func() -> void : ui.show_credits(), 1.5)
+		# Toute la liste, page par page (la zone défile).
+		var credits_scroll: ScrollContainer = ui.page.find_children("*", "ScrollContainer", true, false).front() if not ui.page.find_children("*", "ScrollContainer", true, false).is_empty() else null
+		if credits_scroll:
+			var page_height: int = maxi(200, int(credits_scroll.size.y) - 60)
+			for step: int in range(1, 8):
+				if step * page_height > int(credits_scroll.get_v_scroll_bar().max_value) + page_height: break
+				credits_scroll.scroll_vertical = step * page_height
+				await _wait(0.3)
+				await _shot("credits_%d" % step)
 	if "network" in screens: await _menu("network", func() -> void : ui.show_network(), 1.3)
 	if "advanced" in screens: await _menu("advanced", func() -> void : ui.show_network_advanced(), 1.3)
 	if "connecting" in screens:

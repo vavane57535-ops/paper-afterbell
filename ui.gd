@@ -2136,7 +2136,9 @@ func show_credits() -> void :
 	var v: VBoxContainer = _form_panel(880)
 	_form_header(v, "PAPER AFTERBELL", "Crédits")
 	_section(v, "MUSIQUES & BRUITAGES")
-	_credit_lines(v, FileAccess.get_file_as_string("res://audio/CREDITS.txt"))
+	# Crédits audio écrits pour les joueurs, en français ou en anglais (le détail technique reste dans docs/AUDIO-CREDITS.md).
+	var credits_file: String = "res://audio/CREDITS.en.txt" if PaperLanguage.language == "en" and FileAccess.file_exists("res://audio/CREDITS.en.txt") else "res://audio/CREDITS.txt"
+	_credit_lines(v, FileAccess.get_file_as_string(credits_file))
 	_section(v, "POLICES")
 	_paragraph("Oswald, Barlow Semi Condensed, Anton, Bebas Neue, Caveat et un extrait d’Inter — SIL Open Font License 1.1. Licences complètes : ui/fonts.", v, 15, T.PAPER_DIM)
 	_section(v, "ICÔNES")

@@ -1,0 +1,77 @@
+PAPER AFTERBELL — AUDIO CREDITS
+
+MUSIC: SCOTT BUCKLEY
+License CC BY 4.0 — https://creativecommons.org/licenses/by/4.0/
+www.scottbuckley.com.au
+
+Halls and waiting: Signal to Noise
+“Signal to Noise” by Scott Buckley — released under CC-BY 4.0.
+https://www.scottbuckley.com.au/library/signal-to-noise/
+
+Alice's chase and True Form: Juggernaut
+“Juggernaut” by Scott Buckley — released under CC-BY 4.0.
+https://www.scottbuckley.com.au/library/juggernaut/
+
+Exit and end of round: Echoes Of Home
+“Echoes Of Home” by Scott Buckley — released under CC-BY 4.0.
+https://www.scottbuckley.com.au/library/echoes-of-home/
+
+Ashura's LMS: Red
+“Red” by Scott Buckley — released under CC-BY 4.0.
+https://www.scottbuckley.com.au/library/red/
+
+Elly's LMS: Helios
+“Helios” by Scott Buckley — released under CC-BY 4.0.
+https://www.scottbuckley.com.au/library/helios/
+
+Lysia's LMS: Vanguard
+“Vanguard” by Scott Buckley — released under CC-BY 4.0.
+https://www.scottbuckley.com.au/library/vanguard/
+
+For the game, the tracks were cut, stitched together and level-matched (Juggernaut is slowed down during True Form).
+
+SIMON, USAYUKO AND BLEUETTE'S LMS
+“Simon OST”, “USAYUKO OST” and “BLEUETTE LMS”, provided by the game's team.
+They are not by Scott Buckley. Artists and licenses not specified.
+
+MUSIC MADE FOR THE GAME
+Menu: “End of Class”. Woods: “Under the Ink Pines”. Snow: “Chalk and Frost”. Alice's victory: “Detention”.
+Written in code, with no samples at all, around the Westminster chimes (1793, public domain) played on a music box.
+The dance tracks and the LMS victory jingles are written in code too.
+Prologue, blockade and “Race to the Exit”: made for the game with ElevenLabs Music.
+
+SOUND EFFECTS — CC0
+https://creativecommons.org/publicdomain/zero/1.0/
+
+Impact Sounds (1.0) — Kenney
+https://kenney.nl/assets/impact-sounds
+
+RPG Audio — Kenney Vleugels
+https://kenney.nl/assets/rpg-audio
+
+The Free Firearm Sound Library — Ben Jaszczak, Brian Nelson, Kevin Heras, Matthew Nanney
+https://opengameart.org/content/the-free-firearm-sound-library
+
+Shotgun Reload Sound effects — zer0_sol
+https://opengameart.org/content/shotgun-reload-sound-effects
+
+The shadow, heal and spike sounds are edited together from these recordings.
+
+AMBIENCE AND SOUND EFFECTS FROM FREESOUND
+Via CDDA-Soundpacks “CC-Sounds” — https://github.com/Fris0uman/CDDA-Soundpacks
+School: “indoors” by blouhond — CC BY 3.0 — https://freesound.org/people/blouhond/sounds/163604/
+School: electrical hum by nicola_ariutti — CC BY 4.0 — https://freesound.org/people/nicola_ariutti/sounds/335365/
+Woods: clear night by rsn267 — CC0 — https://freesound.org/people/rsn267/sounds/275595/
+Woods: cloudy night by beambot — CC0 — https://freesound.org/people/beambot/sounds/259987/
+Snow: snowstorm by guyburns — CC0 — https://freesound.org/people/guyburns/sounds/473815/
+Snow: gusts by florianreichelt — CC0 — https://freesound.org/people/florianreichelt/sounds/453167/
+Steps on hard floor: kretopi — CC0 — https://freesound.org/s/406744/ to /406749/
+Steps on dirt: nuFF3 — CC BY — https://freesound.org/s/477390/ to /477396/
+Bare-handed hits: deleted_user_7146007 — CC0
+Impacts: mateusboga — CC0
+Claw swipes: PorkMuncher and qubodup — CC0
+Metal door: Fabrizio84 — CC0
+
+Made in code for the game: the exit alarm, the stun stars, the owls, the heartbeats, the classroom neon lights and clock, and the menu, emote, prologue and execution sounds.
+
+Full details on edits, levels and licenses are in AUDIO-CREDITS.md and AUDIO-SOURCES.json, in the game folder.
