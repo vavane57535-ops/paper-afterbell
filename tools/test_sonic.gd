@@ -245,6 +245,7 @@ func _print_joints(label: String, visual: PaperVisual, simon: PaperVisual) -> vo
 	for side: int in [-1, 1]:
 		var p: Vector3 = frame * ((visual.get("_ankles") as Dictionary)[side] as Node3D).global_position
 		line += " ankle%s=(%.2f,%.2f,%.2f)" % ["L" if side < 0 else "R", p.x, p.y, p.z]
+	line += " curl=%.2f/%.2f" % [float(visual.get("_curl")), float(visual.get("_curl_left"))]
 	print(line)
 
 
@@ -320,6 +321,9 @@ func _frame(at: Vector3, view: String) -> void :
 		"back": offset = Vector3(0.6, 1.1, 3.1)
 		"front": offset = Vector3(0.4, 0.4, -3.2)
 		"top": offset = Vector3(0.3, 3.6, 0.4)
+		# Gros plan sur les mains et le bassin (trois quarts arrière, côté droit).
+		"close": offset = Vector3(1.25, 0.3, 0.95)
+		"closeleft": offset = Vector3(-1.25, 0.3, 0.95)
 	camera.fov = 34.0
 	camera.position = focus + offset * zoom
 	camera.look_at(focus)

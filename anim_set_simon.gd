@@ -64,7 +64,7 @@ const SONIC_GAIT: Dictionary = {"cadence": 1.42, "lean": 1.56, "knee_lift": 1.0,
 # Oscillation d'une jambe en course éclair (mêmes nœuds et conventions que anim_gait.gd, en degrés) :
 # poussée longue (cuisse loin derrière, genou presque tendu au décollage), talon qui remonte sous les fesses,
 # genou qui monte devant sans dépasser l'horizontale, tibia lancé loin devant avant de griffer le sol.
-const SONIC_THIGH: PackedFloat32Array = [-38.0, -27.0, 6.0, 44.0, 64.0, 52.0, 30.0]
+const SONIC_THIGH: PackedFloat32Array = [-40.0, -28.0, 8.0, 48.0, 69.0, 56.0, 31.0]
 const SONIC_KNEE: PackedFloat32Array = [16.0, 94.0, 134.0, 114.0, 62.0, 26.0, 14.0]
 const SONIC_ANKLE: PackedFloat32Array = [0.1, -0.3, -0.32, -0.05, 0.14, 0.05, -0.2]
 # Bassin plus haut (le pied se pose presque sous la hanche, peu d'écrasement) : jambe d'appui moins pliée.
@@ -90,24 +90,25 @@ static func sonic_curves(w: float, par: PackedFloat32Array, thigh: PackedFloat32
 		par[index] = lerpf(par[index], float(SONIC_PARAMS[index]), w)
 
 
-# Bras tendus vers l'arrière et un peu écartés, dans le repère du sol : ils traînent dans le vent à ~22° sous
-# l'horizontale, bien décollés du dos, mains derrière les fesses. side = -1 gauche, 1 droite ;
-# drop = les bras encaissent l'appui (ils plongent un peu), drop < 0 = ils remontent en suspension.
+# Bras tendus vers l'arrière, un peu écartés, dans le repère du sol : ils prolongent la ligne du dos en s'en
+# décollant (~18° sous l'horizontale), mains ouvertes loin derrière les fesses, paumes vers le haut.
+# side = -1 gauche, 1 droite ; drop = les bras encaissent l'appui (ils plongent un peu), drop < 0 = ils
+# remontent en suspension ; spread = écart en plus.
 static func _sonic_arm(side: float, drop: float, spread: float) -> Dictionary:
-	var out: float = 0.52 + spread
-	var up: float = -0.46 - 0.12 * drop
-	var fwd: float = -0.72 + 0.06 * drop
+	var out: float = 0.44 + spread
+	var up: float = -0.26 - 0.13 * drop
+	var fwd: float = -0.86 + 0.05 * drop
 	var arm: Dictionary = L(out, up, fwd, 0.0) if side < 0.0 else R(out, up, fwd, 0.0)
-	return M([arm, WL(0.25 + 0.3 * drop, 0.35, 0.0) if side < 0.0 else WR(0.25 + 0.3 * drop, -0.35, 0.0)])
+	return M([arm, WL(-0.3 + 0.25 * drop, 0.0, 0.0) if side < 0.0 else WR(-0.3 + 0.25 * drop, 0.0, 0.0)])
 
 
-# Une foulée complète (deux appuis). Le bassin bascule, le dos s'arrondit à peine (la poitrine continue
-# l'inclinaison), la tête se relève franchement pour regarder loin devant. Après chaque pose de pied, les bras
-# plongent un peu et le buste « tape » ; en suspension ils remontent. Les deux appuis diffèrent (Simon tire un
-# peu à droite).
-const SONIC_BODY: float = 0.45
-const SONIC_CHEST: float = -0.1
-const SONIC_HEAD: float = 0.64
+# Une foulée complète (deux appuis). Le bassin bascule (~50° avec l'allure), le dos reste droit (la poitrine
+# prolonge le bassin au lieu de se voûter), la tête se relève pour regarder loin devant. Après chaque pose de
+# pied, le buste « tape », la tête encaisse un peu en retard et les bras plongent ; en suspension tout remonte.
+# Les deux appuis diffèrent (Simon tire un peu à droite).
+const SONIC_BODY: float = 0.44
+const SONIC_CHEST: float = -0.46
+const SONIC_HEAD: float = 0.3
 
 static func _sonic_keys() -> Array:
 	var keys: Array = []
@@ -116,10 +117,11 @@ static func _sonic_keys() -> Array:
 		var t: float = strike[0]
 		var lead: float = strike[1]
 		var force: float = strike[2]
-		keys.append([t, M([B(SONIC_BODY, 0.0, 0.02 * lead), C(SONIC_CHEST, 0.03 * lead, 0.0), HD(SONIC_HEAD, -0.03 * lead, 0.0), _sonic_arm(-1.0, 0.0, 0.02), _sonic_arm(1.0, 0.0, 0.02)])])
-		keys.append([t + 0.07, M([B(SONIC_BODY + 0.03 * force, 0.0, 0.03 * lead), C(SONIC_CHEST + 0.02, 0.03 * lead, 0.0), HD(SONIC_HEAD - 0.04, -0.02 * lead, 0.0), _sonic_arm(-1.0, force, 0.03 + 0.02 * lead), _sonic_arm(1.0, force, 0.03 - 0.02 * lead)])])
-		keys.append([t + 0.27, M([B(SONIC_BODY - 0.02, 0.0, 0.0), C(SONIC_CHEST - 0.01, -0.02 * lead, 0.0), HD(SONIC_HEAD + 0.02, 0.03 * lead, 0.0), _sonic_arm(-1.0, -0.4, 0.0), _sonic_arm(1.0, -0.4, 0.0)])])
-	keys[0][1].merge({"curl": 0.18, "curl_l": 0.18}, true)
+		keys.append([t, M([B(SONIC_BODY, 0.0, 0.025 * lead), C(SONIC_CHEST, 0.04 * lead, 0.0), HD(SONIC_HEAD, -0.04 * lead, 0.0), _sonic_arm(-1.0, 0.0, 0.02), _sonic_arm(1.0, 0.0, 0.02)])])
+		keys.append([t + 0.07, M([B(SONIC_BODY + 0.035 * force, 0.0, 0.03 * lead), C(SONIC_CHEST + 0.02, 0.04 * lead, 0.0), HD(SONIC_HEAD + 0.01, -0.03 * lead, 0.0), _sonic_arm(-1.0, force, 0.03 + 0.02 * lead), _sonic_arm(1.0, force, 0.03 - 0.02 * lead)])])
+		keys.append([t + 0.15, M([HD(SONIC_HEAD - 0.05, -0.01 * lead, 0.0)])])
+		keys.append([t + 0.3, M([B(SONIC_BODY - 0.025, 0.0, 0.0), C(SONIC_CHEST - 0.015, -0.02 * lead, 0.0), HD(SONIC_HEAD + 0.03, 0.03 * lead, 0.0), _sonic_arm(-1.0, -0.5, 0.0), _sonic_arm(1.0, -0.5, 0.0)])])
+	keys[0][1].merge({"curl": 0.04, "curl_l": 0.04}, true)
 	return keys
 
 
@@ -274,23 +276,40 @@ static func _dash(c: Dictionary) -> void :
 	c["charge@Simon"] = {"len": 3.6, "loop": true, "loop_from": 3.0, "in": 0.05, "face": "determined", "keys": _charge_keys()}
 
 	# Arrêt net en pleine course éclair (joué par character_visual.gd quand la vitesse tombe d'un coup).
-	# Il part EXACTEMENT de la pose « Sonic » (bassin ~52°, poitrine ~26°, tête relevée, bras en arrière) :
-	# talon droit planté loin devant, pied gauche qui racle derrière sur la pointe, bassin qui s'écrase et recule ;
-	# le buste, lui, continue sur sa lancée et plonge encore (tête en retard, bras qui partent vers l'avant), puis
-	# il rebondit, passe un peu en arrière (« ouh là »), moulinet des bras, et retombe en appui, content de lui.
-	c["skid@Simon"] = {"len": 0.8, "in": 0.04, "out": 0.22, "face": "surprise", "keys": [
-		[0.0, M([{"gait": 0.0, "plant": 1.0}, FR(0.13, 0.52, 0.0), FL(0.11, -0.42, 0.03), H(0.0, -0.18, -0.08), B(0.88, 0.0, 0.0), C(0.44, 0.0, 0.0), HD(1.2, 0.0, 0.0),
-			L(0.52, -0.46, -0.72, 0.0), R(0.52, -0.46, -0.72, 0.0), WL(0.25, 0.35, 0.0), WR(0.25, -0.35, 0.0), {"fp_r": 0.62, "fp_l": -0.75, "curl": 0.18, "curl_l": 0.18, "sq": 0.96, "jaw": 0.2, "fx": "skid dust"}])],
-		[0.08, M([FR(0.13, 0.5, 0.0), FL(0.11, -0.4, 0.02), H(0.0, -0.33, -0.26), B(1.02, 0.03, 0.02), C(0.52, 0.0, 0.0), HD(1.32, 0.05, 0.0),
-			L(0.45, -0.85, -0.2, 0.1), R(0.42, -0.88, -0.16, 0.1), WL(0.1, 0.2, 0.0), WR(0.1, -0.2, 0.0), {"fp_r": 0.58, "fp_l": -0.68, "sq": 0.9, "jaw": 0.5, "fx": "dust"}]), "s"],
-		[0.19, M([FR(0.13, 0.46, 0.0), FL(0.11, -0.34, 0.0), H(0.0, -0.24, -0.14), B(0.42, 0.02, 0.03), C(0.22, 0.0, 0.0), HD(0.5, 0.06, 0.03),
-			L(0.55, 0.05, 0.72, 0.5), R(0.5, 0.18, 0.66, 0.5), WL(-0.4), WR(-0.45), {"fp_r": 0.4, "fp_l": -0.45, "curl": 0.0, "curl_l": 0.0, "sq": 1.04, "jaw": 0.35}])],
-		[0.31, M([FR(0.12, 0.34, 0.0), FL(0.11, -0.2, 0.0), H(0.0, -0.1, -0.03), B(-0.12, -0.03, -0.04), C(-0.06, 0.02, 0.0), HD(0.1, -0.05, -0.08),
-			L(0.86, 0.38, 0.1, 0.6), R(0.82, 0.2, 0.3, 0.6), WL(-0.2), WR(0.1), {"fp_r": 0.1, "fp_l": -0.15, "sq": 1.0, "jaw": 0.0, "face": "fear"}]), "s"],
-		[0.44, M([FR(0.12, 0.26, 0.0), FL(0.1, -0.14, 0.0), H(0.0, -0.13, 0.0), B(0.1, 0.0, 0.02), C(0.05, 0.0, 0.0), HD(-0.04, 0.06, 0.04),
-			L(0.6, -0.4, 0.3, 0.3), R(0.66, -0.25, 0.18, 0.35), WL(0.0), WR(0.0), {"fp_r": 0.0, "fp_l": 0.0, "curl": 0.4, "curl_l": 0.45, "sq": 0.98}])],
-		[0.58, M([FR(0.12, 0.2, 0.0), FL(0.1, -0.1, 0.0), H(0.0, -0.07, 0.0), B(0.02, 0.0, 0.0), C(0.0, 0.0, 0.0), HD(0.04, -0.12, 0.05), LR(0.36, -0.82, 0.1, 0.15), {"sq": 1.0, "face": "grin"}])],
-		[0.8, M([rest(), _loose()])],
+	# Il part de la pose « Sonic » (bassin ~50°, dos droit, tête relevée, bras en arrière) : le talon droit mord le
+	# sol loin devant, le pied gauche racle derrière sur la pointe, le bassin s'écrase et recule ; le buste continue
+	# sur sa lancée et plonge (tête en retard), les bras, emportés, passent devant. Il rebondit trop loin, bascule en
+	# arrière (« ouh là »), moulinet des deux bras (le gauche en retard d'un quart de tour), bras écartés pour se
+	# rattraper… puis il souffle, content de lui.
+	c["skid@Simon"] = {"len": 0.84, "in": 0.03, "out": 0.2, "face": "surprise", "keys": [
+		[0.0, M([{"gait": 0.0, "plant": 1.0}, FR(0.13, 0.5, 0.0), FL(0.11, -0.45, 0.04), H(0.0, -0.16, -0.06), B(0.9, 0.0, 0.0), C(0.11, 0.0, 0.0), HD(1.0, 0.0, 0.0),
+			_sonic_arm(-1.0, 0.0, 0.0), _sonic_arm(1.0, 0.0, 0.0), {"fp_r": 0.62, "fp_l": -0.75, "curl": 0.04, "curl_l": 0.04, "sq": 0.97, "jaw": 0.2, "fx": "skid dust"}])],
+		[0.08, M([FR(0.13, 0.52, 0.0), FL(0.11, -0.42, 0.02), H(0.0, -0.34, -0.24), B(1.08, 0.03, 0.02), C(0.2, 0.0, 0.0), HD(1.16, 0.05, 0.0),
+			L(0.42, -0.9, 0.0, 0.1), R(0.4, -0.86, 0.12, 0.1), WL(0.1), WR(0.1), {"fp_r": 0.58, "fp_l": -0.68, "sq": 0.9, "jaw": 0.5, "fx": "dust"}]), "s"],
+		[0.18, M([FR(0.13, 0.46, 0.0), FL(0.11, -0.34, 0.0), H(0.0, -0.22, -0.12), B(0.38, 0.02, 0.03), C(0.1, 0.0, 0.0), HD(0.4, 0.06, 0.03),
+			R(0.36, 0.0, 0.92, 0.3), L(0.38, -0.55, 0.7, 0.2), WL(-0.3), WR(-0.35), {"fp_r": 0.4, "fp_l": -0.45, "curl": 0.0, "curl_l": 0.0, "sq": 1.04, "jaw": 0.35}])],
+		[0.25, M([FR(0.12, 0.38, 0.0), FL(0.11, -0.24, 0.0), H(0.0, -0.12, -0.03), B(-0.1, -0.03, -0.04), C(-0.06, 0.02, 0.0), HD(0.1, -0.05, -0.06),
+			R(0.42, -0.9, 0.1, 0.2), L(0.4, 0.05, 0.9, 0.3), {"fp_r": 0.14, "fp_l": -0.2, "jaw": 0.0, "face": "fear"}])],
+		[0.32, M([B(-0.16, -0.02, 0.04), C(-0.08, -0.02, 0.0), HD(0.04, 0.05, 0.06), R(0.46, 0.05, -0.9, 0.3), L(0.42, -0.9, 0.05, 0.2)])],
+		[0.39, M([B(-0.14, 0.02, -0.03), HD(0.02, -0.04, -0.04), R(0.4, 0.95, -0.1, 0.4), L(0.46, 0.0, -0.9, 0.3)])],
+		[0.46, M([B(-0.06, 0.0, 0.02), C(-0.04, 0.0, 0.0), HD(0.0, 0.03, 0.03), R(0.42, 0.1, 0.9, 0.3), L(0.42, 0.95, -0.05, 0.4)])],
+		[0.56, M([FR(0.12, 0.26, 0.0), FL(0.1, -0.14, 0.0), H(0.0, -0.13, 0.0), B(0.12, 0.0, 0.02), C(0.05, 0.0, 0.0), HD(-0.04, 0.06, 0.04),
+			L(0.92, 0.08, 0.1, 0.4), R(0.9, 0.0, 0.08, 0.4), WL(0.0), WR(0.0), {"fp_r": 0.0, "fp_l": 0.0, "curl": 0.3, "curl_l": 0.35, "sq": 0.98}]), "s"],
+		[0.7, M([FR(0.12, 0.2, 0.0), FL(0.1, -0.1, 0.0), H(0.0, -0.09, 0.0), B(0.04, 0.0, 0.0), C(0.02, 0.0, 0.0), HD(0.06, -0.12, 0.05), LR(0.36, -0.84, 0.1, 0.15), {"sq": 1.0, "face": "grin"}])],
+		[0.84, M([rest(), _loose()])],
+	]}
+
+	# Sortie des starting-blocks (fin de la charge, joué par character_visual.gd) : poussée basse et explosive, le
+	# pied arrière quitte le bloc, le bassin jaillit, un seul coup de bras puis les deux filent en arrière ; premier
+	# envol au ras du sol, et la course éclair procédurale reprend la main (allure rendue entre 0,12 et 0,22 s).
+	c["launch@Simon"] = {"len": 0.34, "in": 0.0, "out": 0.14, "face": "determined", "keys": [
+		[0.0, M([_blocks(1.0), {"gait": 0.0, "plant": 1.0, "sq": 1.0}])],
+		[0.05, M([{"gait": 0.0, "plant": 1.0}, FL(0.04, 0.16, 0.0), FR(0.1, -0.72, 0.16), H(0.0, -0.2, 0.32), B(1.16, 0.0, 0.04), C(0.12, -0.08, 0.0), HD(1.05, 0.0, 0.0),
+			R(0.3, -0.62, 0.55, 0.2), L(0.42, -0.4, -0.8), WL(0.0), WR(0.0), {"fp_l": -0.7, "fp_r": -0.4, "curl": 0.75, "curl_l": 0.6, "sq": 1.08, "ev": "effort"}]), "s"],
+		[0.12, M([{"gait": 0.25, "plant": 0.0}, FL(0.04, -0.5, 0.32), FR(0.1, 0.18, 0.4), H(0.0, -0.14, 0.2), B(0.98, 0.0, 0.0), C(0.1, 0.04, 0.0), HD(1.0, 0.0, 0.0),
+			R(0.42, -0.4, -0.7), L(0.45, -0.3, -0.85), WL(-0.2), WR(-0.2), {"fp_l": -0.5, "fp_r": 0.1, "curl": 0.1, "curl_l": 0.1, "sq": 1.04}])],
+		[0.22, M([{"gait": 1.0}, H(0.0, 0.0, 0.0), B(0.9), C(0.11), HD(1.0), _sonic_arm(-1.0, 0.0, 0.0), _sonic_arm(1.0, 0.0, 0.0), {"sq": 1.0, "curl": 0.04, "curl_l": 0.04}])],
+		[0.34, M([B(0.9), C(0.11), HD(1.0), _sonic_arm(-1.0, 0.0, 0.0), _sonic_arm(1.0, 0.0, 0.0)])],
 	]}
 
 

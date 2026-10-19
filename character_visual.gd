@@ -298,6 +298,7 @@ var _boost_blend: float = 0.0
 var _boost_face: String = ""
 # Course éclair de Simon (0.17) : poids de l'allure « Sonic » et allure de base à laquelle on revient.
 var _sonic: float = 0.0
+var _sonic_launch: float = 0.0
 var _style_base: Dictionary = {}
 var _speed_now: float = 0.0
 # Portage de Simon (0.17, carry_rig.gd) : le porté est posé sur le visuel de Simon (racine en top_level),
@@ -414,7 +415,7 @@ func _reset_motion_state() -> void :
 	_overlay_name = "";_speak_left = 0.0;_fidget_time = -1.0;_hold_left = 0.0;_clip_turn = 0.0;_clip_squash = 1.0
 	_state_clocks.clear();_boost_blend = 0.0;_alert_blend = 0.0;_gait_previous = -1.0;_death_hold = 0.0
 	_g_pocket = 0.0;_g_lift_off.clear();_boost_face = ""
-	_sonic = 0.0;_style.merge(_style_base, true)
+	_sonic = 0.0;_sonic_launch = 0.0;_style.merge(_style_base, true)
 	if _carry_pinned or _carry_release > 0.0:
 		top_level = false
 		position = Vector3.ZERO;rotation.x = 0.0;rotation.z = 0.0
@@ -794,6 +795,7 @@ func animate(delta: float, velocity: Vector3, stunned: bool, phase: bool) -> voi
 		_st_grounded = true
 		_st_vertical = 0.0
 	_speed_now = speed
+	_check_launch(speed, stunned)
 	_check_skid(speed, stunned)
 	_crawl_cycle += dt * TAU * 0.56 * clampf(speed / 0.7, 0.0, 1.0)
 	_update_air_contact()
@@ -1432,10 +1434,27 @@ func _locomotion(dt: float) -> void :
 
 
 # Course éclair : arrêt net (la vitesse retombe d'un coup alors que Simon fonçait) → dérapage (skid@Simon).
+# Pas pendant un portage : l'allié tenu suivrait le plongeon du buste.
 func _check_skid(speed: float, stunned: bool) -> void :
 	if character_name != "Simon" or _sonic < 0.4 or speed > 1.5 or _move_blend < 9.0: return
-	if stunned or not _st_grounded or _life_state != "alive" or _action_time > 0.0: return
+	if stunned or not _st_grounded or _life_state != "alive" or _action_time > 0.0 or _st_carrying: return
 	play("skid")
+
+
+# Sortie des starting-blocks : dans les 0,3 s qui suivent la fin de la charge, dès que Simon file en course éclair,
+# il jaillit (launch@Simon) déjà penché, l'allure calée sur sa vraie vitesse (sinon les pieds glissent).
+func _check_launch(speed: float, stunned: bool) -> void :
+	if character_name != "Simon": return
+	if _st_charge > 0.0:
+		_sonic_launch = 0.3
+		return
+	if _sonic_launch <= 0.0: return
+	_sonic_launch = maxf(0.0, _sonic_launch - _tick_dt)
+	if not _st_speed_boost or speed < 6.0 or stunned or _life_state != "alive" or _st_carrying: return
+	_sonic_launch = 0.0
+	_sonic = 1.0
+	_move_blend = maxf(_move_blend, speed)
+	play("launch")
 
 
 # Course éclair de Simon : l'allure glisse vers SONIC_GAIT (anim_set_simon.gd) avec le boost et la vitesse.
