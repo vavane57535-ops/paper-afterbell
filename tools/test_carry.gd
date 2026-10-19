@@ -376,14 +376,14 @@ func _snap() -> Image:
 # Alignement des six élèves, de face puis de profil (repères de gabarit).
 func _lineup() -> void :
 	var people: Array[String] = ["Simon", "Ashura", "Bleuette", "Elly", "Usayuko", "Lysia"]
-	viewport.size = Vector2i(1500, 560)
+	viewport.size = Vector2i(1500, 700)
 	for k in range(people.size()):
 		var v: PaperVisual = _spawn(10 + k, people[k], Vector3((float(k) - 2.5) * 1.15, 0.0, 0.0))
 		v.set_combat_state({"grounded": true, "ruleset_om": true})
 		for f in range(30): v.animate(DT, Vector3.ZERO, false, false)
 	for view: String in ["front", "side"]:
 		camera.projection = Camera3D.PROJECTION_ORTHOGONAL
-		camera.size = 2.6
+		camera.size = 2.3
 		if view == "front":
 			camera.position = Vector3(0.0, 1.0, -12.0)
 			camera.rotation = Vector3(0.0, PI, 0.0)

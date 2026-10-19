@@ -315,6 +315,7 @@ var _carry_queued: bool = false
 var _carry_floor: float = 0.0
 var _carry_floor_ok: bool = false
 var _carry_release: float = 0.0
+var _carry_lean: float = 1.0
 var _death_hold: float = 0.0
 var _transition_time: float = TRANSITION_TIME
 var _stun_snap: bool = false
@@ -418,7 +419,7 @@ func _reset_motion_state() -> void :
 		top_level = false
 		position = Vector3.ZERO;rotation.x = 0.0;rotation.z = 0.0
 	_carry_pinned = false;_carry_queued = false;_carry_release = 0.0;_carry_partner = null;_carry_partner_id = -1
-	_carry_rig = {};_carry_time = -1.0;_carry_clip_time = -1.0;_carry_mood = ""
+	_carry_rig = {};_carry_time = -1.0;_carry_clip_time = -1.0;_carry_mood = "";_carry_lean = 1.0
 	_hit_rot = Vector3.ZERO;_hit_vel = Vector3.ZERO;_hit_head = Vector3.ZERO;_hit_head_vel = Vector3.ZERO
 	_hit_arm = 0.0;_hit_arm_vel = 0.0;_hit_drop = 0.0;_hit_drop_vel = 0.0
 	_look = Vector2.ZERO;_look_speed = Vector2.ZERO;_glance_back = 0.0;_fatigue = 0.0
@@ -1442,13 +1443,16 @@ func _update_sonic(dt: float) -> void :
 	if character_name != "Simon" or _style_base.is_empty(): return
 	var want: float = (1.0 if _st_speed_boost and _life_state == "alive" else 0.0) * smoothstep(7.0, 13.0, maxf(_move_blend, _speed_now))
 	_sonic = move_toward(_sonic, want, dt * (5.0 if want > _sonic else 3.0))
-	# Portage : le montage (carry_rig.gd, clé « gait », mêmes clés que SONIC_GAIT) adapte encore l'allure.
+	# Portage : le montage (carry_rig.gd, clé « gait », mêmes clés que SONIC_GAIT) adapte encore l'allure,
+	# et « lean » redresse le buste (fraction de l'inclinaison « Sonic » gardée, voir _style_overlays).
 	var carry_gait: Dictionary = _carry_rig.get("gait", {}) if _st_carrying else {}
 	var carry_weight: float = clampf(_carry_time / 0.3, 0.0, 1.0) * _sonic
+	_carry_lean = lerpf(1.0, float(_carry_rig.get("lean", 1.0)), carry_weight) if _st_carrying else 1.0
 	for key: String in AnimSetSimon.SONIC_GAIT:
 		var value: float = lerpf(float(_style_base[key]), float(AnimSetSimon.SONIC_GAIT[key]), _sonic)
 		if carry_gait.has(key): value = lerpf(value, float(carry_gait[key]), carry_weight)
 		_style[key] = value
+	_style.lean = float(_style.lean) * lerpf(1.0, _carry_lean, _sonic)
 
 
 
@@ -1495,6 +1499,12 @@ func _style_overlays(dt: float) -> void :
 		if boost_weight > 0.01:
 			var face: String = _apply_clip(boost, _gait_phase * float(boost.len), running * boost_weight, before * float(boost.len))
 			if boost_weight * running > 0.5: _boost_face = face
+			if _carry_lean < 0.999 and character_name == "Simon":
+				# Portage qui redresse le buste : on retire une part de l'inclinaison ajoutée par le clip « Sonic ».
+				var undo: float = (1.0 - _carry_lean) * running * boost_weight
+				_body.quaternion = _body.quaternion * Quaternion.IDENTITY.slerp(Quaternion.from_euler(Vector3(AnimSetSimon.SONIC_BODY, 0.0, 0.0)), undo)
+				_chest.quaternion = _chest.quaternion * Quaternion.IDENTITY.slerp(Quaternion.from_euler(Vector3(AnimSetSimon.SONIC_CHEST, 0.0, 0.0)), undo)
+				_head.quaternion = _head.quaternion * Quaternion.IDENTITY.slerp(Quaternion.from_euler(Vector3( - AnimSetSimon.SONIC_HEAD, 0.0, 0.0)), undo)
 
 	if _g_move > 0.6 and _st_grounded and _life_state == "alive" and not _st_boost_time and not _st_grinding:
 		var beat: int = int(_gait_phase * 2.0)
@@ -2160,11 +2170,26 @@ func _carry_point(node_name: String, at: Vector3) -> Vector3:
 	return point + basis * at
 
 
+# La PAUME (pas le poignet) vient sur le point visé : une première passe d'IK donne l'axe de la main, la
+# seconde recule le poignet de l'écart poignet → paume.
 func _carry_reach(hand: String, point: Vector3, weight: float, wrist: Vector3, flare: float = 0.0) -> void :
 	var side: int = -1 if hand == "l" else 1
-	var target: Vector3 = _body.global_transform.affine_inverse() * point
+	var inverse: Transform3D = _body.global_transform.affine_inverse()
+	var node: Node3D = _left_hand if side < 0 else _right_hand
+	var grip: Quaternion = Quaternion.from_euler(wrist)
 	_clip_flare[side] = flare
-	_hand_target_weighted(side, target, weight, Quaternion.from_euler(wrist), 1.0)
+	var arm: Node3D = _right_arm if side > 0 else _left_arm
+	var elbow: Node3D = _right_elbow if side > 0 else _left_elbow
+	var arm_q: Quaternion = arm.quaternion
+	var elbow_q: Quaternion = elbow.quaternion
+	var hand_q: Quaternion = node.quaternion
+	_hand_target(side, inverse * point, grip, 1.0)
+	var palm: Vector3 = _carry_point("palm_l" if side < 0 else "palm_r", Vector3.ZERO) - node.global_position
+	_hand_target(side, inverse * (point - palm), grip, 1.0)
+	if weight < 0.999:
+		arm.quaternion = arm_q.slerp(arm.quaternion, weight)
+		elbow.quaternion = elbow_q.slerp(elbow.quaternion, weight)
+		node.quaternion = hand_q.slerp(node.quaternion, weight)
 	_clip_flare[side] = 0.0
 
 

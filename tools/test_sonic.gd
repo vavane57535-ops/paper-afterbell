@@ -24,6 +24,8 @@ var shot_from: float = 1.2
 var shot_count: int = 12
 var zoom: float = 1.0
 var columns: int = 6
+var measure_ally: bool = false
+var joints_at: float = -1.0
 
 var stage: Node3D
 var viewport: SubViewport
@@ -50,6 +52,8 @@ func setup(_world: Node) -> void :
 			"--sonic-count": shot_count = int(next)
 			"--sonic-zoom": zoom = float(next)
 			"--sonic-cols": columns = int(next)
+			"--sonic-measure-ally": measure_ally = true
+			"--sonic-joints": joints_at = float(next)
 	_run.call_deferred()
 
 
@@ -62,7 +66,7 @@ func _run() -> void :
 	await get_tree().process_frame
 	if _rendering():
 		DirAccess.make_dir_recursive_absolute(out_dir)
-		for view: String in views: await _play(view)
+		await _play("all")
 	else:
 		await _play("")
 	print("SONIC_DONE")
@@ -101,9 +105,11 @@ func _play(view: String) -> void :
 		mate = _spawn(ALLY_ID, ally, Vector3(-0.7, 0.0, meet - 0.6))
 		mate_host = hosts[ALLY_ID]
 		mate.rotation.y = 0.0
+		print("RIG %s base=%.3f reach=%.3f scale=%.3f arm=%s" % [ally, mate.get("_base_height"), mate.get("_leg_reach"), mate.get("_model_scale"), mate.get("_arm_length")])
 		desired = (load("res://carry_rig.gd") as GDScript).call("desired_offset", ally)
 	var rows: Array = []
-	var shots: Array[Image] = []
+	var shots: Dictionary = {}
+	for name: String in views: shots[name] = [] as Array[Image]
 	var clock: float = 0.0
 	var next_shot: float = shot_from
 	var speed: float = 0.0
@@ -141,15 +147,25 @@ func _play(view: String) -> void :
 				if carrying: mate.carry_finalize()
 			clock += DT
 			elapsed += DT
-			rows.append(_measure(simon, clock, speed, prev_feet))
-			if view != "" and clock + 0.0001 >= next_shot and shots.size() < shot_count:
+			rows.append(_measure(mate if measure_ally and mate != null else simon, clock, speed, prev_feet))
+			if joints_at > 0.0 and absf(clock - joints_at) < DT * 0.5:
+				_print_joints("Simon", simon, simon)
+				if mate != null:
+					_print_joints(ally, mate, simon)
+					_print_contacts(simon, mate)
+			if view != "" and clock + 0.0001 >= next_shot and (shots[views[0]] as Array).size() < shot_count:
 				next_shot += step
 				var focus: Vector3 = (simon.get("_body") as Node3D).global_position
-				if mate != null and carrying: focus = (focus + (mate.get("_body") as Node3D).global_position) * 0.5
-				_frame(focus, view)
-				shots.append(await _snap())
+				if mate != null and (carrying or bool(mate.get("_carry_pinned"))): focus = (focus + (mate.get("_body") as Node3D).global_position) * 0.5
+				for name: String in views:
+					_frame(focus, name)
+					(shots[name] as Array).append(await _snap())
 	_report(rows)
-	if view != "" and not shots.is_empty(): _save_sheet("%s_%s%s" % [plan_name, ("%s_" % ally.to_lower()) if carry_plan else "", view], shots)
+	if view != "":
+		for name: String in views:
+			var list: Array[Image] = []
+			list.assign(shots[name])
+			if not list.is_empty(): _save_sheet("%s_%s%s" % [plan_name, ("%s_" % ally.to_lower()) if carry_plan else "", name], list)
 	_clear()
 
 
@@ -217,6 +233,42 @@ func _measure(v: PaperVisual, clock: float, speed: float, prev_feet: Dictionary)
 		prev_feet[tag] = toe_w
 		prev_feet[tag + "_planted"] = planted
 	return row
+
+
+# Articulations (mètres) dans le repère du sol de Simon : x à droite, y en haut, z vers l'arrière.
+func _print_joints(label: String, visual: PaperVisual, simon: PaperVisual) -> void :
+	var frame: Transform3D = Transform3D(simon.global_basis.orthonormalized(), simon.global_position).affine_inverse()
+	var line: String = "JOINTS %-8s" % label
+	for key: String in ["_body", "_chest", "_neck", "_head", "_left_arm", "_right_arm", "_left_elbow", "_right_elbow", "_left_hand", "_right_hand", "_left_leg", "_right_leg", "_left_knee", "_right_knee"]:
+		var p: Vector3 = frame * (visual.get(key) as Node3D).global_position
+		line += " %s=(%.2f,%.2f,%.2f)" % [key.trim_prefix("_"), p.x, p.y, p.z]
+	for side: int in [-1, 1]:
+		var p: Vector3 = frame * ((visual.get("_ankles") as Dictionary)[side] as Node3D).global_position
+		line += " ankle%s=(%.2f,%.2f,%.2f)" % ["L" if side < 0 else "R", p.x, p.y, p.z]
+	print(line)
+
+
+# Contacts du montage : écart main → point tenu (cm), et volumes du corps qui se traversent.
+const BODY_SPHERES: Dictionary = {"_head": 0.15, "_chest": 0.15, "_body": 0.14, "_left_knee": 0.08, "_right_knee": 0.08, "_left_elbow": 0.06, "_right_elbow": 0.06}
+
+func _print_contacts(simon: PaperVisual, mate: PaperVisual) -> void :
+	var rig: Dictionary = (load("res://carry_rig.gd") as GDScript).call("variant", ally)
+	var line: String = "CONTACTS"
+	for contact: Dictionary in rig.get("contacts", []):
+		var holder: PaperVisual = mate if str(contact.who) == "carried" else simon
+		var held: PaperVisual = simon if holder == mate else mate
+		var target: Vector3 = held.call("_carry_point", str(contact.node), contact.at)
+		var palm: Vector3 = holder.call("_carry_point", "palm_" + str(contact.hand), Vector3.ZERO)
+		line += " %s.%s->%s=%.1fcm" % [contact.who, contact.hand, contact.node, palm.distance_to(target) * 100.0]
+	print(line)
+	var hits: String = "OVERLAP"
+	for a: String in BODY_SPHERES:
+		for b: String in BODY_SPHERES:
+			var pa: Vector3 = (simon.get(a) as Node3D).global_position
+			var pb: Vector3 = (mate.get(b) as Node3D).global_position
+			var gap: float = pa.distance_to(pb) - float(BODY_SPHERES[a]) - float(BODY_SPHERES[b])
+			if gap < 0.0: hits += " simon%s/%s%s=%.0fcm" % [a, ally.to_lower(), b, gap * 100.0]
+	print(hits)
 
 
 func _report(rows: Array) -> void :
