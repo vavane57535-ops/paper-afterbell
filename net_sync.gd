@@ -199,6 +199,8 @@ func _local_mode(me: PaperActor, delta: float) -> void :
 	elif not can and me.net_predicted:
 		me.net_predicted = false
 		m.correction = Vector3.ZERO
+		# Dès ce pas : le recul vers l'hôte commence en douceur (sinon un premier pas brusque).
+		_follow_host(me, delta)
 	elif can and m.host_epoch != m.epoch:
 		# L'hôte a repris la main ou refusé un déplacement : recalage en douceur sur sa position.
 		m.epoch = m.host_epoch

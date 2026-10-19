@@ -197,30 +197,31 @@ def main():
 			if detect is None: continue
 			t0 = detect[9]
 			# Ce que montre l'écran (positions rendues, images réelles).
-			seq = [(f[0], f[1] * sign) for f in frames if t0 - 0.05 <= f[0] <= t0 + 0.7]
+			# Pas physiques du corps affiché (base de temps régulière : les images de la machine de test
+			# arrivent irrégulièrement sous la charge).
+			seq = [(r[9], r[1] * sign) for r in cticks if t0 - 0.05 <= r[9] <= t0 + 0.7]
 			if len(seq) < 5: continue
-			start = shown.at(t0)
-			start_x = start[0] * sign if start else seq[0][1]
+			start_x = next((x for t, x in seq if t >= t0), seq[0][1])
 			low = min(x for _, x in seq)
 			steps_back = [a[1] - b[1] for a, b in zip(seq, seq[1:])]
-			final = seq[-1][1]
 			host_x = s["host_pos"][0] * sign
 			reach = next((t for t, x in seq if x <= low + 0.1 * (start_x - low)), seq[-1][0])
-			rows.append({"pullback_m": start_x - low, "max_back_step_m": max(steps_back), "settle_ms": (reach - t0) * 1000.0, "final_vs_host_m": abs(final - host_x)})
+			rows.append({"pullback_m": start_x - low, "max_back_step_m": max(steps_back), "settle_ms": (reach - t0) * 1000.0, "final_vs_host_m": abs(low - host_x)})
 		if rows:
 			result["stun_corrections"] = rows
-			print("Recalage (étourdi en pleine course, l'hôte reprend la main) : recul %s m · plus grand saut arrière d'une image %s m · stabilisé en %s ms · écart final avec l'hôte %s m" % (
+			print("Recalage (étourdi en pleine course, l'hôte reprend la main) : recul %s m · plus grand pas arrière par pas physique %s m (un pas de course = 0,17 m) · stabilisé en %s ms · écart entre le point d'arrêt et la position de l'hôte %s m" % (
 				"/".join("%.2f" % r["pullback_m"] for r in rows), "/".join("%.3f" % r["max_back_step_m"] for r in rows),
 				"/".join("%.0f" % r["settle_ms"] for r in rows), "/".join("%.2f" % r["final_vs_host_m"] for r in rows)))
-		# Reprise de la prédiction après l'étourdissement : plus grand pas d'une image (course : ~0,14 m).
+		# Reprise de la prédiction à la fin de l'étourdissement : plus grand pas physique juste après.
 		resume_steps = []
-		for a, b in zip(cticks, cticks[1:]):
-			if a[8] == 0 and b[8] == 1:
-				seq = [f for f in frames if b[9] - 0.05 <= f[0] <= b[9] + 0.3]
-				if len(seq) > 2: resume_steps.append(max(flat((p[1], p[3]), (q[1], q[3])) for p, q in zip(seq, seq[1:])))
+		for i in range(1, len(cticks)):
+			a, b = cticks[i - 1], cticks[i]
+			if a[8] == 0 and b[8] == 1 and any(s["at"] <= b[9] <= s["at"] + 2.0 for s in stuns):
+				seq = cticks[i - 1:i + 18]
+				resume_steps.append(max(flat((p[1], p[3]), (q[1], q[3])) for p, q in zip(seq, seq[1:])))
 		if resume_steps:
 			result["resume_max_step_m"] = resume_steps
-			print("Reprise de la prédiction : plus grand pas d'une image %s m (un pas de course ≈ 0,14 m)" % "/".join("%.3f" % v for v in resume_steps))
+			print("Reprise de la prédiction après l'étourdissement : plus grand pas physique %s m (un pas de course = 0,17 m)" % "/".join("%.3f" % v for v in resume_steps))
 
 	# 4. Esquives.
 	host_trials = {int(t["index"]): t for t in host.get("trials", [])}
