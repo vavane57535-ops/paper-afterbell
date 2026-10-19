@@ -904,9 +904,9 @@ static func _usayuko(c: Dictionary) -> void :
 	var k: Array = []
 	# --- FUITE : il recule pas à pas, garde haute, sans la quitter des yeux
 	k.append(K(0.0, M([_zero(), guard(), FACE("determined"), {"jaw": 0.1}])))
-	var plants: Array = cadence(0.12, 2.3, 0.5, 0.32, 1, -0.24, 41.0, {"vary": 0.08})
-	gait(k, p, path, face_dir, plants, {"kick": 0.05, "pass": 0.07, "reach_h": 0.03, "strike": 0.0, "push": -0.25, "heel": 0.2, "bob_low": 0.03, "bob_high": 0.012,
-		"walk": true, "sway": 0.03, "yaw": 0.06, "roll": 0.03, "lean": 0.12, "base": Vector3(0, -0.08, 0), "leave": [-1]})
+	var plants: Array = cadence(0.12, 2.3, 0.54, 0.34, 1, -0.3, 41.0, {"vary": 0.08})
+	gait(k, p, path, face_dir, plants, {"kick": 0.12, "pass": 0.15, "reach_h": 0.06, "strike": -0.35, "push": 0.3, "heel": 0.0, "bob_low": 0.055, "bob_high": 0.02,
+		"walk": true, "sway": 0.05, "yaw": 0.1, "roll": 0.04, "lean": 0.12, "base": Vector3(0, -0.1, 0), "leave": [-1]})
 	for n: int in range(plants.size()):
 		var t: float = float(plants[n][0])
 		k.append(K(t + 0.1, M([C(0.08 + J(n, 1.0) * 0.04, J(n, 2.0) * 0.08), HD(-0.08 + J(n, 3.0) * 0.05, J(n, 4.0) * 0.1, J(n, 5.0) * 0.05),
