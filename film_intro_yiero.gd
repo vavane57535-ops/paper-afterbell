@@ -1299,7 +1299,7 @@ func _write_fight() -> void :
 	_key("look_who", 98.0, 0.0);_key("look_who", 99.6, 1.0)
 	_key("pitch", 99.0, 0.18);_key("pitch", 103.0, 0.05)
 	_say(100.1, "Yiero", "Toi, le malin au drone… je vais t'effacer.", 0.4)
-	_shot(99.55, {"rel": {"a": A}, "eye": [Vector3(2.4, 0.2, -3.6), Vector3(3.0, -1.6, -5.6)], "look": [{"a": A, "h": 1.0}, {"a": A, "h": 2.0, "o": Vector3(0, 0, 5.0)}], "fov": [46, 50], "hand": 0.4, "ease": "smooth", "safe": false})
+	_shot(99.55, {"rel": {"a": A}, "eye": [Vector3(-2.6, 0.3, -3.4), Vector3(-3.4, -1.2, -5.2)], "look": [{"a": A, "h": 1.0}, {"a": A, "h": 2.0, "o": Vector3(0, 0, 5.0)}], "fov": [46, 50], "hand": 0.4, "ease": "smooth", "safe": false})
 	# La tête de Yiero suit sa proie (positif : vers -x, le côté de Simon ; négatif : vers Ashura).
 	_key("head_yaw", 0.0, 0.0);_key("head_yaw", 64.2, 0.0);_key("head_yaw", 66.6, 0.13, "smooth");_key("head_yaw", 69.3, 0.06)
 	_key("head_yaw", 71.0, -0.04, "smooth");_key("head_yaw", 74.4, -0.14, "smooth");_key("head_yaw", 76.0, -0.08);_key("head_yaw", 77.6, 0.0, "smooth")
