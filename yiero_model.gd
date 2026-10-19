@@ -227,8 +227,11 @@ void fragment() {
 	em += sheen_color.rgb * sheen;
 	em *= reveal * (1.0 - inner);
 	// fureur : veines de braise qui affleurent
-	float crack = smoothstep(0.87, 0.97, 1.0 - abs(2.0 * yn(rest * 0.2 + vec3(0.0, clock * 0.05, 0.0)) - 1.0));
-	em += vec3(1.0, 0.2, 0.05) * crack * fury * (0.55 + 0.45 * sin(clock * 5.0 + rest.y * 0.3)) * (1.0 - inner) * reveal * ao;
+	float r1 = 1.0 - abs(2.0 * yn(rest * 0.13 + vec3(0.0, clock * 0.03, 0.0)) - 1.0);
+	float r2 = 1.0 - abs(2.0 * yn(rest * 0.31 + vec3(7.0, 2.0, clock * 0.05)) - 1.0);
+	float crack = smoothstep(0.945, 0.99, r1) * smoothstep(0.3, 0.6, r2) + smoothstep(0.965, 0.995, r2) * smoothstep(0.72, 0.95, r1) * 0.8;
+	crack *= smoothstep(0.4, 0.66, yn(rest * 0.07 + vec3(5.0, 1.0, 3.0))) * (1.0 - 0.8 * face);
+	em += vec3(1.0, 0.24, 0.06) * crack * fury * (0.7 + 0.3 * sin(clock * 4.0 + rest.y * 0.25)) * 1.5 * (1.0 - inner) * reveal * ao;
 	em += hurt_color.rgb * hurt * (0.08 + fres * 1.3) * (1.0 - inner);
 	// gueule : gencives qui luisent dans le noir, gorge brûlante quand elle s'ouvre
 	float throat = (0.25 + jaw * 1.5 + fury * 0.5) * depth * depth;
@@ -244,6 +247,7 @@ void fragment() {
 	if (debug_view == 7) { ALBEDO = vec3(0.0); spec_k = 0.0; diff_k = 0.0; }
 	if (debug_view == 8) { EMISSION = vec3(0.0); }
 	if (debug_view == 9) { ALBEDO = vec3(0.0); spec_k = 0.0; diff_k = 0.0; EMISSION = vec3(ndv); }
+	if (debug_view == 10) { ALBEDO = vec3(0.0); spec_k = 0.0; diff_k = 0.0; EMISSION = vec3(0.07 + 0.6 * max(dot(n0, normalize(vec3(0.35, 0.8, -0.5))), 0.0) + 0.15 * max(dot(n0, normalize(vec3(-0.6, 0.2, 0.7))), 0.0)) * mix(vec3(0.75, 0.72, 0.7), vec3(0.9, 0.3, 0.3), gum); }
 }
 void light() {
 	float ndl = dot(NORMAL, LIGHT);
@@ -530,6 +534,7 @@ var _rest_g: Array[Transform3D] = []
 var _rest_l: Array[Transform3D] = []
 var _pose_g: Array[Transform3D] = []
 var _arm: Array = [{}, {}]
+var _ink_y: float = 0.0
 
 func build() -> void :
 	if _built: return
@@ -884,8 +889,9 @@ func pose() -> void :
 		var corner: Vector3 = Vector3(sx * wide * 3.6 - sx * pout * 1.6, wide * 2.6 + snarl * 1.0 - pout * 0.6, -wide * 1.6 + pout * 0.8)
 		_rotated(_bone["corner" + tag], Basis.IDENTITY, corner)
 		var frown: float = clampf(brow + fury * 0.5, -1.0, 1.5)
-		_rotated(_bone["brow" + tag], Basis.IDENTITY, Vector3(-sx * frown * 0.3, -sq * 1.25 - frown * 0.9, sq * 0.35 + frown * 0.3))
-		_rotated(_bone["cheek" + tag], Basis.IDENTITY, Vector3(0, sq * 1.05 + wide * 1.5 + snarl * 0.6, sq * 0.3))
+		_rotated(_bone["brow" + tag], Basis.IDENTITY, Vector3(-sx * frown * 0.3, -sq * 2.0 - frown * 0.9, sq * 0.55 + frown * 0.3))
+		_rotated(_bone["cheek" + tag], Basis.IDENTITY, Vector3(0, sq * 1.3 + wide * 1.5 + snarl * 0.6, sq * 0.4))
+	_ink_y = (_skel.global_transform.affine_inverse() * global_position).y
 	for side: int in [0, 1]: _pose_arm(side, inhale)
 	for i: int in range(_pose_g.size()):
 		var p: int = _parent[i]
@@ -990,7 +996,28 @@ func _pose_arm(side: int, inhale: float) -> void :
 				r = Basis(up_axis, (float(k) - 1.5) * 0.11 * spread * sx) * r
 			_pose_g[bone] = Transform3D(r * fk.basis, fk.origin)
 		var tip: int = int(arm.tips[k])
-		if tip >= 0: _pose_g[tip] = _fk(tip)
+		if tip >= 0:
+			_pose_g[tip] = _fk(tip)
+			_rest_on_ink(chain, tip, w)
+
+# Main près de l'encre : un doigt dont la griffe passerait sous la surface se relève autour de sa
+# première phalange (la main s'appuie sur l'encre comme une araignée au lieu de s'y enfoncer).
+func _rest_on_ink(chain: Array[int], tip: int, wrist: Vector3) -> void :
+	var floor_y: float = _ink_y + 0.35
+	var weight: float = smoothstep(floor_y + 0.5, floor_y + 4.0, wrist.y)
+	if weight <= 0.0: return
+	var j0: Vector3 = _pose_g[chain[0]].origin
+	var t: Vector3 = _pose_g[tip].origin
+	var deficit: float = (floor_y - t.y) * weight
+	if deficit <= 0.0: return
+	var v: Vector3 = t - j0
+	var axis: Vector3 = v.cross(Vector3.UP)
+	if axis.length_squared() < 1e-6: return
+	var ang: float = asin(clampf(deficit / maxf(v.length(), 0.1), 0.0, 0.95))
+	var r: Basis = Basis(axis.normalized(), ang)
+	var pivot: Transform3D = Transform3D(r, j0 - r * j0)
+	for bone: int in [chain[0], chain[1], chain[2], tip]:
+		_pose_g[bone] = pivot * _pose_g[bone]
 
 func _frame(x: Vector3, y: Vector3) -> Basis:
 	var a: Vector3 = x.normalized()
@@ -1003,8 +1030,8 @@ func _pose_eyes() -> void :
 		var eye: MeshInstance3D = _eyes[k]
 		var sq: float = clampf(squint + squint_eye[k], 0.0, 1.2)
 		var s: float = maxf(0.001, open)
-		eye.scale = Vector3(s * (1.0 + sq * 0.08), s * (1.0 - sq * 0.66), s * EYE_DEPTH * (1.0 - sq * 0.2))
-		eye.position = Vector3((-1.0 if k == 0 else 1.0) * EYE_X, EYE_Y - sq * 0.3, EYE_Z - sq * 0.3)
+		eye.scale = Vector3(s * (1.0 + sq * 0.06), s * (1.0 - sq * 0.42), s * EYE_DEPTH * (1.0 - sq * 0.2))
+		eye.position = Vector3((-1.0 if k == 0 else 1.0) * EYE_X, EYE_Y - sq * 0.55, EYE_Z - sq * 0.3)
 		eye.visible = open > 0.002
 		_halos[k].visible = eye.visible
 		var look: Vector3 = Vector3(0, 0, 1)
@@ -1068,7 +1095,8 @@ func _pose_drool(j: float) -> void :
 		if span > limit: continue
 		var stretch: float = clampf(span / limit, 0.0, 1.0)
 		var sag: float = (1.0 - stretch) * 2.4 + 0.6
-		var width: float = lerpf(0.55, 0.12, stretch) * amount
+		var near: float = clampf(eye_local.distance_to((a + b) * 0.5) / 30.0, 0.22, 1.0)
+		var width: float = lerpf(0.5, 0.1, stretch) * amount * near
 		var steps: int = 8
 		var prev_l: Vector3 = Vector3.ZERO
 		var prev_r: Vector3 = Vector3.ZERO

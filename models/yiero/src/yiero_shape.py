@@ -175,7 +175,7 @@ def _frame(axis_z):
 # Squelette en pose de repos
 # ---------------------------------------------------------------------------
 FINGERS = ("index", "middle", "ring", "pinky")
-CLAW_LENGTHS = (7.6, 8.2, 7.8, 6.4, 7.0)
+CLAW_LENGTHS = (8.4, 9.0, 8.6, 7.0, 7.6)
 
 
 class Layout:
@@ -238,9 +238,9 @@ class Layout:
         a["K0"] = W + f * 10.2 + up * 0.15
         offsets = (-3.3, -1.1, 1.15, 3.2)
         splay = (-13.0, -4.5, 4.5, 14.0)
-        lengths = ((7.0, 5.6, 4.4), (7.7, 6.1, 4.8), (7.3, 5.8, 4.6), (6.0, 4.8, 3.9))
-        radii = ((1.24, 1.02, 1.05, 0.86, 0.88, 0.64), (1.28, 1.05, 1.08, 0.88, 0.9, 0.65),
-                 (1.22, 1.0, 1.03, 0.84, 0.86, 0.62), (1.08, 0.9, 0.93, 0.76, 0.78, 0.55))
+        lengths = ((7.7, 6.2, 4.9), (8.5, 6.8, 5.3), (8.0, 6.4, 5.0), (6.6, 5.3, 4.2))
+        radii = ((1.12, 0.86, 0.92, 0.72, 0.76, 0.56), (1.16, 0.88, 0.95, 0.74, 0.78, 0.57),
+                 (1.1, 0.84, 0.9, 0.7, 0.74, 0.54), (0.98, 0.76, 0.82, 0.64, 0.68, 0.48))
         fingers = []
         for i in range(4):
             k = a["K0"] + out * offsets[i] - f * (0.55 * abs(offsets[i]) / 3.3) + up * 0.1
@@ -523,6 +523,10 @@ class YieroShape:
         bend_n = norm(np.cross(d1, d2))
         ridge = sd_round_cone(p, E + d2 * 3.0 + bend_n * 1.2, W + bend_n * 0.6, 1.3, 0.8)
         d = smin(d, ridge, 1.6)
+        back = norm(bend - d2 * float(np.dot(bend, d2)))
+        for t, ln, r0 in ((0.34, 3.6, 1.15), (0.6, 2.8, 0.95)):
+            b0 = E + d2 * (t * 32.0) + back * 2.4
+            d = smin(d, sd_chain(p, [b0, b0 + back * ln * 0.55 - d2 * ln * 0.35, b0 + back * ln - d2 * ln * 0.75], (r0, r0 * 0.5, 0.1)), 0.8)
         return d
 
     def sd_hand(self, p, s):
@@ -539,16 +543,19 @@ class YieroShape:
             j = fg["joints"]
             r = fg["radii"]
             lateral = float((j[0] - W) @ out) * 0.4
-            tendon = sd_round_cone(p, W + f * 1.8 + up * 1.0 + out * lateral, j[0] + up * 0.6, 0.6, 0.8)
-            d = smin(d, tendon, 1.2)
-            knuckle = sd_sphere(p, j[0] + up * 0.3, r[0] + 0.3)
-            d = smin(d, knuckle, 1.2)
+            tendon = sd_round_cone(p, W + f * 1.8 + up * 1.1 + out * lateral, j[0] + up * 0.85, 0.62, 0.78)
+            d = smin(d, tendon, 0.9)
+            knuckle = sd_sphere(p, j[0] + up * 0.5, r[0] + 0.5)
+            d = smin(d, knuckle, 1.0)
             for k in range(3):
                 seg = sd_round_cone(p, j[k], j[k + 1], r[2 * k], r[2 * k + 1])
-                d = smin(d, seg, 0.55 if k > 0 else 0.9)
+                d = smin(d, seg, 0.45 if k > 0 else 0.8)
                 if k < 2:
-                    bump = sd_sphere(p, j[k + 1] + up * 0.22, r[2 * k + 1] + 0.32)
-                    d = smin(d, bump, 0.45)
+                    bump = sd_sphere(p, j[k + 1] + up * 0.32, r[2 * k + 1] + 0.42)
+                    d = smin(d, bump, 0.35)
+        # poignet noueux : saillies osseuses de part et d'autre
+        for side_k, o in ((1.0, 1.9), (-1.0, 1.6)):
+            d = smin(d, sd_sphere(p, W + out * o * side_k + up * 0.7 - f * 0.4, 1.05), 0.8)
         th = a["thumb"]
         j = th["joints"]
         r = th["radii"]
