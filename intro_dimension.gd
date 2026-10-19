@@ -9,6 +9,7 @@ class_name PaperIntroVoid
 
 const FLOOR_SIZE: float = 1400.0
 const RIPPLES: int = 12
+const STEPS: int = 24
 const SPIKES: int = 10
 
 const FLOOR_SHADER: String = """
@@ -20,6 +21,8 @@ uniform vec4 sky_high : source_color = vec4(0.06, 0.0, 0.012, 1.0);
 uniform float clock = 0.0;
 uniform vec4 ripples[12];
 uniform int ripple_count = 0;
+uniform vec4 steps[24];
+uniform int step_count = 0;
 uniform vec4 shock = vec4(0.0, 0.0, -1.0, 0.0);
 uniform float gloss = 1.0;
 varying vec3 wpos;
@@ -46,6 +49,20 @@ void fragment() {
 		float wave = sin((dist - front) * 5.0) * band * fade;
 		slope += (d / max(dist, 0.001)) * wave * 0.7;
 		lit += band * fade;
+	}
+	// Pas dans l'encre : petits anneaux serrés et lents, propres à chaque appui.
+	for (int i = 0; i < 24; i++) {
+		if (i >= step_count) break;
+		vec4 r = steps[i];
+		vec2 d = p - r.xy;
+		float dist = length(d);
+		if (dist > 3.2) continue;
+		float front = 0.12 + r.z * (0.55 + 0.25 * r.w);
+		float band = exp(-pow((dist - front) * 7.0, 2.0)) + 0.55 * exp(-pow((dist - front * 0.55) * 9.0, 2.0));
+		float fade = r.w * exp(-r.z * 1.25) / (1.0 + dist * 1.4);
+		float wave = sin((dist - front) * 26.0) * band * fade;
+		slope += (d / max(dist, 0.001)) * wave * 0.55;
+		lit += band * fade * 0.5;
 	}
 	if (shock.z >= 0.0) {
 		vec2 d = p - shock.xy;
@@ -231,6 +248,7 @@ var sky: MeshInstance3D
 var _spikes: Array[Node3D] = []
 var _rng: RandomNumberGenerator = RandomNumberGenerator.new()
 var _built: bool = false
+var _step_rows: Array = []
 
 func build() -> void :
 	if _built: return
@@ -418,6 +436,31 @@ func _build_lights() -> void :
 func set_clock(t: float) -> void :
 	for material: ShaderMaterial in [floor_material, sky_material, debris_material, fog_material, door_material, ray_material]:
 		material.set_shader_parameter("clock", t)
+	_update_steps(t)
+
+# Appuis dans l'encre (temps ralenti du film, comme set_clock) : chaque pied posé laisse son anneau.
+func clear_steps() -> void :
+	_step_rows.clear()
+	if floor_material: floor_material.set_shader_parameter("step_count", 0)
+
+func add_step(t: float, at: Vector3, strength: float = 1.0) -> void :
+	_step_rows.append([t, Vector2(at.x, at.z), strength])
+	_step_rows.sort_custom( func(a: Array, b: Array) -> bool: return float(a[0]) < float(b[0]))
+
+func _update_steps(t: float) -> void :
+	if _step_rows.is_empty() or floor_material == null: return
+	var packed: Array = []
+	for row: Array in _step_rows:
+		var age: float = t - float(row[0])
+		if age < 0.0: break
+		if age > 3.0: continue
+		var spot: Vector2 = row[1]
+		packed.append(Vector4(spot.x, spot.y, age, float(row[2])))
+	if packed.size() > STEPS: packed = packed.slice(packed.size() - STEPS)
+	var count: int = packed.size()
+	while packed.size() < STEPS: packed.append(Vector4.ZERO)
+	floor_material.set_shader_parameter("steps", packed)
+	floor_material.set_shader_parameter("step_count", count)
 
 func set_ripples(rows: Array) -> void :
 	var packed: Array = []
