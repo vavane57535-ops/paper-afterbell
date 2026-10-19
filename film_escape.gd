@@ -30,6 +30,8 @@ const BUSY: Dictionary = {"legup": 1.42, "haul": 1.3, "hurdle": 0.9, "flail": 0.
 const OUT: Dictionary = {"legup": 1.52, "haul": 1.45, "hurdle": 1.0, "flail": 1.1, "ollie": 1.12, "vault": 1.05, "wade": 1.75, "slide": 1.3, "brave": 1.4}
 # Instant (depuis le début du passage) où le dernier vient de franchir : la griffe d'Alice frappe là.
 const LUNGE_AT: Dictionary = {"haul": 0.95, "hurdle": 0.72, "flail": 0.66, "ollie": 0.66, "vault": 0.6, "wade": 1.32, "slide": 0.62, "brave": 0.98}
+# Instant fort de chaque passage (depuis son début) : le monteur coupe autour de ces instants.
+const CORE_AT: Dictionary = {"legup": 0.62, "haul": 0.6, "hurdle": 0.45, "flail": 0.5, "ollie": 0.45, "vault": 0.42, "wade": 0.9, "slide": 0.68, "brave": 0.55}
 # Gestes qui retiennent Alice : durée, instant du coup, distance élève-Alice au coup.
 const STALL_LEN: Dictionary = {"Simon": 1.2, "Ashura": 1.15, "Lysia": 1.2, "Usayuko": 1.4, "dodge": 0.62}
 const STALL_HIT: Dictionary = {"Simon": 0.95, "Ashura": 0.94, "Lysia": 0.4, "Usayuko": 0.66, "dodge": 0.24}
@@ -42,7 +44,8 @@ const T_SLAM: float = 0.62
 const T_INK: float = 0.9
 const T_HEDGE: float = 1.3
 const T_READY: float = 2.1
-const CELEBRATE: float = 3.7
+const CELEBRATE: float = 3.4
+const GATHER: float = 0.6
 const ALICE_RUN: float = 5.4
 const ALICE_START_Z: float = -13.2
 const SLAM_Z: float = -10.4
@@ -95,7 +98,7 @@ static func plan(names: Array) -> Dictionary:
 	var n: int = team.size()
 	var rear: String = team[n - 1]
 	var mids: Array[String] = []
-	var max_mid: int = 0 if n <= 2 else (1 if n <= 4 else 2)
+	var max_mid: int = 0 if n <= 2 else 1
 	for person: String in team:
 		if person in FIGHTERS and person != rear and mids.size() < max_mid: mids.append(person)
 	var slots: Array = []
@@ -106,6 +109,7 @@ static func plan(names: Array) -> Dictionary:
 	var outside: Array[String] = []
 	var busy: Dictionary = {}
 	var free_out: Dictionary = {}
+	var prev_core: float = -INF
 	for person: String in team: busy[person] = T_READY
 	for i: int in range(n):
 		var who: String = team[i]
@@ -135,6 +139,8 @@ static func plan(names: Array) -> Dictionary:
 			var travel: float = maxf(0.0, meet_z - alice_z) / ALICE_RUN
 			var hit: float = maxf(start - (float(STALL_LEN[stall]) - float(STALL_HIT[stall])) + 0.12, alice_ready + travel + 0.12)
 			hit = maxf(hit, float(busy[who]) + float(STALL_HIT[stall]) + 0.05)
+			# pas en même temps que l'instant fort du passage précédent (le montage montre les deux)
+			hit = maxf(hit, prev_core + (0.95 if stall in ["Simon", "Ashura"] else 0.72))
 			slot["stall"] = stall
 			slot["t_stall"] = hit - float(STALL_HIT[stall])
 			slot["hit"] = hit
@@ -153,6 +159,7 @@ static func plan(names: Array) -> Dictionary:
 			var puller: String = _pick_helper(outside, who)
 			if float(free_out.get(puller, 0.0)) < start + float(OUT.flail) - 0.3: slot["puller"] = puller
 		free_out[who] = start + float(OUT[method])
+		prev_core = start + float(CORE_AT[method])
 		if method == "haul": free_out[str(slot.helper)] = start + 1.5
 		if slot.has("puller"): free_out[str(slot.puller)] = start + float(OUT.flail) + 1.15
 		slots.append(slot)
@@ -169,12 +176,13 @@ static func plan(names: Array) -> Dictionary:
 			last.t_stall = float(last.t_stall) + push * 0.0
 		lunge = reach
 	var free: float = float(last.t_cross) + float(OUT[str(last.method)])
-	if last.has("puller"): free += 1.0
+	if last.has("puller"): free += 1.15
 	var data: Dictionary = {"team": team, "slots": slots, "rear": rear, "mids": mids}
 	data["lunge"] = lunge
 	data["free"] = free
-	data["party"] = free + 0.12
-	data["duration"] = free + 0.12 + CELEBRATE
+	data["party"] = free + 0.08
+	# regroupement (quelques pas, on se tourne les uns vers les autres), puis la fête
+	data["duration"] = free + 0.08 + GATHER + CELEBRATE
 	return data
 
 
@@ -362,7 +370,8 @@ func _write_stall(slot: Dictionary, a: Anim.Performer) -> void :
 			if a != null:
 				a.hold(hook)
 				Anim.alice_countered(a, hook, a.theta(hook))
-	_beats.append({"kind": "stall", "t0": t, "t1": t + float(STALL_LEN[kind]), "hit": hit, "who": i, "stall": kind})
+	var lead: float = 0.5 if kind in ["Simon", "Ashura"] else 0.35
+	_beats.append({"kind": "stall", "t0": t, "t1": t + float(STALL_LEN[kind]), "hit": hit, "who": i, "stall": kind, "core": hit - 0.1, "a": hit - float(STALL_HIT[kind]) - 0.05 + (0.1 if kind in ["Simon", "Ashura"] else 0.0), "lead": lead})
 
 
 # Passage de la haie, avec l'aide prévue (courte échelle, main tendue, relevé).
@@ -372,7 +381,7 @@ func _write_cross(slot: Dictionary, a: Anim.Performer) -> void :
 	var method: String = str(slot.method)
 	var lane: float = float(slot.lane)
 	var i: int = p.index
-	var beat: Dictionary = {"kind": method, "t0": t, "who": i, "lane": lane}
+	var beat: Dictionary = {"kind": method, "t0": t, "who": i, "lane": lane, "core": t + float(CORE_AT[method]), "a": t - 0.05, "rear": int(slot.k) == (plan_data.slots as Array).size() - 1}
 	match method:
 		"legup":
 			var b: Anim.Performer = _who(str(slot.helper))
@@ -385,6 +394,8 @@ func _write_cross(slot: Dictionary, a: Anim.Performer) -> void :
 				contacts.append({"who": b.index, "side": side_hand, "t0": float(window[0]) - 0.04, "t1": float(window[1]) + 0.05, "to": p.index, "socket": "foot_r", "offset": Vector3(0.05 * float(side_hand), -0.07, 0.0), "in": 0.06, "out": 0.08})
 			_hedge_dust(float(info.land) - 0.25, lane)
 			film._cue(float(info.top), "word", "go", {"a": b.index, "h": 1.9}, Color("ffb7cf"), 0.9)
+			beat["core"] = float(info.top)
+			beat["a"] = t - 0.2
 			_home[b.person] = {"spot": b.end_p, "t": b.end_t}
 			beat["helper"] = b.index
 			beat["t1"] = float(info.out)
@@ -398,10 +409,13 @@ func _write_cross(slot: Dictionary, a: Anim.Performer) -> void :
 			contacts.append({"who": h.index, "side": -1, "t0": float(info.grab) + 0.05, "t1": float(info.release) - 0.1, "to": p.index, "socket": "hand_l", "mutual_side": -1, "mutual": true, "in": 0.08, "out": 0.1})
 			_hedge_dust(float(info.land) - 0.3, lane)
 			film._cue(float(info.grab) + 0.05, "word", "go", {"a": h.index, "h": 1.9}, Color("ffb7cf"), 0.85)
+			beat["core"] = float(info.grab) + 0.25
+			beat["a"] = float(info.grab) - 0.4
 			_home[h.person] = {"spot": h.end_p, "t": h.end_t}
 			beat["helper"] = h.index
 			beat["t1"] = float(info.out)
 			_after_cross(p, float(info.out), slot)
+			_return_home(h)
 		"wade":
 			_bring_inside(p, t, Vector3(lane, 0.0, NEAR_Z))
 			var info: Dictionary = Anim.wade(p, t)
@@ -422,6 +436,7 @@ func _write_cross(slot: Dictionary, a: Anim.Performer) -> void :
 		_:
 			_bring_inside(p, t, Vector3(lane, 0.0, NEAR_Z))
 			var info: Dictionary = Anim.hedge_jump(p, t, method, {"face": "fear" if method in ["brave", "flail"] else "determined"})
+			beat["core"] = float(info.take) + 0.22
 			_hedge_dust(float(info.take) + 0.22, lane)
 			beat["t1"] = float(info.out)
 			if method == "flail":
@@ -444,6 +459,7 @@ func _write_cross(slot: Dictionary, a: Anim.Performer) -> void :
 					beat["helper"] = h.index
 					beat["t1"] = t_help + 1.3
 					_after_cross(p, t_help + 1.25, slot)
+					_return_home(h)
 			else:
 				_after_cross(p, float(info.out), slot)
 	_beats.append(beat)
@@ -463,6 +479,7 @@ func _after_cross(p: Anim.Performer, t: float, slot: Dictionary) -> void :
 			Anim.pivot(p, t, t + 0.45, p.end_p, p.theta(t) + wrapf(PI - p.theta(t), -PI, PI))
 		_home[p.person] = {"spot": p.end_p, "t": p.end_t, "out": true}
 		return
+	if k == n - 1: return
 	var dist: float = Vector2(spot.x - p.end_p.x, spot.z - p.end_p.z).length()
 	var travel: float = clampf(dist / 1.9, 0.45, 1.1)
 	Anim.step_to(p, t, t + travel, spot, PI, {"seed": 90 + k, "first": -1})
@@ -480,9 +497,27 @@ func _next_duty(person: String, after: float) -> float:
 	return best
 
 
+# Place de chacun dehors (attente puis fête) : en arc, assez espacés pour ne pas se masquer
+# dans le plan de groupe pris depuis dehors.
 func _outside_spot(k: int, n: int) -> Vector3:
-	var x: float = lane_of(k, n) * (1.05 if n > 3 else 1.25)
-	return Vector3(x, 0.0, 2.45 + 0.4 * float(k % 2) + 0.12 * float(n > 4))
+	var x: float = lane_of(k, n) * (0.86 if n > 4 else 0.95)
+	var arc: float = 0.22 * absf(x) / maxf(absf(lane_of(0, n)), 0.5)
+	return Vector3(x, 0.0, 2.2 + 0.32 * float(k % 2) - arc)
+
+
+# Après avoir aidé : on retourne à sa place si on a le temps, sinon on attend là.
+func _return_home(p: Anim.Performer) -> void :
+	var slot: Dictionary = _slot_of(p.person)
+	if slot.is_empty(): return
+	var t: float = p.end_t
+	var next: float = minf(_next_duty(p.person, t + 0.05), float(plan_data.party) - 0.1)
+	var spot: Vector3 = _outside_spot(int(slot.k), (plan_data.slots as Array).size())
+	var dist: float = Vector2(spot.x - p.end_p.x, spot.z - p.end_p.z).length()
+	if dist < 0.2: return
+	var travel: float = clampf(dist / 1.7, 0.5, 1.1)
+	if next - t < travel + 0.15: return
+	Anim.step_to(p, t, t + travel, spot, PI, {"seed": 120 + int(slot.k), "first": 1})
+	_home[p.person] = {"spot": spot, "t": t + travel, "out": true}
 
 
 # Amène un élève encore dedans jusqu'à l'instant t : il attend (tendu, regards vers Alice et la
@@ -596,7 +631,7 @@ func _write_late(a: Anim.Performer) -> void :
 	film._cue(lunge + 1.62, "word", "roar", {"a": alice, "h": 2.4}, CRIMSON, 1.25)
 	film._cue(lunge + 1.62, "shake", 0.45)
 	film._cue(lunge + 1.62, "sound", "shadow", {"a": alice}, 0.8, 0.8)
-	_beats.append({"kind": "late", "t0": lunge - 0.6, "t1": lunge + 0.9, "who": (_who(str(last.who)) as Anim.Performer).index, "lane": x, "blocked": blocked})
+	_beats.append({"kind": "late", "t0": lunge - 0.6, "t1": lunge + 0.9, "who": (_who(str(last.who)) as Anim.Performer).index, "lane": x, "blocked": blocked, "core": lunge + 0.22, "a": float(last.t_cross) - 0.05})
 
 
 # ------------------------------------------------------------------ dehors
@@ -606,18 +641,36 @@ func _write_party() -> void :
 	var party: float = float(plan_data.party)
 	var slots: Array = plan_data.slots
 	var n: int = slots.size()
+	# où en est chacun : tout le monde attend jusqu'à la fête
+	var crowd: Array = []
 	for slot: Dictionary in slots:
 		var p: Anim.Performer = _who(str(slot.who))
 		if p.end_t < party - 0.25: Anim.wait_out(p, p.end_t, party, 0.0)
 		p.hold(party)
-		# vers où chacun se tourne : vers le groupe, vers la caméra, ou vers Alice pour la narguer
-		var facing: float = 0.0
-		match p.person:
-			"Usayuko": facing = PI
-			"Lysia": facing = PI if n > 1 else 0.0
-			"Elly", "Simon": facing = (0.6 if p.end_p.x < 0.0 else -0.6) if n > 1 else 0.0
-			"Ashura": facing = 0.35 if p.end_p.x < 0.0 else -0.35
-		Anim.celebrate(p, party + 0.07 * float(int(slot.k)), length, facing, {"n": n})
+		crowd.append(p)
+	# places de la fête : dans l'ordre de gauche à droite, espacées, en léger arc face à la sortie
+	crowd.sort_custom( func(x: Anim.Performer, y: Anim.Performer) -> bool: return x.end_p.x < y.end_p.x)
+	var center: float = 0.0
+	for p: Anim.Performer in crowd: center += p.end_p.x
+	center = clampf(center / float(n), -0.6, 0.6)
+	var gap: float = 0.84 if n > 4 else 1.0
+	for k: int in range(n):
+		var p: Anim.Performer = crowd[k]
+		var offset: float = (float(k) - float(n - 1) * 0.5) * gap
+		var spot: Vector3 = Vector3(center + offset, 0.0, clampf(p.end_p.z, 1.75, 2.5) + (0.14 if k % 2 == 1 else -0.06) - 0.12 * absf(offset))
+		# vers où chacun se tourne : vers la caméra, un peu vers les autres
+		var facing: float = -0.32 * signf(offset) * minf(absf(offset), 1.0) if n > 1 else 0.0
+		var start: float = maxf(p.end_t, party) + 0.06 * float(k)
+		var dist: float = Vector2(spot.x - p.end_p.x, spot.z - p.end_p.z).length()
+		var now: float = p.theta(start)
+		var to_theta: float = now + wrapf(facing - now, -PI, PI)
+		if dist > 0.15:
+			Anim.step_to(p, start, start + clampf(dist / 1.7, 0.45, GATHER), spot, to_theta, {"seed": 150 + k, "first": 1 if spot.x > p.end_p.x else -1, "face_travel": dist > 0.6})
+		elif absf(to_theta - now) > 0.3:
+			Anim.pivot(p, start, start + 0.45, p.end_p, to_theta)
+		Anim.celebrate(p, p.end_t, length, to_theta, {"n": n})
+		if OS.get_environment("ESC_THETA") == "1":
+			for probe: float in [party, party + 0.6, party + 1.2, party + 2.4]: print("THETA %s t=%.2f theta=%.2f at=%s" % [p.person, probe, p.theta(probe), p.at(probe)])
 	film._cue(party - 0.02, "event", "escaped", {"position": _f(Vector3(0, 0, 2.6))})
 	film._cue(party + 0.05, "sound", "encourage", _f(Vector3(0, 1, 2.5)))
 	film._cue(party + 0.2, "sparkles", _f(Vector3(0, 1.5, 2.6)), GOLD, 8, 1.4)
@@ -629,13 +682,11 @@ func _write_party() -> void :
 # tiennent dans le cadre (bandes noires comprises) quelle que soit l'équipe.
 
 func _write_camera() -> void :
-	var slots: Array = plan_data.slots
-	var n: int = slots.size()
 	var survivors: Array = []
 	for p: Anim.Performer in cast:
 		if p.index != alice: survivors.append(p)
-	# A. la course, de face, au ras du sol, qui recule devant eux
-	film._shot(0.0, {"rel": {"group": true}, "eye": [Vector3(0.9, 0.5, 3.9 + 0.12 * float(n)), Vector3(0.7, 0.62, 3.4 + 0.12 * float(n))], "look": [{"group": true, "h": 0.95}, {"group": true, "h": 1.0}], "fov": [52.0, 48.0], "hand": 0.55})
+	# A. la course, de face, au ras du sol : travelling qui recule devant eux, tout le groupe dans le cadre
+	_sprint_shot(survivors)
 	# B. la griffe dans le sol, en contre-plongée de trois quarts
 	if alice >= 0:
 		film._shot(T_SLAM - 0.06, {"rel": {"a": alice}, "eye": [Vector3(-1.75, 0.38, 2.1), Vector3(-1.55, 0.32, 1.85)], "look": [{"a": alice, "h": 0.95}, {"a": alice, "h": 0.55}], "fov": 42.0, "hand": 0.4})
@@ -643,24 +694,53 @@ func _write_camera() -> void :
 	var front: Array = _points(survivors, [T_HEDGE + 0.35, T_READY])
 	front.append(Vector3(-1.6, 0.0, 0.0))
 	front.append(Vector3(1.6, 1.0, 0.0))
-	_framed(T_INK + 0.26, T_READY, front, PI + 0.12, -0.06, 50.0, {"min": 3.2, "drift": Vector3(0, 0.05, -0.25), "hand": 0.5, "outside": true})
-	# les plans d'action, dans l'ordre
-	_beats.sort_custom( func(x: Dictionary, y: Dictionary) -> bool: return float(x.t0) < float(y.t0))
-	var cuts: Array = []
-	for beat: Dictionary in _beats:
-		cuts.append(beat)
+	_framed(T_INK + 0.26, T_READY, front, PI + 0.12, -0.06, 50.0, {"min": 3.2, "drift": Vector3(0, 0.05, -0.25), "hand": 0.5, "yaws": [PI + 0.12, PI - 0.12, PI + 0.3]})
+	# les plans d'action : on coupe entre les instants forts (le dernier passage est montré par le
+	# plan « trop tard », qui cadre aussi Alice)
 	var party: float = float(plan_data.party)
-	var lunge: float = float(plan_data.lunge)
-	var last_cut: float = T_READY
+	var list: Array = []
+	for beat: Dictionary in _beats:
+		if bool(beat.get("rear", false)): continue
+		list.append(beat)
+	list.sort_custom( func(x: Dictionary, y: Dictionary) -> bool: return float(x.core) < float(y.core))
+	var cuts: Array = []
+	var prev_core: float = T_READY - 0.4
+	for beat: Dictionary in list:
+		var lo: float = maxf(prev_core + 0.26, T_READY if cuts.is_empty() else -INF)
+		var hi: float = float(beat.core) - float(beat.get("lead", 0.26))
+		if hi < lo:
+			if str(beat.kind) != "late": continue
+			hi = lo
+		var cut: float = clampf(float(beat.a), lo, hi)
+		if not cuts.is_empty() and cut < float(cuts[cuts.size() - 1][0]) + 0.5:
+			if str(beat.kind) != "late": continue
+		cuts.append([cut, beat])
+		prev_core = float(beat.core)
 	for index: int in range(cuts.size()):
-		var beat: Dictionary = cuts[index]
-		var t0: float = maxf(float(beat.t0) - 0.08, last_cut + 0.55)
-		var t_end: float = float(cuts[index + 1].t0) - 0.08 if index + 1 < cuts.size() else party
-		if str(beat.kind) == "late": t_end = party
-		if t0 > t_end - 0.45: continue
-		_beat_shot(beat, t0, t_end)
-		last_cut = t0
+		var t0: float = float(cuts[index][0])
+		var t_end: float = float(cuts[index + 1][0]) if index + 1 < cuts.size() else party
+		_beat_shot(cuts[index][1], t0, t_end)
 	_party_shots(survivors, party)
+
+
+# Travelling de la course : la caméra est accrochée au centre du groupe ; son décalage est calculé
+# pour cadrer tout le monde (positions relatives au centre, à deux instants).
+func _sprint_shot(survivors: Array) -> void :
+	var rel_points: Array = []
+	for t: float in [0.12, T_SLAM - 0.05]:
+		var center: Vector3 = Vector3.ZERO
+		for p: Anim.Performer in survivors: center += p.at(t)
+		center /= float(survivors.size())
+		for p: Anim.Performer in survivors:
+			var root: Vector3 = p.at(t) - center
+			root.y = 0.0
+			rel_points.append(root)
+			rel_points.append(root + Vector3.UP * p.height)
+	var fit: Dictionary = _fit(rel_points, PI + 0.16, 0.05, 50.0, {"min": 3.0})
+	var offset: Vector3 = fit.eye
+	offset.y = clampf(offset.y, 0.45, 0.8)
+	var look: Vector3 = fit.center
+	film._shot(0.0, {"rel": {"group": true}, "eye": [offset, offset + Vector3(0.0, 0.04, -0.35)], "look": [{"group": true, "h": look.y, "o": Vector3(look.x, 0.0, look.z)}, {"group": true, "h": look.y, "o": Vector3(look.x, 0.0, look.z)}], "fov": 50.0, "hand": 0.55, "safe": false})
 
 
 # Les points d'intérêt de quelques acteurs (pieds et tête) aux instants donnés.
@@ -680,67 +760,80 @@ func _beat_shot(beat: Dictionary, t0: float, t1: float) -> void :
 	var mid_t: float = (t0 + t1) * 0.5
 	match kind:
 		"stall":
-			# profil à deux : l'élève et Alice, du côté libre
 			var a: Anim.Performer = cast[alice] if alice >= 0 else who
 			var hit: float = float(beat.hit)
 			var subjects: Array = _points([who, a], [t0 + 0.1, hit, minf(t1, hit + 0.5)])
 			var me: Vector3 = who.at(hit)
 			var her: Vector3 = a.at(hit)
-			var line: Vector3 = her - me
-			line.y = 0.0
+			var line: float = Anim.heading_of(her - me)
 			var side: float = 1.0 if me.x >= 0.0 else -1.0
-			var yaw: float = Anim.heading_of(line) + PI * 0.5 * side
-			_framed(t0, t1, subjects, yaw + 0.25 * side, -0.03, 40.0, {"min": 2.6, "drift": Vector3(0, 0.04, 0.0), "hand": 0.45})
+			var yaws: Array = []
+			if str(beat.stall) in ["Simon", "Ashura"]:
+				# à distance : par-dessus l'épaule de l'élève, Alice au fond
+				yaws = [line + 0.32 * side, line - 0.32 * side, line + PI * 0.5 * side, line - PI * 0.5 * side]
+			else:
+				# au contact : profil à deux, du côté libre
+				yaws = [line + (PI * 0.5 + 0.2) * side, line - (PI * 0.5 + 0.2) * side, line + PI * 0.5 * side + 0.5, line - PI * 0.5 * side - 0.5]
+			_framed(t0, t1, subjects, float(yaws[0]), -0.04, 40.0, {"min": 2.4, "drift": Vector3(0, 0.04, 0.0), "hand": 0.45, "yaws": yaws, "subjects": [who.index, a.index]})
 		"legup", "haul":
 			var helper: Anim.Performer = cast[int(beat.get("helper", beat.who))]
 			var lane: float = float(beat.lane)
 			var subjects: Array = _points([who, helper], [t0 + 0.2, mid_t, t1 - 0.05])
-			var side: float = -1.0 if lane < 0.0 else 1.0
-			_framed(t0, t1, subjects, PI - 0.62 * side, -0.07, 44.0, {"min": 2.5, "drift": Vector3(0.1 * side, 0.06, 0.12), "hand": 0.45, "outside": true})
+			var s: float = 1.0 if lane < 0.0 else -1.0
+			var yaws: Array = [PI + 0.62 * s, PI + 0.3 * s, PI - 0.3 * s, PI + 0.95 * s, PI - 0.62 * s]
+			_framed(t0, t1, subjects, float(yaws[0]), -0.07, 44.0, {"min": 2.5, "drift": Vector3(0.1 * s, 0.06, 0.12), "hand": 0.45, "yaws": yaws, "subjects": [who.index, helper.index]})
 		"wade":
 			var subjects: Array = _points([who], [t0 + 0.2, mid_t, t1])
-			_framed(t0, t1, subjects, PI + 0.2, -0.02, 46.0, {"min": 2.9, "drift": Vector3(0, 0, 0.35), "hand": 0.55, "outside": true})
+			var yaws: Array = [PI + 0.2, PI - 0.25, PI + 0.55, PI - 0.6]
+			_framed(t0, t1, subjects, float(yaws[0]), -0.02, 46.0, {"min": 2.9, "drift": Vector3(0, 0, 0.35), "hand": 0.55, "yaws": yaws, "subjects": [who.index]})
 		"late":
 			var lane: float = float(beat.lane)
 			var a: Anim.Performer = cast[alice] if alice >= 0 else who
 			var lunge: float = float(plan_data.lunge)
 			var subjects: Array = _points([who], [t0 + 0.1, lunge, minf(t1, lunge + 0.5)])
 			subjects.append_array(_points([a], [lunge, lunge + 0.45]))
-			var side: float = 1.0 if lane <= 0.0 else -1.0
-			_framed(t0, t1, subjects, PI + 0.5 * side, -0.1, 44.0, {"min": 2.4, "drift": Vector3(0, 0.05, 0.15), "hand": 0.6, "outside": true})
+			var s: float = 1.0 if lane <= 0.0 else -1.0
+			var yaws: Array = [PI + 0.5 * s, PI + 0.15 * s, PI - 0.3 * s, PI + 0.85 * s, PI - 0.65 * s]
+			_framed(t0, t1, subjects, float(yaws[0]), -0.1, 44.0, {"min": 2.4, "drift": Vector3(0, 0.05, 0.15), "hand": 0.6, "yaws": yaws, "subjects": [who.index, a.index]})
 		_:
 			# saut : trois quarts de profil depuis dehors, l'arc au-dessus des piques bien lisible
 			var lane: float = float(beat.lane)
 			var list: Array = [who]
-			if beat.has("helper"): list.append(cast[int(beat.helper)])
+			var ids: Array = [who.index]
+			if beat.has("helper"):
+				list.append(cast[int(beat.helper)])
+				ids.append(int(beat.helper))
 			var subjects: Array = _points(list, [t0 + 0.15, mid_t, t1 - 0.05])
 			subjects.append(Vector3(lane, 1.0, 0.0))
-			var side: float = -1.0 if lane < 0.0 else 1.0
-			_framed(t0, t1, subjects, PI * 0.5 * side + PI + 0.55 * - side, -0.05, 44.0, {"min": 2.6, "drift": Vector3(0.0, 0.05, 0.2), "hand": 0.5, "outside": true})
+			var s: float = 1.0 if lane < 0.0 else -1.0
+			var yaws: Array = [PI + 0.8 * s, PI + 0.45 * s, PI - 0.45 * s, PI - 0.8 * s, PI]
+			_framed(t0, t1, subjects, float(yaws[0]), -0.05, 44.0, {"min": 2.6, "drift": Vector3(0.0, 0.05, 0.2), "hand": 0.5, "yaws": yaws, "subjects": ids})
 
 
 func _party_shots(survivors: Array, party: float) -> void :
 	var length: float = float(plan_data.duration)
-	var n: int = survivors.size()
+	var ids: Array = []
+	for p: Anim.Performer in survivors: ids.append(p.index)
 	# D. le groupe dehors, de face (la porte et Alice derrière ses piques)
-	var group: Array = _points(survivors, [party + 0.3, party + 1.5])
-	_framed(party - 0.05, party + 1.75, group, PI + 0.1, -0.04, 42.0, {"min": 2.6, "drift": Vector3(0.1, 0.03, -0.3), "hand": 0.3})
-	# E. contrechamp : Alice derrière ses piques, qui hurle
+	var group: Array = _points(survivors, [party + GATHER, party + 1.5])
+	_framed(party - 0.05, party + 1.75, group, PI + 0.1, -0.04, 42.0, {"min": 2.6, "drift": Vector3(0.1, 0.03, -0.3), "hand": 0.3, "yaws": [PI + 0.1, PI - 0.12, PI + 0.3], "subjects": ids})
+	# E. Alice derrière ses piques, qui hurle, vue de dehors entre les élèves
 	if alice >= 0:
 		var a: Anim.Performer = cast[alice]
 		var her: Array = _points([a], [party + 1.8, party + 2.5])
-		_framed(party + 1.75, party + 2.55, her, 0.12, 0.02, 36.0, {"min": 2.4, "drift": Vector3(0, 0, 0.15), "hand": 0.35, "from_outside": true})
-	# F. plan large final, en hauteur
+		var at: Vector3 = a.at(party + 2.0)
+		her.append(Vector3(at.x, 0.6, 0.0))
+		var yaws: Array = [PI + 0.25, PI - 0.25, PI + 0.5, PI - 0.5, PI, PI + 0.75, PI - 0.75]
+		_framed(party + 1.75, party + 2.6, her, PI + 0.25, 0.02, 34.0, {"min": 2.4, "drift": Vector3(0, 0.03, -0.12), "hand": 0.35, "yaws": yaws, "subjects": [a.index]})
+	# F. plan large final, en hauteur, depuis dehors : la bande, la haie, Alice derrière
 	var wide: Array = _points(survivors, [length - 1.0])
-	wide.append(Vector3(-half_open, 0.0, 0.0))
-	wide.append(Vector3(half_open, 1.2, 0.0))
-	_framed(party + 2.55, length, wide, PI - 0.28, -0.24, 40.0, {"min": 4.0, "drift": Vector3(-0.2, 0.15, 0.5), "hand": 0.2})
+	if alice >= 0: wide.append_array(_points([cast[alice]], [length - 1.0]))
+	_framed(party + 2.6, length, wide, PI - 0.22, -0.2, 40.0, {"min": 4.0, "drift": Vector3(-0.15, 0.12, 0.45), "hand": 0.2, "yaws": [PI - 0.22, PI + 0.22, PI - 0.4, PI + 0.4], "subjects": ids})
 
 
-# Pose la caméra pour que tous les points (repère E) tiennent dans l'image, en regardant vers
-# yaw (0 = vers la sortie) avec la plongée pitch ; elle dérive de `drift` mètres pendant le plan.
-func _framed(t0: float, t1: float, points: Array, yaw: float, pitch: float, fov: float, opts: Dictionary = {}) -> void :
-	if points.is_empty(): return
+# Cadrage : la caméra regarde vers yaw (0 = vers la sortie) avec la plongée pitch, et recule
+# jusqu'à ce que tous les points (repère E) tiennent dans l'image, bandes noires comprises.
+func _fit(points: Array, yaw: float, pitch: float, fov: float, opts: Dictionary = {}) -> Dictionary:
 	var dir: Vector3 = Vector3(sin(yaw) * cos(pitch), sin(pitch), cos(yaw) * cos(pitch)).normalized()
 	var right: Vector3 = dir.cross(Vector3.UP).normalized()
 	var up: Vector3 = right.cross(dir).normalized()
@@ -760,17 +853,65 @@ func _framed(t0: float, t1: float, points: Array, yaw: float, pitch: float, fov:
 	distance = minf(distance, float(opts.get("max", 11.0)))
 	var eye: Vector3 = center - dir * distance
 	eye.y = maxf(eye.y, 0.25)
-	if bool(opts.get("outside", false)):
-		# la caméra est dehors et regarde à travers la porte : la ligne de visée passe par l'ouverture
-		eye.z = maxf(eye.z, 0.9)
-		if absf(eye.x) > half_open + 0.2 and eye.z < 4.0:
-			eye.x = signf(eye.x) * (half_open - 0.2)
-	if bool(opts.get("from_outside", false)): eye.z = maxf(eye.z, 0.9)
+	return {"eye": eye, "center": center, "dir": dir}
+
+
+# Pose un plan cadré : parmi les angles proposés (dans l'ordre de préférence), garde celui où la
+# caméra n'est ni dans la haie, ni contre un mur ou un battant, et où personne ne masque les sujets.
+func _framed(t0: float, t1: float, points: Array, yaw: float, pitch: float, fov: float, opts: Dictionary = {}) -> void :
+	if points.is_empty(): return
+	var yaws: Array = opts.get("yaws", [yaw])
+	var subjects: Array = opts.get("subjects", [])
+	var best: Dictionary = {}
+	var best_score: float = INF
+	for k: int in range(yaws.size()):
+		var candidate: Dictionary = _fit(points, float(yaws[k]), pitch, fov, opts)
+		var score: float = 0.3 * float(k) + 4.0 * _bad_spot(candidate.eye, candidate.center) + 1.5 * _occluders(candidate.eye, subjects, t0, t1)
+		if score < best_score:
+			best_score = score
+			best = candidate
+	var eye: Vector3 = best.eye
+	var look: Vector3 = best.center
 	var drift: Vector3 = opts.get("drift", Vector3.ZERO)
-	var look: Vector3 = center
+	if OS.get_environment("ESC_CAM") == "1": print("CAM t=%.2f eye=%s look=%s score=%.2f" % [t0, eye, look, best_score])
 	var spec: Dictionary = {"rel": Vector3(0.0, 0.0, door_z), "eye": [eye, eye + drift], "look": [_f(look), _f(look + drift * 0.3)], "fov": fov, "hand": float(opts.get("hand", 0.3)), "safe": true}
 	if opts.has("ease"): spec["ease"] = opts.ease
 	film._shot(t0, spec)
+
+
+# Endroits interdits pour la caméra : dans la haie, contre la clôture ou les battants du portail,
+# hors du décor ; ligne de visée qui traverse la clôture à côté de l'ouverture.
+func _bad_spot(eye: Vector3, center: Vector3) -> float:
+	var bad: float = 0.0
+	if absf(eye.z) < 0.6 and absf(eye.x) < half_open + 0.3: bad += 1.0
+	if eye.z > -0.3 and eye.z < 3.1 and absf(eye.x) > half_open - 0.25: bad += 1.0
+	if absf(eye.x) > 6.5 or eye.z < -12.5 or eye.z > 8.0: bad += 1.0
+	if (eye.z > 0.0) != (center.z > 0.0) and absf(center.z - eye.z) > 0.05:
+		var u: float = (0.0 - eye.z) / (center.z - eye.z)
+		if absf(lerpf(eye.x, center.x, u)) > half_open - 0.15: bad += 1.0
+	return bad
+
+
+# Combien d'acteurs (autres que les sujets) se trouvent entre la caméra et les sujets pendant le plan.
+func _occluders(eye: Vector3, subjects: Array, t0: float, t1: float) -> float:
+	if subjects.is_empty(): return 0.0
+	var count: float = 0.0
+	var e2: Vector2 = Vector2(eye.x, eye.z)
+	for t: float in [t0 + 0.12, (t0 + t1) * 0.5, t1 - 0.12]:
+		for index: Variant in subjects:
+			var target: Vector3 = (cast[int(index)] as Anim.Performer).at(t)
+			var seg: Vector2 = Vector2(target.x, target.z) - e2
+			var len2: float = seg.length_squared()
+			if len2 < 0.04: continue
+			for p: Anim.Performer in cast:
+				if p.index in subjects: continue
+				var q: Vector3 = p.at(t)
+				var q2: Vector2 = Vector2(q.x, q.z)
+				var u: float = (q2 - e2).dot(seg) / len2
+				if u < 0.03 or u > 0.92: continue
+				var d: float = (e2 + seg * u).distance_to(q2)
+				if d < 0.5: count += (0.5 - d) / 0.5
+	return count
 
 
 # ------------------------------------------------------------------ accessoires
