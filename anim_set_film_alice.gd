@@ -39,6 +39,7 @@ const EPILOGUE: float = 6.7
 
 static func add(c: Dictionary) -> void :
 	_bleuette(c)
+	_simon(c)
 
 
 # ------------------------------------------------------------------- OUTILS --
@@ -644,3 +645,221 @@ static func _bleuette_alice(c: Dictionary) -> void :
 	k.append(K(11.8, M([HD(0.32, 0.13, 0.2), {"jaw": 0.0}])))
 	k.append(K(12.5, M([HD(0.33, 0.14, 0.22)])))
 	c["fa_bleuette_alice"] = _film(0.0, 12.5, k, "menace")
+
+
+# ------------------------------------------------------------------- SIMON --
+# « Un pas d'avance ». Simon file en Course éclair, buste couché, bras tendus en arrière. Il jette
+# un œil derrière lui : Alice est là-bas, immobile… puis plus là. Il regarde devant : elle est
+# devant lui. Il freine, ses pieds partent, il tombe sur les fesses à ses pieds et recule sur les
+# mains. Il sort sa flashbang, arrache la goupille avec les dents, la lance. Alice ferme les yeux.
+# Elle attrape au vol la goupille qu'il lui crache dessus, et la regarde plutôt que la grenade.
+# Flash. Plus personne. Il souffle, rit nerveusement… une griffe se pose sur son épaule. Il lève
+# la tête : elle est penchée au-dessus de lui. Noir. Alice lâche la goupille à côté de lui.
+
+const S_SEEN: float = 1.2
+const S_BRAKE: float = 1.34
+const S_SIT: float = 1.98
+const S_GRAB: float = 4.06
+const S_PIN: float = 4.62
+const S_THROW: float = 5.3
+const S_FLASH: float = 5.8
+const S_BACK: float = 7.1
+const S_TOUCH: float = 7.85
+const S_KILL: float = 9.15
+const S_SPIT: float = 4.74
+const S_CATCH: float = 4.95
+const S_DROP: float = 10.36
+
+static func simon_path() -> Array:
+	return [[0.0, Vector3(0.25, 0, -4.0)], [1.32, Vector3(0.25, 0, 3.1)], [1.5, Vector3(0.25, 0, 3.93)], [1.68, Vector3(0.25, 0, 4.37)],
+		[1.84, Vector3(0.26, 0, 4.55)], [2.0, Vector3(0.26, 0, 4.63)], [2.2, Vector3(0.26, 0, 4.65)],
+		[2.6, Vector3(0.26, 0, 4.65)], [2.82, Vector3(0.26, 0, 4.43)], [3.12, Vector3(0.26, 0, 4.43)], [3.34, Vector3(0.26, 0, 4.21)],
+		[3.64, Vector3(0.26, 0, 4.21)], [3.88, Vector3(0.26, 0, 3.99)], [12.0, Vector3(0.26, 0, 3.99)]]
+
+static func simon_alice_path() -> Array:
+	return [[0.0, Vector3(0.1, 0, -6.0)], [1.0, Vector3(0.1, 0, -6.0)], [1.04, Vector3(0.22, 0, 5.55)], [2.75, Vector3(0.22, 0, 5.55)],
+		[3.25, Vector3(0.22, 0, 5.3)], [3.55, Vector3(0.22, 0, 5.3)], [4.05, Vector3(0.22, 0, 5.08)], [6.4, Vector3(0.22, 0, 5.08)],
+		[6.44, Vector3(0.24, 0, 3.55)], [12.0, Vector3(0.24, 0, 3.55)]]
+
+
+# assis par terre, jambes devant (jambes en cinématique directe, bassin posé au sol) : genoux
+# pliés, les cuisses remontent pour que les talons restent au sol sous les fesses.
+static func sit_floor(lean: float = 0.3, knees: float = 0.3) -> Dictionary:
+	var lift: float = 0.55 * maxf(0.0, knees - 0.3)
+	return M([{"plant": 0.0, "gsnap": 1.0}, H(0, -1.0, 0.0), B( - lean), TL(1.42 + lift, 0.08), KL(knees, 0.3), TR(1.38 + lift, 0.1), KR(knees + 0.1, 0.25)])
+
+
+static func _simon(c: Dictionary) -> void :
+	var p: String = "Simon"
+	var path: Array = simon_path()
+	var fwd: Vector3 = Vector3(0, 0, 1)
+	var k: Array = []
+	# --- FUITE : Course éclair, buste couché, bras tendus en arrière, la tête qui tire en avant
+	k.append(K(0.0, M([_zero(), H(0, -0.1, 0.12), B(0.75), C(0.35), HD(1.05), R(0.22, 0.12, -0.95), L(0.22, 0.12, -0.95), WR(-0.5, 0.0, 0.2), WL(-0.5, 0.0, -0.2),
+		{"curl": 0.3, "curl_l": 0.3, "face": "panic", "jaw": 0.3}])))
+	var plants: Array = cadence(0.0, 1.2, 0.232, 0.105, -1, 0.36, 31.0, {"vary": 0.05})
+	gait(k, p, path, fwd, plants, {"kick": 0.38, "pass": 0.3, "reach_h": 0.09, "strike": 0.08, "push": -0.9, "bob_low": 0.06, "bob_high": 0.035,
+		"lean": 0.75, "heel": 0.2, "yaw": 0.1, "roll": 0.035, "base": Vector3(0, -0.1, 0.12), "leave": [-1, 1]})
+	pump(k, plants, {"skip": "lr", "lean": 0.35, "twist": 0.08, "head": 1.05})
+	for n: int in range(plants.size()):
+		var side: float = float(plants[n][1])
+		k.append(K(float(plants[n][0]) + 0.05, M([R(0.22 + J(n, 1.1) * 0.05, 0.12 + side * 0.06, -0.95), L(0.22 + J(n, 2.2) * 0.05, 0.12 - side * 0.06, -0.95),
+			{"curl": 0.3 + J(n, 3.0) * 0.12, "curl_l": 0.3 + J(n, 4.0) * 0.12, "jaw": 0.25 + 0.2 * float(n % 2)}])))
+	# un regard par-dessus l'épaule droite : elle est là-bas, immobile… puis plus là
+	carve(k, ["head", "chest"], 0.4, 1.25)
+	k.append(K(0.44, M([C(0.3, -0.22), HD(0.8, -0.85, -0.1)])))
+	k.append(K(0.6, M([C(0.28, -0.3), HD(0.72, -1.15, -0.14), FACE("fear"), {"jaw": 0.5}]), "s"))
+	k.append(K(0.92, M([C(0.28, -0.3), HD(0.7, -1.2, -0.15)])))
+	k.append(K(1.02, M([FACE("surprise")])))
+	k.append(K(1.1, M([C(0.34, 0.02), HD(1.05, 0.05, 0.02)])))
+	blink(1.08, "surprise", k, 0.05)
+	# devant lui : elle
+	k.append(K(S_SEEN, M([C(0.2, 0.0), HD(1.1, 0.0, 0.0), FACE("panic"), {"jaw": 0.85}])))
+
+	# --- CHUTE : il freine des deux talons, les bras moulinent, ses pieds partent devant
+	k.append(K(1.22, M([{"foot_l": Vector3(0.0, 0.12, -0.55), "fp_l": 0.25}])))
+	k.append(K(S_BRAKE, M([{"foot_l": Vector3(-0.02, 0.0, -0.82), "fp_l": 0.45, "fx": "skid"}, H(0, -0.16, -0.06), B(0.1), C(-0.05), HD(0.8),
+		R(0.38, 0.25, 0.4, 0.3), L(0.42, 0.4, 0.3, 0.3), WR(-0.2), WL(-0.2), {"curl": 0.05, "curl_l": 0.05}])))
+	k.append(K(1.42, M([{"foot_r": Vector3(0.02, 0.18, -0.3), "fp_r": -0.1}])))
+	k.append(K(1.5, M([{"foot_r": Vector3(0.03, 0.0, -0.66), "fp_r": 0.35, "fx": "skid"}, {"foot_l": Vector3(-0.02, 0.0, -0.84), "fp_l": 0.42},
+		H(0, -0.3, -0.12), B(-0.28), C(-0.12), HD(0.5), R(0.5, 0.55, 0.2, 0.4), L(0.3, 0.2, 0.62, 0.2), {"ev": "gasp"}])))
+	k.append(K(1.62, M([{"foot_l": Vector3(-0.02, 0.0, -0.9), "fp_l": 0.5}, {"foot_r": Vector3(0.03, 0.0, -0.72), "fp_r": 0.45},
+		H(0, -0.38, -0.16), B(-0.36), C(-0.1), HD(0.42), R(0.3, 0.6, 0.45, 0.4), L(0.5, 0.45, 0.2, 0.3)])))
+	k.append(K(1.74, M([{"plant": 1.0}, {"foot_l": Vector3(0.0, 0.25, -1.08), "fp_l": 0.7}, {"foot_r": Vector3(0.05, 0.12, -0.95), "fp_r": 0.6},
+		H(0, -0.62, -0.25), B(-0.55), C(-0.05), HD(0.25), R(0.32, -0.25, -0.35, 0.2), L(0.36, -0.2, -0.4, 0.2), FACE("surprise"), {"jaw": 0.7}])))
+	k.append(K(1.86, M([{"plant": 0.0, "gsnap": 0.0}, H(0, -0.88, -0.12), B(-0.62), TL(1.62, 0.08), KL(0.2, 0.3), TR(1.5, 0.1), KR(0.32, 0.25)])))
+	# les fesses touchent : les mains claquent au sol derrière lui, la tête part en arrière puis revient
+	k.append(K(S_SIT, M([sit_floor(0.5, 0.25), B(-0.48), C(0.0), HD(0.2), Rg(0.3, -0.55, 0.0), Lg(0.32, -0.5, 0.0), WR(0.3), WL(0.3),
+		{"fx": "dust_ring", "ev": "hurt", "face": "pain", "sq": 0.93, "curl": 0.15, "curl_l": 0.15}]), "s"))
+	k.append(K(2.07, M([B(-0.32), C(0.12), HD(-0.05), TL(1.58, 0.08), KL(0.2, 0.35), TR(1.52, 0.1), KR(0.28, 0.3), {"sq": 1.0}])))
+	k.append(K(2.22, M([sit_floor(0.32, 0.32), C(0.05), HD(0.5, 0.02, 0.04), Rg(0.3, -0.6, 0.0), Lg(0.32, -0.56, 0.0), FACE("fear"), {"jaw": 0.55, "shake": 0.35}]), "s"))
+	blink(2.36, "fear", k, 0.06)
+
+	# --- il recule sur les mains et les talons, trois poussées, les yeux rivés sur elle
+	var pushes: Array = [[2.6, 2.82, 0.0], [3.12, 3.34, 1.0], [3.64, 3.88, 2.0]]
+	for push: Array in pushes:
+		var t0: float = float(push[0])
+		var t1: float = float(push[1])
+		var n: float = float(push[2])
+		var look: float = 0.55 + 0.05 * n
+		# les talons ramenés, les mains plantées loin derrière
+		k.append(K(t0 - 0.14, M([sit_floor(0.38, 1.0), TL(1.12 + J(int(n), 1.0) * 0.08, 0.1), KL(1.3, 0.1), TR(1.16, 0.12), KR(1.22 + J(int(n), 2.0) * 0.1, 0.1),
+			C(0.0, J(int(n), 3.0) * 0.12), HD(look, J(int(n), 4.0) * 0.1, 0.05), Rg(0.28, -0.82, 0.0), Lg(0.3, -0.8, 0.0), {"shake": 0.5}])))
+		# la poussée : les jambes se tendent, le corps glisse en arrière par-dessus les mains
+		k.append(K(t1, M([sit_floor(0.42, 0.35), TL(1.36, 0.1), KL(0.45, 0.25), TR(1.32, 0.12), KR(0.5, 0.25), C(-0.05), HD(look + 0.08, 0.0, 0.0),
+			Rg(0.28, -0.22, 0.0), Lg(0.3, -0.2, 0.0), {"jaw": 0.6 + 0.1 * n}]), "s"))
+		if n == 1.0: k.append(K(t1 - 0.1, {"ev": "effort"}))
+	k.append(K(3.98, M([sit_floor(0.3, 0.5), C(0.08), HD(0.62, 0.02, 0.06), Rg(0.28, -0.55, 0.0), Lg(0.3, -0.52, 0.0), FACE("panic"), {"shake": 0.6, "jaw": 0.4}])))
+
+	# --- DÉFENSE : la main droite file à la poche, la flashbang, la goupille aux dents, le lancer
+	k.append(K(S_GRAB - 0.06, M([R(0.34, -0.62, 0.05, 0.2), WR(0.4), C(0.1, -0.12, -0.08), {"curl": 0.4}])))
+	k.append(K(S_GRAB + 0.04, M([R(0.33, -0.6, 0.08, 0.2), {"curl": 0.92, "face": "determined", "jaw": 0.1}]), "s"))
+	k.append(K(4.34, M([R(-0.3, 0.22, 0.45, 0.2), WR(-0.3, 0.6), C(0.32, 0.05), HD(-0.2, 0.08, -0.05), {"curl": 0.95, "jaw": 0.35}])))
+	k.append(K(4.52, M([R(-0.3, 0.23, 0.45, 0.2), HD(-0.3, 0.1, -0.08), {"jaw": 0.0}]), "s"))
+	# il arrache la goupille d'un coup de tête, et la lui crache dessus
+	k.append(K(S_PIN, M([R(0.36, -0.15, 0.55, 0.3), C(0.12, -0.15), HD(0.05, -0.45, -0.15), {"jaw": 0.0}])))
+	k.append(K(S_SPIT - 0.05, M([C(0.0, -0.05), HD(0.3, -0.1, 0.0)])))
+	k.append(K(S_SPIT, M([C(0.18, 0.05), HD(0.42, 0.02, 0.0), {"jaw": 0.45}])))
+	k.append(K(4.86, M([C(0.0, -0.32), B(-0.36), HD(0.5, 0.05, 0.0), R(0.36, 0.42, -0.28, 0.3), WR(0.5), FACE("angry"), {"jaw": 0.0}])))
+	k.append(K(5.12, M([C(0.0, -0.38), R(0.4, 0.5, -0.32, 0.3)]), "s"))
+	k.append(K(S_THROW, M([C(0.28, 0.32), B(-0.22), HD(0.42, -0.05, 0.0), R(0.1, 0.36, 0.92, 0.1), WR(-0.4), {"curl": 0.2, "ev": "effort", "fx": "trail_r"}])))
+	k.append(K(5.42, M([C(0.3, 0.3), R(0.05, -0.05, 0.85, 0.1), WR(-0.6)])))
+	# il se détourne, l'avant-bras gauche devant les yeux, les genoux remontés
+	k.append(K(5.55, M([sit_floor(0.2, 1.1), C(0.32, 0.5, 0.12), HD(-0.2, 0.75, 0.25), L(-0.22, 0.42, 0.62, 0.4), WL(0.4), R(0.3, -0.2, 0.55, 0.2),
+		FACE("asleep"), {"curl_l": 0.7, "curl": 0.6, "shake": 0.4}])))
+	k.append(K(S_FLASH, M([C(0.38, 0.55, 0.15), HD(-0.28, 0.82, 0.28), L(-0.2, 0.44, 0.6, 0.4), {"shake": 0.9, "sq": 0.97}]), "s"))
+	k.append(K(6.0, M([{"sq": 1.0, "shake": 0.7}])))
+	# le blanc retombe : il baisse le bras, cligne, cherche autour de lui. Personne.
+	k.append(K(6.2, M([C(0.25, 0.35, 0.08), HD(-0.05, 0.55, 0.15), L(-0.1, 0.25, 0.6, 0.3), FACE("pain"), {"shake": 0.5}])))
+	k.append(K(6.42, M([sit_floor(0.25, 0.9), C(0.12, 0.05), HD(0.2, 0.1, 0.05), L(0.3, -0.35, 0.5, 0.2), R(0.3, -0.35, 0.5, 0.2), FACE("surprise"), {"shake": 0.3}])))
+	blink(6.38, "surprise", k, 0.08)
+	blink(6.54, "surprise", k, 0.06)
+	k.append(K(6.62, M([C(0.12, -0.2), HD(0.22, -0.6, -0.05)]), "s"))
+	k.append(K(6.86, M([C(0.12, 0.22), HD(0.18, 0.62, 0.05)]), "s"))
+	k.append(K(7.04, M([C(0.1, 0.0), HD(0.1, 0.0, 0.0), {"shake": 0.15}])))
+	# il souffle, la tête qui retombe, puis un petit rire nerveux, les mains sur les genoux
+	k.append(K(7.2, M([sit_floor(0.12, 0.9), C(0.3), HD(-0.35, 0.0, 0.1), SH(-0.08, -0.08), R(0.22, -0.45, 0.55, 0.2), L(0.22, -0.45, 0.53, 0.2), FACE("tired"), {"jaw": 0.3, "shake": 0.0}])))
+	k.append(K(7.36, M([C(0.18), HD(0.05, 0.05, 0.08), FACE("laugh"), {"jaw": 0.45}])))
+	k.append(K(7.48, M([C(0.22), HD(0.0, 0.0, 0.1), {"jaw": 0.15}])))
+	k.append(K(7.6, M([C(0.16), HD(0.08, -0.04, 0.06), {"jaw": 0.5}])))
+	k.append(K(7.74, M([C(0.12), HD(0.05, 0.0, 0.05), FACE("smile"), {"jaw": 0.3}])))
+	# la griffe sur son épaule : il se fige
+	k.append(K(S_TOUCH + 0.02, M([C(0.1), HD(0.02, 0.0, 0.05), SH(0.3, 0.25), FACE("surprise"), {"jaw": 0.05}]), "s"))
+	k.append(K(8.05, M([C(0.08), HD(0.12, 0.08, 0.0), FACE("fear"), {"shake": 0.45}])))
+	blink(8.15, "fear", k, 0.08)
+	# il lève la tête, lentement, jusqu'à la voir au-dessus de lui
+	k.append(K(8.55, M([B(-0.08), C(0.05), HD(0.38, -0.05, 0.0), SH(0.2, 0.3), {"shake": 0.6, "jaw": 0.3}])))
+	k.append(K(8.85, M([B(-0.12), C(0.0), HD(0.62, -0.02, 0.03), {"chatter": 0.6, "jaw": 0.45}]), "s"))
+	k.append(K(S_KILL - 0.02, M([HD(0.68, 0.0, 0.05), {"face": "panic", "jaw": 0.9}])))
+	# (noir) il s'effondre en avant
+	k.append(K(S_KILL + 0.2, M([sit_floor(0.0, 0.3), B(0.6, 0.0, 0.15), TL(2.1, 0.12), KL(0.25, 0.3), TR(2.0, 0.15), KR(0.4, 0.25), C(0.5, 0.1, 0.15), HD(-0.5, 0.35, 0.2),
+		SH(0.0, 0.0), Rg(0.35, 0.45, 0.0), Lg(0.25, 0.55, 0.0), {"face": "dead", "jaw": 0.25, "chatter": 0.0, "shake": 0.0, "curl": 0.3, "curl_l": 0.3, "ev": "death"}])))
+	k.append(K(12.5, M([B(0.62, 0.0, 0.16), C(0.52, 0.1, 0.15), HD(-0.52, 0.35, 0.2)])))
+	c["fa_simon"] = _film(0.0, 12.5, k, "panic")
+	_simon_alice(c)
+
+
+static func _simon_alice(c: Dictionary) -> void :
+	var p: String = "Alice"
+	var path: Array = simon_alice_path()
+	var k: Array = []
+	# là-bas, immobile, elle le regarde partir ; puis elle n'est plus là
+	k.append(K(0.0, M([alice_stand(), HD(0.25, 0.0, 0.18)])))
+	k.append(K(0.62, M([HD(0.3, 0.0, 0.1), C(0.33)])))
+	k.append(K(0.92, M([{"fx": "ink_burst"}])))
+	# devant lui : elle sort de l'ombre, droite, la tête qui suit sa glissade jusqu'à ses pieds
+	k.append(K(1.22, M([alice_stand(), B(0.05), C(0.3), HD(0.18, 0.0, 0.05), L(0.38, -0.84, 0.12, 0.2), R(0.42, -0.8, 0.2, 0.25), {"curl": 0.15, "curl_l": 0.2, "fx": "shadow_rise"}])))
+	k.append(K(1.6, M([C(0.34), HD(0.0, 0.0, 0.06)])))
+	k.append(K(2.05, M([C(0.4), HD(-0.22, 0.02, 0.1), {"curl": 0.3, "curl_l": 0.35}]), "s"))
+	blink(2.2, "menace", k)
+	k.append(K(2.5, M([HD(-0.24, 0.05, 0.32)])))
+	# deux pas, sans hâte, pendant qu'il recule
+	var plants: Array = [[3.0, 1, 0.12, 0.8, -0.02], [3.8, -1, 0.12, 0.8, -0.02]]
+	var walk: Dictionary = ALICE_WALK.duplicate()
+	walk["from_rest"] = true
+	walk["start"] = 2.6
+	walk["swing"] = 0.4
+	walk["hold"] = 6.3
+	var feet: Dictionary = gait(k, p, path, Vector3(0, 0, -1), plants, walk)
+	k.append(K(3.1, M([C(0.42, 0.04), HD(-0.26, -0.03, 0.22), L(0.4, -0.82, 0.16, 0.2), R(0.44, -0.75, 0.24, 0.25)])))
+	k.append(K(3.9, M([C(0.44, -0.04), HD(-0.3, 0.03, 0.15)])))
+	# elle le regarde fouiller sa poche, la tête qui penche d'un côté puis de l'autre
+	k.append(K(4.3, M([HD(-0.32, 0.0, -0.22), {"curl": 0.2}])))
+	k.append(K(S_PIN + 0.05, M([HD(-0.3, 0.02, -0.28), FACE("grin")])))
+	# il lui crache la goupille dessus : la griffe droite monte et la cueille au vol, sans hâte
+	k.append(K(S_SPIT, M([R(0.32, -0.5, 0.42, 0.3), WR(0.2), {"curl": 0.1}])))
+	k.append(K(S_CATCH - 0.04, M([R(0.2, -0.32, 0.62, 0.3), WR(-0.2), {"curl": 0.05}])))
+	k.append(K(S_CATCH, M([R(0.2, -0.31, 0.62, 0.3), {"curl": 0.55}]), "s"))
+	# elle l'examine de près, la tête penchée : la grenade ne l'intéresse pas
+	k.append(K(5.2, M([R(0.08, 0.12, 0.42, 0.35), WR(-0.5, 0.4), C(0.36), HD(-0.12, -0.05, -0.3), FACE("calm")])))
+	k.append(K(5.42, M([R(0.07, 0.14, 0.4, 0.35), HD(-0.1, -0.06, -0.34)]), "s"))
+	# … et elle ferme les yeux, calmement, avant le flash
+	k.append(K(5.6, M([HD(-0.05, 0.0, -0.2), FACE("asleep")])))
+	k.append(K(6.3, M([alice_stand(), {"foot_l": feet[-1], "foot_r": feet[1], "fp_l": 0.0, "fp_r": 0.0}])))
+	# derrière lui : elle sort de l'ombre, penchée, la griffe droite qui descend sur son épaule
+	var rise: Dictionary = M([{"plant": 1.0, "foot_l": Vector3.ZERO, "foot_r": Vector3.ZERO}, H(0, -0.06, 0.04), B(0.3), C(0.45), HD(-0.35, 0.0, 0.1),
+		R(0.3, -0.55, 0.35, 0.25), WR(-0.2), L(0.1, -0.2, 0.62, 0.3), WL(-0.3), {"curl": 0.55, "curl_l": 0.05, "face": "calm"}])
+	k.append(K(6.5, rise))
+	k.append(K(S_BACK - 0.05, M([rise, {"fx": "shadow_rise"}])))
+	k.append(K(7.45, M([H(0, -0.25, 0.04), B(0.38), C(0.48), HD(-0.45, 0.0, -0.1), L(0.12, -0.3, 0.5, 0.3), WL(-0.2)])))
+	k.append(K(S_TOUCH - 0.06, M([H(0, -0.38, 0.04), B(0.42), C(0.5), HD(-0.5, 0.0, -0.12), L(0.16, -0.8, 0.46, 0.25), WL(0.1), {"curl_l": 0.15}])))
+	k.append(K(S_TOUCH, M([L(0.16, -0.86, 0.46, 0.25), {"curl_l": 0.35}]), "s"))
+	k.append(K(S_TOUCH + 0.12, M([{"curl_l": 0.62, "face": "menace"}])))
+	# il lève la tête : elle se redresse un peu, le visage penché au-dessus du sien
+	k.append(K(8.4, M([H(0, -0.38, 0.04), B(0.36), C(0.42), HD(-0.75, 0.0, -0.1), L(0.17, -0.88, 0.44, 0.25)])))
+	k.append(K(8.75, M([B(0.34), C(0.4), HD(-0.85, 0.0, -0.05), FACE("grin")]), "s"))
+	k.append(K(9.0, M([H(0, -0.38, 0.04), HD(-0.85, 0.0, -0.32)]), "s"))
+	k.append(K(S_KILL - 0.04, M([H(0, -0.36, 0.04), R(0.4, 0.1, 0.3, 0.6), WR(-0.5), {"curl": 0.6}])))
+	k.append(K(S_KILL + 0.05, M([R(-0.05, -0.62, 0.62, 0.2), WR(0.5), {"fx": "claw_r trail_r", "ev": "grunt"}])))
+	# elle se redresse, regarde la goupille, tend le bras sur le côté… et la lâche
+	k.append(K(9.65, M([H(0, -0.03, 0.02), B(0.12), C(0.32), HD(-0.2, 0.0, 0.1), R(0.3, -0.5, 0.35, 0.3), WR(-0.2), L(0.4, -0.8, 0.18, 0.2), WL(-0.35),
+		{"curl": 0.55, "curl_l": 0.35, "face": "calm"}])))
+	k.append(K(9.95, M([B(0.08), C(0.32), HD(-0.25, 0.05, 0.15), R(0.08, -0.12, 0.6, 0.35), WR(-0.6, 0.3)])))
+	k.append(K(10.12, M([HD(-0.28, 0.1, 0.25)]), "s"))
+	k.append(K(S_DROP - 0.06, M([R(0.85, -0.3, 0.3, 0.3), WR(0.2, 0.0), HD(-0.3, -0.35, 0.1)])))
+	k.append(K(S_DROP, M([R(0.86, -0.31, 0.3, 0.3), {"curl": 0.05}]), "s"))
+	k.append(K(10.75, M([R(0.45, -0.75, 0.25, 0.25), WR(-0.3), HD(-0.42, -0.2, 0.05), FACE("menace"), {"curl": 0.25}])))
+	blink(10.95, "menace", k)
+	k.append(K(11.4, M([HD(-0.38, -0.18, 0.12)]), "s"))
+	k.append(K(12.5, M([HD(-0.36, -0.17, 0.14), R(0.44, -0.76, 0.25, 0.25)])))
+	c["fa_simon_alice"] = _film(0.0, 12.5, k, "menace")

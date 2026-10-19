@@ -74,6 +74,7 @@ func _run() -> void :
 				for i: int in range(4): await get_tree().physics_frame
 				_space(map_name)
 		"check": await _check()
+		"probe": await _probe()
 		"shots": await _shots()
 		"pose": await _poses()
 	get_tree().quit()
@@ -226,7 +227,7 @@ func _poses() -> void :
 					await get_tree().process_frame
 				RenderingServer.force_draw()
 				await RenderingServer.frame_post_draw
-				var tag: String = ("%s_" % str(entries[group_index].person)) if each else ""
+				var tag: String = ("%s%d_" % [str(entries[group_index].person), group_index]) if each else ""
 				var path: String = "%s/%s_%s%s_%03d_%05.2f.png" % [out_dir, pose_set, tag, view, index_frame, stop]
 				get_viewport().get_texture().get_image().save_png(path)
 		index_frame += 1
@@ -263,6 +264,53 @@ func _lane(entry: Dictionary, t: float) -> Vector3:
 	var base: Vector3 = Vector3(float(entry.get("x", 0.0)), 0.0, float(entry.get("z", 0.0)))
 	if entry.has("path"): return base + Poses.FA.at(entry.path, t)
 	return base
+
+
+# ------------------------------------------------------------------ SONDES --
+# --fal-mode probe --fal-times 8.2,8.5 : position (repère du film, m) des prises de chaque corps
+# (mains, épaules, tête, poitrine, bassin, chevilles) aux instants demandés, pour régler un contact.
+
+func _probe() -> void :
+	var film: PaperCinema = await _open_film()
+	var dt: float = 1.0 / 60.0
+	var t: float = 0.0
+	var stops: Array[float] = times.duplicate()
+	stops.sort()
+	film.seek(0.0)
+	for stop: float in stops:
+		while t < stop - 0.0001:
+			t = minf(stop, t + dt)
+			film.update(t, dt)
+		for index: int in range(film.takes.size()):
+			var visual: PaperVisual = film.takes[index].visual
+			var line: String = "FAL_PROBE %.2f %s" % [t, film.takes[index].person]
+			for socket: String in ["hand_l", "hand_r", "head", "eyes", "chest", "hips", "foot_l", "foot_r"]:
+				line += " %s=%s" % [socket, _film_xyz(film, visual.socket_position(socket))]
+			for joint: String in ["_left_arm", "_right_arm"]:
+				var node: Variant = visual.get(joint)
+				if node is Node3D: line += " %s=%s" % ["sh_l" if joint == "_left_arm" else "sh_r", _film_xyz(film, (node as Node3D).global_position)]
+			line += " root=%s yaw=%.0f" % [_film_xyz(film, visual.global_position), rad_to_deg(visual.rotation.y)]
+			var hand: Variant = visual.get("_right_hand")
+			if hand is Node3D:
+				var b: Basis = (hand as Node3D).global_transform.basis.orthonormalized()
+				line += " main_d_axes x=%s y=%s z=%s" % [_film_dir(film, b.x), _film_dir(film, b.y), _film_dir(film, b.z)]
+			print(line)
+		var holder: Node = film.get_node_or_null("AliceFilm")
+		if holder:
+			holder.call("_process", 0.0)
+			for entry: Variant in holder.get("_items"):
+				var node: Node3D = (entry as Dictionary).node
+				if node.visible: print("FAL_PROBE %.2f objet %s=%s" % [t, node.get_child(0).name if node.get_child_count() > 0 else "?", _film_xyz(film, node.global_position)])
+	print("FAL_PROBE_DONE")
+
+
+func _film_dir(film: PaperCinema, d: Vector3) -> String:
+	return "(%.2f,%.2f,%.2f)" % [d.dot(film.right), d.y, d.dot(film.forward)]
+
+
+func _film_xyz(film: PaperCinema, p: Vector3) -> String:
+	var v: Vector3 = p - film.anchor
+	return "(%.2f,%.2f,%.2f)" % [v.dot(film.right), v.y, v.dot(film.forward)]
 
 
 # ------------------------------------------------------------- VÉRIFICATION --

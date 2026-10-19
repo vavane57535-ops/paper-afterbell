@@ -17,6 +17,13 @@ static func sets() -> Dictionary:
 			{"person": "Alice", "x": 2.4, "t": 0.5, "keys": [[0.0, M([FA._zero(), FL(0.0, 0.5, 0.0), FR(0.3, 0.0, 0.3)])]]},
 		],
 		"runs": _runs(),
+		# sens des cibles de main : R(…, fwd = +1) devant, R(…, fwd = -1) derrière (vue de profil, --fal-each)
+		"dirs": [
+			{"person": "Simon", "z": -2.4, "t": 0.5, "keys": [[0.0, M([FA._zero(), B(0.55), C(0.28)])]]},
+			{"person": "Simon", "z": -0.8, "t": 0.5, "keys": [[0.0, M([FA._zero(), B(0.55), R(0.24, 0.1, -0.95), L(0.24, 0.1, -0.95)])]]},
+			{"person": "Simon", "z": 0.8, "t": 0.5, "keys": [[0.0, M([FA._zero(), B(0.55), HD(0.8)])]]},
+			{"person": "Simon", "z": 2.4, "t": 0.5, "keys": [[0.0, M([FA._zero(), H(0, -0.08, 0.1), B(0.55)])]]},
+		],
 	}
 
 

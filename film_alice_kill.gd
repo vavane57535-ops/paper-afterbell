@@ -48,6 +48,7 @@ static func hold(cinema: PaperCinema) -> PaperFilmAliceKill:
 static func write(cinema: PaperCinema) -> PaperFilmAliceKill:
 	var node: PaperFilmAliceKill = hold(cinema)
 	match str(cinema.people[0]) if not cinema.people.is_empty() else "Bleuette":
+		"Simon": node._simon()
 		_: node._bleuette()
 	return node
 
@@ -310,4 +311,124 @@ func _bleuette() -> void :
 		[FA.B_DROP + 0.32, "slide", Vector3(0.27, 0.02, 5.6), Vector3(0.24, 0.02, 5.86), 0.4, 0.7],
 		[FA.B_GRAB, "hold", s, "r", grip, Vector3.ZERO],
 		[FA.B_TAKE, "hold", a, "r", Vector3(0.0, -0.08, -0.02), Vector3(0.0, 0.0, 0.3)],
+	])
+
+
+# anneau de goupille (lisible de près : un peu plus gros que le vrai)
+func ring_mesh() -> Node3D:
+	var root: Node3D = Node3D.new()
+	var mesh: TorusMesh = TorusMesh.new()
+	mesh.inner_radius = 0.016
+	mesh.outer_radius = 0.025
+	mesh.rings = 12
+	mesh.ring_segments = 6
+	var node: MeshInstance3D = MeshInstance3D.new()
+	node.mesh = mesh
+	node.material_override = CharMaterials.flat(Color("f1f4f8"))
+	node.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	# couché à plat quand l'objet est « au sol » (la piste tourne les objets posés d'un quart de tour)
+	node.rotation.x = - PI * 0.5
+	root.add_child(node)
+	return root
+
+
+# ------------------------------------------------------------------- SIMON --
+
+func _simon() -> void :
+	var c: PaperCinema = film
+	var s: int = 0
+	var a: int = c.alice_index
+	path(s, FA.simon_path())
+	path(a, FA.simon_alice_path())
+	c._face(s, 0.0, "dir", Vector3(0, 0, 1))
+	c._face(a, 0.0, "dir", Vector3(0.02, 0, 1))
+	c._face(a, 1.0, "dir", Vector3(0, 0, -1))
+	c._face(a, 6.4, "dir", Vector3(0, 0, 1))
+	c._do(s, 0.0, "play", "fa_simon")
+	c._do(a, 0.0, "play", "fa_simon_alice")
+
+	# 1 · face à lui, au ras du sol : la Course éclair ; derrière, Alice immobile dans le noir
+	c._shot(0.0, {"rel": {"a": s}, "eye": [Vector3(1.75, 0.62, 2.0), Vector3(1.55, 0.6, 1.7)], "look": {"a": s, "h": 0.85, "o": Vector3(0, 0, -0.6)}, "fov": [44, 40], "hand": 0.5})
+	c._cue(0.05, "rush", 0.5)
+	c._cue(0.0, "sound", "boost", {"a": s}, 0.6, 1.1)
+	c._cue(0.93, "sound", "shadow", {"a": a}, 0.8, 0.9)
+	c._do(a, 0.98, "show", false)
+	# 2 · de profil : elle est devant lui ; il freine, ses pieds partent, il tombe à ses pieds
+	c._do(a, FA.S_SEEN, "show", true)
+	c._cue(FA.S_SEEN, "sound", "shadow", {"a": a}, 1.0, 0.8)
+	c._cue(FA.S_SEEN + 0.05, "sound", "presence", {"a": a}, 0.7, 0.9)
+	c._shot(FA.S_SEEN + 0.04, {"eye": Vector3(3.3, 0.95, 4.2), "look": [Vector3(0.25, 0.85, 4.35), Vector3(0.25, 0.75, 4.6)], "fov": 42, "hand": 0.3})
+	c._cue(FA.S_BRAKE, "sound", "step", {"a": s}, 1.0, 0.7)
+	c._cue(1.5, "sound", "step", {"a": s}, 0.9, 0.65)
+	c._cue(FA.S_SIT, "sound", "ground_impact", {"a": s}, 0.8, 1.1)
+	c._cue(FA.S_SIT, "shake", 0.25)
+	# 3 · au ras du sol, à côté de lui : il recule sur les mains, elle avance, immense
+	c._shot(2.4, {"eye": [Vector3(2.0, 0.5, 3.25), Vector3(1.9, 0.52, 3.1)], "look": [Vector3(0.24, 0.85, 4.75), Vector3(0.24, 0.9, 4.6)], "fov": [42, 40], "hand": 0.3})
+	for t: float in [2.7, 3.22, 3.74]: c._cue(t, "sound", "step", {"a": s}, 0.5, 0.8)
+	# 4 · de près : la flashbang, la goupille aux dents
+	c._shot(3.95, {"eye": [Vector3(-0.4, 0.9, 4.75), Vector3(-0.34, 0.88, 4.65)], "look": [Vector3(0.18, 0.72, 4.0), Vector3(0.18, 0.75, 4.0)], "fov": [38, 36], "hand": 0.35})
+	c._cue(FA.S_GRAB, "sound", "grab", {"a": s, "s": "hand_r"}, 0.5, 1.2)
+	c._cue(FA.S_PIN, "sound", "camera_place", {"a": s, "s": "head"}, 0.6, 1.7)
+	c._cue(FA.S_CATCH, "sound", "camera_place", {"a": a, "s": "hand_r"}, 0.35, 2.0)
+	# 5 · le lancer, de profil
+	c._shot(FA.S_THROW - 0.12, {"eye": Vector3(3.0, 1.15, 4.4), "look": Vector3(0.24, 0.95, 4.55), "fov": 44, "hand": 0.25})
+	c._cue(FA.S_THROW, "sound", "grenade_throw", {"a": s, "s": "hand_r"}, 0.9, 1.0)
+	# flash
+	var burst: Vector3 = Vector3(0.2, 1.05, 4.86)
+	c._cue(FA.S_FLASH, "event", "grenade", {"action": "explode", "id": -7, "position": burst})
+	c._cue(FA.S_FLASH, "sound", "flash", burst, 1.0, 1.0)
+	c._cue(FA.S_FLASH, "frame", Color(1.0, 1.0, 0.96, 0.95), 0.16)
+	c._cue(FA.S_FLASH, "pulse", Color(1.0, 0.98, 0.9, 0.85), 1.1)
+	c._cue(FA.S_FLASH, "impact", 0.7, false)
+	c._cue(FA.S_FLASH, "shake", 0.4)
+	c._do(a, FA.S_FLASH + 0.02, "show", false)
+	# 6 · plus large : il est seul au milieu du couloir, la fumée retombe
+	c._shot(FA.S_FLASH + 0.05, {"eye": [Vector3(1.75, 1.3, 6.1), Vector3(1.65, 1.25, 5.95)], "look": Vector3(0.26, 0.55, 4.25), "fov": 44, "hand": 0.35})
+	# 7 · de trois quarts : il souffle, il rit… derrière lui, elle sort du noir ; la griffe sur l'épaule
+	c._shot(6.98, {"eye": [Vector3(0.95, 0.85, 5.7), Vector3(0.85, 0.86, 5.55)], "look": [Vector3(0.25, 0.85, 3.85), Vector3(0.25, 0.9, 3.85)], "fov": [42, 38], "hand": 0.3})
+	c._do(a, FA.S_BACK, "show", true)
+	c._cue(FA.S_BACK, "sound", "shadow", {"a": a}, 0.5, 0.75)
+	c._cue(FA.S_TOUCH, "sound", "grab", {"a": s, "s": "head"}, 0.35, 0.8)
+	c._cue(FA.S_TOUCH + 0.1, "sound", "presence", {"a": a}, 0.6, 0.8)
+	# 8 · de profil, tout près : il lève la tête vers elle, penchée au-dessus de lui
+	c._shot(8.2, {"eye": [Vector3(0.8, 0.55, 4.95), Vector3(0.76, 0.56, 4.82)], "look": [Vector3(0.25, 0.9, 3.9), Vector3(0.25, 0.92, 3.88)], "fov": [40, 37], "hand": 0.25})
+	c._cue(8.3, "sweat", {"a": s, "s": "head"}, 3)
+	# mise à mort : noir
+	var kill: float = FA.S_KILL
+	c._blackouts.append([kill, kill + 0.45])
+	c._cue(kill, "sound", "slash", {"a": s}, 0.9, 0.85)
+	c._cue(kill + 0.03, "sound", "kill_stab", {"a": s}, 1.0, 0.95)
+	c._cue(kill + 0.02, "shake", 0.5)
+	c._cue(kill + 0.45, "frame", Color(0.55, 0.0, 0.08, 0.3), 0.12)
+	c._cue(kill + 0.3, "sound", "ground_impact", {"a": s}, 0.35, 0.8)
+	# 9 · Alice se redresse derrière lui, la goupille entre deux griffes
+	c._shot(kill + 0.45, {"eye": [Vector3(0.05, 1.3, 5.0), Vector3(0.08, 1.32, 4.85)], "look": [{"a": a, "h": 1.3, "o": Vector3(0, 0, 0.15)}, {"a": a, "h": 1.34, "o": Vector3(0, 0, 0.15)}], "fov": [40, 36], "hand": 0.25, "roll": [0, -2]})
+	# 10 · au ras du sol : la goupille tombe, rebondit, s'immobilise ; derrière, lui, et ses pieds à elle
+	var land: Vector3 = Vector3(-0.28, 0.02, 3.8)
+	var hop: Vector3 = Vector3(-0.37, 0.02, 3.92)
+	var rest: Vector3 = Vector3(-0.46, 0.02, 4.05)
+	c._shot(FA.S_DROP + 0.02, {"eye": [Vector3(-0.86, 0.1, 4.5), Vector3(-0.82, 0.09, 4.46)], "look": [Vector3(-0.32, 0.12, 3.86), Vector3(-0.36, 0.08, 3.92)], "fov": [36, 34], "hand": 0.15})
+	c._cue(FA.S_DROP + 0.24, "sound", "camera_place", land, 0.5, 2.1)
+	c._cue(FA.S_DROP + 0.41, "sound", "camera_place", hop, 0.3, 2.3)
+	c._cue(FA.S_DROP + 0.5, "sound", "grenade_bounce", rest, 0.15, 2.4)
+	c._cue(11.3, "sound", "presence", {"a": a}, 0.45, 0.7)
+
+	# la flashbang : dans la main droite, lancée, éclate devant Alice
+	var grenade: Node3D = prop_mesh("flash")
+	item(grenade, [
+		[0.0, "off"],
+		[FA.S_GRAB, "hold", s, "r", Vector3(0.0, -0.06, -0.035), Vector3.ZERO],
+		[FA.S_THROW, "fly", {"a": s, "s": "hand_r"}, burst, 0.46, 0.3, 2.5],
+		[FA.S_FLASH, "off"],
+	])
+	# la goupille : arrachée aux dents, crachée sur Alice, qui l'attrape au vol et la garde
+	var pin: Node3D = ring_mesh()
+	item(pin, [
+		[0.0, "off"],
+		[FA.S_SPIT, "fly", {"a": s, "s": "mouth"}, {"a": a, "s": "hand_r"}, FA.S_CATCH - FA.S_SPIT, 0.12, 2.0],
+		[FA.S_CATCH, "hold", a, "r", Vector3(0.0, 0.13, 0.0), Vector3(0.0, 0.0, 0.0)],
+		[FA.S_DROP, "fall", land, 0.24],
+		[FA.S_DROP + 0.24, "fly", land, hop, 0.17, 0.05, 0.5],
+		[FA.S_DROP + 0.41, "slide", hop, rest, 0.4, 1.4],
+		[FA.S_DROP + 0.81, "floor", rest, 1.4],
 	])
